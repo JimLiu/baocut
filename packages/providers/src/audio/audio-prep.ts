@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ProviderFailure } from '@baocut/models';
+import { audioWindow } from '@baocut/process-host';
 import { ProviderAborted } from '../http/provider-fetch.ts';
 import { parseSilences, type Silence } from './chunk-plan.ts';
 import { ProvidersHttp as PH } from '@baocut/protocol/messages/providers';
@@ -79,9 +80,7 @@ export interface ExtractRequest {
 
 /** 解出母带。素材没有这条音轨时返回 `no-audio-track`。 */
 export async function extractAudio(request: ExtractRequest): Promise<{ durationSec: number } | 'no-audio-track'> {
-  const before: string[] = [];
-  if (request.range && request.range.startSec > 0) before.push('-ss', request.range.startSec.toFixed(6));
-  if (request.range && request.range.durationSec !== null) before.push('-t', request.range.durationSec.toFixed(6));
+  const window = audioWindow(request.range?.startSec ?? 0, request.range?.durationSec ?? null);
   await fs.mkdir(path.dirname(request.out), { recursive: true });
   const args = [
     ...COMMON_ARGS,
@@ -89,7 +88,7 @@ export async function extractAudio(request: ExtractRequest): Promise<{ durationS
     'error',
     '-format_whitelist',
     DEMUXER_ALLOWLIST,
-    ...before,
+    ...window.inputArgs,
     '-i',
     `file:${request.file}`,
     '-map',
@@ -97,6 +96,7 @@ export async function extractAudio(request: ExtractRequest): Promise<{ durationS
     '-vn',
     '-sn',
     '-dn',
+    ...(window.filters.length > 0 ? ['-af', window.filters.join(',')] : []),
     '-ac',
     '1',
     '-ar',
@@ -146,7 +146,7 @@ export async function detectSilences(request: {
   return parseSilences(run.stderr, request.durationSec);
 }
 
-/** 从母带切出 [start, end) 编码成一块。 */
+/** 从母带切出 [start, end) 编码成一块。母带是 `extractAudio` 写的 PCM WAV，只许 `wav` 解封装，跳转是逐样本准的，不用 `audioWindow`。 */
 export async function encodeChunk(request: {
   ffmpeg: FfmpegResolver;
   master: string;

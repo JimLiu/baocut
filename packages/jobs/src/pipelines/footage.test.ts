@@ -7,6 +7,14 @@ import type { FootageOp, FootageSummary, JobRecord } from '@baocut/protocol';
 import { FOOTAGE_PIPELINE_NAMES } from '@baocut/protocol';
 import type { JobManager } from '../job-manager.ts';
 import { testJobManager } from '../testing/pipeline-jobs.ts';
+import {
+  CUT_OFFSET_SEC,
+  TIMING_RATE,
+  buildTimingFixtures,
+  f32leSamples,
+  startDrift,
+  type TimingFixtures,
+} from '@baocut/process-host/testing';
 import { ffmpegFilters, probeMedia, probeVideoDetails } from './ffmpeg.ts';
 import { FrameEncoder } from './footage-frames.ts';
 import { footagePipeline, footageStabilizer, footageTools, inspectFootageInput, outputName, parseFootageParams, withFrameProgress } from './footage.ts';
@@ -204,6 +212,62 @@ describe.skipIf(!hasFfmpeg || process.platform === 'win32')('素材处理（真�
     await runner.idle();
     await jobs.shutdown();
     await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  /**
+   * Where the output's sound starts, against the source. A file already cut with `-c copy` is where a decode's discard after
+   * a seek reaches furthest: 0.43 s here, since the window starts just after a keyframe of the cut. PCM gets transcoded and has
+   * to survive that; AAC gets copied, where nothing is decoded, so nothing is lost.
+   */
+  describe('the sound stays on its source', () => {
+    const START = 1.5;
+    const END = 3;
+    let fixtures: TimingFixtures;
+    let source: Float32Array;
+    let pcmCut: string;
+
+    const pcmOf = (file: string) =>
+      f32leSamples(execFileSync('ffmpeg', ['-nostdin', '-v', 'error', '-i', `file:${file}`, '-map', '0:a:0', '-f', 'f32le', '-ac', '1', '-'], { maxBuffer: 1 << 28 }));
+    const expected = Math.round((CUT_OFFSET_SEC + START) * TIMING_RATE);
+
+    beforeEach(async () => {
+      const work = path.join(dir, 'timing');
+      await fs.mkdir(work, { recursive: true });
+      fixtures = buildTimingFixtures(work, 8);
+      source = pcmOf(fixtures.wav);
+      const pcm = path.join(work, 'pcm.mov');
+      pcmCut = path.join(work, 'pcm-cut.mov');
+      execFileSync('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', fixtures.video, '-i', fixtures.wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'pcm_s16le', pcm]);
+      execFileSync('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-ss', String(CUT_OFFSET_SEC), '-i', pcm, '-c', 'copy', pcmCut]);
+    });
+
+    it.each([
+      ['stabilize', { strength: 'low' }],
+      ['upscale', { scale: 3, model: 'video' }],
+      ['match-color', {}],
+    ] as const)('%s transcodes it from the requested sample', async (op, options) => {
+      const params: Record<string, unknown> = { inputs: [pcmCut], start: START, end: END, ...options };
+      if (op === 'match-color') {
+        const reference = path.join(dir, 'reference.png');
+        execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x2040c0:size=64x64', '-frames:v', '1', '-update', '1', reference]);
+        params.reference = reference;
+      }
+      const record = await run(op, params);
+      expect(record.state).toBe('completed');
+      const file = summaryOf(record).files[0]!;
+      expect((await probeMedia(ffprobe, file)).audio?.codec).toBe('aac');
+      const pcm = pcmOf(file);
+      expect(startDrift(source, pcm, expected)).toBe(0);
+      expect(Math.abs(pcm.length - (END - START) * TIMING_RATE)).toBeLessThanOrEqual(1024);
+    });
+
+    it('stabilize copies AAC from the requested sample', async () => {
+      const record = await run('stabilize', { inputs: [fixtures.cut], strength: 'low', start: START, end: END });
+      expect(record.state).toBe('completed');
+      const file = summaryOf(record).files[0]!;
+      expect((await probeMedia(ffprobe, file)).audio?.codec).toBe('aac');
+      expect(startDrift(source, pcmOf(file), expected)).toBe(0);
+    });
   });
 
   it('去抖：按 ffmpeg 编了什么选引擎，deshake 时提醒；声音与时长都在', async () => {

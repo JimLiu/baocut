@@ -30,6 +30,17 @@ const WAV_CHUNK_FRAMES: usize = 16 * 1024;
 const STDERR_LIMIT_BYTES: usize = 64 * 1024;
 /// 两次进度回调之间至少前进的秒数。
 const PROGRESS_STEP_SECONDS: f64 = 10.0;
+/// How far ahead of a range the ffmpeg decode seeks; the rest is cut from decoded frames, by timestamp.
+///
+/// What a decoder discards after a seek depends on the ffmpeg version. Since 9.0 the mov demuxer
+/// exports its edit-list offset as `initial_padding`, the decoder takes it as samples to skip, and
+/// a seek does not clear the count, so the first audio after any `-ss` is lost. The frames that
+/// survive keep their correct timestamps, but raw PCM carries none, so word times come out early by
+/// however much was lost: up to 2112 frames of AAC priming, or most of a second from a file already
+/// cut with `-c copy`, with any codec. The longest reach measured on 9.0.2 was a little over 1 s.
+///
+/// The same margin as `audioWindow` in `packages/process-host`, which documents the measurements.
+const FFMPEG_SEEK_MARGIN: f64 = 2.0;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DecodeError {
@@ -255,15 +266,27 @@ fn ffmpeg_args_with(request: &DecodeRequest<'_>, sample_rate: u32, channels: u16
     .into_iter()
     .map(String::from)
     .collect();
-    if request.range.start > 0.0 {
-        args.extend(["-ss".into(), format!("{:.6}", request.range.start)]);
+    // Cut the range with `atrim`, which goes by the timestamps of the frames that survive the seek,
+    // so where it starts does not depend on what the decoder discarded. See `FFMPEG_SEEK_MARGIN`.
+    // A range near the start does not seek at all.
+    let start = request.range.start.max(0.0);
+    let trim = start.min(FFMPEG_SEEK_MARGIN);
+    let seek = start - trim;
+    if seek > 0.0 {
+        args.extend(["-ss".into(), format!("{seek:.6}")]);
     }
     if let Some(duration) = request.range.duration {
-        args.extend(["-t".into(), format!("{duration:.6}")]);
+        args.extend(["-t".into(), format!("{:.6}", trim + duration)]);
     }
     args.extend(["-i".into(), format!("file:{}", request.file.display())]);
     args.extend(["-map".into(), format!("0:a:{}", request.track)]);
-    for arg in ["-vn", "-sn", "-dn", "-f", "f32le", "-ac"] {
+    for arg in ["-vn", "-sn", "-dn"] {
+        args.push(arg.into());
+    }
+    if trim > 0.0 {
+        args.extend(["-af".into(), format!("atrim=start={trim:.6},asetpts=PTS-STARTPTS")]);
+    }
+    for arg in ["-f", "f32le", "-ac"] {
         args.push(arg.into());
     }
     args.extend([channels.to_string(), "-ar".into(), sample_rate.to_string(), "-".into()]);
@@ -660,9 +683,27 @@ mod tests {
         });
         let joined = args.join(" ");
         assert!(joined.contains("-protocol_whitelist file -format_whitelist mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,aac,mp3,wav,flac,ogg"));
-        assert!(joined.contains("-ss 1.500000 -t 2.000000 -i file:/media/a.mp4 -map 0:a:2"));
+        // Inside the margin it does not seek: the range is cut from the top.
+        assert!(joined.contains("-t 3.500000 -i file:/media/a.mp4 -map 0:a:2"), "{joined}");
+        assert!(!joined.contains("-ss"), "{joined}");
+        assert!(
+            joined.contains("-dn -af atrim=start=1.500000,asetpts=PTS-STARTPTS -f f32le"),
+            "{joined}"
+        );
         assert!(joined.ends_with("-f f32le -ac 1 -ar 16000 -"));
         assert!(args.iter().position(|a| a == "-nostdin") == Some(0));
+        // Past the margin it seeks ahead of the range and reads on by what it will cut.
+        let seeking = ffmpeg_args(&DecodeRequest {
+            file,
+            track: 2,
+            range: DecodeRange {
+                start: 5.0,
+                duration: Some(2.0),
+            },
+        })
+        .join(" ");
+        assert!(seeking.contains("-ss 3.000000 -t 4.000000 -i file:/media/a.mp4"), "{seeking}");
+        assert!(seeking.contains("-af atrim=start=2.000000,asetpts=PTS-STARTPTS"), "{seeking}");
         let at_48k = ffmpeg_args_at(
             &DecodeRequest {
                 file,
@@ -690,6 +731,142 @@ mod tests {
             stereo.ends_with("-i file:/media/a.mp4 -map 0:a:1 -vn -sn -dn -f f32le -ac 2 -ar 44100 -"),
             "{stereo}"
         );
+    }
+
+    /// Fixed-seed noise as a 44.1 kHz mono WAV, the M4A that `ffmpeg -c:a aac` makes of it, and a
+    /// video with a 1 s GOP cut from it with `-c copy`, which gives it an edit list. `None` when this
+    /// machine has no ffmpeg that can make them.
+    ///
+    /// The WAV is the ground truth for timing: no priming and no lossy codec. Decoding it from the
+    /// top shares the resampler with the others, and nothing seeks, so a lag can only come from how
+    /// the others were decoded. ffmpeg's own timing changes between versions, so it cannot be its
+    /// own reference.
+    fn timing_fixtures(dir: &Path) -> Option<(PathBuf, PathBuf, PathBuf)> {
+        let rate = 44_100_u32;
+        let mut state = 0x1234_5678_u32;
+        let mut low = 0.0_f32;
+        let frames: Vec<Vec<i16>> = (0..rate * 10)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let white = state as f32 / u32::MAX as f32 * 2.0 - 1.0;
+                low += 0.25 * (white - low);
+                vec![(low * 0.8 * 32_767.0) as i16]
+            })
+            .collect();
+        let wav = dir.join("source.wav");
+        write_wav(&wav, rate, 1, &frames);
+        let run = |args: &[&str]| {
+            Command::new(ffmpeg_executable())
+                .args(["-nostdin", "-hide_banner", "-v", "error", "-y"])
+                .args(args)
+                .status()
+                .is_ok_and(|status| status.success())
+        };
+        let source = wav.to_str()?;
+        // Noise substitution has a running PRNG, so its samples would not survive a seek.
+        let aac = ["-c:a", "aac", "-b:a", "192k", "-aac_pns", "0"];
+        let m4a = dir.join("source.m4a");
+        let video = dir.join("video.mp4");
+        let cut = dir.join("cut.mp4");
+        let made = run(&[&["-i", source], aac.as_slice(), &[m4a.to_str()?]].concat())
+            && run(&[
+                &[
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=gray:s=64x64:r=30:d=10",
+                    "-i",
+                    source,
+                    "-map",
+                    "0:v",
+                    "-map",
+                    "1:a",
+                    "-c:v",
+                    "mpeg4",
+                    "-g",
+                    "30",
+                ],
+                aac.as_slice(),
+                &[video.to_str()?],
+            ]
+            .concat())
+            && run(&["-ss", "2.77", "-i", video.to_str()?, "-c", "copy", cut.to_str()?]);
+        if !made {
+            eprintln!("skipped: this machine has no ffmpeg that can make the timing fixtures");
+            return None;
+        }
+        Some((wav, m4a, cut))
+    }
+
+    /// The lag at which `candidate` best lines up with `reference`. Accurate is 0. The search has to
+    /// reach far: a seek into a cut file can lose most of a second.
+    fn best_lag(reference: &[f32], candidate: &[f32]) -> i64 {
+        let length = candidate.len().min(2048);
+        let reach = 16_000_i64;
+        let centre = 16_000_usize;
+        (-reach..=reach)
+            .map(|lag| {
+                let at = (centre as i64 + lag) as usize;
+                let sum: f32 = (0..length).map(|i| reference[at + i] * candidate[i]).sum();
+                (lag, sum)
+            })
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+            .map_or(0, |(lag, _)| lag)
+    }
+
+    /// Word times are the range's start plus a position in `audio.f32`, so the decode has to start
+    /// on the range's first sample, however the decoder treats the packets right after a seek. The
+    /// starts cover the branch that never seeks and the one that seeks ahead of the range.
+    #[test]
+    fn a_range_decode_starts_on_the_requested_sample() {
+        let dir = tempfile::tempdir().unwrap();
+        let Some((wav, m4a, cut)) = timing_fixtures(dir.path()) else {
+            return;
+        };
+        let read = |file: &Path, range: DecodeRange| -> Vec<f32> {
+            let (count, out, _keep) = decode(file, 0, range);
+            count.unwrap();
+            PcmFile::open(&out).unwrap().samples().to_vec()
+        };
+        let source = read(&wav, DecodeRange::WHOLE);
+        let rate = f64::from(SAMPLE_RATE);
+        for (name, file, offset) in [("m4a", &m4a, 0.0), ("cut", &cut, 2.77)] {
+            for start in [1.5, 2.0, 3.0, 5.5] {
+                let pcm = read(
+                    file,
+                    DecodeRange {
+                        start,
+                        duration: Some(0.5),
+                    },
+                );
+                assert_eq!(pcm.len(), 8_000, "{name} at {start}s: frames");
+                // Reference window with the search centred on where this range should be.
+                let expected = ((start + offset) * rate).round() as usize;
+                let lag = best_lag(&source[expected - 16_000..], &pcm);
+                assert_eq!(lag, 0, "{name} at {start}s");
+            }
+        }
+    }
+
+    /// A range past the end decodes to nothing, as a plain seek does, and that includes one inside
+    /// the margin of the end, where the seek still finds audio and only the cut runs out.
+    #[test]
+    fn a_range_past_the_end_decodes_to_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let Some((_, m4a, _)) = timing_fixtures(dir.path()) else {
+            return;
+        };
+        for start in [100.0, 10.5] {
+            let (count, _, _keep) = decode(
+                &m4a,
+                0,
+                DecodeRange {
+                    start,
+                    duration: Some(0.5),
+                },
+            );
+            assert_eq!(count.unwrap(), 0, "at {start}s");
+        }
     }
 
     #[test]

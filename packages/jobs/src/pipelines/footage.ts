@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { JsonLineWorker, type SpawnProcess } from '@baocut/process-host';
+import { JsonLineWorker, audioWindow, type SpawnProcess } from '@baocut/process-host';
 import {
   FOOTAGE_COLOR_METHODS,
   FOOTAGE_INTERPOLATE_FACTORS,
@@ -692,11 +692,40 @@ function decodeFilter(plan: InputPlan): string {
   return [...readFilters(plan), `fps=${plan.fps!.num}/${plan.fps!.den}`, 'format=rgb24'].join(',');
 }
 
-/** 声音照搬这一段：MP4 放得下的流复制，别的转成 AAC。 */
+/**
+ * 声音照搬这一段：MP4 放得下的流复制，别的转成 AAC。
+ *
+ * 流复制不解码，普通的 `-ss` 按包跳，起点由输出的 edit list 记准。转码要解码：跳转后解码器丢掉的帧随 ffmpeg 版本与文件变，
+ * 普通的 `-ss` 在切过的文件上能差出大半秒（`audioWindow`），所以转码的声音另开一路输入，跳到前面再按时间戳切。
+ */
+function copiesAudio(plan: InputPlan): boolean {
+  return plan.audioCodec !== null && COPYABLE_AUDIO.has(plan.audioCodec);
+}
+
+/** 这一段的声音单独的一路输入（`-ss`、`-t` 与 `-i`）。 */
+function audioInputArgs(plan: InputPlan, source: string): string[] {
+  const window = copiesAudio(plan)
+    ? [...(plan.start > 0 ? ['-ss', plan.start.toFixed(6)] : []), '-t', plan.duration!.toFixed(6)]
+    : audioWindow(plan.start, plan.duration!).inputArgs;
+  return [...window, '-i', `file:${source}`];
+}
+
 function audioOutputArgs(plan: InputPlan, inputIndex: number): string[] {
   if (plan.audioCodec === null) return [];
-  const copy = COPYABLE_AUDIO.has(plan.audioCodec);
-  return ['-map', `${inputIndex}:a:0?`, ...(copy ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '192k'])];
+  const map = ['-map', `${inputIndex}:a:0?`];
+  if (copiesAudio(plan)) return [...map, '-c:a', 'copy'];
+  const { filters } = audioWindow(plan.start, plan.duration!);
+  return [...map, ...(filters.length > 0 ? ['-af', filters.join(',')] : []), '-c:a', 'aac', '-b:a', '192k'];
+}
+
+/**
+ * 输入 0 已经是这一段的画面（去抖、匹配颜色）时，声音从哪来：流复制跟着输入 0 走，转码另开一路输入。
+ * `input` 接在输入 0 之后，`output` 接在画面的 `-map` 之后。
+ */
+function audioBesideVideo(plan: InputPlan, source: string): { input: string[]; output: string[] } {
+  if (plan.audioCodec === null) return { input: [], output: [] };
+  if (copiesAudio(plan)) return { input: [], output: audioOutputArgs(plan, 0) };
+  return { input: audioInputArgs(plan, source), output: audioOutputArgs(plan, 1) };
 }
 
 const H264_ARGS = ['-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart'];
@@ -719,9 +748,7 @@ function frameEncoderArgs(options: {
   return [
     ...['-hide_banner', '-v', 'error', '-y'],
     ...['-f', 'image2pipe', '-framerate', `${fps.num}/${fps.den}`, '-c:v', 'png', '-i', 'pipe:0'],
-    ...(audio
-      ? [...(plan.start > 0 ? ['-ss', plan.start.toFixed(6)] : []), '-t', plan.duration!.toFixed(6), '-i', `file:${source}`]
-      : []),
+    ...(audio ? audioInputArgs(plan, source) : []),
     ...['-map', '0:v:0'],
     ...(audio ? audioOutputArgs(plan, 1) : []),
     ...['-vf', `${scale},format=${alpha ? 'yuva444p10le' : 'yuv420p'},${BT709_FRAME_TAGS}`],
@@ -965,13 +992,15 @@ async function stabilize(deps: FootageDeps, params: FrozenFootageParams, work: W
   } else {
     filter = `deshake=rx=${preset.radius}:ry=${preset.radius}:edge=mirror:blocksize=8:contrast=125`;
   }
+  const audio = audioBesideVideo(plan, source);
   await runFfmpeg(
     deps.ffmpeg,
     [
       ...['-hide_banner', '-v', 'error', '-y', '-progress', 'pipe:1', '-nostats'],
       ...input,
+      ...audio.input,
       ...['-map', '0:v:0'],
-      ...audioOutputArgs(plan, 0),
+      ...audio.output,
       ...['-vf', `${filter},scale=${plan.outWidth}:${plan.outHeight}`],
       ...H264_ARGS,
       `file:${out}`,
@@ -1041,14 +1070,16 @@ async function matchColor(deps: FootageDeps, params: FrozenFootageParams, work: 
   }
   const out = path.join(staging, `output-${index + 1}.mp4`);
   let reported = 0;
+  const audio = audioBesideVideo(plan, source);
   await runFfmpeg(
     deps.ffmpeg,
     [
       ...['-hide_banner', '-v', 'error', '-y', '-progress', 'pipe:1', '-nostats'],
       ...(plan.start > 0 ? ['-ss', plan.start.toFixed(6)] : []),
       ...['-t', plan.duration!.toFixed(6), '-i', `file:${source}`],
+      ...audio.input,
       ...['-map', '0:v:0'],
-      ...audioOutputArgs(plan, 0),
+      ...audio.output,
       ...['-vf', [...readFilters(plan), 'format=rgb24', lut, `scale=${plan.outWidth}:${plan.outHeight}:out_color_matrix=bt709:out_range=tv`, 'format=yuv420p', BT709_FRAME_TAGS].join(',')],
       ...H264_ARGS,
       `file:${out}`,

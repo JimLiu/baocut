@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseArgs } from './lib.mjs';
+import { audioWindow, parseArgs } from './lib.mjs';
 
 const { ids, flags } = parseArgs(process.argv, ['out', 'var', 'bars', 'from', 'to']);
 const [file] = ids;
@@ -20,8 +20,9 @@ const name = flags.var || 'SPEECH_WAVE';
 if (!/^[A-Za-z_$][\w$]*$/.test(name)) throw new Error(`--var must be a JavaScript identifier, got ${name}`);
 
 const RATE = 8000;
-const range = [...(flags.from != null ? ['-ss', String(+flags.from)] : []), ...(flags.to != null ? ['-to', String(+flags.to)] : [])];
-const pcm = execFileSync('ffmpeg', ['-v', 'error', ...range, '-i', file, '-vn', '-ac', '1', '-ar', String(RATE), '-f', 's16le', '-'], { maxBuffer: 1 << 30 });
+const from = flags.from != null ? +flags.from : 0;
+const { input, filters } = audioWindow(from, flags.to != null ? +flags.to - from : null);
+const pcm = execFileSync('ffmpeg', ['-v', 'error', ...input, '-i', file, '-vn', ...(filters.length ? ['-af', filters.join(',')] : []), '-ac', '1', '-ar', String(RATE), '-f', 's16le', '-'], { maxBuffer: 1 << 30 });
 const total = pcm.length >> 1;
 if (!total) throw new Error(`no audio decoded from ${file}`);
 const rms = [];

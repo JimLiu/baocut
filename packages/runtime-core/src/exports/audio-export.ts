@@ -11,6 +11,7 @@ import {
   type LoudnessTarget,
   type MessageRef,
 } from '@baocut/protocol';
+import { audioWindow } from '@baocut/process-host';
 import { RcCommon, RcExport } from '@baocut/protocol/messages/runtime-core';
 import type { AudioPlan, AudioSegment, PlannedAsset } from './export-plan.ts';
 
@@ -316,9 +317,10 @@ export function mixArgs(
     const asset = assets.get(`${segment.asset.id}@${segment.asset.revision}`);
     if (!asset) throw new Error(RcExport.planAssetNotFrozen({ assetId: segment.asset.id }).text);
     const length = segment.end - segment.start;
-    // 多取一点源，裁齐由 atrim 按样本数做。
-    args.push('-ss', fixed(segment.sourceStart), '-t', fixed(length * segment.sourceRate + 0.1), '-i', `file:${asset.path}`);
-    const chain: string[] = [];
+    // 多取一点源，裁齐由 atrim 按样本数做。段首由 audioWindow 按帧的时间戳切：跳转后解码器丢掉多少帧随版本与文件变。
+    const window = audioWindow(segment.sourceStart, length * segment.sourceRate + 0.1);
+    args.push(...window.inputArgs, '-i', `file:${asset.path}`);
+    const chain: string[] = [...window.filters];
     const sourceChannels = asset.audio?.channels ?? 2;
     // 浏览器把单声道放到两个声道上（不衰减），立体声缩混成单声道取平均；ffmpeg 默认的上下混不同，显式写出来。
     if (channels === 2 && sourceChannels === 1) chain.push('pan=stereo|c0=c0|c1=c0');

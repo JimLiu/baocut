@@ -6,6 +6,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { EditResult, VideoOpenResult } from '@baocut/protocol';
 import { EditorWasmError, audioAnalysis, audioSheet, sfxRender, type AudioAnalysis } from '@baocut/editor-wasm';
+import { audioWindow } from '@baocut/process-host';
 import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { VideoService } from '../videos/video-service.ts';
 import { videoChangeOf } from '../compositions/composition-service.ts';
@@ -670,18 +671,20 @@ function tooLong(): ToolError {
 }
 
 /** ffmpeg 解码成 22.05 kHz 单声道 f32；超过上限就停下报 AUDIO_TOO_LONG。 */
-async function decodeMono(ffmpeg: string, file: string, start: number, end: number | null): Promise<Float32Array> {
+export async function decodeMono(ffmpeg: string, file: string, start: number, end: number | null): Promise<Float32Array> {
   const limit = MAX_ANALYSIS_SECONDS * ANALYSIS_RATE * 4;
+  // 节拍、起音与提示点都按 range 的起点算回源文件的秒：起点差一点，这些时刻就都差一点。
+  const window = audioWindow(start, end !== null ? end - start : null);
   const args = [
     '-nostdin',
     '-v',
     'error',
-    ...(start > 0 ? ['-ss', String(start)] : []),
-    ...(end !== null ? ['-t', String(end - start)] : []),
+    ...window.inputArgs,
     '-i',
     file,
     '-map',
     '0:a:0',
+    ...(window.filters.length > 0 ? ['-af', window.filters.join(',')] : []),
     '-ac',
     '1',
     '-ar',

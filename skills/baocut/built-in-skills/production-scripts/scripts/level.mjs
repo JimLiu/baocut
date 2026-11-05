@@ -20,7 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from './lib.mjs';
+import { audioWindow, parseArgs } from './lib.mjs';
 
 const { ids, flags } = parseArgs(process.argv, ['out', 'lift', 'cut', 'window', 'smooth', 'cmds', 'dump', 'lag', 'at']);
 const ffmpeg = args => execFileSync('ffmpeg', ['-nostdin', '-v', 'error', ...args], { maxBuffer: 1 << 30 });
@@ -98,7 +98,8 @@ function report(s) {
 function lagAt(ref, out, t) {
   const RATE = 8000, MAX = 400;   // ±50 ms
   const grab = f => {
-    const b = ffmpeg(['-ss', String(t), '-t', '8', '-i', f, '-vn', '-ac', '1', '-af', 'highpass=f=300,lowpass=f=3000', '-ar', String(RATE), '-f', 'f32le', '-']);
+    const { input, filters } = audioWindow(t, 8);
+    const b = ffmpeg([...input, '-i', f, '-vn', '-ac', '1', '-af', [...filters, 'highpass=f=300', 'lowpass=f=3000'].join(','), '-ar', String(RATE), '-f', 'f32le', '-']);
     return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + (b.length & ~3)));
   };
   const a = grab(ref), b = grab(out), n = Math.min(a.length, b.length);

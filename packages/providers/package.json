@@ -10,6 +10,7 @@
   "dependencies": {
     "@baocut/harness": "*",
     "@baocut/models": "*",
+    "@baocut/process-host": "*",
     "@baocut/protocol": "*",
     "@baocut/runtime-storage": "*"
   }

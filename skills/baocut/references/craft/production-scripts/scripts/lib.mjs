@@ -213,6 +213,23 @@ export function clipAt(tm, clip) {
   return cueTime(tm, clip.line, clip.cue) + off;
 }
 
+// 解一段声音：跳到起点前 2 秒（靠近开头就不跳），再按帧的时间戳切。ffmpeg 9 起，-ss 之后解码器丢掉多少帧随文件变：
+// AAC 的前置约 23 ms，用 -c copy 切过的文件能到大半秒，声音就提前这么多，而裸 PCM 不带时间戳，看不出来。
+// input 放在 -i 之前，filters 放在 -af 的最前面。脚本要能拷走，所以这里是一份副本，原本是 @baocut/process-host 的 audioWindow。
+export function audioWindow(start, duration = null) {
+  const from = Math.max(0, start), trim = Math.min(from, 2), seek = from - trim;
+  return {
+    input: [...(seek > 0 ? ['-ss', seek.toFixed(6)] : []), ...(duration !== null ? ['-t', (trim + duration).toFixed(6)] : [])],
+    filters: trim > 0 ? [`atrim=start=${trim.toFixed(6)}`, 'asetpts=PTS-STARTPTS'] : [],
+  };
+}
+
+// 切原声的 ffmpeg 参数：16 kHz 单声道，响度提到讲话的水平（loudnorm 只改增益，词时间仍在原片的时钟上）
+export function quoteCutArgs(source, from, to, out) {
+  const { input, filters } = audioWindow(from, to - from);
+  return ['-y', '-v', 'error', ...input, '-i', source, '-vn', '-af', [...filters, 'loudnorm=I=-20:TP=-2:LRA=11'].join(','), '-ac', '1', '-ar', '16000', out];
+}
+
 // 只有声音的来源：录音文件，或 video 为 false 的视频片段（只取原声、不上画面）
 export const AUDIO_FILE = /\.(mp3|wav|m4a|aac|flac|ogg|oga|opus)$/i;
 export const isAudioOnly = (clip, source) => clip.video === false || AUDIO_FILE.test(source || '');

@@ -793,7 +793,10 @@ describe('音频混音参数', () => {
 
   it('每段：取源、单声道铺到两声道、变速、按样本裁齐、增益、淡入、延后到位置；不归一化地混合', () => {
     const { args, graph } = mixArgs(base, new Map([['a@1', asset]]), 48000, 2, '/tmp/out.wav', script);
-    expect(args).toEqual(expect.arrayContaining(['-ss', '3', '-t', '2.1', '-i', 'file:/media/a.wav']));
+    // 跳到窗口之前 2 秒，窗口的起点按帧的时间戳切，必须在变速之前。
+    expect(args).toEqual(expect.arrayContaining(['-ss', '1.000000', '-t', '4.100000', '-i', 'file:/media/a.wav']));
+    expect(graph.indexOf('atrim=start=2.000000,asetpts=PTS-STARTPTS')).toBeGreaterThanOrEqual(0);
+    expect(graph.indexOf('atrim=start=2.000000')).toBeLessThan(graph.indexOf('atempo=2'));
     expect(graph).toContain('pan=stereo|c0=c0|c1=c0');
     expect(graph).toContain('atempo=2');
     expect(graph).toContain('atrim=end_sample=48000');

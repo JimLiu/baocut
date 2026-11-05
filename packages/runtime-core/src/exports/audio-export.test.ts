@@ -5,7 +5,16 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  CUT_OFFSET_SEC,
+  TIMING_RATE,
+  buildTimingFixtures,
+  canBuildTimingFixtures,
+  f32leSamples,
+  startDrift,
+  type TimingFixtures,
+} from '@baocut/process-host/testing';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
 import {
   detectFilterScriptOption,
@@ -337,5 +346,106 @@ describe.skipIf(!ffmpeg)('混音的滤镜图从文件读', () => {
     await fs.writeFile(file, graph);
     await runTool({ command: 'ffmpeg' }, args);
     expect((await fs.stat(out)).size).toBeGreaterThanOrEqual(DURATION * 48_000 * 2 * 4);
+  });
+});
+
+/**
+ * Where a segment lands, against the source: the mix has no timestamps to check, so the reference is the source WAV itself.
+ * Output is mono at the source rate, so no resampler stands between them.
+ */
+describe.skipIf(!ffmpeg || !canBuildTimingFixtures())('a mixed segment sits on its source', () => {
+  let dir: string;
+  let files: TimingFixtures;
+  let source: Float32Array;
+
+  beforeAll(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-mix-timing-'));
+    files = buildTimingFixtures(dir);
+    source = wavSamples(await fs.readFile(files.wav));
+  });
+  afterAll(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  const SETTINGS: AudioOutputSettings = { format: 'wav', sampleRate: TIMING_RATE, channels: 1, bitrateKbps: 192, loudness: null };
+
+  async function mix(file: string, segment: { start: number; end: number; sourceStart: number; sourceRate: number }): Promise<Float32Array> {
+    const asset: PlannedAsset = {
+      assetId: 'a',
+      revision: '1',
+      name: path.basename(file),
+      path: file,
+      storage: 'linked',
+      mediaType: 'audio/mp4',
+      contentHash: 'sha256:0',
+      byteLength: 1,
+      modifiedAt: null,
+      audio: { sampleRate: TIMING_RATE, channels: 1 },
+    };
+    const plan: AudioPlan = {
+      ...silent,
+      range: { startSeconds: 0, endSeconds: 2, durationSeconds: 2 },
+      segments: [{ itemId: 'i1', source: 'audio', asset: { id: 'a', revision: '1' }, trackOrder: 0, gainDb: 0, ...segment }],
+    };
+    const staging = await fs.mkdtemp(path.join(dir, 'staging-'));
+    const result = await renderAudio({
+      plan,
+      assets: new Map([['a@1', asset]]),
+      settings: SETTINGS,
+      staging,
+      outName: 'mix.wav',
+      ffmpeg: { command: 'ffmpeg' },
+      ffprobe: { command: 'ffprobe' },
+      signal: new AbortController().signal,
+    });
+    return wavSamples(await fs.readFile(result.file));
+  }
+
+  const POSITION = 0.25;
+  const LENGTH = 0.5;
+  const placed = { start: POSITION, end: POSITION + LENGTH, sourceRate: 1 };
+  const at = (seconds: number) => Math.round(seconds * TIMING_RATE);
+
+  it.each([0, 0.3, 1, 1.5, 2, 2.5, 3, 5.5])('from an M4A at %s s', async (sourceStart) => {
+    const mixed = await mix(files.m4a, { ...placed, sourceStart });
+    expect(startDrift(source, mixed.subarray(at(POSITION), at(POSITION + LENGTH)), at(sourceStart))).toBe(0);
+    // Nothing leaks in around the segment, and the segment does not run short.
+    expect(Math.max(...mixed.subarray(0, at(POSITION)).map(Math.abs))).toBe(0);
+    expect(Math.max(...mixed.subarray(at(POSITION + LENGTH)).map(Math.abs))).toBe(0);
+    expect(Math.abs(mixed[at(POSITION + LENGTH) - 1]!) + Math.abs(mixed[at(POSITION + LENGTH) - 2]!)).toBeGreaterThan(0);
+  });
+
+  it.each([2, 2.01, 3, 5.5])('from AAC in a video, around a keyframe at %s s', async (sourceStart) => {
+    const mixed = await mix(files.video, { ...placed, sourceStart });
+    expect(startDrift(source, mixed.subarray(at(POSITION), at(POSITION + LENGTH)), at(sourceStart))).toBe(0);
+  });
+
+  it.each([0.5, 1.5, 3, 5.5])('from a file cut with -c copy at %s s', async (sourceStart) => {
+    const mixed = await mix(files.cut, { ...placed, sourceStart });
+    expect(startDrift(source, mixed.subarray(at(POSITION), at(POSITION + LENGTH)), at(CUT_OFFSET_SEC + sourceStart))).toBe(0);
+  });
+
+  /**
+   * `atempo` has to receive exactly the window. Its splice points follow the signal, so its output cannot be lined up against
+   * another encoding of the source, but it is deterministic: the same window gives the same samples. So the reference decodes
+   * from the top of the file, where no seek can lose anything.
+   */
+  it.each([1.5, 2, 3, 5.5])('hands atempo the window from the top of the file at %s s', async (sourceStart) => {
+    const rate = 2;
+    const reference = f32leSamples(
+      execFileSync(
+        'ffmpeg',
+        [
+          ...['-nostdin', '-v', 'error', '-t', String(sourceStart + LENGTH * rate + 0.1), '-i', `file:${files.m4a}`],
+          ...['-af', `atrim=start=${sourceStart},asetpts=PTS-STARTPTS,atempo=${rate}`, '-f', 'f32le', '-'],
+        ],
+        { maxBuffer: 1 << 28 },
+      ),
+    );
+    const mixed = await mix(files.m4a, { start: 0, end: LENGTH, sourceStart, sourceRate: rate });
+    const frames = at(LENGTH);
+    expect(reference.length).toBeGreaterThanOrEqual(frames);
+    // The mix goes through 16-bit PCM on its way out.
+    for (let i = 0; i < frames; i += 1) expect(Math.abs(mixed[i]! - reference[i]!)).toBeLessThan(1e-3);
   });
 });

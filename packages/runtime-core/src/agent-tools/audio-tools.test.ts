@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { editorWasmAvailable, sfxRecipes, sfxRender } from '@baocut/editor-wasm';
-import { ANALYSIS_DIR, AudioTools, MAX_SHEET_SECONDS, SFX_RECIPES } from './audio-tools.ts';
+import { CUT_OFFSET_SEC, buildTimingFixtures, canBuildTimingFixtures, startDrift, type TimingFixtures } from '@baocut/process-host/testing';
+import { ANALYSIS_DIR, AudioTools, MAX_SHEET_SECONDS, SFX_RECIPES, decodeMono } from './audio-tools.ts';
 import type { ToolPrincipal, ToolScope } from './tool-scope.ts';
 
 /** `assets_analyze` 走真的 ffmpeg 解码与编辑语义 WASM；`assets_sfx` 的配方表与 WASM 里的一致。 */
@@ -129,5 +130,48 @@ describe.skipIf(!ready)('audio tools', () => {
       code: 'AUDIO_NO_STREAM',
     });
     await expect(tools().dispatch('assets_analyze', { video: 'demo' }, agent)).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' });
+  });
+});
+
+/**
+ * Analysis times are the range's start plus a position in the decoded audio, so the decode has to start on the range's
+ * first sample. The reference is the source WAV decoded from the top, where nothing seeks.
+ */
+describe.skipIf(!canBuildTimingFixtures(ffmpeg))('the range decode sits on its source', () => {
+  const ANALYSIS_RATE = 22_050;
+  let work: string;
+  let files: TimingFixtures;
+  let source: Float32Array;
+
+  beforeAll(async () => {
+    work = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-audio-tools-timing-'));
+    files = buildTimingFixtures(work, 12, ffmpeg);
+    source = await decodeMono(ffmpeg, files.wav, 0, null);
+  });
+  afterAll(async () => {
+    await fs.rm(work, { recursive: true, force: true });
+  });
+
+  // Whole frames of the source at the analysis rate, so rounding cannot tell the two apart.
+  const starts = [0.5, 1, 2, 3, 5.5];
+
+  it.each(starts)('from an M4A at %s s', async (start) => {
+    const pcm = await decodeMono(ffmpeg, files.m4a, start, start + 1);
+    expect(pcm.length).toBe(ANALYSIS_RATE);
+    expect(startDrift(source, pcm, Math.round(start * ANALYSIS_RATE), ANALYSIS_RATE)).toBe(0);
+  });
+
+  it.each(starts)('from a file cut with -c copy at %s s', async (start) => {
+    const pcm = await decodeMono(ffmpeg, files.cut, start, start + 1);
+    expect(pcm.length).toBe(ANALYSIS_RATE);
+    // The cut's offset is an odd frame of the source, which falls between two frames at the analysis rate.
+    expect(Math.abs(startDrift(source, pcm, Math.round((CUT_OFFSET_SEC + start) * ANALYSIS_RATE), ANALYSIS_RATE))).toBeLessThanOrEqual(1);
+  });
+
+  it('runs to the end of the file without an end', async () => {
+    const pcm = await decodeMono(ffmpeg, files.m4a, 11, null);
+    expect(pcm.length).toBeGreaterThanOrEqual(ANALYSIS_RATE - 1);
+    expect(pcm.length).toBeLessThanOrEqual(ANALYSIS_RATE + 1);
+    expect(startDrift(source, pcm, 11 * ANALYSIS_RATE, ANALYSIS_RATE)).toBe(0);
   });
 });
