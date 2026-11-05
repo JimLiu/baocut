@@ -737,6 +737,57 @@ mod tests {
         }
     }
 
+    /// A file already cut with `-c copy` is where the discard reaches furthest: its whole edit-list
+    /// offset, a little over 1 s at most. A seek landing right on a keyframe has nothing else to
+    /// give up, so this is what sets `FFMPEG_SEEK_MARGIN`. Keyframes of this cut are 0.8 s into its
+    /// timeline and every 2 s after, and the source WAV is the reference.
+    #[test]
+    fn the_ffmpeg_fallback_outlasts_the_discard_on_a_cut_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let Some((wav, _)) = encoded_noise(directory.path(), 12) else {
+            return;
+        };
+        let video = directory.path().join("gop.mp4");
+        let cut = directory.path().join("cut.mp4");
+        let offset = 3.2;
+        let made = crate::exec::command("ffmpeg")
+            .args(["-nostdin", "-loglevel", "error", "-y", "-f", "lavfi"])
+            .args(["-i", "color=c=gray:s=64x64:r=30:d=12", "-i"])
+            .arg(&wav)
+            .args(["-map", "0:v", "-map", "1:a", "-c:v", "mpeg4", "-g", "60"])
+            .args(["-c:a", "aac", "-b:a", "192k", "-aac_pns", "0"])
+            .arg(&video)
+            .status()
+            .is_ok_and(|status| status.success())
+            && crate::exec::command("ffmpeg")
+                .args(["-nostdin", "-loglevel", "error", "-y", "-ss"])
+                .arg(offset.to_string())
+                .arg("-i")
+                .arg(&video)
+                .args(["-c", "copy"])
+                .arg(&cut)
+                .status()
+                .is_ok_and(|status| status.success());
+        if !made {
+            eprintln!("skipped: this machine has no ffmpeg that can make a cut file");
+            return;
+        }
+        let duration = 0.5;
+        for keyframe in [0.8, 2.8] {
+            for after in [0.0, 0.1] {
+                let start = keyframe + super::super::FFMPEG_SEEK_MARGIN + after;
+                let source = decode_stereo_48k(&wav, offset + start, duration).unwrap();
+                let fallback =
+                    super::super::decode_with_ffmpeg("noise", &cut, start, duration, 1.0).unwrap();
+                assert_eq!(
+                    best_lag(&source, &fallback),
+                    0,
+                    "ffmpeg fallback at {start}s"
+                );
+            }
+        }
+    }
+
     /// Speed-changed clips always take the fallback, so `atempo` has to receive exactly the window.
     /// Its splice points follow the signal, which rules out lining its output up against another
     /// encoding of the source (on noise both the lag and the length wander by hundreds of frames).

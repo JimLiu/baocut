@@ -259,12 +259,16 @@ pub fn mix_audio_reported(ir: &Ir, assets: &LoadedAssets) -> Result<Option<Audio
 /// exports `initial_padding` and the decoder takes it as frames to skip, but a demuxer that seeks
 /// past the priming says "skip nothing", which does not clear that count. So the first packets
 /// after any `-ss`, even `-ss 0`, are lost: 1024 frames from ffmpeg's AAC encoder, 2112 from
-/// AVFoundation's. FFmpeg's master branch instead discards a seek pre-roll of up to 4096 frames.
+/// AVFoundation's. On a file already cut with `-c copy` the count is its whole edit-list offset,
+/// with any codec, which reached a little over 1 s. FFmpeg's master branch instead discards a seek
+/// pre-roll of up to 4096 frames.
 ///
 /// Those frames keep their correct timestamps, but raw PCM carries none, so a window that starts
 /// inside the loss plays early (`-1115` frames at 48 kHz for a 44.1 kHz M4A at 0 s). The margin
-/// only has to outlast the discard, including at low sample rates.
-const FFMPEG_SEEK_MARGIN: f64 = 1.0;
+/// only has to outlast the discard, including at low sample rates: 1 s came up 536 frames short on
+/// a cut file, and decoding another second costs next to nothing. The same margin as `audioWindow`
+/// in `packages/process-host`.
+const FFMPEG_SEEK_MARGIN: f64 = 2.0;
 
 /// ffmpeg 兜底解码：截 `[media_start, media_start + source_seconds)` 的窗，变速时叠 `atempo`，
 /// 输出 48 kHz 立体声 f32。
