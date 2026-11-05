@@ -11,23 +11,23 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use mlx_rs::module::{Module, Param};
 use mlx_rs::nn::{Conv1d, silu};
-use mlx_rs::ops::indexing::{IndexOp, argmax_axis};
+use mlx_rs::ops::indexing::{IndexOp, argmax_axis, take_axis};
 use mlx_rs::{Array, Dtype, fast, ops, transforms};
 
 use std::time::Instant;
 
-use super::qwen3::{Dense, KvCache, LayerNorm, TextDecoder, TextDecoderConfig, WeightStore, gelu_same_dtype};
+use super::qwen3::{BatchDecodeState, Dense, KvCache, LayerNorm, TextDecoder, TextDecoderConfig, WeightStore, gelu_same_dtype};
 use super::runtime::{self, MemoryCacheGuard, clear_memory_cache, memory_snapshot};
 use crate::backend::speech_timing_enabled;
 use crate::bundle::VerifiedFiles;
 use crate::speech::mel::WhisperFeaturePipeline;
 use crate::speech::moss_common::{
-    ASSISTANT, AUDIO_END, AUDIO_START, ChunkGeneration, GenerationStopReason, HOP_LENGTH, IM_END, IM_START, MossConfig,
-    MossProcessorConfig, NEWLINE, PAD_EOS, PREFILL_STEP, SAMPLE_RATE, STREAM_FLUSH_INTERVAL, SYSTEM, StreamState, USER,
-    WHISPER_ENCODER_STRIDE, WHISPER_WINDOW_SAMPLES, moss_instruction, repetitive_token_tail, split_audio_at_low_energy, transcribe_chunks,
+    ASSISTANT, AUDIO_END, AUDIO_START, ChunkGeneration, GenerationObserver, GenerationStopReason, HOP_LENGTH, IM_END, IM_START, MossConfig,
+    MossProcessorConfig, NEWLINE, PAD_EOS, PREFILL_STEP, SAMPLE_RATE, STREAM_FLUSH_INTERVAL, SYSTEM, USER, WHISPER_ENCODER_STRIDE,
+    WHISPER_WINDOW_SAMPLES, moss_instruction, repetitive_token_tail, split_audio_at_low_energy, transcribe_chunks_batched,
 };
 pub use crate::speech::moss_common::{MossCallbacks, MossCancelled, MossTranscription};
-use crate::speech::moss_parse::{MossGenerationPlan, MossStreamDecoder, moss_quantization_bits};
+use crate::speech::moss_parse::{MossGenerationPlan, MossStreamDecoder, moss_batch_rows, moss_quantization_bits};
 use crate::speech::tokenizer::Qwen3Tokenizer;
 use crate::speech::{SegmentedTranscription, SegmentingCallbacks, SegmentingRecognizer};
 
@@ -59,6 +59,23 @@ struct PreparedChunk {
     prompt_ids: Vec<i32>,
     input_embeddings: Array,
     inputs_seconds: f64,
+}
+
+/// 交给 [`MossTranscribeDiarize::generate_rows`] 的一行：这块的音频、预先物化好的输入（有的话）与 token 上限。
+struct RowInput<'a> {
+    audio: &'a [f32],
+    prepared: Option<PreparedChunk>,
+    maximum_tokens: usize,
+}
+
+/// 一行生成途中的状态。
+struct RowOutput {
+    generated: Vec<i32>,
+    // 增量解析供循环检测与进度使用；最终文本仍从完整 token 串解码。
+    decoder: MossStreamDecoder,
+    streamed: usize,
+    maximum_tokens: usize,
+    stop_reason: GenerationStopReason,
 }
 
 impl MossTranscribeDiarize {
@@ -202,17 +219,28 @@ impl MossTranscribeDiarize {
             self.adaptor = None;
             clear_memory_cache()?;
         }
-        transcribe_chunks(audio, &chunks, chunk_seconds, callbacks, |request, stream| {
-            let prepared = request
-                .planned
-                .and_then(|index| prepared_chunks.get_mut(index))
-                .and_then(Option::take);
-            if prepared.is_none() {
+        let batch_rows = moss_batch_rows(
+            std::env::var("BCUT_MOSS_BATCH").ok().as_deref(),
+            runtime::physical_memory_bytes().unwrap_or(0),
+        );
+        transcribe_chunks_batched(audio, &chunks, chunk_seconds, batch_rows, callbacks, |requests, observer| {
+            let rows = requests
+                .iter()
+                .map(|request| RowInput {
+                    audio: request.samples,
+                    prepared: request
+                        .planned
+                        .and_then(|index| prepared_chunks.get_mut(index))
+                        .and_then(Option::take),
+                    maximum_tokens: request.max_tokens,
+                })
+                .collect::<Vec<_>>();
+            if rows.iter().any(|row| row.prepared.is_none()) {
                 // 重切出来的子块没有预先物化的输入；一次性转录此时已经放掉了音频
                 // 前端，按需装回来（只在失败重切这条罕见路径上多花几秒）。
                 self.ensure_audio_frontend()?;
             }
-            let output = self.generate_chunk(request.samples, &instruction, prepared, request.max_tokens, stream);
+            let output = self.generate_rows(rows, &instruction, observer);
             clear_memory_cache()?;
             output
         })
@@ -229,32 +257,12 @@ impl MossTranscribeDiarize {
         Ok(())
     }
 
-    fn generate_chunk(
-        &mut self,
-        audio: &[f32],
-        instruction: &str,
-        prepared: Option<PreparedChunk>,
-        maximum_tokens: usize,
-        stream: &mut StreamState<'_, '_>,
-    ) -> Result<ChunkGeneration> {
-        let _memory_cache_guard = MemoryCacheGuard::new();
-        let PreparedChunk {
-            prompt_ids,
-            input_embeddings,
-            inputs_seconds,
-        } = match prepared {
-            Some(prepared) => prepared,
-            None => self.prepare_chunk(audio, instruction)?,
-        };
-        let total_tokens = prompt_ids.len();
-        if total_tokens == 0 {
-            bail!("MOSS prompt 为空");
-        }
-        let prefill_started = Instant::now();
+    /// 一块的输入一次前向预填充：返回它的 KV 与第一个 token（`[1, 1]`，都已求值）。
+    fn prefill_row(&self, prompt_tokens: usize, input_embeddings: &Array) -> Result<(Vec<KvCache>, Array)> {
         let mut cache: Option<Vec<KvCache>> = None;
         let mut processed = 0;
-        while total_tokens - processed > 1 {
-            let count = PREFILL_STEP.min(total_tokens - processed - 1);
+        while prompt_tokens - processed > 1 {
+            let count = PREFILL_STEP.min(prompt_tokens - processed - 1);
             let updated = {
                 let embeddings = input_embeddings.index((.., processed as i32..(processed + count) as i32, ..));
                 let (hidden, updated) = self.decoder.decode(&embeddings, None, cache.take())?;
@@ -265,51 +273,82 @@ impl MossTranscribeDiarize {
             processed += count;
             clear_memory_cache()?;
         }
-        let last = input_embeddings.index((.., processed as i32..total_tokens as i32, ..));
+        let last = input_embeddings.index((.., processed as i32..prompt_tokens as i32, ..));
         let (hidden, updated) = self.decoder.decode(&last, None, cache.take())?;
-        cache = Some(updated);
         let sequence = hidden.dim(1);
         let logits = self.decoder.logits(&hidden.index((.., sequence - 1..sequence, ..)))?;
-        let mut next = argmax_axis(&logits, -1, false)?.squeeze()?.as_dtype(Dtype::Int32)?;
-        evaluate_token(&next)?;
-        let prefill_seconds = prefill_started.elapsed().as_secs_f64();
+        let first = argmax_axis(&logits, -1, false)?.as_dtype(Dtype::Int32)?;
+        first.eval()?;
+        Ok((updated, first))
+    }
+
+    /// 同时生成几块：每块分别编码、预填充（与一块时相同），之后合成一批逐 token 解码，每一步所有行共用一次前向。结束的行
+    /// 当场从批里去掉。返回的结果与 `rows` 同序。
+    fn generate_rows(
+        &mut self,
+        rows: Vec<RowInput<'_>>,
+        instruction: &str,
+        observer: &mut dyn GenerationObserver,
+    ) -> Result<Vec<ChunkGeneration>> {
+        let _memory_cache_guard = MemoryCacheGuard::new();
+        let row_count = rows.len();
+        let (mut inputs_seconds, mut prefill_seconds, mut prompt_tokens) = (0.0_f64, 0.0_f64, 0_usize);
+        let mut outputs = Vec::with_capacity(row_count);
+        let mut caches = Vec::with_capacity(row_count);
+        let mut first_tokens = Vec::with_capacity(row_count);
+        for row in rows {
+            if observer.cancelled() {
+                return Err(anyhow::Error::from(MossCancelled));
+            }
+            let PreparedChunk {
+                prompt_ids,
+                input_embeddings,
+                inputs_seconds: prepared_seconds,
+            } = match row.prepared {
+                Some(prepared) => prepared,
+                None => self.prepare_chunk(row.audio, instruction)?,
+            };
+            if prompt_ids.is_empty() {
+                bail!("MOSS prompt 为空");
+            }
+            let prefill_started = Instant::now();
+            let (cache, first) = self.prefill_row(prompt_ids.len(), &input_embeddings)?;
+            prefill_seconds += prefill_started.elapsed().as_secs_f64();
+            inputs_seconds += prepared_seconds;
+            prompt_tokens += prompt_ids.len();
+            caches.push(cache);
+            first_tokens.push(first);
+            outputs.push(RowOutput {
+                generated: Vec::with_capacity(row.maximum_tokens.min(4_096)),
+                decoder: MossStreamDecoder::default(),
+                streamed: 0,
+                maximum_tokens: row.maximum_tokens,
+                stop_reason: GenerationStopReason::TokenLimit,
+            });
+        }
 
         let generation_started = Instant::now();
         let detail = std::env::var("BCUT_SPEECH_TIMING").is_ok_and(|value| value == "2");
         let (mut item_seconds, mut build_seconds, mut dispatch_seconds) = (0.0_f64, 0.0, 0.0);
-        let mut generated = Vec::with_capacity(maximum_tokens.min(4_096));
-        // 增量解析供实时预览与循环检测使用；最终文本仍从完整 token 串解码。
-        let mut decoder = MossStreamDecoder::default();
-        let mut streamed = 0_usize;
-        let mut stop_reason = GenerationStopReason::TokenLimit;
-        for index in 0..maximum_tokens {
+        let mut state = BatchDecodeState::from_rows(caches)?;
+        let mut next = ops::concatenate_axis(&first_tokens, 0)?;
+        drop(first_tokens);
+        // 还在批里的行（在 `outputs` 里的下标），次序就是批里的行序。
+        let mut active: Vec<usize> = (0..row_count).collect();
+        let mut index = 0_usize;
+        while !active.is_empty() {
             if index > 0 && index.is_multiple_of(GENERATION_CACHE_CLEAR_INTERVAL) {
                 clear_memory_cache()?;
             }
-            if generated.len() - streamed >= STREAM_FLUSH_INTERVAL {
-                let segments = decoder.push(&self.tokenizer.decode_bytes(&generated[streamed..]));
-                streamed = generated.len();
-                let repeating = stream.observe(&segments);
-                if stream.callbacks.cancelled() {
-                    return Err(anyhow::Error::from(MossCancelled));
-                }
-                if repeating {
-                    stop_reason = GenerationStopReason::Repetition;
-                    break;
-                }
-            }
-            // 把下一步接在还没算完的 token 后面先提交，再等这个 token：CPU 建图、编码命令时 GPU 不空转
+            // 把下一步接在还没算完的 token 后面先提交，再等这些 token：CPU 建图、编码命令时 GPU 不空转
             // （同 Qwen3 的 `generate_greedy`）。贪心解码的结果不变；生成停下时这一步作废。
             let mut speculative = None;
-            if index + 1 < maximum_tokens {
+            if active.iter().any(|row| index + 1 < outputs[*row].maximum_tokens) {
                 let phase_started = Instant::now();
-                let ids = next.reshape(&[1, 1])?;
-                let embeddings = self.decoder.embed(&ids)?;
-                let (hidden, updated) = self.decoder.decode(&embeddings, None, cache.take())?;
-                cache = Some(updated);
-                let sequence = hidden.dim(1);
-                let logits = self.decoder.logits(&hidden.index((.., sequence - 1..sequence, ..)))?;
-                let advanced = argmax_axis(&logits, -1, false)?.squeeze()?.as_dtype(Dtype::Int32)?;
+                let embeddings = self.decoder.embed(&next)?;
+                let hidden = self.decoder.decode_batch(&embeddings, &mut state)?;
+                let logits = self.decoder.logits(&hidden)?;
+                let advanced = argmax_axis(&logits, -1, false)?.as_dtype(Dtype::Int32)?;
                 build_seconds += phase_started.elapsed().as_secs_f64();
                 let phase_started = Instant::now();
                 evaluate_token(&advanced)?;
@@ -317,56 +356,95 @@ impl MossTranscribeDiarize {
                 speculative = Some(advanced);
             }
             let phase_started = Instant::now();
-            let token = next.try_item::<i32>()?;
+            next.eval()?;
             item_seconds += phase_started.elapsed().as_secs_f64();
-            if matches!(token, PAD_EOS | IM_END) {
-                stop_reason = GenerationStopReason::Eos;
+
+            let mut keep = Vec::with_capacity(active.len());
+            for (position, (row, token)) in active.iter().copied().zip(next.as_slice::<i32>().iter().copied()).enumerate() {
+                let output = &mut outputs[row];
+                if matches!(token, PAD_EOS | IM_END) {
+                    output.stop_reason = GenerationStopReason::Eos;
+                    continue;
+                }
+                output.generated.push(token);
+                if repetitive_token_tail(&output.generated) {
+                    output.stop_reason = GenerationStopReason::Repetition;
+                    continue;
+                }
+                if output.generated.len() - output.streamed >= STREAM_FLUSH_INTERVAL {
+                    let segments = output
+                        .decoder
+                        .push(&self.tokenizer.decode_bytes(&output.generated[output.streamed..]));
+                    output.streamed = output.generated.len();
+                    if observer.observe(row, &segments) {
+                        output.stop_reason = GenerationStopReason::Repetition;
+                        continue;
+                    }
+                }
+                if index + 1 < output.maximum_tokens {
+                    keep.push(position);
+                }
+            }
+            if (index + 1).is_multiple_of(STREAM_FLUSH_INTERVAL) && observer.cancelled() {
+                return Err(anyhow::Error::from(MossCancelled));
+            }
+            if keep.is_empty() {
                 break;
             }
-            generated.push(token);
-            if repetitive_token_tail(&generated) {
-                stop_reason = GenerationStopReason::Repetition;
-                break;
-            }
-            let Some(advanced) = speculative else {
+            let Some(mut advanced) = speculative else {
                 break;
             };
-            next = advanced;
-        }
-        if streamed < generated.len() {
-            let segments = decoder.push(&self.tokenizer.decode_bytes(&generated[streamed..]));
-            if stream.observe(&segments) {
-                stop_reason = GenerationStopReason::Repetition;
+            if keep.len() < active.len() {
+                let kept: Vec<i32> = keep.iter().map(|position| *position as i32).collect();
+                advanced = take_axis(&advanced, &Array::from_slice(&kept, &[kept.len() as i32]), 0)?;
+                state.retain(&keep)?;
+                active = keep.iter().map(|position| active[*position]).collect();
             }
+            next = advanced;
+            index += 1;
         }
-        let segments = decoder.finish();
-        if stream.observe(&segments) {
-            stop_reason = GenerationStopReason::Repetition;
+        drop(state);
+
+        let mut generations = Vec::with_capacity(row_count);
+        let mut generated_tokens = 0;
+        for (row, mut output) in outputs.into_iter().enumerate() {
+            if output.streamed < output.generated.len() {
+                let segments = output
+                    .decoder
+                    .push(&self.tokenizer.decode_bytes(&output.generated[output.streamed..]));
+                if observer.observe(row, &segments) {
+                    output.stop_reason = GenerationStopReason::Repetition;
+                }
+            }
+            let segments = output.decoder.finish();
+            if observer.observe(row, &segments) {
+                output.stop_reason = GenerationStopReason::Repetition;
+            }
+            generated_tokens += output.generated.len();
+            generations.push(ChunkGeneration {
+                text: self.tokenizer.decode(&output.generated).trim().to_owned(),
+                token_count: output.generated.len(),
+                stop_reason: output.stop_reason,
+            });
         }
         if detail {
             eprintln!(
-                "[bcut-timing] moss-generate-detail item={item_seconds:.2}s build={build_seconds:.2}s dispatch={dispatch_seconds:.2}s tokens={}",
-                generated.len()
+                "[bcut-timing] moss-generate-detail rows={row_count} item={item_seconds:.2}s build={build_seconds:.2}s dispatch={dispatch_seconds:.2}s tokens={generated_tokens}",
             );
         }
         if speech_timing_enabled() {
             let generation_seconds = generation_started.elapsed().as_secs_f64();
-            let (active, cache_bytes, peak) = memory_snapshot();
+            let (active_bytes, cache_bytes, peak) = memory_snapshot();
             eprintln!(
-                "[bcut-timing] moss-chunk inputs={inputs_seconds:.2}s prefill={prefill_seconds:.2}s ({total_tokens} tok, {:.1} tok/s) generate={generation_seconds:.2}s ({} tok, {:.1} tok/s) mlx_active={:.2}GB mlx_cache={:.2}GB mlx_peak={:.2}GB",
-                total_tokens as f64 / prefill_seconds.max(1e-9),
-                generated.len(),
-                generated.len() as f64 / generation_seconds.max(1e-9),
-                active as f64 / 1e9,
+                "[bcut-timing] moss-chunk rows={row_count} inputs={inputs_seconds:.2}s prefill={prefill_seconds:.2}s ({prompt_tokens} tok, {:.1} tok/s) generate={generation_seconds:.2}s ({generated_tokens} tok, {:.1} tok/s) mlx_active={:.2}GB mlx_cache={:.2}GB mlx_peak={:.2}GB",
+                prompt_tokens as f64 / prefill_seconds.max(1e-9),
+                generated_tokens as f64 / generation_seconds.max(1e-9),
+                active_bytes as f64 / 1e9,
                 cache_bytes as f64 / 1e9,
                 peak as f64 / 1e9,
             );
         }
-        Ok(ChunkGeneration {
-            text: self.tokenizer.decode(&generated).trim().to_owned(),
-            token_count: generated.len(),
-            stop_reason,
-        })
+        Ok(generations)
     }
 
     fn prepare_chunk(&mut self, audio: &[f32], instruction: &str) -> Result<PreparedChunk> {

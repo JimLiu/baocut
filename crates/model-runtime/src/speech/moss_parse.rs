@@ -433,9 +433,50 @@ pub fn moss_quantization_bits(environment: &std::collections::HashMap<String, St
     (preference == "speed").then_some(8)
 }
 
+/// 按物理内存定下同时解码的块数：`requested` 是 `BCUT_MOSS_BATCH` 的原始取值（诊断用，给了合法的正整数就照它，至多
+/// [`MOSS_BATCH_LIMIT`]）。一行的 KV 最坏约 1.6 GiB（28 层、每个位置约 115 KB，5 分钟的块约 4000 个提示 token 加 9600 个
+/// 生成预算），多的行至多占物理内存的 1/8。16 GiB 的机器仍然一块一块生成。
+pub fn moss_batch_rows(requested: Option<&str>, physical_memory: usize) -> usize {
+    if let Some(rows) = requested.and_then(|raw| raw.trim().parse::<usize>().ok()).filter(|rows| *rows > 0) {
+        return rows.min(MOSS_BATCH_LIMIT);
+    }
+    (physical_memory / 8 / MOSS_BATCH_ROW_BYTES).clamp(1, MOSS_BATCH_DEFAULT_MAX)
+}
+
+/// 没有指定时同时解码的块数上限。
+const MOSS_BATCH_DEFAULT_MAX: usize = 8;
+const MOSS_BATCH_LIMIT: usize = 32;
+/// 一行的 KV 在最坏情况下的内存（1.6 GiB）。
+const MOSS_BATCH_ROW_BYTES: usize = 1_717_986_918;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn batch_rows_follow_physical_memory_and_can_be_overridden() {
+        const GIB: usize = 1 << 30;
+        for (memory, rows) in [
+            (8, 1),
+            (16, 1),
+            (24, 1),
+            (32, 2),
+            (36, 2),
+            (48, 3),
+            (64, 5),
+            (96, 7),
+            (128, 8),
+            (512, 8),
+        ] {
+            assert_eq!(moss_batch_rows(None, memory * GIB), rows, "{memory} GiB");
+        }
+        assert_eq!(moss_batch_rows(Some(" 3 "), 16 * GIB), 3);
+        assert_eq!(moss_batch_rows(Some("1"), 128 * GIB), 1);
+        assert_eq!(moss_batch_rows(Some("1000"), 16 * GIB), MOSS_BATCH_LIMIT);
+        for invalid in ["0", "-1", "many", ""] {
+            assert_eq!(moss_batch_rows(Some(invalid), 128 * GIB), 8, "{invalid:?}");
+        }
+    }
 
     #[test]
     fn moss_stream_decoder_matches_whole_stream_parse_at_any_split() {

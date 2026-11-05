@@ -10,6 +10,7 @@
     allow(dead_code, unused_imports)
 )]
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -267,13 +268,78 @@ impl StreamState<'_, '_> {
 
     /// 推进覆盖进度并保证全局单调不减。
     pub(crate) fn advance(&mut self, covered: f64) {
-        if !covered.is_finite() || covered <= self.covered {
-            return;
+        advance_covered(&mut self.covered, self.total_duration, self.callbacks, covered);
+    }
+}
+
+/// 覆盖秒数只进不退，每次前进报一次进度。
+fn advance_covered(covered: &mut f64, total_duration: f64, callbacks: &mut MossCallbacks<'_>, to: f64) {
+    if !to.is_finite() || to <= *covered {
+        return;
+    }
+    *covered = to;
+    if let Some(callback) = callbacks.on_progress.as_deref_mut() {
+        callback(*covered, total_duration);
+    }
+}
+
+/// 生成途中观测输出：重复循环检测、进度与取消。`row` 是这一次生成里的第几行（一次生成一块时总是 0）。
+#[cfg_attr(not(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64")), allow(dead_code))]
+pub(crate) trait GenerationObserver {
+    /// 这一行又解析出一些段。返回 true 时这一行应立即结束生成，并用 Repetition 原因交回分块驱动。
+    fn observe(&mut self, row: usize, segments: &[MossOutputSegment]) -> bool;
+
+    fn cancelled(&mut self) -> bool;
+}
+
+impl GenerationObserver for StreamState<'_, '_> {
+    fn observe(&mut self, _row: usize, segments: &[MossOutputSegment]) -> bool {
+        StreamState::observe(self, segments)
+    }
+
+    fn cancelled(&mut self) -> bool {
+        self.callbacks.cancelled()
+    }
+}
+
+/// 一次生成多块时的观测：每行各有一个循环检测；进度是这一批的起点加上各行已经写到的秒数之和。不发实时段落
+/// （多行同时写，发不出时间顺序；要实时段落时分块驱动一次只生成一块）。
+#[cfg_attr(not(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64")), allow(dead_code))]
+struct BatchStream<'a, 'b> {
+    callbacks: &'a mut MossCallbacks<'b>,
+    total_duration: f64,
+    start_seconds: f64,
+    covered: f64,
+    rows: Vec<BatchStreamRow>,
+}
+
+#[cfg_attr(not(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64")), allow(dead_code))]
+struct BatchStreamRow {
+    duration: f64,
+    written: f64,
+    repetition: RepetitionGuard,
+}
+
+impl GenerationObserver for BatchStream<'_, '_> {
+    fn observe(&mut self, row: usize, segments: &[MossOutputSegment]) -> bool {
+        let state = &mut self.rows[row];
+        for segment in segments {
+            if state.repetition.observe(segment) {
+                return true;
+            }
+            let (live, _) = preview_segment(segment);
+            if live.end.is_finite() {
+                state.written = state.written.max(live.end.min(state.duration));
+            }
         }
-        self.covered = covered;
-        if let Some(callback) = self.callbacks.on_progress.as_deref_mut() {
-            callback(self.covered, self.total_duration);
-        }
+        let written = self.rows.iter().map(|row| row.written).sum::<f64>();
+        let to = (self.start_seconds + written).min(self.total_duration);
+        advance_covered(&mut self.covered, self.total_duration, self.callbacks, to);
+        false
+    }
+
+    fn cancelled(&mut self) -> bool {
+        self.callbacks.cancelled()
     }
 }
 
@@ -374,6 +440,61 @@ struct Piece<'a> {
     planned: Option<usize>,
 }
 
+impl<'a> Piece<'a> {
+    fn duration(&self) -> f64 {
+        self.samples.len() as f64 / SAMPLE_RATE as f64
+    }
+
+    /// 分块驱动里一块音频的身份：都是同一段音频的切片，起点与长度定下它。
+    #[cfg_attr(not(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64")), allow(dead_code))]
+    fn key(&self) -> (usize, usize) {
+        (self.samples.as_ptr() as usize, self.samples.len())
+    }
+
+    fn request(&self, chunk_seconds: f64) -> ChunkRequest<'a> {
+        ChunkRequest {
+            samples: self.samples,
+            planned: self.planned,
+            max_tokens: MossGenerationPlan::make_with_chunk_duration(self.duration(), chunk_seconds).max_tokens,
+        }
+    }
+}
+
+/// 分块驱动跨块的进度。
+struct DriveProgress {
+    total_duration: f64,
+    covered: f64,
+    preview_floor: f64,
+    previewed: f64,
+}
+
+/// 只生成这一块：实时段落、覆盖进度都走 [`StreamState`]。
+fn generate_piece<G>(
+    piece: &Piece<'_>,
+    chunk_seconds: f64,
+    progress: &mut DriveProgress,
+    callbacks: &mut MossCallbacks<'_>,
+    generate: &mut G,
+) -> Result<ChunkGeneration>
+where
+    G: FnMut(ChunkRequest<'_>, &mut StreamState<'_, '_>) -> Result<ChunkGeneration>,
+{
+    let mut stream = StreamState {
+        callbacks,
+        offset_seconds: piece.offset_seconds,
+        chunk_duration: piece.duration(),
+        total_duration: progress.total_duration,
+        covered: progress.covered,
+        preview_floor: progress.preview_floor,
+        previewed: progress.previewed,
+        repetition: RepetitionGuard::default(),
+    };
+    let generation = generate(piece.request(chunk_seconds), &mut stream)?;
+    progress.covered = stream.covered;
+    progress.previewed = stream.previewed;
+    Ok(generation)
+}
+
 /// 分块转录循环（v2 里 mlx 与 candle 两个后端共用）。`generate` 对一块音频跑一次生成，
 /// 返回原始输出、实际生成的 token 数与停止原因。
 ///
@@ -386,6 +507,7 @@ struct Piece<'a> {
 ///
 /// 每个初始分块（连同为它重切出来的子块）全部收下之后交给 `callbacks.on_chunk` 一条 [`ChunkProgress`]；
 /// `callbacks.resume` 给了上次收下的初始分块时，与这次的分块计划逐块对得上就原样放回、从下一块接着生成（架构设计 §6.6）。
+#[cfg_attr(not(feature = "backend-candle"), allow(dead_code))]
 pub(crate) fn transcribe_chunks<'a, G>(
     audio: &'a [f32],
     chunks: &[AudioChunk<'a>],
@@ -396,14 +518,101 @@ pub(crate) fn transcribe_chunks<'a, G>(
 where
     G: FnMut(ChunkRequest<'_>, &mut StreamState<'_, '_>) -> Result<ChunkGeneration>,
 {
+    drive_pieces(audio, chunks, chunk_seconds, callbacks, |piece, _pending, progress, callbacks| {
+        generate_piece(piece, chunk_seconds, progress, callbacks, &mut generate)
+    })
+}
+
+/// 同 [`transcribe_chunks`]，但一次最多生成 `batch_rows` 块：轮到一块还没有结果时，把它与后面还没生成的几块一起交给
+/// `generate`。结果仍然按时间顺序逐块收下，所以块的取舍、重切、说话人编号与 `on_chunk` 都与一块一块生成时相同；
+/// 只是生成先于收下，一次失败或取消丢掉的是这一批。要实时段落时一次只生成一块。
+#[cfg_attr(not(all(feature = "backend-mlx", target_os = "macos", target_arch = "aarch64")), allow(dead_code))]
+pub(crate) fn transcribe_chunks_batched<'a, G>(
+    audio: &'a [f32],
+    chunks: &[AudioChunk<'a>],
+    chunk_seconds: f64,
+    batch_rows: usize,
+    callbacks: &mut MossCallbacks<'_>,
+    mut generate: G,
+) -> Result<MossTranscription>
+where
+    G: FnMut(Vec<ChunkRequest<'_>>, &mut dyn GenerationObserver) -> Result<Vec<ChunkGeneration>>,
+{
+    let batch_rows = match callbacks.on_segment {
+        Some(_) => 1,
+        None => batch_rows.max(1),
+    };
+    let mut ready: HashMap<(usize, usize), ChunkGeneration> = HashMap::new();
+    drive_pieces(audio, chunks, chunk_seconds, callbacks, |piece, pending, progress, callbacks| {
+        if let Some(generation) = ready.remove(&piece.key()) {
+            return Ok(generation);
+        }
+        if batch_rows == 1 {
+            return generate_piece(piece, chunk_seconds, progress, callbacks, &mut |request, stream| {
+                generate(vec![request], stream)?.pop().context("the generator returned no output")
+            });
+        }
+        // 栈顶是时间上最早的：跟在它后面的是栈里从上往下的几块。
+        let rows: Vec<&Piece<'a>> = std::iter::once(piece)
+            .chain(
+                pending
+                    .iter()
+                    .rev()
+                    .filter(|next| !ready.contains_key(&next.key()))
+                    .take(batch_rows - 1),
+            )
+            .collect();
+        let mut stream = BatchStream {
+            callbacks,
+            total_duration: progress.total_duration,
+            start_seconds: piece.offset_seconds,
+            covered: progress.covered,
+            rows: rows
+                .iter()
+                .map(|row| BatchStreamRow {
+                    duration: row.duration(),
+                    written: 0.0,
+                    repetition: RepetitionGuard::default(),
+                })
+                .collect(),
+        };
+        let requests = rows.iter().map(|row| row.request(chunk_seconds)).collect();
+        let generations = generate(requests, &mut stream)?;
+        progress.covered = stream.covered;
+        if generations.len() != rows.len() {
+            bail!("the generator returned {} outputs for {} rows", generations.len(), rows.len());
+        }
+        let mut generations = generations.into_iter();
+        let first = generations.next().context("the generator returned no output")?;
+        for (row, generation) in rows[1..].iter().zip(generations) {
+            ready.insert(row.key(), generation);
+        }
+        Ok(first)
+    })
+}
+
+/// 分块驱动本体：按时间顺序取一块，`produce` 给出它的生成结果（`pending` 是还在等的块，栈顶最早），然后收下或重切。
+fn drive_pieces<'a, P>(
+    audio: &'a [f32],
+    chunks: &[AudioChunk<'a>],
+    chunk_seconds: f64,
+    callbacks: &mut MossCallbacks<'_>,
+    mut produce: P,
+) -> Result<MossTranscription>
+where
+    P: FnMut(&Piece<'a>, &[Piece<'a>], &mut DriveProgress, &mut MossCallbacks<'_>) -> Result<ChunkGeneration>,
+{
     let total_duration = audio.len() as f64 / SAMPLE_RATE as f64;
     let mut result = MossTranscription::default();
     let mut texts = Vec::new();
     let mut next_cluster = 0;
     let mut accepted_pieces = 0;
-    let mut covered = 0.0_f64;
-    let mut preview_floor = 0.0_f64;
-    let mut previewed = 0.0_f64;
+    let mut progress = DriveProgress {
+        total_duration,
+        covered: 0.0,
+        preview_floor: 0.0,
+        previewed: 0.0,
+    };
     let resume = callbacks.resume;
     let resumed = match resume_matches(resume, chunks) {
         true => resume.len(),
@@ -420,14 +629,14 @@ where
         texts.extend(done.texts.iter().cloned());
         next_cluster = done.next_cluster;
         accepted_pieces = done.accepted_pieces;
-        covered = done.covered;
-        previewed = done.previewed;
-        preview_floor = done.preview_floor;
+        progress.covered = done.covered;
+        progress.previewed = done.previewed;
+        progress.preview_floor = done.preview_floor;
     }
     if resumed > 0
         && let Some(callback) = callbacks.on_progress.as_deref_mut()
     {
-        callback(covered, total_duration);
+        callback(progress.covered, total_duration);
     }
     // 后进先出：重切出来的两半压回栈顶，先于后面的块处理，时间顺序不乱。
     let mut pending = chunks
@@ -450,26 +659,9 @@ where
         if callbacks.cancelled() {
             return Err(anyhow::Error::from(SegmentingCancelled));
         }
-        let piece_duration = piece.samples.len() as f64 / SAMPLE_RATE as f64;
+        let piece_duration = piece.duration();
         let plan = MossGenerationPlan::make_with_chunk_duration(piece_duration, chunk_seconds);
-        let mut stream = StreamState {
-            callbacks,
-            offset_seconds: piece.offset_seconds,
-            chunk_duration: piece_duration,
-            total_duration,
-            covered,
-            preview_floor,
-            previewed,
-            repetition: RepetitionGuard::default(),
-        };
-        let generation = generate(
-            ChunkRequest {
-                samples: piece.samples,
-                planned: piece.planned,
-                max_tokens: plan.max_tokens,
-            },
-            &mut stream,
-        )?;
+        let generation = produce(&piece, &pending, &mut progress, callbacks)?;
         result.generation_tokens += generation.token_count;
         let mut segments = MossOutputParser::parse(&generation.text);
         let last_end = segments.iter().map(|segment| segment.end).fold(0.0_f64, f64::max);
@@ -481,9 +673,7 @@ where
         };
         if needs_recovery {
             if let Some(cut) = split_in_half_at_low_energy(piece.samples, MIN_RETRY_PIECE_SECONDS) {
-                covered = stream.covered;
-                previewed = stream.previewed;
-                preview_floor = preview_floor.max(previewed);
+                progress.preview_floor = progress.preview_floor.max(progress.previewed);
                 let (first, second) = piece.samples.split_at(cut);
                 pending.push(Piece {
                     samples: second,
@@ -518,9 +708,8 @@ where
             ));
         }
         // 块已生成完，覆盖进度至少推进到块尾，避免空块导致进度停滞。
-        stream.advance((piece.offset_seconds + piece_duration).min(total_duration));
-        covered = stream.covered;
-        previewed = stream.previewed;
+        let piece_end = (piece.offset_seconds + piece_duration).min(total_duration);
+        advance_covered(&mut progress.covered, total_duration, callbacks, piece_end);
         let mut adapted = adapt_output(&segments, piece_duration, true);
         let local_cluster_count = adapted.speaker_ranges.iter().map(|range| range.cluster + 1).max().unwrap_or(0);
         for row in &mut adapted.rows {
@@ -560,9 +749,10 @@ where
                 generation_tokens: result.generation_tokens - current.generation_tokens,
                 next_cluster,
                 accepted_pieces,
-                covered,
-                previewed,
-                preview_floor,
+                // 收下到这一块为止；一批里的进度可能已经报到后面的块，那些还没有收下。
+                covered: piece_end,
+                previewed: progress.previewed,
+                preview_floor: progress.preview_floor,
             });
         }
     }
@@ -1184,6 +1374,196 @@ mod tests {
         assert_eq!(resumed.text, whole.text);
         assert_eq!(resumed.warnings, whole.warnings);
         assert_eq!(resumed.generation_tokens, whole.generation_tokens);
+    }
+
+    /// 与 [`run_three_chunks`] 同一组块，一次生成至多 `batch_rows` 块。返回结果、`on_chunk` 收到的记录、每一批的
+    /// `planned`（重切的子块是 `None`）与进度。
+    fn run_three_chunks_batched(
+        batch_rows: usize,
+        resume: &[ChunkProgress],
+        crash_at: Option<usize>,
+    ) -> (Result<MossTranscription>, Vec<ChunkProgress>, Vec<Vec<Option<usize>>>, Vec<f64>) {
+        let audio = vec![0.1_f32; SAMPLE_RATE * 362];
+        let chunks = vec![
+            AudioChunk {
+                samples: &audio[..SAMPLE_RATE * 100],
+                offset_seconds: 0.0,
+            },
+            AudioChunk {
+                samples: &audio[SAMPLE_RATE * 100..SAMPLE_RATE * 262],
+                offset_seconds: 100.0,
+            },
+            AudioChunk {
+                samples: &audio[SAMPLE_RATE * 262..],
+                offset_seconds: 262.0,
+            },
+        ];
+        let mut records = Vec::new();
+        let mut batches = Vec::new();
+        let mut progress = Vec::new();
+        let mut on_chunk = |chunk: &ChunkProgress| records.push(chunk.clone());
+        let mut on_progress = |covered: f64, _total: f64| progress.push(covered);
+        let result = transcribe_chunks_batched(
+            &audio,
+            &chunks,
+            MossGenerationPlan::CHUNK_DURATION,
+            batch_rows,
+            &mut MossCallbacks {
+                resume,
+                on_chunk: Some(&mut on_chunk),
+                on_progress: Some(&mut on_progress),
+                ..MossCallbacks::default()
+            },
+            |requests, observer| {
+                batches.push(requests.iter().map(|request| request.planned).collect::<Vec<_>>());
+                let mut generations = Vec::new();
+                for (row, request) in requests.iter().enumerate() {
+                    if crash_at.is_some() && request.planned == crash_at {
+                        anyhow::bail!("the worker crashed");
+                    }
+                    let duration = seconds(request.samples);
+                    let exhausted = duration > 150.0;
+                    let output = match exhausted {
+                        true => raw(&[(0.0, 20.0, "one"), (20.0, 40.0, "two")]),
+                        false => raw(&[(0.0, duration / 2.0, "head"), (duration / 2.0, duration - 1.0, "tail")]),
+                    };
+                    assert!(!observer.observe(row, &MossOutputParser::parse(&output)));
+                    generations.push(ChunkGeneration {
+                        text: output,
+                        token_count: if exhausted { request.max_tokens } else { 900 },
+                        stop_reason: if exhausted {
+                            GenerationStopReason::TokenLimit
+                        } else {
+                            GenerationStopReason::Eos
+                        },
+                    });
+                }
+                Ok(generations)
+            },
+        );
+        (result, records, batches, progress)
+    }
+
+    #[test]
+    fn batched_generation_gives_the_same_result_and_records_as_one_chunk_at_a_time() {
+        let (whole, whole_records, _) = run_three_chunks(&[], None);
+        let whole = whole.unwrap();
+        for (batch_rows, expected) in [
+            (1, vec![vec![Some(0)], vec![Some(1)], vec![None], vec![None], vec![Some(2)]]),
+            // 第二块用满预算：重切出来的两半与还没生成的块再凑一批；已经有结果的第三块不重新生成。
+            (2, vec![vec![Some(0), Some(1)], vec![None, None], vec![Some(2)]]),
+            (3, vec![vec![Some(0), Some(1), Some(2)], vec![None, None]]),
+            (8, vec![vec![Some(0), Some(1), Some(2)], vec![None, None]]),
+        ] {
+            let (batched, records, batches, progress) = run_three_chunks_batched(batch_rows, &[], None);
+            let batched = batched.unwrap();
+            assert_eq!(batches, expected, "{batch_rows} rows");
+            assert_eq!(batched.rows, whole.rows, "{batch_rows} rows");
+            assert_eq!(batched.speaker_ranges, whole.speaker_ranges, "{batch_rows} rows");
+            assert_eq!(batched.text, whole.text, "{batch_rows} rows");
+            assert_eq!(batched.warnings, whole.warnings, "{batch_rows} rows");
+            assert_eq!(batched.generation_tokens, whole.generation_tokens, "{batch_rows} rows");
+            assert_eq!(records, whole_records, "{batch_rows} rows");
+            assert!(progress.windows(2).all(|pair| pair[1] > pair[0]), "{batch_rows} rows: {progress:?}");
+            assert_eq!(progress.last(), Some(&362.0), "{batch_rows} rows");
+        }
+    }
+
+    #[test]
+    fn a_failed_batch_keeps_earlier_records_and_resuming_finishes_with_the_same_result() {
+        let (whole, whole_records, _, _) = run_three_chunks_batched(2, &[], None);
+        let whole = whole.unwrap();
+        // 第三块在最后一批里，那时前两块（第二块连同它重切出来的两半）都已经收下。
+        let (crashed, records, _, _) = run_three_chunks_batched(2, &[], Some(2));
+        assert!(crashed.is_err());
+        assert_eq!(records, whole_records[..2]);
+
+        let (resumed, more, batches, _) = run_three_chunks_batched(2, &records, None);
+        let resumed = resumed.unwrap();
+        assert_eq!(batches, vec![vec![Some(2)]], "only the chunk that was not finished runs again");
+        assert_eq!(more, whole_records[2..]);
+        assert_eq!(resumed.rows, whole.rows);
+        assert_eq!(resumed.speaker_ranges, whole.speaker_ranges);
+        assert_eq!(resumed.text, whole.text);
+        assert_eq!(resumed.generation_tokens, whole.generation_tokens);
+    }
+
+    #[test]
+    fn live_segments_force_one_chunk_at_a_time() {
+        let audio = vec![0.1_f32; SAMPLE_RATE * 200];
+        let chunks = vec![
+            AudioChunk {
+                samples: &audio[..SAMPLE_RATE * 100],
+                offset_seconds: 0.0,
+            },
+            AudioChunk {
+                samples: &audio[SAMPLE_RATE * 100..],
+                offset_seconds: 100.0,
+            },
+        ];
+        let mut live = Vec::new();
+        let mut on_segment = |segment: &LiveSegment| live.push(segment.start);
+        let mut rows_seen = Vec::new();
+        transcribe_chunks_batched(
+            &audio,
+            &chunks,
+            MossGenerationPlan::CHUNK_DURATION,
+            8,
+            &mut MossCallbacks {
+                on_segment: Some(&mut on_segment),
+                ..MossCallbacks::default()
+            },
+            |requests, observer| {
+                rows_seen.push(requests.len());
+                let output = raw(&[(1.0, 90.0, "speech")]);
+                assert!(!observer.observe(0, &MossOutputParser::parse(&output)));
+                Ok(vec![ChunkGeneration {
+                    text: output,
+                    token_count: 30,
+                    stop_reason: GenerationStopReason::Eos,
+                }])
+            },
+        )
+        .unwrap();
+        assert_eq!(rows_seen, vec![1, 1]);
+        assert_eq!(live, vec![1.0, 101.0]);
+    }
+
+    #[test]
+    fn a_row_that_loops_is_reported_to_that_row_only() {
+        let mut progress = Vec::new();
+        let mut on_progress = |covered: f64, _total: f64| progress.push(covered);
+        let mut callbacks = MossCallbacks {
+            on_progress: Some(&mut on_progress),
+            ..MossCallbacks::default()
+        };
+        let row = |duration: f64| BatchStreamRow {
+            duration,
+            written: 0.0,
+            repetition: RepetitionGuard::default(),
+        };
+        let mut stream = BatchStream {
+            callbacks: &mut callbacks,
+            total_duration: 700.0,
+            start_seconds: 100.0,
+            covered: 100.0,
+            rows: vec![row(300.0), row(300.0)],
+        };
+        let looping = MossOutputParser::parse(&raw(&[(11.99, 11.99, "[Music]")]));
+        let fresh = MossOutputParser::parse(&raw(&[(0.0, 50.0, "speech")]));
+        let mut stopped = false;
+        for _ in 0..16 {
+            stopped |= GenerationObserver::observe(&mut stream, 0, &looping);
+        }
+        assert!(stopped, "the looping row must be stopped");
+        assert!(!GenerationObserver::observe(&mut stream, 1, &fresh), "the other row goes on");
+        // 第二行写到 50 秒：进度是这一批的起点加上各行之和，夹在块长与总长之内。
+        assert!(stream.covered >= 150.0, "{}", stream.covered);
+        let beyond = MossOutputParser::parse(&raw(&[(60.0, 5_000.0, "over")]));
+        GenerationObserver::observe(&mut stream, 1, &beyond);
+        assert!(stream.covered <= 700.0, "{}", stream.covered);
+        drop(stream);
+        assert!(progress.windows(2).all(|pair| pair[1] > pair[0]), "{progress:?}");
     }
 
     #[test]

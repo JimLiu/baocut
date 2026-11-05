@@ -10,5 +10,5 @@ mod weights;
 pub use audio_encoder::{AudioEncoderConfig, Qwen3AudioEncoder};
 pub use layers::{Dense, LayerNorm, QuantizedDense, gelu_same_dtype};
 pub use model::{Qwen3Asr, Qwen3Config, TokenizerFiles};
-pub use text_decoder::{KvCache, RopeTable, TextDecoder, TextDecoderConfig};
+pub use text_decoder::{BatchDecodeState, KvCache, RopeTable, TextDecoder, TextDecoderConfig};
 pub use weights::WeightStore;

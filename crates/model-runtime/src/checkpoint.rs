@@ -104,6 +104,7 @@ pub fn key(params: &JobRunParams, options: &TranscribeOptions, bundle: &Verified
             "candleDtype": std::env::var("BAOCUT_CANDLE_DTYPE").ok(),
             "mossQuant": std::env::var("BCUT_MOSS_QUANT").or_else(|_| std::env::var("BAOCUT_MOSS_QUANT")).ok(),
             "mossChunkSeconds": MossGenerationPlan::chunk_duration_from_env(std::env::var("BCUT_MOSS_CHUNK_SECONDS").ok().as_deref()),
+            "mossBatch": std::env::var("BCUT_MOSS_BATCH").ok(),
             "speakerMergeThreshold": moss_speakers::speaker_merge_threshold(),
         },
     });
