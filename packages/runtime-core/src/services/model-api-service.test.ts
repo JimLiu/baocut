@@ -398,14 +398,22 @@ describe('模型接口服务', () => {
     const { service } = await client.request('services.configure', { serviceId: 'model-api', routing: { online: true } });
     expect(service.modelApi!.routing).toEqual({ online: true, nodes: false, agent: false });
     const online = await modelIds(token);
-    expect(online).toEqual(expect.arrayContaining(['openai/gpt-4o-mini-tts', 'openai/gpt-image-1', 'openai/whisper-1']));
-    const single = await send(base, '/v1/models/openai/gpt-image-1', { token });
-    expect(single.json).toMatchObject({ id: 'openai/gpt-image-1', object: 'model', owned_by: 'openai' });
+    expect(online).toEqual(expect.arrayContaining([
+      'openai/gpt-4o-mini-tts',
+      'openai/gpt-image-2.6-sunburst',
+      'openai/gpt-image-2.6-flare',
+      'openai/gpt-image-2',
+      'openai/whisper-1',
+    ]));
+    expect(online).not.toContain('openai/gpt-image-1');
+    const single = await send(base, '/v1/models/openai/gpt-image-2.6-sunburst', { token });
+    expect(single.status).toBe(200);
+    expect(single.json).toMatchObject({ id: 'openai/gpt-image-2.6-sunburst', object: 'model', owned_by: 'openai' });
     expect(single.json.baocut.capability).toBe('generateImage');
 
     await client.request('services.configure', { serviceId: 'model-api', routing: { online: false } });
     expect((await modelIds(token)).some((id) => id.startsWith('openai/'))).toBe(false);
-    expect((await send(base, '/v1/models/openai/gpt-image-1', { token })).status).toBe(404);
+    expect((await send(base, '/v1/models/openai/gpt-image-2.6-sunburst', { token })).status).toBe(404);
     if (appleSilicon) {
       // 转写本机就有：在线模型按名请求是 404。
       const { body, contentType } = multipart({ model: 'openai/whisper-1' }, { name: 'a.wav', type: 'audio/wav', data: Buffer.alloc(64) });
@@ -444,6 +452,25 @@ describe('模型接口服务', () => {
       'whisper-1',
     ]);
     expect((await send(base, '/v1/audio/speech', { token, json: { model: 'my-voice', input: 'hi' } })).status).toBe(404);
+  });
+
+  it('retired image models are unavailable without creating jobs or contacting the provider', async () => {
+    const { token } = await issue();
+    await enableOnline();
+    const requestsBefore = openai.requests.length;
+    const jobsBefore = (await client.request('jobs.list', {})).jobs.length;
+
+    const detail = await send(base, '/v1/models/openai/gpt-image-1', { token });
+    expect(detail.status).toBe(404);
+    expect(detail.json.error).toMatchObject({ code: 'MODEL_NOT_FOUND', type: 'not_found_error' });
+    const generated = await send(base, '/v1/images/generations', {
+      token,
+      json: { model: 'openai/gpt-image-1', prompt: 'a cat' },
+    });
+    expect(generated.status).toBe(404);
+    expect(generated.json.error).toMatchObject({ code: 'MODEL_NOT_FOUND', type: 'not_found_error' });
+    expect(openai.requests).toHaveLength(requestsBefore);
+    expect((await client.request('jobs.list', {})).jobs).toHaveLength(jobsBefore);
   });
 
   it('语音、图片与文本：形状、Job 的提交者与生成记录；不支持的参数 400；未知模型 404', async () => {
@@ -489,7 +516,7 @@ describe('模型接口服务', () => {
 
     const image = await send(base, '/v1/images/generations', {
       token,
-      json: { model: 'openai/gpt-image-1', prompt: 'a cat', size: '1024x1024' },
+      json: { model: 'openai/gpt-image-2.6-sunburst', prompt: 'a cat', size: '1024x1024' },
     });
     expect(image.status).toBe(200);
     expect(image.json).toMatchObject({ created: expect.any(Number), data: [{ b64_json: expect.any(String) }] });
@@ -501,7 +528,7 @@ describe('模型接口服务', () => {
     });
     const url = await send(base, '/v1/images/generations', {
       token,
-      json: { model: 'openai/gpt-image-1', prompt: 'a cat', response_format: 'url' },
+      json: { model: 'openai/gpt-image-2.6-sunburst', prompt: 'a cat', response_format: 'url' },
     });
     expect(url.status).toBe(400);
     expect(url.json.error).toMatchObject({ code: 'UNSUPPORTED_PARAMETER', type: 'invalid_request_error' });
@@ -509,13 +536,13 @@ describe('模型接口服务', () => {
     const imageJobs = (await client.request('jobs.list', {})).jobs.length;
     const bigSeed = await send(base, '/v1/images/generations', {
       token,
-      json: { model: 'openai/gpt-image-1', prompt: 'a cat', seed: 2 ** 32 },
+      json: { model: 'openai/gpt-image-2.6-sunburst', prompt: 'a cat', seed: 2 ** 32 },
     });
     expect(bigSeed.status).toBe(400);
     expect(bigSeed.json.error).toMatchObject({ code: 'INVALID_REQUEST', message: expect.stringContaining('seed') });
     const onlineSteps = await send(base, '/v1/images/generations', {
       token,
-      json: { model: 'openai/gpt-image-1', prompt: 'a cat', steps: 20 },
+      json: { model: 'openai/gpt-image-2.6-sunburst', prompt: 'a cat', steps: 20 },
     });
     expect(onlineSteps.status).toBe(400);
     expect(onlineSteps.json.error).toMatchObject({ code: 'INVALID_REQUEST', message: expect.stringContaining('steps') });
