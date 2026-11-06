@@ -116,7 +116,7 @@ describe('成片设置', () => {
     });
   });
 
-  it('原视频比画布小：画布各档照列，补上原视频那一档并标原始、缺省选它，导出只给 height', () => {
+  it('原视频比画布小：画布各档照列，补上原视频那一档并标原始；缺省仍是画布那档，挑原视频那档才给 height', () => {
     const canvas = { width: 1920, height: 1080 };
     const choices = resolutionChoices(canvas, undefined, 360);
     expect(choices.map((c) => [c.label, c.width, c.height, c.source])).toEqual([
@@ -124,11 +124,13 @@ describe('成片设置', () => {
       ['720p', 1280, 720, false],
       ['360p', 640, 360, true],
     ]);
-    expect(pickResolution(choices, null)?.short).toBe(360);
-    expect(pickResolution(choices, 1080)?.short).toBe(1080);
-    // 挑过的档不在这次的列表里时落回原视频那档。
-    expect(pickResolution(choices, 2160)?.short).toBe(360);
-    expect(videoSettings(DEFAULT_VIDEO_FORM, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toEqual({ kind: 'video', format: 'mp4', height: 360, burnCaptions: true });
+    expect(choices.map((c) => c.canvas)).toEqual([true, false, false]);
+    expect(pickResolution(choices, null)?.short).toBe(1080);
+    expect(pickResolution(choices, 360)?.short).toBe(360);
+    // 挑过的档不在这次的列表里时落回画布那档。
+    expect(pickResolution(choices, 2160)?.short).toBe(1080);
+    expect(videoSettings(DEFAULT_VIDEO_FORM, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toEqual({ kind: 'video', format: 'mp4', burnCaptions: true });
+    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, short: 360 }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toEqual({ kind: 'video', format: 'mp4', height: 360, burnCaptions: true });
     // 挑回画布本来的尺寸：不带宽高。
     expect(videoSettings({ ...DEFAULT_VIDEO_FORM, short: 1080 }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toEqual({ kind: 'video', format: 'mp4', burnCaptions: true });
     expect(videoSettings({ ...DEFAULT_VIDEO_FORM, short: 720 }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toMatchObject({ height: 720 });
@@ -140,7 +142,7 @@ describe('成片设置', () => {
     ]);
   });
 
-  it('原视频与画布一样大或更大：原视频那档排第一、缺省选它，往下是更小的标准档', () => {
+  it('原视频与画布一样大或更大：原视频那档排第一，往下是更小的标准档；缺省是画布那档，4K 原片放进 1080p 画布也出 1080p', () => {
     const canvas = { width: 1920, height: 1080 };
     expect(resolutionChoices(canvas, undefined, 1080).map((c) => [c.label, c.source])).toEqual([
       ['1080p', true],
@@ -152,18 +154,19 @@ describe('成片设置', () => {
       ['1080p', 1920, 1080, false],
       ['720p', 1280, 720, false],
     ]);
-    expect(videoSettings(DEFAULT_VIDEO_FORM, canvas, {}, DEFAULT_LOUDNESS_FORM, 2160)).toMatchObject({ height: 2160 });
-    // 推出来超过输出上限的档不列（短边 5000 宽 8888），比它小的标准档照列，缺省落到第一档。
+    expect(videoSettings(DEFAULT_VIDEO_FORM, canvas, {}, DEFAULT_LOUDNESS_FORM, 2160)).toEqual({ kind: 'video', format: 'mp4', burnCaptions: true });
+    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, short: 2160 }, canvas, {}, DEFAULT_LOUDNESS_FORM, 2160)).toEqual({ kind: 'video', format: 'mp4', height: 2160, burnCaptions: true });
+    // 推出来超过输出上限的档不列（短边 5000 宽 8888），比它小的标准档照列，缺省仍是画布那档。
     const huge = resolutionChoices(canvas, undefined, 5000);
     expect(huge.map((c) => [c.label, c.source])).toEqual([
       ['4K', false],
       ['1080p', false],
       ['720p', false],
     ]);
-    expect(pickResolution(huge, null)?.short).toBe(2160);
+    expect(pickResolution(huge, null)?.short).toBe(1080);
   });
 
-  it('换画幅时原视频那档同样按短边推宽高并缺省选它', () => {
+  it('换画幅时原视频那档同样按短边推宽高；缺省是画布短边那档', () => {
     const canvas = { width: 1920, height: 1080 };
     const ratio = { key: '9:16' as const, w: 9, h: 16 };
     expect(resolutionChoices(canvas, ratio, 360).map((c) => [c.label, c.width, c.height, c.source])).toEqual([
@@ -171,7 +174,8 @@ describe('成片设置', () => {
       ['720p', 720, 1280, false],
       ['360p', 360, 640, true],
     ]);
-    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, ratio: '9:16' }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toMatchObject({ width: 360, height: 640 });
+    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, ratio: '9:16' }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toMatchObject({ width: 1080, height: 1920 });
+    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, ratio: '9:16', short: 360 }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toMatchObject({ width: 360, height: 640 });
   });
 
   it('原视频的分辨率：画进画面的视频实例按画布比例盖满裁切后量短边，取最大；隐藏、停用、别的轨独显时不算', () => {

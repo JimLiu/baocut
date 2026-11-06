@@ -116,7 +116,7 @@ export function ExportVideoTab({
                 onSelectionChange={(key) => {
                   if (key === null) return;
                   const pick = resolutions.find((r) => String(r.short) === String(key));
-                  set({ short: pick && !pick.source ? pick.short : null });
+                  set({ short: pick && !pick.canvas ? pick.short : null });
                 }}>
                 {resolutions.map((r) => (
                   <PickerItem key={r.short} id={String(r.short)} textValue={r.label}>

@@ -117,8 +117,10 @@ export interface ResolutionChoice {
   height: number;
   /** 「4K」「1080p」。 */
   label: string;
-  /** 原视频的分辨率（`sourceShortSide`）：标「原始分辨率」、缺省选它。不知道原视频多大时没有哪一项是。 */
+  /** 原视频的分辨率（`sourceShortSide`）：标「原始分辨率」。不知道原视频多大时没有哪一项是。 */
   source: boolean;
+  /** 画布本来的尺寸：没挑过时缺省选它（与智能体导出工具的缺省相同）。推出来超过输出上限、没有列出时没有哪一项是。 */
+  canvas: boolean;
 }
 
 /** 短边 → 展示名（设计稿 `resLabel`）：2160 念「4K」，其余念「{短边}p」。 */
@@ -168,20 +170,24 @@ export function resolutionChoices(canvas: { width: number; height: number }, rat
   const top = Math.max(shortSide, original ?? 0);
   const shorts = [...new Set([shortSide, ...(original ? [original] : []), ...STANDARD_SHORTS.filter((s) => s < top)])].sort((a, b) => b - a);
   const choice = (short: number): ResolutionChoice => {
-    const source = short === original;
-    if (ratio) return { short, ...outputSize(short, ratio), label: resolutionLabel(short), source };
-    if (short === shortSide) return { short, width: canvas.width, height: canvas.height, label: resolutionLabel(short), source };
+    const flags = { source: short === original, canvas: short === shortSide };
+    if (ratio) return { short, ...outputSize(short, ratio), label: resolutionLabel(short), ...flags };
+    if (short === shortSide) return { short, width: canvas.width, height: canvas.height, label: resolutionLabel(short), ...flags };
     const k = short / shortSide;
-    return { short, width: even(canvas.width * k), height: even(canvas.height * k), label: resolutionLabel(short), source };
+    return { short, width: even(canvas.width * k), height: even(canvas.height * k), label: resolutionLabel(short), ...flags };
   };
   return shorts
     .map(choice)
     .filter((c) => (!ratio && c.short === shortSide) || (c.width <= MAX_OUTPUT.width && c.height <= MAX_OUTPUT.height));
 }
 
-/** 表单挑的分辨率落到这次的列表上：挑过且还在列表里的那档；没挑过（或那档已经不在）是原视频那档，不知道原视频多大时是第一档。 */
+/**
+ * 表单挑的分辨率落到这次的列表上：挑过且还在列表里的那档；没挑过（或那档已经不在）是画布本来的尺寸，那档没列出时是第一档。
+ * 缺省不跟原视频走：4K 原片放进 1080p 画布时默认出 4K，硬件编码器在 4K 只有 1080p 三分之一的速度（M5 Max 实测 145 / 480 fps），
+ * 文件也大得多；要保留原片细节，在列表里挑「原始分辨率」那档。
+ */
 export function pickResolution(choices: readonly ResolutionChoice[], short: number | null): ResolutionChoice | null {
-  return (short !== null ? choices.find((c) => c.short === short) : undefined) ?? choices.find((c) => c.source) ?? choices[0] ?? null;
+  return (short !== null ? choices.find((c) => c.short === short) : undefined) ?? choices.find((c) => c.canvas) ?? choices[0] ?? null;
 }
 
 /** `exports.create` 的输出宽高上限（packages/protocol/src/schemas.ts）。 */
@@ -258,7 +264,7 @@ export function loudnessNote(form: LoudnessForm): string {
 
 export interface VideoForm {
   quality: QualityKey;
-  /** 选的短边；null 是原视频的分辨率（`sourceShortSide`），不知道时是画布本来的尺寸。 */
+  /** 选的短边；null 是画布本来的尺寸（`pickResolution`）。 */
   short: number | null;
   /** 换的画幅；null 是跟随画布。 */
   ratio: RatioKey | null;

@@ -205,10 +205,13 @@ test('resChoices：画布各档加原始分辨率，原始那项带标注；源�
   ]);
 });
 
-test('resolveShort：没挑过跟原始走，挑的档不在了夹回来', () => {
+test('resolveShort：没挑过是画布那档，挑的档不在了夹回来', () => {
   assert.equal(X.resolveShort(null, 1080), 1080);
-  assert.equal(X.resolveShort(null, 360), 360, '源比画布小：缺省仍是原始，不是第一档');
+  assert.equal(X.resolveShort(null, 2160), 1080, '源比画布大：缺省仍是画布，不跟原始走');
+  assert.equal(X.resolveShort(null, 360), 1080, '源比画布小：缺省仍是画布');
   assert.equal(X.resolveShort(null, null), 1080);
+  assert.equal(X.resolveShort(2160, 2160), 2160, '挑了原始那档就用它');
+  assert.equal(X.resolveShort(360, 360), 360);
   assert.equal(X.resolveShort(720, 1080), 720);
   assert.equal(X.resolveShort(1080, 360), 1080, '挑了比源高的画布档就用它');
   // 挑过 4K 之后换了个只有 1080 的源（或把画幅裁小了）：取不超过它的最大档。

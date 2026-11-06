@@ -153,7 +153,7 @@
     });
     const [ov, setOv] = useState({});                       // 这次导出的覆盖表
     const [expanded, setExpanded] = useState(false);
-    /* 分辨率：null = 还没挑过，跟着原始分辨率走（画幅一变源短边会缩，挑过的档也会跟着夹）。 */
+    /* 分辨率：null = 还没挑过，用画布本来那档（画幅一变源短边会缩，挑过的档会跟着夹）。 */
     const [resPick, setResPick] = useState(null);
     const [resOpen, setResOpen] = useState(false);
     const [ratio, setRatio] = useState(ctx.ratio === 'Original' ? '16:9' : ctx.ratio);
