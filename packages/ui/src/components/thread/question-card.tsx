@@ -74,7 +74,7 @@ const thumbImage = style({ display: 'block', maxWidth: '[240px]', maxHeight: '[1
 const player = style({ alignSelf: 'stretch', marginStart: 24, maxWidth: '[360px]', minWidth: 0 });
 const actions = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 });
 const hint = style({ margin: 0, font: 'ui-sm', color: 'gray-700' });
-/** 回答过的提问收成一行 quiet Disclosure，展开是每题与答案。 */
+/** Decided questions retain the original prompts and options alongside any recorded answers. */
 const decided = style({ marginStart: '[var(--bc-agent-indent, 36px)]', alignSelf: 'stretch' });
 const decidedTitle = style({ display: 'flex', alignItems: 'center', gap: 4, font: 'ui-sm', color: 'gray-600' });
 const decidedBody = style({ display: 'flex', flexDirection: 'column', gap: 8 });
@@ -83,7 +83,7 @@ const answerLine = style({ margin: 0, font: 'ui-sm', color: 'gray-800', overflow
 /**
  * 智能体的提问（产品设计 §6.6「提问」，原型 agent-thread.jsx `QuestionMsg`）：一道或几道选择题，Agent 停下来等。
  * 「发送回答」要每题都有答案；「跳过」按拒绝结束，Agent 自己拿主意。直接在输入框发消息也算回答（见 conversation-view）。
- * 回答之后卡片收成一行记录，展开是每题的答案。
+ * 回答之后卡片收成一行记录，展开是完整问题、选项与答案。
  */
 export const QuestionCard = memo(function QuestionCard({ item, conversationId }: { item: Approval; conversationId: string }) {
   const runtime = useRuntime();
@@ -107,7 +107,18 @@ export const QuestionCard = memo(function QuestionCard({ item, conversationId }:
           <div className={decidedBody}>
             {request.questions.map((q) => (
               <div key={q.id} className={block}>
+                {q.header ? <span className={chip}>{q.header}</span> : null}
                 <p className={prompt}>{q.question}</p>
+                {q.options.length > 0 ? (
+                  <div className={block} role="list" aria-label={q.question}>
+                    {q.options.map((option) => (
+                      <div key={option.label} className={optionText} role="listitem">
+                        <span>{option.label}</span>
+                        {option.description ? <span className={optionDesc}>{option.description}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {item.status === 'accepted' ? <p className={answerLine}>{questionAnswerText(item.answers, q.id)}</p> : null}
               </div>
             ))}
