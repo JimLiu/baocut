@@ -2,15 +2,15 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "cpu",
-  "version": "3.16.0",
-  "build": 88,
-  "date": "2026-11-04",
-  "notes": "Footage tools: Stabilize, upscale, interpolate, match colors and remove backgrounds from video, or separate audio into stems. Preview resource estimates and required downloads before starting. The optional IS-Net model is for non-commercial use only.\nEditing: Add audio and video tool results to a video, with undo; generated music can be placed as a music bed. Detect silence, stillness, adaptive shots and fades through agent and CLI tools.\nCharacter animation: A new agent skill provides reusable character rigs, cutout tools, motion checks and sound cues.\nmacOS access: BaoCut explains when Full Disk Access is needed and helps open System Settings for downloads and other protected files.\nFixes: Codex image jobs use the image generated in their own turn. Changed Codex executable paths and custom-provider sign-in are handled more accurately. OpenAI-compatible endpoints without a model list can be verified.\nTask and model settings: Text generation tasks show their instructions; model folder changes explain active blockers when attempted. Development CLI homes use the matching repository Runtime, and media analysis resolves asset paths correctly.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Electron 44.9.3 embeds Node 24.22.0 and does not include the October Node security fixes. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.16.1",
+  "build": 89,
+  "date": "2026-11-05",
+  "notes": "Export: Faster H.264 exports on macOS, especially on Macs with multiple video encoding engines.\nTranscription: Faster local MOSS transcription on Apple Silicon through pipelined and batched decoding; batching may produce small differences in wording, punctuation or segment boundaries.\nCodex: Handle closed input pipes and wait for process cleanup when connections fail.\nAudio timing: Fixed audio starting early after seeking in exports, transcription, analysis and footage processing, including previously cut files. ALAC stream-copy timing can still differ by a fraction of a packet.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Electron 44.9.3 embeds Node 24.22.0 and does not include the October Node security fixes. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.16.0-build.88/BaoCut-3.16.0-build.88-win-x64-setup.exe",
-    "size": 218119373,
-    "sha256": "f4834632dfb9d8dc603fe0a48fa346d8641c75f8897ef57c6456405e04926ce3"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.16.1-build.89/BaoCut-3.16.1-build.89-win-x64-setup.exe",
+    "size": 218118967,
+    "sha256": "802c6ec6d821c2238df77c3daefa84171574e08b4552b059e8fdc3f8f8db8f9d"
   }
 }
