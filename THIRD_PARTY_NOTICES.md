@@ -575,7 +575,7 @@ DEALINGS IN THE SOFTWARE.
 - 来源：LivLiv Player（https://github.com/livliv-dev/player）
 - 许可：Apache License, Version 2.0（全文见上文「Paseo」一节）
 
-内置 skill `virtual-host` 移植、改写了它的几处算法：`scripts/lipsync.mjs` 的人声频段音量包络（`speech.ts` 的 `envelope()`）、元音音色线索（`vowel.ts`）与音节起点判据（`talk.ts`），以及眨眼的快慢与间隔（`runtime/idle.ts`，`lipsync.mjs` 定时刻、`host-kit/host-kit.js` 画出来）。改动写在各文件开头与相应函数的注释里。BaoCut 没有使用、也不分发它 `characters/` 目录下的角色（那些不在 Apache-2.0 之内）。它的 NOTICE：
+内置 skill `virtual-host` 移植、改写了它的几处算法：`scripts/lipsync.mjs` 的人声频段音量包络（`speech.ts` 的 `envelope()`）、元音音色线索（`vowel.ts`）与音节起点判据（`talk.ts`），以及眨眼的间隔（`runtime/idle.ts`，`lipsync.mjs` 定时刻）。改动写在各文件开头与相应函数的注释里。BaoCut 没有使用、也不分发它 `characters/` 目录下的角色（那些不在 Apache-2.0 之内）。它的 NOTICE：
 
 ```text
 LivLiv Player

@@ -2,7 +2,7 @@
 
 # 主播代码包：HostKit 的画法与摆放
 
-[`host-kit/host-kit.js`](../host-kit/host-kit.js) 拷进代码包，读 `host-pack.mjs` 写的 `window.HOST_PACK` 与 `lipsync.mjs` 写的 `window.HOST_TRACK`，每帧在一张 Canvas 2D 上画底图，再按时间贴表情、眼睛、嘴的补丁。画面只由时间决定，满足 `baocut/1` 的要求，能走指令烘焙。
+[`host-kit/host-kit.js`](../host-kit/host-kit.js) 拷进代码包，读 `host-pack.mjs` 写的 `window.HOST_PACK` 与 `lipsync.mjs` 写的 `window.HOST_TRACK`，每帧在一张 Canvas 2D 上画底图（分好了头和身体时是身体加头），再按时间贴表情、眼睛、嘴的补丁。画面只由时间决定，满足 `baocut/1` 的要求，能走指令烘焙。
 
 ## 1. 最小的包
 
@@ -22,6 +22,7 @@ HostKit.film({ draw(ctx, t) { host.draw(ctx, t, { x: 1660, y: 1080, h: 440 }); }
 | `dir` | 图片路径的前缀，缺省 `'./'`。`host-data.js` 里的路径是 `pack/base.png` 这样，`index.html` 和 `pack/` 同级时不用改 |
 | `motion` | 点头、转向、呼吸、轻晃的幅度倍数，缺省 1；0.5 收一半，0 只眨眼和换口型 |
 | `idleBlink` | 时间轴以外（说话前 1 秒以前、说完 0.5 秒以后，或没给 `track`）每隔几秒眨一次眼，缺省 4，0 不眨 |
+| `rig` | `false` 时不分头和身体，整个角色一起动；缺省按角色包：`host-pack.mjs` 分好了头和身体（`pack.rig`）就分开动 |
 
 `track` 可以不给（`null`）：主播只眨眼、轻晃、不说话，用在开场或听别人说话的段落。
 
@@ -40,7 +41,14 @@ HostKit.film({ draw(ctx, t) { host.draw(ctx, t, { x: 1660, y: 1080, h: 440 }); }
 
 返回这一帧实际画的口型字母。
 
-角色包里缺某个口型时借最接近的：B→C、A；C→B、D、E；D→C、E、B；E→F、C、D；F→E、A；G→B、A；A→X（底图本身的嘴）。表情区间里不说话时，有和表情同名的嘴（`mouth.smile`）就用它，没有就用底图的嘴。表情补丁盖住眼睛时不眨眼。
+角色包里缺某个口型时借最接近的：B→C、A；C→B、D、E；D→C、E、B；E→F、C、D；F→E、A；G→B、A；A→X（底图本身的嘴）。表情区间里不说话时，有和表情同名的嘴（`mouth.smile`）就用它，没有就用底图的嘴。表情里照常眨眼，眨眼的补丁盖在表情补丁上面。
+
+一次眨眼约 0.23 秒：眼皮约 67 毫秒越合越快，闭住约 33 毫秒，再用约 133 毫秒越睁越慢；30 fps 下是半闭 1 帧、全闭 2 帧、半闭 2 帧。
+
+动作分两种：
+
+- 分好了头和身体（`pack.rig`）：点头、转向只动头，绕脖子根转、往下点；脖子上沿以上整块动，往下到脖子根逐渐不动，看起来是脖子在弯。身体只有呼吸的起伏和很轻的晃动，头跟着身体一起。
+- 没分（`rig: false`，或角色包没有 `rig`）：整个角色绕底边中点一起转、一起点头。
 
 ## 4. 摆放
 

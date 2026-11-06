@@ -20,8 +20,11 @@ const GAP_CLOSE = 0.15; // 字与字之间停顿超过 150 毫秒就闭嘴
 const PHRASE_GAP = 0.35; // 停顿超过这么久算新的一句
 const SILENT = 0.05, SILENT_RUN = 8; // 音量低于它连续 80 毫秒算静音
 const VOICELESS = 15; // 清辅音声母最长按 150 毫秒算
-const LOW_D = 0.35, LOW_C = 0.2; // 音量低于它：D 降成 C；C、D 降成 B，E 降成 F
-const MIN_HOLD = 2; // 每种口型至少停 2 帧（A 闭唇至少 1 帧）
+// 张多大跟音量走：音量分小、中、大三档，上下各留 0.04 的回差，免得在门槛附近来回跳
+const LEVELS = [0.25, 0.5], HYST = 0.04;
+// 读音给的口型在各档实际画哪张：D 小声是 B、中等是 C；C 小声是 B；E 小声是 F。其余口型不随音量变
+const BY_LEVEL = { D: ['B', 'C', 'D'], C: ['B', 'C', 'C'], E: ['F', 'E', 'E'] };
+const HOLD_S = 0.055; // 每种口型至少停 55 毫秒（30 fps 是 2 帧；A 闭唇至少 1 帧）
 
 // ---------- 读音频 ----------
 export function decodeAudio(file, rate = 16000) {
@@ -247,10 +250,17 @@ const pickUnknown = (e, cue) => {
   return e > 0.65 ? 'D' : 'C';
 };
 
-function downgrade(shape, e) {
-  if (e < LOW_C) return shape === 'C' || shape === 'D' ? 'B' : shape === 'E' ? 'F' : shape;
-  if (e < LOW_D) return shape === 'D' ? 'C' : shape;
-  return shape;
+/** 每格音量的档位 0/1/2，带回差 */
+export function levelsOf(env, n) {
+  const out = new Uint8Array(n);
+  let lv = 0;
+  for (let i = 0; i < n; i++) {
+    const e = env[i] ?? 0;
+    while (lv < LEVELS.length && e >= LEVELS[lv] + HYST / 2) lv++;
+    while (lv > 0 && e < LEVELS[lv - 1] - HYST / 2) lv--;
+    out[i] = lv;
+  }
+  return out;
 }
 
 /** 细时间轴（10 毫秒一格）：读音给的口型，再按音量闭嘴、降档；读音不明的格子按音量与元音线索选 */
@@ -284,10 +294,11 @@ export function fineTimeline(units, n, env, cue, audioOnly = false) {
       }
       i = j;
     }
+    const lv = levelsOf(env, n);
     for (let i = 0; i < n; i++) {
       const e = env[i] ?? 0;
       if (fine[i] === '?') fine[i] = pickUnknown(e, cue ? cue[i] ?? 0 : 0);
-      else if (fine[i] !== 'X') fine[i] = downgrade(fine[i], e);
+      else if (BY_LEVEL[fine[i]]) fine[i] = BY_LEVEL[fine[i]][lv[i]];
     }
   } else {
     // 没有声音：读音不明的字按 0.12 秒一拍半开、微开交替
@@ -296,7 +307,7 @@ export function fineTimeline(units, n, env, cue, audioOnly = false) {
   return { fine, owner };
 }
 
-/** 细时间轴量化到视频帧：每帧取占时最长的口型；A 闭唇不会被并掉，其余口型至少停 MIN_HOLD 帧 */
+/** 细时间轴量化到视频帧：每帧取占时最长的口型；A 闭唇不会被并掉，其余口型至少停 55 毫秒；大跨度的开合中间补一帧过渡 */
 export function quantize(fine, fps, frames) {
   const shapes = new Array(frames).fill('X'), mustA = new Uint8Array(frames);
   const acc = new Map();
@@ -319,22 +330,48 @@ export function quantize(fine, fps, frames) {
     if (j - i >= 2) { const f = Math.floor((((i + j) / 2) * STEP) * fps); if (f < frames) { mustA[f] = 1; shapes[f] = 'A'; } }
     i = j;
   }
-  // 过短的段并进相邻、张得更开的那段
+  const hold = Math.max(1, Math.ceil(HOLD_S * fps - 1e-6));
+  const runsOf = () => {
+    const out = [];
+    for (let f = 0; f < frames;) { let g = f; while (g < frames && shapes[g] === shapes[f]) g++; out.push([f, g]); f = g; }
+    return out;
+  };
+  // 过短的段：夹在两段中间、比两边都闭（或都开）的，从两边够长的段借帧补到 hold，保住这一下开合；
+  // 借不到、或者只是从小到大一路过去的中间档，并进相邻、张得更开的那段
   for (let guard = 0; guard < frames; guard++) {
-    const runs = [];
-    for (let f = 0; f < frames;) { let g = f; while (g < frames && shapes[g] === shapes[f]) g++; runs.push([f, g]); f = g; }
+    const runs = runsOf();
     let pick = -1;
     for (let r = 0; r < runs.length; r++) {
       const [f, g] = runs[r];
-      if (g - f >= MIN_HOLD || (shapes[f] === 'A' && mustA.subarray(f, g).some(Boolean))) continue;
+      if (g - f >= hold || (shapes[f] === 'A' && mustA.subarray(f, g).some(Boolean))) continue;
       if (runs.length === 1) break;
       if (pick < 0 || g - f < runs[pick][1] - runs[pick][0]) pick = r;
     }
     if (pick < 0) break;
     const [f, g] = runs[pick], prev = runs[pick - 1], next = runs[pick + 1];
-    const ps = prev ? shapes[prev[0]] : null, ns = next ? shapes[next[0]] : null;
+    const ps = prev ? shapes[prev[0]] : null, ns = next ? shapes[next[0]] : null, o = OPEN[shapes[f]];
+    if (prev && next && ((o < OPEN[ps] && o < OPEN[ns]) || (o > OPEN[ps] && o > OPEN[ns]))) {
+      let a = f, b = g, pl = prev[1] - prev[0], nl = next[1] - next[0];
+      while (b - a < hold) {
+        const canP = pl > hold && !mustA[a - 1], canN = nl > hold && !mustA[b];
+        if (canP && (!canN || pl >= nl)) { a--; pl--; } else if (canN) { b++; nl--; } else break;
+      }
+      if (b - a >= hold) { for (let k = a; k < b; k++) shapes[k] = shapes[f]; continue; }
+    }
     const into = ps == null ? ns : ns == null ? ps : OPEN[ns] > OPEN[ps] ? ns : ps;
     for (let k = f; k < g; k++) shapes[k] = into;
+  }
+  // 一下从闭嘴到大张（或从噘嘴到张开）时中间补一帧过渡：闭与 D 之间是 C，F 与 C、D 之间是 E。
+  // 两边都比 hold 长时才补，由张得更开的一边让出一帧（张嘴时先过渡再张满，闭嘴时先收一点再闭上）
+  const closed = s => s === 'X' || s === 'A' || s === 'B' || s === 'G';
+  const tween = (p, q) => ((closed(p) && q === 'D') || (p === 'D' && closed(q)) ? 'C'
+    : (p === 'F' && (q === 'C' || q === 'D')) || ((p === 'C' || p === 'D') && q === 'F') ? 'E' : null);
+  const runs = runsOf();
+  for (let r = 0; r + 1 < runs.length; r++) {
+    const L = runs[r], R = runs[r + 1], t = tween(shapes[L[0]], shapes[R[0]]);
+    if (!t || L[1] - L[0] <= hold || R[1] - R[0] <= hold) continue;
+    if (OPEN[shapes[L[0]]] > OPEN[shapes[R[0]]] && !mustA[L[1] - 1]) { L[1]--; shapes[L[1]] = t; }
+    else if (!mustA[R[0]]) { shapes[R[0]] = t; R[0]++; }
   }
   return shapes;
 }
@@ -375,8 +412,8 @@ function onsetsOf(env) {
 
 function motion(units, env, phrases, dur, seed) {
   const R = rng(seed);
-  // 眨眼：闭 75 毫秒、睁 120 毫秒由代码包画；这里只定时刻。每句说完停顿时必眨一次，其余 1.8–5.6 秒一次，六次里约一次连眨
-  // （间隔与连眨的比例取自 LivLiv runtime/idle.ts）
+  // 眨眼：一次眨多快由代码包画（约 0.23 秒），这里只定时刻。每句说完停顿时必眨一次，其余 1.8–5.6 秒一次（间隔取自
+  // LivLiv runtime/idle.ts），约七次里一次连眨，第二下隔 0.3 秒
   const forced = [];
   phrases.forEach((p, k) => {
     const next = phrases[k + 1];
@@ -387,7 +424,7 @@ function motion(units, env, phrases, dur, seed) {
   for (let t = 0.6 + R() * 1.5; t < dur; t += 1.8 + R() * 3.8) {
     if (near(t, 1)) continue;
     blinks.push(t);
-    if (R() < 0.18) blinks.push(t + 0.28);
+    if (R() < 0.15) blinks.push(t + 0.3);
   }
   const kept = blinks.filter(t => t < dur - 0.2).sort((a, b) => a - b).filter((t, i, a) => i === 0 || t - a[i - 1] >= 0.25);
   // 点头：每句第一个音节点一下，其余音节三成五的概率轻点，两次至少隔 0.35 秒

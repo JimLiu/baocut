@@ -196,6 +196,157 @@ export function makePatch(base, variant, box, feather = 8) {
   return { patch: out, offset, colourMatched: usable };
 }
 
+// ---------- 嘴的大小 ----------
+/**
+ * 改图里的嘴有多大：框里和皮肤颜色不同的像素连成块，碰到框边的（鼻子、下巴、脸的轮廓线）和零碎的小点不算，
+ * 取剩下的外框宽高与像素数。皮肤颜色取定妆照框边一圈的中位数
+ */
+export function mouthSize(base, variant, box) {
+  const [bx, by, bw, bh] = box;
+  const ring = [[], [], []];
+  for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) {
+    if (Math.min(x - bx, y - by, bx + bw - 1 - x, by + bh - 1 - y) >= 3) continue;
+    const i = (y * base.w + x) * 4;
+    if (base.d[i + 3] < 200) continue;
+    for (let k = 0; k < 3; k++) ring[k].push(base.d[i + k]);
+  }
+  const med = l => { const s = [...l].sort((a, b) => a - b); return s[s.length >> 1] ?? 0; };
+  const skin = ring.map(med);
+  const mask = new Uint8Array(bw * bh);
+  for (let j = 0; j < bh; j++) for (let i = 0; i < bw; i++) {
+    const p = ((by + j) * variant.w + bx + i) * 4;
+    if (variant.d[p + 3] < 128) continue;
+    let d = 0;
+    for (let k = 0; k < 3; k++) d = Math.max(d, Math.abs(variant.d[p + k] - skin[k]));
+    if (d > 60) mask[j * bw + i] = 1;
+  }
+  const label = new Int32Array(bw * bh).fill(-1), comps = [], queue = new Int32Array(bw * bh);
+  for (let p = 0; p < bw * bh; p++) {
+    if (!mask[p] || label[p] >= 0) continue;
+    let head = 0, tail = 0, x0 = bw, y0 = bh, x1 = -1, y1 = -1, n = 0;
+    label[p] = comps.length; queue[tail++] = p;
+    while (head < tail) {
+      const q = queue[head++], x = q % bw, y = (q - x) / bw;
+      n++;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (const r of [x > 0 ? q - 1 : -1, x < bw - 1 ? q + 1 : -1, y > 0 ? q - bw : -1, y < bh - 1 ? q + bw : -1]) {
+        if (r >= 0 && mask[r] && label[r] < 0) { label[r] = comps.length; queue[tail++] = r; }
+      }
+    }
+    if (x0 > 0 && y0 > 0 && x1 < bw - 1 && y1 < bh - 1) comps.push({ x0, y0, x1, y1, n });
+  }
+  if (!comps.length) return null;
+  const big = Math.max(...comps.map(c => c.n));
+  const keep = comps.filter(c => c.n >= Math.max(4, big * 0.03));
+  const x0 = Math.min(...keep.map(c => c.x0)), y0 = Math.min(...keep.map(c => c.y0));
+  const x1 = Math.max(...keep.map(c => c.x1)), y1 = Math.max(...keep.map(c => c.y1));
+  return { w: x1 - x0 + 1, h: y1 - y0 + 1, area: keep.reduce((n, c) => n + c.n, 0) };
+}
+
+/**
+ * 嘴成不成梯度：B、C、D 一级比一级开，D 不至于像大笑，E 比 D 窄，F 整体比 E 小又不是一个点。
+ * 只给提示（模型不会照比例画），返回英文的说明列表
+ */
+export function mouthLadder(sizes) {
+  const out = [], s = sizes;
+  const ratio = (a, b, k) => s[a] && s[b] && s[a][k] / Math.max(1, s[b][k]);
+  if (s.B && s.C && ratio('C', 'B', 'h') < 1.15) out.push(`C opens barely more than B (height ${s.C.h} vs ${s.B.h}): draw B as a narrow gap or C more open`);
+  if (s.C && s.D && ratio('D', 'C', 'h') < 1.15) out.push(`D opens barely more than C (height ${s.D.h} vs ${s.C.h}): draw D wider open`);
+  if (s.C && s.D && ratio('D', 'C', 'h') > 2) out.push(`D opens ${ratio('D', 'C', 'h').toFixed(1)}x as tall as C (a laugh rather than talking?): draw D less open, or C more open`);
+  if (s.D && s.E && ratio('E', 'D', 'w') >= 1) out.push(`E is as wide as D (${s.E.w} vs ${s.D.w}): round it into a narrower oval`);
+  // 噘嘴连嘴唇一起量，外框可以比 E 宽；整体（宽 × 高）要比 E 小
+  if (s.E && s.F && s.F.w * s.F.h >= s.E.w * s.E.h) out.push(`F is not smaller than E (${s.F.w}x${s.F.h} vs ${s.E.w}x${s.E.h}): draw F as a smaller pucker`);
+  if (s.D && s.F && ratio('F', 'D', 'w') < 0.3) out.push(`F is only ${Math.round(ratio('F', 'D', 'w') * 100)}% as wide as D (a dot): draw a pucker with visible lips`);
+  if (s.C && s.F && ratio('F', 'C', 'area') > 1.2) out.push(`F is larger than C: draw F as a small pucker`);
+  return out;
+}
+
+// ---------- 头和身体 ----------
+// 抠底留下的半透明毛边不算前景，免得把头和肩膀连起来
+const SOLID = 64;
+
+/** 第 y 行里包住 x 的那一段前景 [左, 右]；x 处透明时 null */
+function runAt(im, x, y) {
+  const a = i => im.d[(y * im.w + i) * 4 + 3] > SOLID;
+  if (x < 0 || x >= im.w || y < 0 || y >= im.h || !a(x)) return null;
+  let l = x, r = x;
+  while (l > 0 && a(l - 1)) l--;
+  while (r < im.w - 1 && a(r + 1)) r++;
+  return [l, r];
+}
+
+/**
+ * 头和身体从哪里分开：从嘴往下，前景先收窄成脖子，再在肩膀处突然变宽。返回
+ * { neck: [ya, yb], pivot: [x, yb] }：ya 以上整个头一起动，ya..yb 的脖子渐渐弯过去，yb 往下是身体；
+ * 找不到时 { reason }。补丁落在 ya..yb 里的那几行跟着脖子一起弯
+ */
+export function findNeck(base, mouthBox) {
+  const cx = Math.round(mouthBox[0] + mouthBox[2] / 2);
+  const width = y => { const r = runAt(base, cx, y); return r ? r[1] - r[0] + 1 : 0; };
+  let face = 0;
+  for (let y = mouthBox[1]; y < Math.min(base.h, mouthBox[1] + mouthBox[3]); y++) face = Math.max(face, width(y));
+  let min = Infinity, minY = -1, shoulder = -1;
+  for (let y = Math.round(mouthBox[1] + mouthBox[3] / 2); y < base.h; y++) {
+    const w = width(y);
+    if (!w) return { reason: 'the figure has a gap below the mouth' };
+    if (w < min) { min = w; minY = y; }
+    if (min <= face * 0.8 && w >= min * 1.5) { shoulder = y; break; }
+  }
+  if (shoulder < 0) return { reason: 'no neck: the figure does not narrow below the face and widen again at the shoulders' };
+  const yb = shoulder - 1;
+  let top = minY;
+  while (top > mouthBox[1] && width(top - 1) <= min * 1.15) top--;
+  const band = Math.max(6, Math.round(base.h * 0.015));
+  const ya = Math.max(mouthBox[1], Math.min(top, yb - band));
+  const r = runAt(base, cx, yb);
+  return { neck: [ya, yb], pivot: [r ? (r[0] + r[1]) / 2 : cx, yb] };
+}
+
+/**
+ * 按 findNeck 的结果把定妆照拆成头和身体两张图：头是 yb 以上、和脸连着的前景，身体是其余部分。
+ * 头碰到 yb 以上别的前景（头发搭在肩上）时拆不开，返回 { reason }
+ */
+export function splitHead(base, rig, seed) {
+  const [, yb] = rig.neck;
+  const { w } = base, n = w * yb, inHead = new Uint8Array(w * base.h);
+  const queue = new Int32Array(n);
+  const s = seed[1] * w + seed[0];
+  if (seed[1] >= yb || base.d[s * 4 + 3] <= SOLID) return { reason: 'the face is not opaque at the mouth' };
+  let head = 0, tail = 0;
+  inHead[s] = 1; queue[tail++] = s;
+  while (head < tail) {
+    const q = queue[head++], x = q % w, y = (q - x) / w;
+    for (const r of [x > 0 ? q - 1 : -1, x < w - 1 ? q + 1 : -1, y > 0 ? q - w : -1, y < yb - 1 ? q + w : -1]) {
+      if (r >= 0 && !inHead[r] && base.d[r * 4 + 3] > SOLID) { inHead[r] = 1; queue[tail++] = r; }
+    }
+  }
+  // 头边上两像素内的半透明毛边归头
+  for (let pass = 0; pass < 2; pass++) {
+    const grow = [];
+    for (let p = 0; p < n; p++) {
+      if (inHead[p] || !base.d[p * 4 + 3]) continue;
+      const x = p % w, y = (p - x) / w;
+      if ((x > 0 && inHead[p - 1]) || (x < w - 1 && inHead[p + 1]) || (y > 0 && inHead[p - w]) || (y < yb - 1 && inHead[p + w])) grow.push(p);
+    }
+    for (const p of grow) inHead[p] = 1;
+  }
+  // 头的最下一行只该是脖子；比脖子宽得多说明连到了肩上
+  const neckRun = runAt(base, Math.round(rig.pivot[0]), yb - 1);
+  let last = 0;
+  for (let x = 0; x < w; x++) last += inHead[(yb - 1) * w + x] && base.d[((yb - 1) * w + x) * 4 + 3] > SOLID ? 1 : 0;
+  if (!neckRun || last > (neckRun[1] - neckRun[0] + 1) * 1.3) return { reason: 'the head touches the shoulders above the neck (hair over the shoulders?)' };
+  // 身体往上多留几行脖子垫在头的切边下面：两张图的切边各自抗锯齿，正好碰在一起时会透出一道浅线。
+  // 这几行跟着头动得极少（几乎不动），叠着看不出来
+  const lap = Math.max(4, Math.round(base.h * 0.006));
+  const headIm = blank(base.w, base.h), bodyIm = blank(base.w, base.h);
+  for (let p = 0; p < w * base.h; p++) {
+    const px = base.d.subarray(p * 4, p * 4 + 4);
+    if (inHead[p]) headIm.d.set(px, p * 4);
+    if (!inHead[p] || p >= (yb - lap) * w) bodyIm.d.set(px, p * 4);
+  }
+  return { head: headIm, body: bodyIm };
+}
+
 // ---------- 主流程 ----------
 // 嘴：A–G 是口型；别的名字（smile、grin）是同名表情不说话时的嘴
 const groupOf = (group, name) => {
@@ -255,6 +406,30 @@ export function run(manifestPath) {
     boxes[group] = box;
     report.groups[group] = { box, auto: !M.boxes?.[group] };
   }
+  // 嘴的大小梯度：只提示，不算要重画
+  const mouths = variants.filter(v => v.group === 'mouth' && MOUTH_NAMES.has(v.name));
+  if (boxes.mouth && mouths.length) {
+    report.mouthSizes = {};
+    for (const v of mouths) {
+      const m = mouthSize(base, v.im, boxes.mouth);
+      if (m) report.mouthSizes[v.name] = { w: m.w, h: m.h, area: m.area };
+    }
+    report.mouthLadder = mouthLadder(report.mouthSizes);
+  }
+  // 头和身体：从脖子处分开，说话时只动头。host.json 的 neck 可以给 [ya, yb]（定妆照的行），false 不拆
+  let rig = null, split = null;
+  if (M.neck !== false && boxes.mouth) {
+    if (Array.isArray(M.neck)) {
+      if (M.neck.length !== 2 || !(M.neck[0] < M.neck[1])) throw new Error('neck must be [ya, yb] in portrait rows, ya above yb');
+      const yb = Math.round(M.neck[1]), r = runAt(base, Math.round(boxes.mouth[0] + boxes.mouth[2] / 2), yb);
+      rig = { neck: [Math.round(M.neck[0]), yb], pivot: [r ? (r[0] + r[1]) / 2 : base.w / 2, yb] };
+    } else rig = findNeck(base, boxes.mouth);
+    if (rig.neck) {
+      split = splitHead(base, rig, [Math.round(boxes.mouth[0] + boxes.mouth[2] / 2), Math.round(boxes.mouth[1] + boxes.mouth[3] / 2)]);
+      if (split.reason) rig = { reason: split.reason };
+    }
+    report.rig = rig.neck ? { neck: rig.neck, pivot: rig.pivot.map(v => +v.toFixed(1)) } : { reason: rig.reason };
+  } else report.rig = { reason: M.neck === false ? 'neck: false in host.json' : 'no mouth variants to find the face by' };
   // 定妆照裁到主体外框（留 8 像素），补丁坐标跟着换
   const fg = alphaBox(base) ?? [0, 0, base.w, base.h];
   const frame = pad(fg, 8, base.w, base.h);
@@ -266,6 +441,21 @@ export function run(manifestPath) {
   const data = { version: 1, w: baseOut.w, h: baseOut.h, base: `${srcBase}base.png`, mouth: {}, eyes: {}, face: {}, boxes: {} };
   const place = b => [b[0] - frame[0], b[1] - frame[1], b[2], b[3]].map(v => Math.round(v * scale));
   for (const [g, b] of Object.entries(boxes)) data.boxes[g] = place(b);
+  if (rig?.neck) {
+    // 头和身体按整张缩放后再裁，和 base.png 逐像素对得上
+    const body = sz(crop(split.body, ...frame), frame[2], frame[3]);
+    const headFull = sz(crop(split.head, ...frame), frame[2], frame[3]);
+    const hb = alphaBox(headFull, 0);
+    writePng(path.join(outDir, 'body.png'), body);
+    writePng(path.join(outDir, 'head.png'), crop(headFull, ...hb));
+    const row = v => Math.round((v - frame[1]) * scale);
+    data.rig = {
+      body: `${srcBase}body.png`,
+      head: { src: `${srcBase}head.png`, x: hb[0], y: hb[1], w: hb[2], h: hb[3] },
+      neck: rig.neck.map(row),
+      pivot: [+((rig.pivot[0] - frame[0]) * scale).toFixed(1), row(rig.pivot[1])],
+    };
+  }
   const feather = M.feather ?? 8;
   for (const v of variants) {
     const box = boxes[v.group];
@@ -287,16 +477,32 @@ export function run(manifestPath) {
   }
   fs.writeFileSync(path.join(outDir, 'host-data.js'), `// virtual host pack built by host-pack.mjs from ${path.basename(manifestPath)}; positions are in base.png pixels\nwindow.${M.var ?? 'HOST_PACK'} = ${JSON.stringify(data)};\n`);
   fs.writeFileSync(path.join(outDir, 'pack-report.json'), JSON.stringify(report, null, 2));
-  proof(outDir, base, variants, boxes);
+  proof(outDir, base, variants, boxes, rig?.neck ? { ...rig, head: split.head } : null);
   return { outDir, data, report };
 }
 
+/** 核对用：头的部分染上蓝色，脖子弯曲的一段上下各画一条线（黄的在上、红的在下） */
+function rigView(base, rig) {
+  const im = crop(base, 0, 0, base.w, base.h), [ya, yb] = rig.neck;
+  for (let p = 0; p < base.w * base.h; p++) {
+    if (!rig.head.d[p * 4 + 3]) continue;
+    for (const [k, c] of [[0, 60], [1, 120], [2, 255]]) im.d[p * 4 + k] = im.d[p * 4 + k] * 0.6 + c * 0.4;
+  }
+  for (const [y, c] of [[ya, [240, 200, 0, 255]], [yb, [220, 40, 40, 255]]]) {
+    for (let t = -1; t <= 1; t++) for (let x = 0; x < base.w; x++) if (y + t >= 0 && y + t < base.h) im.d.set(c, ((y + t) * base.w + x) * 4);
+  }
+  return im;
+}
+
 // 核对图：每格是一张改图贴回定妆照后的脸部（框画在上面：绿的没问题，红的要重画），第一格是定妆照本身
-function proof(outDir, base, variants, boxes) {
+function proof(outDir, base, variants, boxes, rig) {
   const all = union(Object.values(boxes));
-  const view = pad(all, Math.round(Math.max(all[2], all[3]) * 0.25), base.w, base.h);
-  const cell = 256, ch = Math.round((cell * view[3]) / view[2]), cols = Math.min(4, variants.length + 1);
+  // 有头和身体的拆分时视野往下放到肩膀，最后一格给它
+  const want = rig ? union([all, [all[0], all[1], all[2], rig.neck[1] + 12 - all[1]]]) : all;
+  const view = pad(want, Math.round(Math.max(want[2], want[3]) * 0.25), base.w, base.h);
+  const cell = 256, ch = Math.round((cell * view[3]) / view[2]), cols = Math.min(4, variants.length + 1 + (rig ? 1 : 0));
   const cells = [{ name: 'portrait', im: base, ok: true, box: null }, ...variants.map(v => ({ name: `${v.group}-${v.name}`, im: v.composite, ok: !v.flags.length, box: boxes[v.group] }))];
+  if (rig) cells.push({ name: 'head (tinted: moves when nodding and turning; yellow to red: the neck bends)', im: rigView(base, rig), ok: true, box: null });
   const rows = Math.ceil(cells.length / cols), sheet = blank(cols * (cell + 8) + 8, rows * (ch + 8) + 8);
   for (let p = 0; p < sheet.w * sheet.h; p++) sheet.d.set([235, 235, 235, 255], p * 4);
   const lines = ['proof.png cells, left to right, top to bottom (green frame = usable, red = redraw):'];
@@ -330,5 +536,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const v of report.variants) {
     console.log(`${v.ok ? 'ok  ' : 'FIX '} ${v.name.padEnd(14)} shift ${v.align.dx},${v.align.dy} scale ${v.align.s}  outside ${(v.outsideChanged * 100).toFixed(1)}%  colour ${v.colourOffset.join('/')}${v.flags.length ? `\n       ${v.flags.join('\n       ')}` : ''}`);
   }
+  if (report.mouthSizes) {
+    console.log(`mouth sizes (w x h px): ${Object.entries(report.mouthSizes).map(([n, m]) => `${n} ${m.w}x${m.h}`).join('  ')}`);
+    for (const l of report.mouthLadder) console.log(`size ${l}`);
+  }
+  console.log(report.rig.neck ? `head/body split: the head moves above row ${report.rig.neck[0]}, the neck bends down to row ${report.rig.neck[1]} (portrait pixels)` : `head/body: not split (${report.rig.reason}); the whole figure moves together`);
   console.log(`${path.relative(process.cwd(), outDir)}/: base.png, ${report.variants.length} patches, host-data.js, pack-report.json, proof.png (check it)`);
 }
