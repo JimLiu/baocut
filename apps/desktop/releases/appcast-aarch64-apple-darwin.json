@@ -2,15 +2,15 @@
   "schema": 1,
   "target": "aarch64-apple-darwin",
   "variant": "cpu",
-  "version": "3.16.1",
-  "build": 89,
-  "date": "2026-11-05",
-  "notes": "Export: Faster H.264 exports on macOS, especially on Macs with multiple video encoding engines.\nTranscription: Faster local MOSS transcription on Apple Silicon through pipelined and batched decoding; batching may produce small differences in wording, punctuation or segment boundaries.\nCodex: Handle closed input pipes and wait for process cleanup when connections fail.\nAudio timing: Fixed audio starting early after seeking in exports, transcription, analysis and footage processing, including previously cut files. ALAC stream-copy timing can still differ by a fraction of a packet.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Electron 44.9.3 embeds Node 24.22.0 and does not include the October Node security fixes. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.16.2",
+  "build": 90,
+  "date": "2026-11-06",
+  "notes": "Export: H.264 exports on Apple Silicon Macs now use constant-quality encoding matched to the selected quality, so file size follows the content instead of a fixed bitrate. A 4K talking-head export at the standard setting drops from about 37 Mb/s to about 9 Mb/s at similar quality; demanding footage can still use up to the previous bitrate. Exports are also slightly faster.\nWindows exports keep the previous bitrate-based sizes for now.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Electron 44.9.3 embeds Node 24.22.0 and does not include the October Node security fixes. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
   "notesLocalized": {},
   "app": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.16.1-build.89/BaoCut-3.16.1-build.89-aarch64-apple-darwin.zip",
-    "size": 302385147,
-    "sha256": "a975db211de65bb18a9240ff7bb73e800622c7174abd2fd899da2b6a1696cfed"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.16.2-build.90/BaoCut-3.16.2-build.90-aarch64-apple-darwin.zip",
+    "size": 302386001,
+    "sha256": "4e522fac162c859f46ef5c3a575ca214be06a9c88cc13a18875363f639a4f0d3"
   }
 }
