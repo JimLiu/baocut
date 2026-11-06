@@ -599,7 +599,7 @@ describe('OnlineProviderSource 的文本能力与刷新', () => {
   it('刷新成功：记下时间与数目；列表里没有的内置模型报告为不可用；ElevenLabs 的音色补进模型', async () => {
     server = await startFakeProviderServer((request) => {
       const url = new URL(request.path, 'http://fake');
-      if (url.pathname === '/v1/models') return { status: 200, json: { data: [{ id: 'gpt-6.1-sol' }, { id: 'gpt-image-2' }] } };
+      if (url.pathname === '/v1/models') return { status: 200, json: { data: [{ id: 'gpt-6.1-sol' }, { id: 'gpt-image-2' }, { id: 'gpt-image-2.6-sunburst' }, { id: 'gpt-image-1' }] } };
       if (url.pathname === '/el/models') return { status: 200, json: [{ model_id: 'eleven_v3' }] };
       if (url.pathname === '/el/voices') return { status: 200, json: { voices: [{ voice_id: 'v1', name: 'Rachel' }] } };
       return fakeElevenLabsHandler()(request, server!);
@@ -608,7 +608,7 @@ describe('OnlineProviderSource 的文本能力与刷新', () => {
       await source.configure({ providerId: 'openai', enabled: true, credential: OPENAI_KEY });
       await source.configure({ providerId: 'elevenlabs', enabled: true, credential: ELEVENLABS_KEY });
       const status = await source.refresh('openai');
-      expect(status).toMatchObject({ ok: true, models: 2 });
+      expect(status).toMatchObject({ ok: true, models: 4 });
       expect(Date.parse(status.at)).not.toBeNaN();
       const openai = (await source.describe('openai', 'view'))!;
       expect(openai.config!.refreshed).toEqual(status);
@@ -616,6 +616,9 @@ describe('OnlineProviderSource 的文本能力与刷新', () => {
       expect(text.find((m) => m.modelId === 'gpt-6.1-sol')!.available).not.toBe(false);
       expect(text.find((m) => m.modelId === 'gpt-6-astra')).toMatchObject({ available: false, unavailableReason: 'unsupported' });
       expect(openai.capabilities.generateImage!.models.find((m) => m.modelId === 'gpt-image-2')!.available).not.toBe(false);
+      expect(openai.capabilities.generateImage!.models.find((m) => m.modelId === 'gpt-image-2.6-sunburst')!.available).not.toBe(false);
+      expect(openai.capabilities.generateImage!.models.find((m) => m.modelId === 'gpt-image-2.6-flare')).toMatchObject({ available: false, unavailableReason: 'unsupported' });
+      expect(openai.capabilities.generateImage!.models.find((m) => m.modelId === 'gpt-image-1')).toMatchObject({ available: false, unavailableReason: 'unsupported' });
 
       expect(await source.refresh('elevenlabs')).toMatchObject({ ok: true, models: 1, voices: 1 });
       const eleven = (await source.describe('elevenlabs', 'view'))!.capabilities.synthesizeSpeech!.models;

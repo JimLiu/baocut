@@ -41,8 +41,10 @@
      desc: '尺寸自由（16 的倍数、最长边 3840）；认参考图（编辑）；能出透明底',
      docs: 'platform.openai.com/docs/guides/image-generation',
      models: [
-       {id: 'gpt-image-2.5-flare', desc: '当前一代 · 质量最好', price: {normal: 0.04, k2: 0.17}, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
-       {id: 'gpt-image-2.5-sunburst', desc: '当前一代 · 更快', price: {normal: 0.02, k2: 0.08}, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
+       {id: 'gpt-image-2.6-sunburst', desc: 'Detailed visual work', price: null, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
+       {id: 'gpt-image-2.6-flare', desc: 'Fast iteration', price: null, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
+       {id: 'gpt-image-2.5-flare', desc: 'Fast iteration', prev: true, price: {normal: 0.04, k2: 0.17}, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
+       {id: 'gpt-image-2.5-sunburst', desc: 'Detailed visual work', prev: true, price: {normal: 0.02, k2: 0.08}, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
        {id: 'gpt-image-2', desc: '上一代', prev: true, price: {normal: 0.04, k2: 0.17}, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
        {id: 'gpt-image-1.5', desc: '上一代 · 便宜', prev: true, price: {normal: 0.01, k2: 0.04}, caps: caps({sizes: {multiple: 16, maxEdge: 3840, maxRatio: 3}, refs: 16, transparent: true, promptMax: 32000, edit: true})},
      ]},

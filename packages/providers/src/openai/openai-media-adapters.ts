@@ -6,7 +6,7 @@
 //   https://developers.openai.com/api/docs/guides/image-generation
 // 文档确认的：语音模型 tts-1、tts-1-hd、gpt-4o-mini-tts；13 个内置音色，tts-1 / tts-1-hd 只有其中 9 个；指南推荐 marin、cedar；
 // 文本 ≤ 4096 字符；语言大体同 Whisper（指南列出的语言）；mp3 是默认格式；`speed` 0.25–4.0；`instructions` 不用于 tts-1 系列；
-// 没有 `seed`。图片模型 gpt-image-1、gpt-image-1-mini、gpt-image-1.5、gpt-image-2（dall-e-2/3 已于 2026-05-12 退役）；
+// 没有 `seed`。历史图片模型 gpt-image-1、gpt-image-1-mini、gpt-image-1.5、gpt-image-2（dall-e-2/3 已于 2026-05-12 退役）；
 // 尺寸 1024x1024、1536x1024、1024x1536 与 `auto`（不给 `size`）；gpt-image-2 接受任意 WIDTHxHEIGHT（边长是 16 的倍数、
 // 宽高比 1:3–3:1、最大 3840x2160，超过 2560x1440 为实验性）；`n` 1–10；提示词 ≤ 32000 字符；没有 `seed`；
 // 输入图走 `/images/edits`，按提示词改图，GPT image 模型至多 16 张；没有以图为底按强度重画的参数（`img2img` 为 null）。
@@ -90,24 +90,39 @@ const IMAGE_BASE = {
 
 const STANDARD_SIZES = STANDARD_RATIOS.map((r) => r.size);
 
+// Shared raster capabilities for GPT Image 2, 2.5, and 2.6.
+// https://developers.openai.com/api/docs/guides/image-generation (checked 2026-11-06)
+// GPT Image 2.6 uses complexity=high when omitted. SVG, GIF, markup, and complexity
+// controls are outside BaoCut's current raster image request contract.
+const WIDE_IMAGE_BASE = {
+  ...IMAGE_BASE,
+  sizes: [...WIDE_RATIOS.map((r) => r.size), '2560x1440', '1440x2560'],
+  aspectRatios: WIDE_RATIOS.map((r) =>
+    r.ratio === '16:9'
+      ? { ...r, tiers: [{ tier: '1K', size: r.size }, { tier: '2K', size: '2560x1440' }] }
+      : r.ratio === '9:16'
+        ? { ...r, tiers: [{ tier: '1K', size: r.size }, { tier: '2K', size: '1440x2560' }] }
+        : r,
+  ),
+} satisfies Partial<ImageModelInfo>;
+
 const IMAGE_MODELS: ImageModelInfo[] = [
+  { ...WIDE_IMAGE_BASE, modelId: 'gpt-image-2.6-sunburst', label: 'GPT Image 2.6 Sunburst' },
+  { ...WIDE_IMAGE_BASE, modelId: 'gpt-image-2.6-flare', label: 'GPT Image 2.6 Flare' },
+  { ...WIDE_IMAGE_BASE, modelId: 'gpt-image-2.5-sunburst', label: 'GPT Image 2.5 Sunburst' },
+  { ...WIDE_IMAGE_BASE, modelId: 'gpt-image-2.5-flare', label: 'GPT Image 2.5 Flare' },
+  { ...WIDE_IMAGE_BASE, modelId: 'gpt-image-2', label: 'GPT Image 2', default: true },
+  { ...IMAGE_BASE, modelId: 'gpt-image-1.5', label: 'GPT Image 1.5', sizes: STANDARD_SIZES, aspectRatios: STANDARD_RATIOS },
+  // Keep the retired ID visible for saved selections, but reject it before dispatch.
   {
     ...IMAGE_BASE,
-    modelId: 'gpt-image-2',
-    label: 'GPT Image 2',
-    default: true,
-    sizes: [...WIDE_RATIOS.map((r) => r.size), '2560x1440', '1440x2560'],
-    // 16:9 与 9:16 另有 2K 一档（界面的「尺寸」一行）；别的宽高比只有一档。
-    aspectRatios: WIDE_RATIOS.map((r) =>
-      r.ratio === '16:9'
-        ? { ...r, tiers: [{ tier: '1K', size: r.size }, { tier: '2K', size: '2560x1440' }] }
-        : r.ratio === '9:16'
-          ? { ...r, tiers: [{ tier: '1K', size: r.size }, { tier: '2K', size: '1440x2560' }] }
-          : r,
-    ),
+    modelId: 'gpt-image-1',
+    label: 'GPT Image 1',
+    sizes: STANDARD_SIZES,
+    aspectRatios: STANDARD_RATIOS,
+    available: false,
+    unavailableReason: 'unsupported',
   },
-  { ...IMAGE_BASE, modelId: 'gpt-image-1.5', label: 'GPT Image 1.5', sizes: STANDARD_SIZES, aspectRatios: STANDARD_RATIOS },
-  { ...IMAGE_BASE, modelId: 'gpt-image-1', label: 'GPT Image 1', sizes: STANDARD_SIZES, aspectRatios: STANDARD_RATIOS },
   { ...IMAGE_BASE, modelId: 'gpt-image-1-mini', label: 'GPT Image 1 mini', sizes: STANDARD_SIZES, aspectRatios: STANDARD_RATIOS },
 ];
 

@@ -169,14 +169,16 @@ describe('OpenAI 语音', () => {
   });
 });
 
+const CURRENT_OPENAI_IMAGE_MODELS = ['gpt-image-2.6-sunburst', 'gpt-image-2.6-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2.5-flare', 'gpt-image-2'];
+
 describe('OpenAI 图片', () => {
-  it('请求 n、size、output_format，不发 response_format；解 b64_json；报告用量', async () => {
+  it.each(CURRENT_OPENAI_IMAGE_MODELS)('%s sends raster generation parameters and decodes image bytes and usage', async (modelId) => {
     server = await startFakeProviderServer(fakeOpenAiHandler());
     const progress: number[] = [];
     const out = await generate(
       new OpenAiImageAdapter(),
       config(`${server.origin}/v1`, OPENAI_KEY),
-      'gpt-image-2',
+      modelId,
       image({ count: 3, size: '1536x864', format: 'png' }),
       progress,
     );
@@ -184,10 +186,10 @@ describe('OpenAI 图片', () => {
     expect(out.images[0]!.equals(pngFixture(16, 9, 0))).toBe(true);
     expect(out.usage).toMatchObject({ total_tokens: 100 });
     expect(progress).toEqual([3]);
-    expect(server.requests[0]!.json).toEqual({ model: 'gpt-image-2', prompt: 'a fox', n: 3, size: '1536x864', output_format: 'png' });
+    expect(server.requests[0]!.json).toEqual({ model: modelId, prompt: 'a fox', n: 3, size: '1536x864', output_format: 'png' });
   });
 
-  it('带输入图时走 /images/edits：images 是 data URL 的 image_url，顺序不变，其余字段相同', async () => {
+  it.each(CURRENT_OPENAI_IMAGE_MODELS)('%s sends reference images to /images/edits in order', async (modelId) => {
     server = await startFakeProviderServer(fakeOpenAiHandler());
     const inputs: ImageInputBytes[] = [
       { bytes: pngFixture(4, 4, 0), mediaType: 'image/png', name: 'a.png' },
@@ -196,7 +198,7 @@ describe('OpenAI 图片', () => {
     const out = await generate(
       new OpenAiImageAdapter(),
       config(`${server.origin}/v1`, OPENAI_KEY),
-      'gpt-image-2',
+      modelId,
       image({ count: 2, size: '1024x1024' }),
       [],
       inputs,
@@ -204,7 +206,7 @@ describe('OpenAI 图片', () => {
     expect(out.images).toHaveLength(2);
     expect(server.requests[0]!.path).toBe('/v1/images/edits');
     expect(server.requests[0]!.json).toEqual({
-      model: 'gpt-image-2',
+      model: modelId,
       images: [
         { image_url: `data:image/png;base64,${pngFixture(4, 4, 0).toString('base64')}` },
         { image_url: 'data:image/jpeg;base64,/9j/4A==' },
@@ -219,15 +221,25 @@ describe('OpenAI 图片', () => {
   it('张数不对、没有 b64_json：协议错误（官方端点不按 url 取图）', async () => {
     server = await startFakeProviderServer(() => ({ status: 200, json: { data: [{ b64_json: 'AAAA' }] } }));
     const cfg = config(`${server.origin}/v1`, OPENAI_KEY);
-    expect((await failure(generate(new OpenAiImageAdapter(), cfg, 'gpt-image-1', image({ count: 2 })))).kind).toBe('protocol');
+    expect((await failure(generate(new OpenAiImageAdapter(), cfg, 'gpt-image-1.5', image({ count: 2 })))).kind).toBe('protocol');
     server.handler = () => ({ status: 200, json: { data: [{ url: 'https://example.invalid/a.png' }] } });
-    expect((await failure(generate(new OpenAiImageAdapter(), cfg, 'gpt-image-1', image()))).kind).toBe('protocol');
+    expect((await failure(generate(new OpenAiImageAdapter(), cfg, 'gpt-image-1.5', image()))).kind).toBe('protocol');
   });
 
   it('模型表：gpt-image-2 是默认，宽高比 16:9 对应 1536x864、另有 2K 一档；参考图与 seed 按声明', () => {
     const models = new OpenAiImageAdapter().models(config('x', null));
     const def = models.find((m) => m.default)!;
     expect(def.modelId).toBe('gpt-image-2');
+    expect(models.filter((m) => m.default)).toHaveLength(1);
+    expect(models.slice(0, 5).map((m) => m.modelId)).toEqual(CURRENT_OPENAI_IMAGE_MODELS);
+    for (const model of models.slice(0, 5)) {
+      expect(model.sizes).toEqual(def.sizes);
+      expect(model.aspectRatios).toEqual(def.aspectRatios);
+      expect(model.referenceImages).toEqual(def.referenceImages);
+      expect(model.formats).toEqual(['png', 'jpeg', 'webp']);
+      expect(model.available).not.toBe(false);
+    }
+    expect(models.find((m) => m.modelId === 'gpt-image-1')).toMatchObject({ available: false, unavailableReason: 'unsupported' });
     expect(def.aspectRatios).toContainEqual({
       ratio: '16:9',
       size: '1536x864',
@@ -911,7 +923,7 @@ describe('OnlineGenerator', () => {
         parameters,
         staging,
       });
-      const attempt = await generator.generate(run(image({ count: 2 }), 'gpt-image-1'), sink, new AbortController().signal);
+      const attempt = await generator.generate(run(image({ count: 2 }), 'gpt-image-2.6-sunburst'), sink, new AbortController().signal);
       expect(attempt).toMatchObject({ outcome: 'completed', workerVersion: 'baocut-providers/openai-image@1' });
       const outputs = attempt.outcome === 'completed' ? attempt.outputs : [];
       expect(outputs.map((o) => [o.path, o.mediaType])).toEqual([
@@ -921,7 +933,7 @@ describe('OnlineGenerator', () => {
       expect((await fs.readFile(path.join(staging, 'output-2.png'))).equals(pngFixture(16, 9, 1))).toBe(true);
       expect(phases).toEqual(['generating', '2/2']);
 
-      const wrongModel = await failure(generator.generate(run(speech(), 'gpt-image-1'), sink, new AbortController().signal));
+      const wrongModel = await failure(generator.generate(run(speech(), 'gpt-image-2.6-sunburst'), sink, new AbortController().signal));
       expect(wrongModel.kind).toBe('unavailable');
 
       server.handler = () => 'hang';
@@ -938,10 +950,10 @@ describe('OnlineGenerator', () => {
       const frozen = await freezeImageInput({ source: 'file', path: refFile });
       const withRef = image({ images: [frozen], imageMode: 'ref' });
       const before = server.requests.length;
-      expect(await generator.generate(run(withRef, 'gpt-image-1'), sink, new AbortController().signal)).toMatchObject({ outcome: 'completed' });
+      expect(await generator.generate(run(withRef, 'gpt-image-2.6-flare'), sink, new AbortController().signal)).toMatchObject({ outcome: 'completed' });
       expect(server.requests[before]!.path).toBe('/v1/images/edits');
       await fs.writeFile(refFile, pngFixture(4, 4, 1));
-      const changed = await failure(generator.generate(run(withRef, 'gpt-image-1'), sink, new AbortController().signal));
+      const changed = await failure(generator.generate(run(withRef, 'gpt-image-2.6-flare'), sink, new AbortController().signal));
       expect(changed).toMatchObject({ kind: 'input-unreadable', details: { reason: 'changed', name: 'ref.png' } });
       expect(server.requests).toHaveLength(before + 1);
 

@@ -23,8 +23,8 @@ test('种子表：每家至少一只模型、每只都有能力表与价格两�
     assert.ok(p.models.length >= 1, p.id);
     p.models.forEach((m) => {
       assert.ok(m.caps && m.caps.aspects.length && m.caps.maxN >= 1, `${p.id}/${m.id}`);
-      assert.ok(m.price && typeof m.price.normal === 'number', `${p.id}/${m.id} 价格`);
-      if (m.caps.quality.indexOf('2k') < 0) assert.equal(m.price.k2, null, `${p.id}/${m.id} 没有 2K 就不该有 2K 价`);
+      assert.ok(m.price === null || typeof m.price.normal === 'number', `${p.id}/${m.id} 价格`);
+      if (m.price && m.caps.quality.indexOf('2k') < 0) assert.equal(m.price.k2, null, `${p.id}/${m.id} 没有 2K 就不该有 2K 价`);
     });
   });
   const ids = I.PROVIDERS.map((p) => p.id);
@@ -155,7 +155,7 @@ test('自动选择（2026-10-12 裁决，取代 2026-09-27）：Codex › 本地
   // Codex 画不了（开关关着 / 没装 / 没登录 / 太旧）→ 本地 Turbo（装了的话）→ 第一只已连的云端
   assert.equal(I.preferred(list({codex: {h: codexOk, on: false}}), null), I.LOCAL_ID, '只装了基础版时用基础版');
   assert.equal(I.preferred(list({codex: {h: null, on: true}, installed: () => true, platform: 'macos-arm64'}), null), I.LOCAL_TURBO_ID);
-  assert.equal(I.preferred(list({codex: {h: Object.assign({}, codexOk, {loggedIn: false}), on: true}, installed: () => false}), null), 'cloud:openai/gpt-image-2.5-flare');
+  assert.equal(I.preferred(list({codex: {h: Object.assign({}, codexOk, {loggedIn: false}), on: true}, installed: () => false}), null), 'cloud:openai/gpt-image-2.6-sunburst');
   assert.equal(I.preferred(list({codex: {h: codexOk, on: false}, installed: () => false, saved: ['google', 'minimax']}), null), 'cloud:google/gemini-3-pro-image');
   // API key 登录：自动跳过，设成默认或手动选照用
   const paid = list({codex: {h: codexApiKey, on: true}});
@@ -374,4 +374,19 @@ test('参考图两种用法（2026-10-13）：本地能以图为底重画，逐�
   const h = Object.assign({}, f, {refMode: 'ref'});
   assert.equal(I.outputCount(h, lc), 1);
   assert.equal(I.makeRecord(h, 2, l, () => 0).images[0].base, null);
+});
+
+test('GPT Image 2.6 variants support raster generation and reference edits without a fixed price', () => {
+  const models = I.PROVIDERS.find((p) => p.id === 'openai').models;
+  assert.deepEqual(models.slice(0, 2).map((m) => m.id), ['gpt-image-2.6-sunburst', 'gpt-image-2.6-flare']);
+  for (const model of models.slice(0, 2)) {
+    const id = `cloud:openai/${model.id}`;
+    const cap = I.capabilities(id);
+    assert.equal(cap.refs, 16);
+    assert.equal(cap.edit, true);
+    assert.equal(cap.promptMax, 32000);
+    assert.equal(cap.seed, false);
+    assert.equal(I.costOf(I.blank(id), list()), null);
+    assert.equal(I.validate(Object.assign(I.blank(id), {prompt: 'A fox'}), cap).length, 0);
+  }
 });
