@@ -28,7 +28,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 转录、加字幕、出字幕 | 建可编辑视频，转写，建原文字幕层；要文件再导出 | [subtitles](references/catalog/subtitles.md) | {{skill:subtitle-workflow}} |
 | 翻译字幕、翻成某种语言、双语字幕 | 在视频里**自己**逐句翻译，建译文或双语字幕层 | [subtitles](references/catalog/subtitles.md) | {{skill:translate-subtitles}} |
 | 润色、校对转写 | 改错字、术语与标点，写回同一份转写，词的时间不变 | [subtitles](references/catalog/subtitles.md) | {{skill:polish-transcript}} |
-| 识别说话人、标说话人名字 | 没区分过的按声纹重新转录并区分；凭证据起真名，用户确认后写回转写的 speakers | [subtitles](references/catalog/subtitles.md) | {{skill:speaker-labeling}} |
+| 识别说话人、标说话人名字 | 没区分过的按声纹重新转录并区分；凭证据起真名，直接写回转写的 speakers，再报告证据 | [subtitles](references/catalog/subtitles.md) | {{skill:speaker-labeling}} |
 | 配音、翻译配音 | 先自己翻译，再按译文逐句合成、放上配音轨 | [voice](references/catalog/voice.md) | {{skill:translate-subtitles}}（翻译那一步） |
 | 旁白、念一段话 | 语音合成，按需放进视频 | [voice](references/catalog/voice.md) | — |
 | 旁白成片、给画面配多句旁白 | 先量语速算字数，一个能锁住音色的声音一次合成，画面剪到旁白上 | [voice](references/catalog/voice.md) | {{skill:narration}} |
@@ -204,7 +204,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 
 ## 5. 硬规则
 
-1. **文字工作自己做。** 翻译、润色、总结、分章、写稿由你完成，你本身就是文本模型；不配、不等文本模型，没配置文本生成也不是停下的理由。{{tool:translate}} 只在用户明确要用配置好的文本模型时用；它报 `CAPABILITY_NOT_CONFIGURED` 时照 `next` 自己翻，不请用户去配置。转写之后默认也做三件：润色末尾给占位名的说话人实名，给视频分章（作者有章节就 {{tool:chapters_adopt}}），再写视频速览；实名只按证据，拿不准留着占位名；分章与速览是旁路，失败不挡后面的步骤。转写只用来量时间（歌曲、已有正文的对位）时不做这三件。
+1. **文字工作自己做。** 翻译、润色、总结、分章、写稿由你完成，你本身就是文本模型；不配、不等文本模型，没配置文本生成也不是停下的理由。{{tool:translate}} 只在用户明确要用配置好的文本模型时用；它报 `CAPABILITY_NOT_CONFIGURED` 时照 `next` 自己翻，不请用户去配置。转写之后默认也做三件：润色之后给占位名的说话人实名（不挂在润色上，跳过或只做了一部分润色时照样做），给视频分章（作者有章节就 {{tool:chapters_adopt}}），再写视频速览；实名只按证据，拿不准留着占位名；分章与速览是旁路，失败不挡后面的步骤。转写只用来量时间（歌曲、已有正文的对位）时不做这三件。
    **视频速览**站在观众的角度，让没看过的人很快知道这部视频是什么，用用户的语言写：
    - 出处：标题、作者、发布日期、时长、语言、链接，只取 {{tool:videos_inspect}} 的 `source` 与视频事实，缺的不写、不猜；本机文件写文件名。平台简介是作者的话，单独引出来，不混进你的概括。
    - 正文：讲什么、适合谁看；出场的人与各自的角色只按文稿与来源里的证据，没报名字的照实说；要点几条，每条带时间链接，`href` 照抄工具结果（{{tool:videos_inspect}} 的章节、{{tool:speech_relevant}}、{{tool:speech_topic_boundaries}}），没有 `href` 的只写时间文字。

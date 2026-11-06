@@ -27,7 +27,7 @@ import { ParamReader, invalid } from './params.ts';
 import { PipelineStepError, type PipelineDefinition, type PipelineStepContext } from './pipeline.ts';
 import { ensureSaveDirectory } from './save-location.ts';
 import { publishFile } from './transcode.ts';
-import { createHeldVideo, importMedia, transcribeInVideo, type MediaVideos, type PipelineTranscriber } from './video-create.ts';
+import { createHeldVideo, importMedia, speakerCountOf, transcribeInVideo, type MediaVideos, type PipelineTranscriber } from './video-create.ts';
 import { createScopeOf, readCreateTarget, targetSchema, targetStep, type PipelineTargets } from './video-target.ts';
 import {
   COOKIE_BROWSERS,
@@ -504,6 +504,9 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
         transcribeJobId: transcribed?.jobId ?? null,
         ...(transcribed?.files ? { transcriptFiles: transcribed.files } : {}),
         ...(transcribed && !transcribed.files ? { documentId: transcribed.documentId ?? null } : {}),
+        ...(transcribed?.documentId && summaryVideo
+          ? { speakerCount: speakerCountOf(deps.videos.state(summaryVideo)?.documents[transcribed.documentId]) }
+          : {}),
         ...(params.captions && transcribed?.documentId && summaryVideo
           ? {
               captions: captionsSummary(

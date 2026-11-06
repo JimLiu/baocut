@@ -466,7 +466,7 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
       kind: 'speech',
       sourceAssetId: 'asset_9',
       currentRevision: 'r1',
-      revisions: {},
+      revisions: { r1: { revision: 'r1', summary: { wordCount: 7, speakerCount: 2 } } },
     } as unknown as DocumentRecord;
     const { jobId } = await start({
       url: 'https://video.example.com/watch?v=abc',
@@ -502,10 +502,12 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
     });
     // 字幕层这一步跑了：假视频的时间线是空的，所以没建，摘要说明原因。
     expect(parent.pipeline!.steps.find((s) => s.name === 'captions')!.status).toBe('completed');
+    // 摘要带上文稿区分出的说话人数（文档版本概要的 speakerCount），智能体据此在下一步里给说话人实名。
     expect(parent.pipeline!.summary).toMatchObject({
       videoId: 'vid_new',
       createdVideo: true,
       documentId: 'doc_speech',
+      speakerCount: 2,
       captions: { status: 'not-on-timeline', documentId: null },
     });
   });

@@ -33,21 +33,22 @@ description: 端到端的做法：链接到双语字幕成片、润色后翻译�
 
 1. 确认交付物（哪种字幕、要不要文件、要不要成片）与目标语言，按 {{skill:subtitle-workflow}}。
 2. {{tool:transcribe}} 给链接：新建视频、下载、放上时间线、转写；要译文或双语时不建字幕层，只要原文字幕时照常建。等到完成，记下视频与转写的 ID。
-3. 润色：按 {{skill:polish-transcript}}，{{tool:documents_read}} 读、{{tool:documents_put}} 写回同一份转写。{{tool:videos_inspect}} 里素材的 `source`（标题、发布者、简介）当背景参考：人名、术语的写法只在说话人明显在说它时照改，不往文稿里加东西。写回后给占位名的说话人实名，只改 `speakers[].name`，有证据才写。已有原文字幕层时它的文字跟着改，回执的 `keptCaptionCues` 是手改过、没跟着改的句子，交付时报告。
-4. 章节（旁路）：作者有章节时 {{tool:chapters_adopt}} 吸到文稿上，没有时按 {{skill:video-chapters}} 自己分，用户说不要时跳过。不阻塞后面的步骤；失败不致命，最多重试一次，如实报告。
-5. 重新 {{tool:documents_read}} 读润色后的转写（translateTo 给目标语言，BaoCut 显示「正在翻译」），按 {{skill:translate-subtitles}} 逐句翻译，{{tool:documents_put}} 写成译文。
-6. {{tool:captions_create}} 给译文并带双语：原文层与译文层一起建好。只要原文字幕时第 2 步建的那层就是，跳过这步。
-7. 用户要文件：{{tool:export}} 导出双语字幕文件；要成片再 {{tool:export}} 导出 mp4（字幕画进画面）。
+3. 润色：按 {{skill:polish-transcript}}，{{tool:documents_read}} 读、{{tool:documents_put}} 写回同一份转写。{{tool:videos_inspect}} 里素材的 `source`（标题、发布者、简介）当背景参考：人名、术语的写法只在说话人明显在说它时照改，不往文稿里加东西。已有原文字幕层时它的文字跟着改，回执的 `keptCaptionCues` 是手改过、没跟着改的句子，交付时报告。
+4. 说话人实名：转写的 `speakers[]` 还有占位名时，按 {{skill:polish-transcript}} 第 7 节在素材的 `source` 与每位首次开口前后找证据，有证据的用 {{tool:edits_apply}} 的 `renameSpeakers` 一笔写回，不先问；只有一位说话人时，标题或简介写明是谁讲的也算。不挂在润色上：润色跳过或只改了几处时照样做。
+5. 章节（旁路）：作者有章节时 {{tool:chapters_adopt}} 吸到文稿上，没有时按 {{skill:video-chapters}} 自己分，用户说不要时跳过。不阻塞后面的步骤；失败不致命，最多重试一次，如实报告。
+6. 重新 {{tool:documents_read}} 读润色后的转写（translateTo 给目标语言，BaoCut 显示「正在翻译」），按 {{skill:translate-subtitles}} 逐句翻译，{{tool:documents_put}} 写成译文。
+7. {{tool:captions_create}} 给译文并带双语：原文层与译文层一起建好。只要原文字幕时第 2 步建的那层就是，跳过这步。
+8. 用户要文件：{{tool:export}} 导出双语字幕文件；要成片再 {{tool:export}} 导出 mp4（字幕画进画面）。
 <!-- surface: cli -->
    要看字幕在画面上的位置、挡没挡人脸，或请用户在编辑器里审：开网页版编辑器（[web](catalog/web.md)），交付时给用户新链接。
 <!-- /surface -->
-8. 交付：按 SKILL.md 的「交付」写报告。
+9. 交付：按 SKILL.md 的「交付」写报告。
 
-**完成标准**：视频里有润色过的转写、一份目标语言的译文、一组双语字幕层；多位说话人时证据够的都实名了，留着占位名的说明了原因；章节写进了视频，或说明了没做、失败的原因与作者章节里没对上的条目；导出的文件路径取自结果；字幕条数与译文句数报告给用户；没看过的成片画面如实写明。
+**完成标准**：视频里有润色过的转写、一份目标语言的译文、一组双语字幕层；证据够的说话人都实名了（一位说话人时也对过标题与简介），留着占位名的说明了原因；章节写进了视频，或说明了没做、失败的原因与作者章节里没对上的条目；导出的文件路径取自结果；字幕条数与译文句数报告给用户；没看过的成片画面如实写明。
 
 ## 2. 已有视频：润色后翻译
 
-**适用**：视频里已有转写，用户要译文字幕或双语字幕。**不走这条**：只要润色（做完第 2 步就停）；没有转写（先走第 1 条的转写步骤）。
+**适用**：视频里已有转写，用户要译文字幕或双语字幕。**不走这条**：只要润色（做完第 3 步就停）；没有转写（先走第 1 条的转写步骤）。
 
 | 信号 | 处理 | 原因 |
 | --- | --- | --- |
@@ -60,10 +61,11 @@ description: 端到端的做法：链接到双语字幕成片、润色后翻译�
 步骤：
 
 1. {{tool:videos_inspect}} 找到转写与已有的译文、字幕层。
-2. 按 {{skill:polish-transcript}} 润色（含说话人实名），{{tool:documents_put}} 写回同一份转写。
-3. 重新 {{tool:documents_read}}（translateTo 给目标语言），用这次的句子按 {{skill:translate-subtitles}} 翻译，{{tool:documents_put}} 写入译文。
-4. {{tool:captions_create}} 建字幕层（先确认这份译文还没有字幕层）。
-5. 用户要文件时 {{tool:export}}。
+2. 按 {{skill:polish-transcript}} 润色，{{tool:documents_put}} 写回同一份转写。
+3. 还有占位名的说话人按 {{skill:polish-transcript}} 第 7 节实名，有证据就直接写回；用户说不要润色时也做。
+4. 重新 {{tool:documents_read}}（translateTo 给目标语言），用这次的句子按 {{skill:translate-subtitles}} 翻译，{{tool:documents_put}} 写入译文。
+5. {{tool:captions_create}} 建字幕层（先确认这份译文还没有字幕层）。
+6. 用户要文件时 {{tool:export}}。
 
 **完成标准**：润色在翻译之前；译文句数等于转写句数；没有重复的译文与字幕层；交付报告列出照用的术语与拿不准的句子。
 
@@ -263,7 +265,7 @@ description: 端到端的做法：链接到双语字幕成片、润色后翻译�
 1. {{tool:transcribe}}，{{arg:file}} 给音频或影像：新建视频、素材放上时间线、转写并建字幕层（不加 {{arg:noCaptions}}；要翻译时加，见上表）。不等转写完：{{tool:jobs_wait}} 短等一下，任务记录的 `videoId` 在建好视频那一步之后就有。
 2. 转写进行时先放内置声波（源是影像时按方案定，可以不放）：{{tool:videos_inspect}} 拿版本、画面轨与 `sequence.durationFrames`，用 {{tool:edits_apply}} 放上。声波 `span` 从第 0 帧铺到片尾，放在同一笔 `addTrack` 新建的画面轨上；默认声波与摆位按 [editing](catalog/editing.md)「默认声波」；用户指定其他款式时同样放在字幕之上，竖版放在画面中上。已有博客或简报时先定方案，声波一放就用方案的颜色与位置。
 3. 定方案、做背景：读 {{skill:motion-graphics}} 的「内容背景」，按博客、简报或转写的开头写方案与格子，HTML 截成背景图，放在声波与字幕之下的独立画面轨，声波不合进 HTML。源是影像时按第 9 节把影像放进窗，背景图放上后再一笔挪到最下面。声波的颜色、位置或 `readout` 要改时，同一笔里删掉它、按原 `span` 带上新的 `place` 与属性重新放。
-4. 等转写完成，按 {{skill:polish-transcript}} 润色写回、给说话人实名。不翻译时字幕层已在画面上，文字在同一笔里跟着改，时间与切条不动；转写几乎没有句末标点、润色补了很多句末标点时，字幕条仍是按宽度和停顿切的：问过用户再删掉这层，{{tool:captions_create}} 按润色后的转写重建。翻译时润色后按上表译好、给译文建字幕层。然后用 `setCaptionStyle` 按方案与格子改字幕的字、色、描边、投影、底板、对齐与位置，竖版同一笔把字幕挪出平台控件区；当前词的青绿高亮在同一份 `style` 里按上表换掉（不高亮写 `wordAnimation`，KTV 写 `textMotion.karaoke`），颜色取方案里的。
+4. 等转写完成，按 {{skill:polish-transcript}} 润色写回，再按它第 7 节给占位名的说话人实名（润色只改了几处也照样做）。不翻译时字幕层已在画面上，文字在同一笔里跟着改，时间与切条不动；转写几乎没有句末标点、润色补了很多句末标点时，字幕条仍是按宽度和停顿切的：问过用户再删掉这层，{{tool:captions_create}} 按润色后的转写重建。翻译时润色后按上表译好、给译文建字幕层。然后用 `setCaptionStyle` 按方案与格子改字幕的字、色、描边、投影、底板、对齐与位置，竖版同一笔把字幕挪出平台控件区；当前词的青绿高亮在同一份 `style` 里按上表换掉（不高亮写 `wordAnimation`，KTV 写 `textMotion.karaoke`），颜色取方案里的。
 5. 旁路：章节与视频速览，不挡字幕和导出。章节不会自动出现：转写润色后按 {{skill:video-chapters}} 自己分、写进视频。要翻译时等译文写好再写章节，标题与摘要用观众的语言，人名、术语跟译文一致；作者的章节先带 {{arg:dryRun}} 调 {{tool:chapters_adopt}} 看回执的 `rows`，再用 {{arg:outline}}（`[{ at: sourceAt, title }]`，标题换成观众的语言）正式采用。
 6. 随内容换的层：读润色后的转写，列出说到的人、刊物、作品、事件与地点和时刻，按「内容背景」找图、放图与说明；有章节时加章节小标题（一个 `chapter` 文字实例铺满全片，不按章拆）；需要时加计时。同时出现的文字各放一条轨道。用了 cc-by-sa 或署名要求特殊的图，交付时告诉用户。
 7. 看画面：导出一小段预览（{{tool:export}}，{{arg:purpose}} 为 `preview`，用 {{arg:ranges}} 取几段）抽开头、中间、结尾几帧，核对背景、标题、声波、字幕与配图是一套颜色、对得上格子、像这一期的内容；文字可读、声波在动且不压字幕、背景铺到片尾。{{tool:videos_frames}} 的帧里没有声波、字幕与文字实例。交付时一句话说明这期的视觉方向与理由。

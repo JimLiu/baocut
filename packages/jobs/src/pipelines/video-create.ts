@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
-import type { Id, JobRecord, JobState, JobSubmitter, PipelineCreateScope, Sequence, TranscribeRequest } from '@baocut/protocol';
+import type { DocumentRecord, Id, JobRecord, JobState, JobSubmitter, PipelineCreateScope, Sequence, TranscribeRequest } from '@baocut/protocol';
 import type { VideoPlace } from '../application-ledger.ts';
 import { JobsVideoCreate } from '@baocut/protocol/messages/jobs/video-create.ts';
 import { asLocalized } from '../job-text.ts';
@@ -209,4 +209,11 @@ export async function transcribeInVideo(
     artifactId: result?.artifactId ?? null,
     transactionId: applied?.receipt?.transactionId ?? null,
   };
+}
+
+/** 这次写入的文稿区分出几位说话人（文档版本概要里的 `speakerCount`）；读不出时 null。转录与从链接导入的摘要都用它。 */
+export function speakerCountOf(record: DocumentRecord | undefined): number | null {
+  const summary = record?.revisions[record.currentRevision]?.summary;
+  const count = summary && typeof summary === 'object' ? (summary as { speakerCount?: unknown }).speakerCount : undefined;
+  return typeof count === 'number' && Number.isInteger(count) && count >= 0 ? count : null;
 }

@@ -904,6 +904,8 @@ export interface LinkImportSummary {
   transcriptFiles?: string[];
   /** 转写写进视频的文稿；没有转写到视频里时没有。之前的版本没有这个字段。 */
   documentId?: Id | null;
+  /** 写进视频的文稿区分出的说话人数（没区分时 0，读不出文稿的概要时 null）；没有转写到视频里时没有。之前的版本没有这个字段。 */
+  speakerCount?: number | null;
   /** 字幕层（`captions` 打开时）；没打开时没有这个字段。 */
   captions?: PipelineCaptionsSummary;
 }

@@ -415,9 +415,11 @@ export function pipelineNext(name: string, summary: Record<string, unknown> | nu
   switch (name) {
     case TRANSCRIBE_PIPELINE:
       if (summary && 'files' in summary && !('documentId' in summary)) {
-        return '转录完成，没有建视频：pipeline.summary.files 是写出的 TXT 与 SRT 文稿（outputs 的 path 相同）。把位置告诉用户；要读内容时直接读这些文件。';
+        return 'Transcription finished without creating a video: pipeline.summary.files are the TXT and SRT transcripts it wrote (the same paths as in outputs). Tell the user where they are; to read the content, read these files directly.';
       }
-      return '转录完成：pipeline.summary.documentId 是新写入的转写（speech 文档，可以给 documents_read），summary.captions 是建的字幕层（status 为 created 时 documentId 是字幕文档）；新建视频时 summary.videoId 是新视频。接着可以 documents_read、captions_create 或 export。';
+      return `Transcription finished: pipeline.summary.documentId is the new transcript (a speech document you can pass to documents_read), summary.captions is the caption layer it created (when its status is created, its documentId is the caption document); when a new video was created, summary.videoId is that video.${speakersNext(
+        summary?.speakerCount,
+      )} Then continue with documents_read, captions_create or export as the task needs.`;
     case TRANSLATE_PIPELINE:
       return '翻译完成：pipeline.summary.documentId 是新写入的译文（translation 文档），summary.captions 是建的目标语言字幕层。要文件时用 export。';
     case TRANSLATE_SUBTITLES_PIPELINE:
@@ -431,19 +433,19 @@ export function pipelineNext(name: string, summary: Record<string, unknown> | nu
     case LINK_IMPORT_PIPELINE:
       // 只下载的从链接导入：文件已经写好（outputs 的 path），文稿与字幕同样。
       if (videoId === null) {
-        return '下载完成，没有导入视频：outputs 里的 path 是下载的文件（媒体，转写了时还有 TXT 文稿与 SRT 字幕）。把位置告诉用户；要读文稿内容时直接读 path，读不到时用 artifacts_save 把它的 artifactId 存进工作目录。要翻译时自己翻，写成工作目录里的新文件，再用 downloads_save 放进下载目录。';
+        return 'Download finished without importing into a video: the paths in outputs are the downloaded files (the media, plus TXT and SRT transcripts when it transcribed). Tell the user where they are; to read a transcript, read its path directly, and if you cannot, save it into the working directory with artifacts_save using its artifactId. To translate, do it yourself, write the result as a new file in the working directory, then hand it over with downloads_save.';
       }
       return `${
         summary?.createdVideo === true
-          ? '下载完成，新建了视频：summary.videoId 是新视频，下载的媒体已放上时间线（主轨、从 0 开始），pipeline.summary.assetId 是导入的素材'
-          : '下载完成并导入到已有的视频：summary.videoId 是那个视频，pipeline.summary.assetId 是导入的素材（它的时间线原来是空的时已放上主轨，否则只在素材库里，要用时 edits_apply 的 addItem 放上去）'
+          ? 'Download finished and created a new video: summary.videoId is the new video, the downloaded media is on its timeline (main track, from 0), and pipeline.summary.assetId is the imported asset'
+          : 'Download finished and imported into an existing video: summary.videoId is that video and pipeline.summary.assetId is the imported asset (it was placed on the main track only if the timeline was empty; otherwise it is only in the asset library, so place it with edits_apply addItem when you need it)'
       }${
         summary && typeof summary.transcribeJobId === 'string'
-          ? `；转写写进了视频的 speech 文档（${
-              typeof summary.documentId === 'string' ? 'summary.documentId' : 'videos_inspect 的文档里'
-            }）${linkImportCaptionsNext(summary.captions)}`
-          : ''
-      }。`;
+          ? `; the transcript was written to the video's speech document (${
+              typeof summary.documentId === 'string' ? 'summary.documentId' : "listed in videos_inspect's documents"
+            })${linkImportCaptionsNext(summary.captions)}.${speakersNext(summary.speakerCount)}`
+          : '.'
+      }`;
     case 'stabilize-video':
     case 'upscale-video':
     case 'interpolate-video':
@@ -466,10 +468,24 @@ export function pipelineNext(name: string, summary: Record<string, unknown> | nu
 /** 从链接导入建字幕层这一步的下一步：建好了指向字幕文档，没建（停用、没放上时间线……）指向 captions_create。 */
 function linkImportCaptionsNext(captions: unknown): string {
   const status = captions && typeof captions === 'object' ? (captions as { status?: unknown }).status : undefined;
-  // i18n-ignore: 给模型的下一步
-  if (status === 'created') return '，字幕层也建好了（summary.captions 的 documentId 是字幕文档）';
-  // i18n-ignore: 给模型的下一步
-  return '，要字幕层时用 captions_create';
+  if (status === 'created') return ', and the caption layer was created too (the documentId in summary.captions is the caption document)';
+  return '; create a caption layer with captions_create when the task needs one';
+}
+
+/**
+ * 转写进视频之后给说话人实名的一步（`polish-transcript` 第 7 节）。转写只给占位名（「说话人 n」或服务给的编号），实名要智能体凭证据写；
+ * 这一步原来只写在润色的末尾，润色跳过或只改几个词时跟着被跳过，所以在转写完成的 next 里单独点出来。没区分说话人（0）或读不出时不提。
+ */
+function speakersNext(count: unknown): string {
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) return '';
+  const evidence =
+    "look for evidence in the source title, uploader and description (videos_inspect assets[].source), the opening of the transcript and the lines around each speaker's first turn (a self-introduction, being introduced or addressed by name, a reply right after being named)";
+  const write =
+    'Write every name that has evidence in one edits_apply renameSpeakers transaction without asking first, keep the placeholder for anyone you are unsure of, and tell the user the evidence for each name (polish-transcript section 7).';
+  if (count === 1) {
+    return ` The transcript has one speaker with a placeholder name such as "Speaker 1". If the source or the transcript says who it is (a talk whose title names the speaker, a self-introduction), name them before you translate, create caption layers or deliver: ${evidence}. ${write}`;
+  }
+  return ` The transcription separated ${count} speakers and gave them placeholder names such as "Speaker 1". Name them before you translate, create caption layers or deliver, even when you skip polishing or only fix a few words: ${evidence}. ${write}`;
 }
 
 /** 任务记录给模型看的版本：冻结的选择与参数、错误与下一步、每个输出；固定流程的各步按 `related` 里的子任务带上耗时。 */

@@ -28,7 +28,7 @@ import { fileInputSchema, rejectUnresolvedEntry } from './entry-input.ts';
 import { ParamReader, invalid } from './params.ts';
 import { PipelineStepError, type PipelineDefinition, type PipelineStepContext, type StepOutputs } from './pipeline.ts';
 import { ensureSaveDirectory, ensureSaveDirectoryForStep } from './save-location.ts';
-import { createHeldVideo, importMedia, transcribeInVideo, type MediaVideos, type PipelineTranscriber } from './video-create.ts';
+import { createHeldVideo, importMedia, speakerCountOf, transcribeInVideo, type MediaVideos, type PipelineTranscriber } from './video-create.ts';
 import { createScopeOf, readCreateTarget, targetSchema, targetStep, type PipelineTargets } from './video-target.ts';
 
 /**
@@ -651,13 +651,6 @@ async function transcribe(
     output: { jobId, videoId, documentId, artifactId, assetId, transactionId },
     result: { documentId, artifactId },
   };
-}
-
-/** 这次写入的文稿区分出几位说话人（文档版本概要里的 `speakerCount`）；读不出时 null。 */
-function speakerCountOf(record: DocumentRecord | undefined): number | null {
-  const summary = record?.revisions[record.currentRevision]?.summary;
-  const count = summary && typeof summary === 'object' ? (summary as { speakerCount?: unknown }).speakerCount : undefined;
-  return typeof count === 'number' && Number.isInteger(count) && count >= 0 ? count : null;
 }
 
 /** 主轨上唯一的素材（见文件头）；视频没打开时 `VIDEO_NOT_OPEN`。 */

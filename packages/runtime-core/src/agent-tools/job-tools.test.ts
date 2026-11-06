@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LINK_IMPORT_PIPELINE } from '@baocut/jobs';
+import { LINK_IMPORT_PIPELINE, TRANSCRIBE_PIPELINE } from '@baocut/jobs';
 import type { JobRecord } from '@baocut/protocol';
 import { JobTools, pipelineNext, type JobToolsDeps } from './job-tools.ts';
 import type { ToolPrincipal } from './tool-scope.ts';
@@ -8,16 +8,16 @@ import type { ToolPrincipal } from './tool-scope.ts';
 describe('下载完成的 next', () => {
   it('新建的视频：媒体已放上时间线', () => {
     const next = pipelineNext(LINK_IMPORT_PIPELINE, { createdVideo: true, videoId: 'vid_1', transcribeJobId: null }, 'vid_1')!;
-    expect(next).toContain('新建了视频');
-    expect(next).toContain('已放上时间线');
-    expect(next).not.toContain('已有的视频');
+    expect(next).toContain('created a new video');
+    expect(next).toContain('on its timeline');
+    expect(next).not.toContain('existing video');
   });
 
   it('导入到已有的视频（createdVideo 为 false 或旧记录没有它）：不说新建，说明空时间线才放上', () => {
     for (const summary of [{ createdVideo: false, videoId: 'vid_1' }, { videoId: 'vid_1' }, null]) {
       const next = pipelineNext(LINK_IMPORT_PIPELINE, summary, 'vid_1')!;
-      expect(next).toContain('导入到已有的视频');
-      expect(next).not.toContain('新建');
+      expect(next).toContain('imported into an existing video');
+      expect(next).not.toContain('created a new video');
     }
   });
 
@@ -34,12 +34,50 @@ describe('下载完成的 next', () => {
       { ...base, documentId: 'doc_1', captions: { status: 'created', documentId: 'doc_c' } },
       'vid_1',
     )!;
-    expect(captioned).toContain('字幕层也建好了');
+    expect(captioned).toContain('caption layer was created too');
     expect(captioned).not.toContain('captions_create');
   });
 
   it('只下载：不导入视频', () => {
-    expect(pipelineNext(LINK_IMPORT_PIPELINE, { createdVideo: false, videoId: null }, null)).toContain('没有导入视频');
+    expect(pipelineNext(LINK_IMPORT_PIPELINE, { createdVideo: false, videoId: null }, null)).toContain('without importing into a video');
+  });
+});
+
+/** 转写只给占位名；实名原来只写在润色的末尾，润色跳过或只改几个词时被一起跳过，所以完成的 next 单独点出这一步。 */
+describe('转写完成的 next 点出说话人实名', () => {
+  const transcribed = { createdVideo: true, videoId: 'vid_1', transcribeJobId: 'job_t', documentId: 'doc_1' };
+
+  it('从链接导入分出几位说话人：在翻译与建字幕层之前凭证据实名，润色跳过也做，不先问', () => {
+    const next = pipelineNext(LINK_IMPORT_PIPELINE, { ...transcribed, speakerCount: 4 }, 'vid_1')!;
+    expect(next).toContain('separated 4 speakers');
+    expect(next).toContain('before you translate, create caption layers or deliver');
+    expect(next).toContain('even when you skip polishing');
+    expect(next).toContain('assets[].source');
+    expect(next).toContain('renameSpeakers');
+    expect(next).toContain('without asking first');
+  });
+
+  it('转录流程同样点出；一位说话人时只在来源或文稿说明是谁时实名', () => {
+    const many = pipelineNext(TRANSCRIBE_PIPELINE, { videoId: 'vid_1', documentId: 'doc_1', speakerCount: 2 }, 'vid_1')!;
+    expect(many).toContain('separated 2 speakers');
+    expect(many).toContain('renameSpeakers');
+    const one = pipelineNext(TRANSCRIBE_PIPELINE, { videoId: 'vid_1', documentId: 'doc_1', speakerCount: 1 }, 'vid_1')!;
+    expect(one).toContain('one speaker');
+    expect(one).toContain('If the source or the transcript says who it is');
+    expect(one).toContain('renameSpeakers');
+  });
+
+  it('没区分说话人、读不出人数、旧记录没有这个字段，或没有转写进视频时不提', () => {
+    for (const speakerCount of [0, null, undefined]) {
+      const summary = speakerCount === undefined ? transcribed : { ...transcribed, speakerCount };
+      expect(pipelineNext(LINK_IMPORT_PIPELINE, summary, 'vid_1')).not.toContain('renameSpeakers');
+      expect(pipelineNext(TRANSCRIBE_PIPELINE, { videoId: 'vid_1', documentId: 'doc_1', speakerCount }, 'vid_1')).not.toContain(
+        'renameSpeakers',
+      );
+    }
+    expect(pipelineNext(LINK_IMPORT_PIPELINE, { createdVideo: true, videoId: 'vid_1', transcribeJobId: null, speakerCount: 3 }, 'vid_1')).not.toContain(
+      'renameSpeakers',
+    );
   });
 });
 
