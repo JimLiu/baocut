@@ -35,6 +35,7 @@ const EXPECTED_IDS = [
   'video-chapters',
   'video-production',
   'video-summary',
+  'virtual-host',
   'vlog-from-clips',
 ];
 

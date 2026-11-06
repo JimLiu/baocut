@@ -29,6 +29,7 @@ BaoCut 随应用分发的内置 Agent skill，也叫 craft（做法）：一件�
 | [`history-video`](history-video/SKILL.md) | 历史视频 | 历史演讲、访谈、广播或档案影像做成成片：先用几分钟讲清人物、时代与这番话的分量，再放完整原声与字幕；讲法与画面按手上的材料定，不套模板，真实的照片与影像优先，附表现手法、出处与许可的做法 |
 | [`video-production`](video-production/SKILL.md) | 从简报到成片 | 从零做一条完整成片：风格与分镜规划，逐镜出画面，配旁白、混音、导出验收 |
 | [`character-animation`](character-animation/SKILL.md) | 角色动画 | 把生成的场景与角色抠成可动的部件，用代码绑定按旁白的字演成动画，附绑定库（`rig-kit/`）、抠图与检查脚本；风格与讲法每期自己定 |
+| [`virtual-host`](virtual-host/SKILL.md) | 虚拟主播 | 生成一个卡通主播，按读音与音量自动对口型、眨眼、点头、换表情，叠在画面角落或画进代码场景；附角色包打包、口型计算脚本与画法库（`host-kit/`） |
 | [`production-scripts`](production-scripts/SKILL.md) | 制作脚本 | 有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本，附代码场景的绘图起点（`scene-kit/`）；它是一条省事的路，不规定片子的形态 |
 | [`motion-graphics`](motion-graphics/SKILL.md) | 动效图形 | 用自包含 HTML 定制音频视频的背景与标题，或做下横栏、关键词、大数字、标注与品牌贴片，导入后放上时间线 |
 | [`slides`](slides/SKILL.md) | 幻灯片 | 在工作目录写一份 deck，校验通过后在线程里出卡片，用户在功能区预览、编辑与标注（只给会话内智能体） |

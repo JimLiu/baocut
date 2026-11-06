@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; }
+  #root { position: relative; width: 1920px; height: 1080px; }
+  canvas { display: block; }
+</style>
+<!-- data-duration: the voice-over length (offset + dur in host-track.js), or the whole video length -->
+<div id="root" data-composition-id="corner-host" data-width="1920" data-height="1080" data-fps="30" data-duration="12" data-alpha="true">
+  <canvas width="1920" height="1080"></canvas>
+</div>
+<script src="./pack/host-data.js"></script>
+<script src="./host-track.js"></script>
+<script src="./host-kit.js"></script>
+<script src="./scene.js"></script>

@@ -65,6 +65,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 给一首歌做 MV、歌词视频；手上有歌词、讲稿或台词，要按声音对上时间 | 转写只取时间，文字以用户的原文为准、写回转写；按需译成双语字幕层，画面按成片做 | [workflows](references/workflows.md)、[subtitles](references/catalog/subtitles.md) | {{skill:polish-transcript}}、{{skill:video-production}} |
 | 整镜整段用代码画：逐句配画面、角色小动画、Canvas 或 SVG 场景 | 画面是时间的纯函数，按段打包成代码包导入；角色与场景底图先成套生成，再在代码里动起来 | [media](references/catalog/media.md) | {{skill:video-production}}（代码场景） |
 | 做角色演出来的动画片：人物在插画场景里走路、指向、拿东西、做反应，文字写在牌子上 | 稿子与镜头表先给用户看；成套生成场景与角色，抠成可动的部件，绑上骨骼按旁白的字演出来；风格与讲法每期自己定 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:character-animation}}、{{skill:video-production}} |
+| 要一个会说话的卡通虚拟主播：角色跟着旁白对口型、眨眼、点头，常驻画面角落讲解或在场景里出镜 | 先生成正面像给用户挑，再改图出口型与闭眼的补丁、打成角色包；按配音与逐字时间算口型时间轴，做成透明的代码画面叠上去，审片后导出；真人照片与实拍视频不做对口型 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:virtual-host}}、{{skill:video-production}} |
 <!-- surface: agent -->
 | 做幻灯片、演示文稿、汇报用的页面 | 在工作目录写一份 deck，校验通过后线程里出卡片，用户在功能区预览、编辑、标注 | [media](references/catalog/media.md) | {{skill:slides}} |
 | 做界面、网页、海报、图表或信息图、示意图、原型这类设计稿 | 在工作目录写一份设计稿（每块画板一个文件），校验通过后线程里出卡片，用户在功能区预览、编辑、标注 | [media](references/catalog/media.md) | {{skill:design}} |
@@ -160,6 +161,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 | {{skill:history-video}} | 历史视频 | 历史演讲、访谈或档案影像做成成片：先用几分钟讲清人物、时代与这番话的分量，再放完整原声与字幕；讲法与画面按材料定，真实的照片与影像优先 |
 | {{skill:video-production}} | 从简报到成片 | 从零做一条完整成片：风格与分镜规划，逐镜出画面，配旁白、混音、导出验收 |
 | {{skill:character-animation}} | 角色动画 | 把生成的场景与角色抠成可动的部件，用代码绑定按旁白的字演成动画，风格与讲法每期自己定；有现成的绑定库、抠图与检查脚本 |
+| {{skill:virtual-host}} | 虚拟主播 | 生成一个卡通主播，跟着旁白自动对口型、眨眼、点头、换表情，常驻画面角落讲解或画进代码场景；有角色包打包、口型计算脚本与画法库 |
 | {{skill:production-scripts}} | 制作脚本 | 有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本，不规定片子的形态 |
 | {{skill:motion-graphics}} | 动效图形 | 用自包含 HTML 定制音频视频的背景与标题，或做下横栏、关键词、大数字、标注与品牌贴片，导入后放上时间线 |
 

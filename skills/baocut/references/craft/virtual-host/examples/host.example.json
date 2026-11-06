@@ -1,0 +1,19 @@
+{
+  "base": "art/portrait.png",
+  "key": "auto",
+  "scale": 0.5,
+  "out": "pack",
+  "variants": {
+    "mouth": {
+      "A": "art/mouth-A.png",
+      "B": "art/mouth-B.png",
+      "C": "art/mouth-C.png",
+      "D": "art/mouth-D.png",
+      "E": "art/mouth-E.png",
+      "F": "art/mouth-F.png",
+      "G": "art/mouth-G.png"
+    },
+    "eyes": { "half": "art/eyes-half.png", "closed": "art/eyes-closed.png" },
+    "face": { "smile": "art/face-smile.png" }
+  }
+}

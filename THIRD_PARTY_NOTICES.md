@@ -569,3 +569,66 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
+
+## LivLiv Player
+
+- 来源：LivLiv Player（https://github.com/livliv-dev/player）
+- 许可：Apache License, Version 2.0（全文见上文「Paseo」一节）
+
+内置 skill `virtual-host` 移植、改写了它的几处算法：`scripts/lipsync.mjs` 的人声频段音量包络（`speech.ts` 的 `envelope()`）、元音音色线索（`vowel.ts`）与音节起点判据（`talk.ts`），以及眨眼的快慢与间隔（`runtime/idle.ts`，`lipsync.mjs` 定时刻、`host-kit/host-kit.js` 画出来）。改动写在各文件开头与相应函数的注释里。BaoCut 没有使用、也不分发它 `characters/` 目录下的角色（那些不在 Apache-2.0 之内）。它的 NOTICE：
+
+```text
+LivLiv Player
+Copyright 2026 LivLiv
+
+This product includes software developed by LivLiv (https://livliv.ai).
+```
+
+## ICU 汉字转写数据
+
+内置 skill `virtual-host` 的 `scripts/pinyin-table.mjs`（汉字 → 不带声调的拼音）由 `scripts/pinyin-table/generate.ts` 从 macOS Foundation 自带的 ICU Han-Latin 转写生成，内容来自 ICU 的转写数据。
+
+- 来源：ICU（https://github.com/unicode-org/icu）
+- 许可：Unicode License V3
+
+```text
+UNICODE LICENSE V3
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright © 2016-2024 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY
+DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of data files and any associated documentation (the "Data Files") or
+software and any associated documentation (the "Software") to deal in the
+Data Files or Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, and/or sell
+copies of the Data Files or Software, and to permit persons to whom the
+Data Files or Software are furnished to do so, provided that either (a)
+this copyright and permission notice appear with all copies of the Data
+Files or Software, or (b) this copyright and permission notice appear in
+associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.
+```
