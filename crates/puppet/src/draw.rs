@@ -1,12 +1,13 @@
 //! 按 LivLiv `Puppet.render` 的顺序画一帧：说话时嘴画在最后一张表情上面，表情说话时换无嘴版，重画了眉毛的表情
-//! 让中性眉毛淡出，闭眼的睫毛只在眨眼最后一段出现，眼珠被眼白裁，表情画的眉毛紧跟在最后一层眉毛之后。
+//! 让中性眉毛淡出，闭眼的睫毛只在眨眼最后一段出现，眼珠被眼白裁，表情画的眉毛紧跟在最后一层眉毛之后。表情自己的
+//! 眼睛（`expr_eye_L` `expr_eye_R`，BaoCut 的扩展）和中性的眼睛一样眨：底下先画这一边的闭眼层，再画压扁的眼睛。
 
 use crate::raster::{self, Coverage, Frame, Paint, View};
 use crate::rig::{Layer, Puppet};
 use crate::smooth;
 
 /// 睁开不到这么多，眼睛（眼白、眼珠、高光）就不画了，只剩闭眼层（格式规范 §5）。
-const EYE_SHUT: f64 = 0.08;
+pub(crate) const EYE_SHUT: f64 = 0.08;
 
 /// 眼睛这几层的不透明度：一直不透明，睁开不到 [`EYE_SHUT`] 时直接换成闭眼层（此时它已不透明到 0.97）。LivLiv
 /// 在睁开 0.2 到 0.02 之间让眼睛淡出、闭眼层淡入，快闭上的那一两帧是半透明的眼睛叠在半透明的睫毛上，一条灰带；
@@ -136,6 +137,22 @@ impl Puppet {
                         &l.tex
                     };
                     draw(&mut frame, l, tex, a, None, None);
+                }
+                continue;
+            }
+            if let Some(side) = role.strip_prefix("expr_eye_") {
+                // 表情自己的眼睛：补丁在这里是光脸，先画这一边的闭眼层（乘表情的不透明度），再画压扁的眼睛
+                let a = self.expr_alpha(d);
+                let open = if side == "L" { p.eye_l_open } else { p.eye_r_open };
+                let lid = format!("lid_{side}");
+                if let Some(lid) = layers.iter().find(|e| e.def.role() == lid && e.shown) {
+                    let la = (1.0 - smooth(0.05, 0.35, open)) * a;
+                    if la > 0.01 {
+                        draw(&mut frame, lid, &lid.tex, la, None, None);
+                    }
+                }
+                if a > 0.01 && eye_alpha(open) > 0.0 {
+                    draw(&mut frame, l, &l.tex, a, None, None);
                 }
                 continue;
             }

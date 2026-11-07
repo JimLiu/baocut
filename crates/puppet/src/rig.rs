@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::mesh::{self, Bangs, Ctx, Mesh, Nasal};
 use crate::model::{ChainDef, Group, LayerDef, Model, Rig, Tuning};
 use crate::package::{Package, Texture};
+use crate::draw::EYE_SHUT;
 use crate::{Error, ErrorKind, smooth};
 
 /// mouthOpen 到多少换半张嘴、张开的嘴，两侧的回差，每一帧嘴至少停多久（秒）。
@@ -532,7 +533,7 @@ impl Puppet {
                 };
                 for l in layers.iter_mut() {
                     let r = l.def.role();
-                    if r != format!("eye_{s}") && r != format!("iris_{s}") && r != format!("shine_{s}") {
+                    if r != format!("eye_{s}") && r != format!("iris_{s}") && r != format!("shine_{s}") && r != format!("expr_eye_{s}") {
                         continue;
                     }
                     let n = l.mesh.len();
@@ -718,6 +719,9 @@ impl Puppet {
         }
         if role == "expr" || role == "expr_brows" {
             return self.expr_alpha(d) > 0.01;
+        }
+        if role.starts_with("expr_eye_") {
+            return self.expr_alpha(d) > 0.01 && self.eye_open(side_of(role)) >= EYE_SHUT;
         }
         if role.starts_with("lid_") {
             return 1.0 - smooth(0.05, 0.35, self.eye_open(side_of(role))) > 0.01;
@@ -1312,7 +1316,7 @@ impl Puppet {
             let n = m.len();
             let role = d.role();
             let side = side_of(role);
-            let is_eye = role.starts_with("eye_") || role.starts_with("iris_") || role.starts_with("shine_");
+            let is_eye = role.starts_with("eye_") || role.starts_with("iris_") || role.starts_with("shine_") || role.starts_with("expr_eye_");
             let open = self.eye_open(side);
             let squash = 0.12 + 0.88 * open;
             let iris = role.starts_with("iris_");

@@ -24,7 +24,7 @@
 - 角色的结构、形变与物理移植自 [LivLiv Player](https://github.com/livliv-dev/player)（Apache-2.0）的 model format v4 与它的运行时；`model.json` 的字段名与含义沿用 v4（`schema/livliv-model-v4.json`、`FORMAT.md`），本规范只写 BaoCut 读哪些字段、怎样校验、哪里不同（§7）。
 - BaoCut 不读 `.livliv` 文件：格式头不同，读到 `"format": "livliv-model"` 一律拒绝（`puppet-invalid`）。
 - 角色包与动作轨分开：同一个角色换一段配音只换动作轨。动作轨由配音的音频分析生成（嘴型、元音、点头），也可以手写。
-- 内置技能 `virtual-host` 带两样生成工具：`puppet-build.mjs` 把一张正面像和几张只改一处的改图（光头、嘴的几帧、闭眼、表情）拆成角色包，`rig` 只写 `neck`（下巴下面的脖子跟着转头走一半），其余的 `rig` 与 `tuning` 取缺省；`lipsync.mjs` 按逐字时间与配音的音量算动作轨，只写 `mouthOpen`、`vowel`、`angleX` `angleY` `angleZ` 与 `faces.json` 给的表情，眨眼与视线留给待机动作（§5）。用法见技能的 `references/art.md` 与 `references/lipsync.md`。
+- 内置技能 `virtual-host` 带两样生成工具：`puppet-build.mjs` 把一张正面像和几张只改一处的改图（光头、嘴的几帧、闭眼、表情）拆成角色包（表情改了眼睛时，把它画的眼睛切成 `expr_eye_L` `expr_eye_R`，画成闭着的眼睛留在补丁里），`rig` 只写 `neck`（下巴下面的脖子跟着转头走一半），其余的 `rig` 与 `tuning` 取缺省；`lipsync.mjs` 按逐字时间与配音的音量算动作轨，只写 `mouthOpen`、`vowel`、`angleX` `angleY` `angleZ` 与 `faces.json` 给的表情，眨眼与视线留给待机动作（§5）。用法见技能的 `references/art.md` 与 `references/lipsync.md`。
 - 渲染只用 CPU，预览（preview.wasm）与导出用同一份实现，同一个时刻画出来逐像素相同。
 
 ## 2. 角色包
@@ -65,7 +65,7 @@ interface PuppetModel {
 每层是 v4 的一个 layer：`id`、`texture`、层框 `x y w h`（模型像素）、`group`（`head`、`body`、`hair_back`、`hair_side`、`hair_front`、`hair_inner`，不认识的拒绝）与按需的 `depth`、`role`、`expression`、`frames`、`visemes`、`mask`、`talk`、`brow_tex`、`pivot`、`clip`、`range`、`brows`、`bones`、`rigid`、`blush`、`show`、`hide`、`fall`、`fall_end`。
 
 - `id` 在包里唯一。层框可以伸出画布，但不超过一个画布远：`x ≥ −宽`、`y ≥ −高`、`x + w ≤ 2 × 宽`、`y + h ≤ 2 × 高`，`w`、`h` 为正。
-- 读的 `role`：`mouth`（嘴，`frames` 是各帧，`visemes` 标出每帧是 `closed`、`half`、`open`、`round`、`wide` 还是 `shut`，两者等长；没有 `visemes` 时前三帧按 `closed half open`）、`expr` 与 `expr_brows`（表情补丁与它的眉毛，属于 `expression` 指的表情，缺省 `smile`）、`eye_L` `eye_R`（眼白，带 `mask`）、`iris_L` `iris_R` `shine_L` `shine_R`（眼珠与高光，被眼白裁切，`range` 是行程）、`lid_L` `lid_R`、`blush`、`neck_shadow`。别的 `role` 按普通层画。`id` 为 `brows` 的层是中性的眉毛。`expr` 层的 `talk` 是说话时换用的贴图（嘴的位置是皮肤，表情自己画的嘴比原嘴宽时整张嘴都是皮肤），这时嘴挪到最后一个 `expr` 层之后画；`expr` 层的 `brow_tex` 是表情自己画的眉毛（与层框同大），在最后一个 `id` 为 `brows` 或 `role` 为 `expr_brows` 的层之后按表情的不透明度画一次，跟着刘海动，盖在刘海上，包里没有这样的层时不画；`brows` 为 `"redrawn"` 时表情自己画了眉毛，中性眉毛按这些表情里最大的不透明度淡出。
+- 读的 `role`：`mouth`（嘴，`frames` 是各帧，`visemes` 标出每帧是 `closed`、`half`、`open`、`round`、`wide` 还是 `shut`，两者等长；没有 `visemes` 时前三帧按 `closed half open`）、`expr` 与 `expr_brows`（表情补丁与它的眉毛，属于 `expression` 指的表情，缺省 `smile`）、`expr_eye_L` `expr_eye_R`（表情自己画的眼睛，属于 `expression` 指的表情，`pivot` 是中性眼睛的那一行；放在它的补丁之后，补丁与 `talk` 在它们下面是光脸，眨眼见 §5）、`eye_L` `eye_R`（眼白，带 `mask`）、`iris_L` `iris_R` `shine_L` `shine_R`（眼珠与高光，被眼白裁切，`range` 是行程）、`lid_L` `lid_R`、`blush`、`neck_shadow`。别的 `role` 按普通层画。`id` 为 `brows` 的层是中性的眉毛。`expr` 层的 `talk` 是说话时换用的贴图（嘴的位置是皮肤，表情自己画的嘴比原嘴宽时整张嘴都是皮肤），这时嘴挪到最后一个 `expr` 层之后画；`expr` 层的 `brow_tex` 是表情自己画的眉毛（与层框同大），在最后一个 `id` 为 `brows` 或 `role` 为 `expr_brows` 的层之后按表情的不透明度画一次，跟着刘海动，盖在刘海上，包里没有这样的层时不画；`brows` 为 `"redrawn"` 时表情自己画了眉毛，中性眉毛按这些表情里最大的不透明度淡出。
 - 所有层的网格共用一张格子，格子边长是 `max(6, round(max(画布宽, 画布高) / 128))` 模型像素；同一个格点在每一层上按同样的方式移动，重叠的层不会错开。每层只在它的贴图（嘴还有 `frames`）有不透明像素的格子和它们旁边一格上铺网格，`talk` 与 `brow_tex` 也只画在这些格子里：表情贴图在它画的眉毛底下要不透明。
 
 ### 2.4 上限
@@ -133,7 +133,7 @@ interface PuppetTrack {
 - **说话**。待机动作按动作轨的 `mouthOpen` 判断角色在说话：上一步嘴张过 0.05 时不开始小动作，正在做的在 0.4 秒里淡出，此后至少 3 秒才开始下一个；嘴张过 0.2 后“说话程度”很快升到 1，停下后约一秒落下，说话时视线回到镜头（只留 30%）；说话程度落过 0.6、停顿超过 0.4 秒时眨一次眼。这三件事与 LivLiv `TalkMotion` 交给播放器的一致；点头、朝向、扬眉、轻跳由生成动作轨的一方写进 `offsets`。
 - **与动作轨的交接**。角色时钟早于 0 时，动作轨的值在 −0.5 秒到 0 秒之间从待机渐渐过渡过来，更早完全是待机；动作轨结束后 0.5 秒内渐渐交回待机。完全是待机的时刻不读动作轨，画面与没有动作轨时逐像素相同。没有动作轨的角色一直是待机动作。
 - **合成顺序**。每一步：待机动作 → `params` 取代（含与待机的交接）→ 加 `offsets`（乘以交接的权重）→ 截到 §3 的范围 → 表情权重（同样乘以交接的权重，`smile` 两路取大的）。
-- **眼睛开合**。`eyeLOpen` `eyeROpen` 把眼白、眼珠、高光朝它们的 `pivot` 那一行压扁到原高的 `0.12 + 0.88 o`（`o` 是睁开程度）。这几层在 `o` 不小于 0.08 时不透明，小于 0.08 时不画：动作轨停在 0.08 以下就是闭着眼。闭眼层（`lid_L` `lid_R`）的不透明度是 `1 − smoothstep(0.05, 0.35, o)`。快闭上的那一两帧是一只不透明的窄眼睛，或者只有闭眼层，没有半透明的眼睛。
+- **眼睛开合**。`eyeLOpen` `eyeROpen` 把眼白、眼珠、高光朝它们的 `pivot` 那一行压扁到原高的 `0.12 + 0.88 o`（`o` 是睁开程度）。这几层在 `o` 不小于 0.08 时不透明，小于 0.08 时不画：动作轨停在 0.08 以下就是闭着眼。闭眼层（`lid_L` `lid_R`）的不透明度是 `1 − smoothstep(0.05, 0.35, o)`。快闭上的那一两帧是一只不透明的窄眼睛，或者只有闭眼层，没有半透明的眼睛。表情自己的眼睛（`expr_eye_L` `expr_eye_R`）同样压扁、同样在 0.08 以下不画，不透明度是表情的不透明度；画它之前先画同一边的闭眼层，不透明度乘上表情的不透明度：表情盖住中性的眼睛和闭眼层，带表情时也照常眨眼。
 - **输出**。一帧画到 `w × h` 的预乘 RGBA8 缓冲：先清成透明，角色按画布等比缩放、居中，再按 `moveX` `moveY` 平移（§3 的切口规则）。缓冲的底边缺省就是看得见的画面的底边；宿主可以给出画面底边落在缓冲的第几行（缓冲画进一个伸出画面的框时比 `h` 小），切口规则按它算。宿主也可以把平移拿走、自己挪整张缓冲（视频里的角色贴纸挪框，跳起来头顶不会被框切掉），这时角色画在原处，只画宿主还回来的余数。三角形光栅按像素中心采样、左上填充规则，预乘混合，与 WebGL2 的结果一致到取整误差。
 
 ## 6. 错误代码
@@ -159,6 +159,7 @@ interface PuppetTrack {
 - 说话动作（LivLiv `TalkMotion` 的点头、朝向、漂移、扬眉、轻跳）与一次性动作不在播放器里实时算，由生成动作轨的一方预先写进 `offsets`；视线回看与停顿眨眼由播放器按 `mouthOpen` 算（§5）。“动作进行中”（LivLiv 的 `busy`）只看嘴：静音里的一次性动作不挡待机的小动作。
 - 没有 `away`（离开：闭眼低头、慢呼吸）这个状态。
 - 眨眼最后一段不同：LivLiv 在睁开 0.2 到 0.02 之间让眼睛淡出，半透明的眼睛叠在淡入的闭眼层上，快闭上的一两帧眼睛的位置有一条半透明的灰带；这里眼睛到睁开 0.08 都不透明，再往下直接换成闭眼层（§5）。用 LivLiv 的播放器放生成的 `.livliv` 包仍有这条灰带，包这一边改不了。
+- `expr_eye_L` `expr_eye_R` 是 BaoCut 的扩展：LivLiv 的表情补丁不透明地盖住眼睛，也不压扁，带表情的时候不眨眼；改到眼睛的表情占满整段说话时，角色一直不眨眼。生成工具导出的 `.livliv` 包不带这两种层，补丁保持完整，用 LivLiv 的播放器放仍是这样。
 - 物理按固定 1/120 秒步长从角色时钟的 0 秒重放并存快照（LivLiv 按真实帧间隔走），任意时刻 seek 结果都一样。
 - 链条（`rig.chains` 与层的 `bones`）照 LivLiv 的绳子模拟移植，状态按 f32 取整。
 

@@ -319,3 +319,69 @@ fn a_nearly_shut_eye_is_a_thin_opaque_eye_not_a_grey_band() {
     // 合上：只有闭眼层
     assert_eq!(rows(0.0).0, 0);
 }
+
+/// 表情自己的眼睛（`expr_eye_L`）和中性的眼睛一样眨：朝 `pivot` 那一行压扁，睁开不到 0.08 就不画；它底下先画这一边的
+/// 闭眼层，盖在表情补丁上。表情关着时既不画它，也不在补丁上多画闭眼层。
+#[test]
+fn an_expression_s_own_eyes_blink() {
+    use puppet::testing::{model, png};
+    // 左眼（模型的 95..123 × 110..126）压向第 118 行；表情补丁是盖住整只眼睛的一片皮肤，表情的眼睛是绿的
+    let mut m = model();
+    m["expressions"] = serde_json::json!([{ "id": "smile" }, { "id": "surprised" }]);
+    let layers = m["layers"].as_array_mut().unwrap();
+    for l in layers.iter_mut() {
+        if l["id"] == "eye_L" || l["id"] == "iris_L" {
+            l["pivot"] = serde_json::json!([109, 118]);
+        }
+    }
+    let eye = layers.iter().position(|l| l["id"] == "eye_L").unwrap();
+    layers.insert(
+        eye,
+        serde_json::json!({ "id": "eye_L_closed", "role": "lid_L", "texture": "textures/lid.png",
+        "x": 95, "y": 110, "w": 28, "h": 16, "group": "head" }),
+    );
+    let mouth = layers.iter().position(|l| l["id"] == "mouth").unwrap();
+    layers.insert(mouth + 1, serde_json::json!({ "id": "expr_surprised", "role": "expr", "expression": "surprised",
+        "texture": "textures/patch.png", "x": 88, "y": 102, "w": 44, "h": 32, "group": "head" }));
+    layers.insert(mouth + 2, serde_json::json!({ "id": "expr_surprised_eye_L", "role": "expr_eye_L", "expression": "surprised",
+        "texture": "textures/surprised_eye.png", "x": 95, "y": 110, "w": 28, "h": 16, "group": "head", "pivot": [109, 118] }));
+    let mut fs = files("");
+    fs[0].1 = serde_json::to_vec(&m).unwrap();
+    fs.push(("textures/lid.png".into(), png(28, 16, |_, _| [30, 20, 20, 255])));
+    fs.push(("textures/patch.png".into(), png(44, 32, |_, _| [250, 220, 200, 255])));
+    fs.push(("textures/surprised_eye.png".into(), puppet::testing::ellipse(28, 16, [40, 160, 60])));
+    let pkg = Package::from_zip(&zip(&fs)).unwrap();
+    let mut p = Puppet::new(&pkg).unwrap();
+    let near = |c: [u8; 3], t: [u8; 3]| (0..3).all(|k| c[k].abs_diff(t[k]) <= 12);
+    // 画面是画布的 4 倍：眼睛中线那一列（x 436），第 440–503 行里表情的眼睛、闭眼层、中性的眼珠各占几行（闭眼层是
+    // 一整块深色，眼睛压向它找到的那条睫毛线）
+    let mut rows = |surprised: f64, open: f64| {
+        p.set_expression("surprised", surprised);
+        p.params.eye_l_open = open;
+        p.update(0.0, true);
+        let mut px = vec![0u8; 1024 * 1536 * 4];
+        p.render(1024, 1536, &mut px);
+        let col: Vec<[u8; 3]> = (440..504)
+            .map(|y| {
+                let k = 4 * (y * 1024 + 436);
+                [px[k], px[k + 1], px[k + 2]]
+            })
+            .collect();
+        let n = |t: [u8; 3]| col.iter().filter(|&&c| near(c, t)).count();
+        // 闭眼层是深色的（快闭上时它还差一点没完全不透明）
+        let lid = col.iter().filter(|c| c.iter().all(|&v| v < 70)).count();
+        (n([40, 160, 60]), lid, n([40, 60, 120]))
+    };
+    // 睁着：表情的眼睛，补丁盖住了中性的眼睛和闭眼层
+    let open = rows(1.0, 1.0);
+    assert!(open.0 >= 40 && open.1 == 0 && open.2 == 0, "{open:?}");
+    // 快闭上：压扁的绿眼睛叠在闭眼层上
+    let thin = rows(1.0, 0.1);
+    assert!(thin.0 >= 3 && thin.0 < open.0 / 4 && thin.1 >= 20 && thin.2 == 0, "{thin:?}");
+    // 合上：只有闭眼层
+    let shut = rows(1.0, 0.0);
+    assert!(shut.0 == 0 && shut.1 >= 40 && shut.2 == 0, "{shut:?}");
+    // 表情关着：中性的眼睛照常
+    let off = rows(0.0, 1.0);
+    assert!(off.0 == 0 && off.1 == 0 && off.2 > 0, "{off:?}");
+}
