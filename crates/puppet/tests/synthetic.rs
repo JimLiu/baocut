@@ -229,3 +229,65 @@ fn an_expression_draws_its_brows_over_the_bangs() {
     assert!(rows(&px, [200, 30, 200, 255]).is_empty());
     assert!(!rows(&px, [20, 20, 20, 255]).is_empty());
 }
+
+/// 眨眼最后一段（睁开一成左右）：压扁的眼睛不透明，画在闭眼层上，再闭就只剩闭眼层；没有半透明的眼睛叠半透明的闭眼层
+/// （一条灰带）。
+#[test]
+fn a_nearly_shut_eye_is_a_thin_opaque_eye_not_a_grey_band() {
+    use puppet::testing::{model, png};
+    // 左眼（模型的 95..123 × 110..126）压向中线第 118 行；闭眼层是同一块地方的一片深色
+    let mut m = model();
+    let layers = m["layers"].as_array_mut().unwrap();
+    for l in layers.iter_mut() {
+        if l["id"] == "eye_L" || l["id"] == "iris_L" {
+            l["pivot"] = serde_json::json!([109, 118]);
+        }
+    }
+    let eye = layers.iter().position(|l| l["id"] == "eye_L").unwrap();
+    layers.insert(
+        eye,
+        serde_json::json!({ "id": "eye_L_closed", "role": "lid_L", "texture": "textures/lid.png",
+        "x": 95, "y": 110, "w": 28, "h": 16, "group": "head" }),
+    );
+    let mut fs = files("");
+    fs[0].1 = serde_json::to_vec(&m).unwrap();
+    fs.push(("textures/lid.png".into(), png(28, 16, |_, _| [30, 20, 20, 255])));
+    let pkg = Package::from_zip(&zip(&fs)).unwrap();
+    let mut p = Puppet::new(&pkg).unwrap();
+    // c 在 a 与 b 之间（两种颜色的混合）
+    let between = |c: [u8; 3], a: [f64; 3], b: [f64; 3]| {
+        let d: Vec<f64> = (0..3).map(|k| b[k] - a[k]).collect();
+        let t = ((0..3).map(|k| (f64::from(c[k]) - a[k]) * d[k]).sum::<f64>() / d.iter().map(|v| v * v).sum::<f64>()).clamp(0.0, 1.0);
+        (0..3).map(|k| (f64::from(c[k]) - a[k] - t * d[k]).powi(2)).sum::<f64>().sqrt() <= 10.0
+    };
+    // 只有眼睛：眼珠与眼白之间（压扁后缩小取样，眼珠会混进一点眼白）；没有眼睛：闭眼层与脸之间（闭眼层也淡入）
+    let eye_only = |c: [u8; 3]| between(c, [40.0, 60.0, 120.0], [255.0, 255.0, 255.0]);
+    let no_eye = |c: [u8; 3]| between(c, [30.0, 20.0, 20.0], [250.0, 220.0, 200.0]);
+    // 画面是画布的 4 倍（合成眼睛小）：眼睛中线那一列（x 436），第 440–503 行里只有眼睛的行数、眼睛与闭眼层混色的行数
+    let mut rows = |open: f64| {
+        p.params.eye_l_open = open;
+        p.update(0.0, true);
+        let mut px = vec![0u8; 1024 * 1536 * 4];
+        p.render(1024, 1536, &mut px);
+        let col: Vec<[u8; 3]> = (440..504)
+            .map(|y| {
+                let k = 4 * (y * 1024 + 436);
+                [px[k], px[k + 1], px[k + 2]]
+            })
+            .collect();
+        let eye = col.iter().filter(|&&c| eye_only(c)).count();
+        let mixed = col.iter().filter(|&&c| !eye_only(c) && !no_eye(c)).count();
+        (eye, mixed)
+    };
+    // 越闭越扁，一直是不透明的眼睛，只有上下边缘的一两行混色；睁开不到 0.08 就只剩闭眼层
+    let half = rows(0.4);
+    for open in [0.1, 0.09] {
+        let r = rows(open);
+        assert!(half.0 > r.0 && r.0 >= 3 && r.1 <= 4, "open {open}: {r:?}, half {half:?}");
+    }
+    for open in [0.07, 0.06] {
+        assert_eq!(rows(open), (0, 0), "open {open}");
+    }
+    // 合上：只有闭眼层
+    assert_eq!(rows(0.0).0, 0);
+}

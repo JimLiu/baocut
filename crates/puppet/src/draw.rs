@@ -5,6 +5,16 @@ use crate::raster::{self, Coverage, Frame, Paint, View};
 use crate::rig::{Layer, Puppet};
 use crate::smooth;
 
+/// 睁开不到这么多，眼睛（眼白、眼珠、高光）就不画了，只剩闭眼层（格式规范 §5）。
+const EYE_SHUT: f64 = 0.08;
+
+/// 眼睛这几层的不透明度：一直不透明，睁开不到 [`EYE_SHUT`] 时直接换成闭眼层（此时它已不透明到 0.97）。LivLiv
+/// 在睁开 0.2 到 0.02 之间让眼睛淡出、闭眼层淡入，快闭上的那一两帧是半透明的眼睛叠在半透明的睫毛上，一条灰带；
+/// 一直压扁到很薄再换又是一条横线，对不上闭眼的睫毛弧线。
+fn eye_alpha(open: f64) -> f64 {
+    if open >= EYE_SHUT { 1.0 } else { 0.0 }
+}
+
 impl Puppet {
     /// 把当前的形变画进 `w`×`h` 的预乘 RGBA8 缓冲（先清成透明）。角色按画布等比缩放、居中。
     ///
@@ -148,9 +158,9 @@ impl Puppet {
                 continue;
             }
             if let Some(side) = role.strip_prefix("eye_") {
-                // 压扁，不淡出：淡出会让睫毛有重影
+                // 压扁，不淡出：淡出会让睫毛有重影，半透明的眼睛叠在闭眼的睫毛上是一条灰带
                 let open = if side == "L" { p.eye_l_open } else { p.eye_r_open };
-                draw(&mut frame, l, &l.tex, smooth(0.02, 0.2, open), None, None);
+                draw(&mut frame, l, &l.tex, eye_alpha(open), None, None);
                 if let Some(mask) = l.mask.as_deref() {
                     covers[li] = Some(raster::coverage(w, h, view, &l.out, &l.mesh.uv, &l.mesh.tri, mask));
                 }
@@ -174,7 +184,7 @@ impl Puppet {
                 }
                 let open = if role.ends_with("_L") { p.eye_l_open } else { p.eye_r_open };
                 let cov = covers[pi].as_ref().map(|c| (c, l.soft as f32));
-                draw(&mut frame, l, &l.tex, smooth(0.02, 0.2, open), None, cov);
+                draw(&mut frame, l, &l.tex, eye_alpha(open), None, cov);
                 continue;
             }
             let ma = if d.show.is_some() || d.hide.is_some() {
