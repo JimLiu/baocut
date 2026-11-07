@@ -1,0 +1,14 @@
+{
+  "name": "host",
+  "portrait": "art/portrait.png",
+  "bald": "art/bald.png",
+  "mouths": {
+    "half": "art/mouth-half.png",
+    "open": "art/mouth-open.png",
+    "round": "art/mouth-round.png",
+    "wide": "art/mouth-wide.png"
+  },
+  "lids": "art/eyes-closed.png",
+  "expressions": { "smile": "art/smile.png" },
+  "out": "puppet"
+}

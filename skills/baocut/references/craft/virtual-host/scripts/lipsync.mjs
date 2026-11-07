@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文
-// 配音 + 逐字时间 → 主播的口型时间轴，外加眨眼、点头、每句的朝向和表情区间，写成代码包能直接读的 JS：
-//   node lipsync.mjs --timing timing/intro.json --audio audio/intro.wav --out host/host-track.js
-//   node lipsync.mjs --words intro.words.json --audio intro.wav --out host-track.js --lang ja
-//   node lipsync.mjs --audio intro.wav --out host-track.js            # 只有声音：按音量与元音线索出口型
-// 选项：--lang（BCP 47，缺省 auto）--fps 30 --offset 秒（配音在成片里从第几秒开始）--dur 秒 --faces faces.json
-//       --readings readings.json（{ 词: 读音 }，纠正读错或读不出的词）--seed 1 --var HOST_TRACK --check 核对表路径（缺省与 --out 同目录的 lipsync-check.txt）
+// 配音 + 逐字时间 → 角色的动作轨（人偶格式规范 §4 的 JSON）：嘴型与元音、每句的朝向、音节上的点头、表情区间。
+// 眨眼、呼吸、视线交给播放器的待机动作。
+//   node lipsync.mjs --timing timing/intro.json --audio audio/intro.wav --out host/intro.track.json
+//   node lipsync.mjs --words intro.words.json --audio intro.wav --out intro.track.json --lang ja
+//   node lipsync.mjs --audio intro.wav --out intro.track.json            # 只有声音：按音量与元音线索出口型
+// 选项：--lang（BCP 47，缺省 auto）--dur 秒 --faces faces.json --readings readings.json（{ 词: 读音 }，纠正读错或读不出的词）
+//       --seed 1 --fps 30（核对表按这个帧率列口型）--check 核对表路径（缺省与 --out 同目录的 lipsync-check.txt）
+// 轨的 0 秒是配音的 0 秒；放进视频时角色贴纸的 motionIn 对上配音的开头。
 // 读音决定闭唇、咬唇还是圆唇，音量决定张多大并兜住对齐误差（静音就闭嘴）。音量包络与元音线索移植自 LivLiv Player
 // （Apache-2.0，见 THIRD_PARTY_NOTICES.md）。只依赖 Node 自带的模块与 ffmpeg；结果只由输入与 --seed 决定。
 import fs from 'node:fs';
@@ -24,7 +26,7 @@ const VOICELESS = 15; // 清辅音声母最长按 150 毫秒算
 const LEVELS = [0.25, 0.5], HYST = 0.04;
 // 读音给的口型在各档实际画哪张：D 小声是 B、中等是 C；C 小声是 B；E 小声是 F。其余口型不随音量变
 const BY_LEVEL = { D: ['B', 'C', 'D'], C: ['B', 'C', 'C'], E: ['F', 'E', 'E'] };
-const HOLD_S = 0.055; // 每种口型至少停 55 毫秒（30 fps 是 2 帧；A 闭唇至少 1 帧）
+const HOLD_S = 0.055; // 每种口型至少停 55 毫秒，与播放器换嘴帧的最短停留一样（120 fps 是 7 步；A 闭唇至少 1 步）
 
 // ---------- 读音频 ----------
 export function decodeAudio(file, rate = 16000) {
@@ -307,7 +309,7 @@ export function fineTimeline(units, n, env, cue, audioOnly = false) {
   return { fine, owner };
 }
 
-/** 细时间轴量化到视频帧：每帧取占时最长的口型；A 闭唇不会被并掉，其余口型至少停 55 毫秒；大跨度的开合中间补一帧过渡 */
+/** 细时间轴量化到一步一步（fps 是动作轨的采样率）：每步取占时最长的口型；A 闭唇不会被并掉，其余口型至少停 55 毫秒；大跨度的开合中间补一步过渡 */
 export function quantize(fine, fps, frames) {
   const shapes = new Array(frames).fill('X'), mustA = new Uint8Array(frames);
   const acc = new Map();
@@ -337,27 +339,35 @@ export function quantize(fine, fps, frames) {
     return out;
   };
   // 过短的段：夹在两段中间、比两边都闭（或都开）的，从两边够长的段借帧补到 hold，保住这一下开合；
-  // 借不到、或者只是从小到大一路过去的中间档，并进相邻、张得更开的那段
-  for (let guard = 0; guard < frames; guard++) {
+  // 借不到、或者只是从小到大一路过去的中间档，并进相邻、张得更开的那段。必须保留的闭唇只借不并：
+  // 播放器换嘴帧至少停 55 毫秒，短于 hold 的闭唇会把下一下张嘴推迟
+  const stuck = new Set();
+  for (let guard = 0; guard < 4 * frames; guard++) {
     const runs = runsOf();
+    if (runs.length === 1) break;
     let pick = -1;
     for (let r = 0; r < runs.length; r++) {
       const [f, g] = runs[r];
-      if (g - f >= hold || (shapes[f] === 'A' && mustA.subarray(f, g).some(Boolean))) continue;
-      if (runs.length === 1) break;
+      if (g - f >= hold || stuck.has(f)) continue;
       if (pick < 0 || g - f < runs[pick][1] - runs[pick][0]) pick = r;
     }
     if (pick < 0) break;
     const [f, g] = runs[pick], prev = runs[pick - 1], next = runs[pick + 1];
     const ps = prev ? shapes[prev[0]] : null, ns = next ? shapes[next[0]] : null, o = OPEN[shapes[f]];
+    const keepA = shapes[f] === 'A' && mustA.subarray(f, g).some(Boolean);
     if (prev && next && ((o < OPEN[ps] && o < OPEN[ns]) || (o > OPEN[ps] && o > OPEN[ns]))) {
       let a = f, b = g, pl = prev[1] - prev[0], nl = next[1] - next[0];
       while (b - a < hold) {
         const canP = pl > hold && !mustA[a - 1], canN = nl > hold && !mustA[b];
         if (canP && (!canN || pl >= nl)) { a--; pl--; } else if (canN) { b++; nl--; } else break;
       }
-      if (b - a >= hold) { for (let k = a; k < b; k++) shapes[k] = shapes[f]; continue; }
+      if (b - a >= hold || keepA) {
+        for (let k = a; k < b; k++) shapes[k] = shapes[f];
+        if (b - a < hold) stuck.add(a);
+        continue;
+      }
     }
+    if (keepA) { stuck.add(f); continue; }
     const into = ps == null ? ns : ns == null ? ps : OPEN[ns] > OPEN[ps] ? ns : ps;
     for (let k = f; k < g; k++) shapes[k] = into;
   }
@@ -376,7 +386,7 @@ export function quantize(fine, fps, frames) {
   return shapes;
 }
 
-// ---------- 句子、眨眼、点头 ----------
+// ---------- 句子、点头、朝向 ----------
 function phrasesOf(units, env, dur) {
   const out = [];
   if (units.length) {
@@ -410,23 +420,9 @@ function onsetsOf(env) {
   return out;
 }
 
-function motion(units, env, phrases, dur, seed) {
+/** 点头时刻与每句的朝向。眨眼与视线不在这里：交给播放器的待机动作 */
+function motion(units, env, phrases, seed) {
   const R = rng(seed);
-  // 眨眼：一次眨多快由代码包画（约 0.23 秒），这里只定时刻。每句说完停顿时必眨一次，其余 1.8–5.6 秒一次（间隔取自
-  // LivLiv runtime/idle.ts），约七次里一次连眨，第二下隔 0.3 秒
-  const forced = [];
-  phrases.forEach((p, k) => {
-    const next = phrases[k + 1];
-    if (!next || next.t0 - p.t1 >= 0.45) forced.push(p.t1 + 0.1 + R() * 0.12);
-  });
-  const blinks = [...forced];
-  const near = (t, gap) => blinks.some(b => Math.abs(b - t) < gap);
-  for (let t = 0.6 + R() * 1.5; t < dur; t += 1.8 + R() * 3.8) {
-    if (near(t, 1)) continue;
-    blinks.push(t);
-    if (R() < 0.15) blinks.push(t + 0.3);
-  }
-  const kept = blinks.filter(t => t < dur - 0.2).sort((a, b) => a - b).filter((t, i, a) => i === 0 || t - a[i - 1] >= 0.25);
   // 点头：每句第一个音节点一下，其余音节三成五的概率轻点，两次至少隔 0.35 秒
   const onsets = env ? onsetsOf(env) : units.map(u => u.t0);
   const nods = [];
@@ -438,9 +434,9 @@ function motion(units, env, phrases, dur, seed) {
     if (t - lastNod < 0.35) continue;
     if (first) { nods.push([t, 1]); lastNod = t; } else if (R() < 0.35) { nods.push([t, +(0.5 + R() * 0.4).toFixed(2)]); lastNod = t; }
   }
-  // 每句换个朝向：x -1..1 向左右，y -0.3..0.7 向上下（代码包再按角色大小换算成很小的位移与转角）
+  // 每句换个朝向：x -1..1 向左右，y -0.3..0.7 向下上
   const turns = phrases.map(p => [p.t0, p.t1, +(R() * 2 - 1).toFixed(2), +(R() - 0.3).toFixed(2)]);
-  return { blinks: kept, nods, turns };
+  return { nods, turns, phase: [R(), R(), R()].map(v => v * 2 * Math.PI) };
 }
 
 /** faces.json：[{line, face}]（line 从 1 数，与核对表一致）或 [{t0, t1, face}]，也可以 {default, items:[…]} */
@@ -449,7 +445,7 @@ export function facesOf(spec, units) {
   const items = Array.isArray(spec) ? spec : Array.isArray(spec.items) ? spec.items : [];
   const list = [];
   for (const it of items) {
-    if (!it || typeof it.face !== 'string' || !it.face) throw new Error('every faces entry needs a face name');
+    if (!it || typeof it.face !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(it.face)) throw new Error('every faces entry needs a face: the id of an expression in the character package (letters, digits, _ or -)');
     if (it.line != null) {
       const us = units.filter(u => u.line === Number(it.line) - 1);
       if (!us.length) throw new Error(`faces: line ${it.line} has no spoken text`);
@@ -464,50 +460,129 @@ export function facesOf(spec, units) {
     if (last && last[2] === f[2] && f[0] - last[1] < 0.4) last[1] = Math.max(last[1], f[1]);
     else merged.push([...f]);
   }
-  return { def: typeof spec.default === 'string' ? spec.default : null, list: merged };
+  if (spec.default != null && !(typeof spec.default === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(spec.default))) throw new Error('faces: default must be an expression id');
+  return { def: spec.default ?? null, list: merged };
 }
 
+// ---------- 动作轨 ----------
+/** 动作轨的采样率：与播放器 1/120 秒的步长对齐，每个采样正好落在一步上 */
+export const TRACK_FPS = 120;
+/**
+ * 口型在角色上的画法：[mouthOpen, vowel]。张嘴越过 0.12、0.5 换半张、张开（播放器的门槛，各有 0.04 回差），张着嘴时
+ * vowel 低于 −0.65 换圆嘴、高于 0.65 换扁嘴；角色没有圆嘴、扁嘴就按张嘴的档。A 闭唇与 X 静止都闭上；B 半张；C、D 张开；
+ * E 圆嘴；F 小圆嘴（半张的圆嘴）；G 咬唇（扁嘴那一帧画的是上齿压下唇）
+ */
+export const MOUTH = { X: [0, 0], A: [0, 0], B: [0.3, 0], C: [0.85, 0], D: [1, 0], E: [0.85, -1], F: [0.3, -1], G: [0.3, 1] };
+// 头的动作（度）：待机那样的慢游移，每句的朝向，音节上的点头
+const DRIFT = [[3.5, 0.7], [2, 0.9], [3, 0.5]]; // angleX、angleY、angleZ 的 [幅度, 角速度]
+const FACE_X = 7, FACE_Y = 4, TILT = 0.25, NOD = 4.5, NOD_S = 0.36, EASE_IN = 0.5, EASE_OUT = 0.8, FACE_RAMP = 0.25;
+
+const smooth = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+const r2 = v => Math.round(v * 100) / 100;
 const r4 = t => Math.round(t * 1e4) / 1e4;
+const r3 = v => Math.round(v * 1000) / 1000;
+/** 最后一个采样之后保持它的值：去掉末尾重复的采样 */
+function trimTail(a) {
+  let k = a.length - 1;
+  while (k > 0 && a[k - 1] === a[k]) k--;
+  return a.slice(0, k + 1);
+}
+
+/** 每一步的转头、点头、歪头 */
+function headChannels(ticks, m, phrases) {
+  const ax = new Array(ticks), ay = new Array(ticks), az = new Array(ticks);
+  for (let k = 0; k < ticks; k++) {
+    const t = k / TRACK_FPS;
+    // 每句的朝向：句首 0.5 秒转过去，句末之后 0.8 秒回正（下一句先到就直接转向下一句的朝向）
+    let fx = 0, fy = 0;
+    for (let i = 0; i < m.turns.length; i++) {
+      const [t0, t1, x, y] = m.turns[i], next = m.turns[i + 1];
+      const end = next ? Math.min(t1 + EASE_OUT, next[0]) : t1 + EASE_OUT;
+      if (t < t0 || t >= end + EASE_IN) continue;
+      let wgt = smooth((t - t0) / EASE_IN);
+      if (!next || next[0] > t1 + EASE_OUT) wgt *= 1 - smooth((t - t1) / EASE_OUT);
+      else if (t >= next[0]) wgt *= 1 - smooth((t - next[0]) / EASE_IN);
+      fx += wgt * x * FACE_X;
+      fy += wgt * y * FACE_Y;
+    }
+    // 点头：先低下再抬回，0.36 秒
+    let nod = 0;
+    for (const [tn, sN] of m.nods) {
+      const tau = t - tn;
+      if (tau >= 0 && tau < NOD_S) nod -= NOD * sN * Math.sin((Math.PI * tau) / NOD_S);
+    }
+    const d = DRIFT.map(([amp, w], i) => amp * Math.sin(w * t + m.phase[i]));
+    ax[k] = r2(d[0] + fx);
+    ay[k] = r2(d[1] + fy + nod);
+    az[k] = r2(d[2] - TILT * fx);
+  }
+  return { angleX: ax, angleY: ay, angleZ: az };
+}
+
+/** 表情权重：每段前后各 0.25 秒渐变；default 是没有别的表情的时候 */
+function expressionChannels(ticks, fc) {
+  const ids = [...new Set([...fc.list.map(f => f[2]), ...(fc.def ? [fc.def] : [])])];
+  const out = {};
+  for (const id of ids) {
+    const a = new Array(ticks).fill(0);
+    for (let k = 0; k < ticks; k++) {
+      const t = k / TRACK_FPS;
+      let v = 0, other = 0;
+      for (const [t0, t1, f] of fc.list) {
+        const w = smooth((t - t0 + FACE_RAMP) / FACE_RAMP) * (1 - smooth((t - t1) / FACE_RAMP));
+        if (f === id) v = Math.max(v, w); else other = Math.max(other, w);
+      }
+      if (id === fc.def) v = Math.max(v, 1 - other);
+      a[k] = r3(v);
+    }
+    out[id] = trimTail(a);
+  }
+  return out;
+}
 
 /**
- * 主体：units（unitsFromTiming / unitsFromWords 的结果，可以是空数组 = 只有声音）+ 音量包络与元音线索 → 时间轴。
- * 返回 { track, frames, fine, owner, phrases }；track 里的时刻都已加上 offset
+ * 主体：units（unitsFromTiming / unitsFromWords 的结果，可以是空数组 = 只有声音）+ 音量包络与元音线索 → 动作轨
+ * （人偶格式规范 §4）。轨的 0 秒是配音的 0 秒。返回 { track, shapes（每一步的口型字母）, fine, owner, phrases, nods }
  */
-export function buildTrack({ units = [], env = null, cue = null, dur, fps = 30, offset = 0, seed = 1, faces = null }) {
-  if (!(fps > 0)) throw new Error('fps must be positive');
+export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, faces = null }) {
   const audioOnly = !units.length;
   if (audioOnly && !env) throw new Error('need --timing, --words or --audio');
   const end = dur ?? Math.max(units.length ? units[units.length - 1].t1 + 0.5 : 0, env ? env.length * STEP : 0);
-  const n = Math.ceil(end / STEP) + 1, frameCount = Math.max(1, Math.ceil(end * fps));
+  if (!(end > 0)) throw new Error('the voice has no length');
+  const duration = r4(end);
+  const n = Math.ceil(end / STEP) + 1, ticks = Math.floor(duration * TRACK_FPS) + 1;
   const { fine, owner } = fineTimeline(units, n, env, cue, audioOnly);
-  const frames = quantize(fine, fps, frameCount);
-  const mouth = [];
-  frames.forEach((s, f) => { if (!mouth.length || mouth[mouth.length - 1][1] !== s) mouth.push([r4(f / fps + offset), s]); });
+  const shapes = quantize(fine, TRACK_FPS, ticks);
   const phrases = phrasesOf(units, env, end);
-  const m = motion(units, env, phrases, end, seed);
+  const m = motion(units, env, phrases, seed);
   const fc = facesOf(faces, units);
-  const track = {
-    version: 1,
-    fps,
-    dur: r4(end),
-    offset,
-    mouth,
-    blinks: m.blinks.map(t => r4(t + offset)),
-    nods: m.nods.map(([t, s]) => [r4(t + offset), s]),
-    turns: m.turns.map(([a, b, x, y]) => [r4(a + offset), r4(b + offset), x, y]),
-    faces: fc.list.map(([a, b, f]) => [r4(a + offset), r4(b + offset), f]),
-    ...(fc.def ? { face: fc.def } : {}),
+  const params = {
+    mouthOpen: trimTail(shapes.map(s => MOUTH[s][0])),
+    vowel: trimTail(shapes.map(s => MOUTH[s][1])),
+    ...headChannels(ticks, m, phrases),
   };
-  return { track, frames, fine, owner, phrases };
+  const expressions = expressionChannels(ticks, fc);
+  const track = {
+    format: 'baocut-puppet-track',
+    version: 1,
+    fps: TRACK_FPS,
+    duration,
+    params,
+    ...(Object.keys(expressions).length ? { expressions } : {}),
+  };
+  return { track, shapes, fine, owner, phrases, nods: m.nods };
 }
 
-/** 口型核对表：每句的每个字下面写读音、读音给的口型和画面上实际出的口型 */
-export function checkTable(units, result, lines, header) {
-  const { frames, track } = result, fps = track.fps;
+/** 口型核对表：每句的每个字下面写读音、读音给的口型和按视频帧率看到的口型 */
+export function checkTable(units, result, lines, header, fps = 30) {
+  const { shapes, track } = result;
+  const frames = Array.from({ length: Math.max(1, Math.ceil(track.duration * fps)) }, (_, f) => shapes[Math.min(shapes.length - 1, Math.round((f / fps) * TRACK_FPS))]);
   const count = {};
   for (const s of frames) count[s] = (count[s] ?? 0) + 1;
   const pct = Object.keys(count).sort().map(s => `${s} ${Math.round((count[s] / frames.length) * 100)}%`).join('  ');
-  const out = [header, `frames ${frames.length} at ${fps} fps, mouth changes ${track.mouth.length}, blinks ${track.blinks.length}, nods ${track.nods.length}`, `shapes: ${pct}`];
+  let changes = 0;
+  for (let k = 1; k < shapes.length; k++) if (shapes[k] !== shapes[k - 1]) changes++;
+  const out = [header, `${track.duration}s, ${shapes.length} steps at ${TRACK_FPS} fps (shown below at ${fps} fps), mouth changes ${changes}, nods ${result.nods.length}, phrases ${result.phrases.length}`, `shapes: ${pct}`];
   const unknown = units.filter(u => !u.plan).length;
   if (unknown) out.push(`units without a reading (mouth from loudness and vowel colour): ${unknown} of ${units.length}`);
   let li = -1;
@@ -524,12 +599,18 @@ export function checkTable(units, result, lines, header) {
   return out.join('\n') + '\n';
 }
 
+const USAGE = 'usage: lipsync.mjs (--timing timing.json | --words words.json | --audio voice.wav) [--audio voice.wav] --out voice.track.json [--lang auto] [--dur s] [--faces faces.json] [--readings readings.json] [--seed 1] [--fps 30] [--check file]';
+const FLAGS = ['timing', 'words', 'audio', 'out', 'lang', 'dur', 'faces', 'readings', 'seed', 'fps', 'check'];
+
 function parseArgs(argv) {
   const flags = {};
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
-    if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
-    flags[a.slice(2)] = argv[i + 1];
+    if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}\n${USAGE}`);
+    const k = a.slice(2);
+    if (!FLAGS.includes(k)) throw new Error(`unknown option --${k}${k === 'offset' ? ' (the track starts with the voice; place it with the sticker\'s motionIn)' : ''}\n${USAGE}`);
+    if (argv[i + 1] == null) throw new Error(`--${k} needs a value\n${USAGE}`);
+    flags[k] = argv[i + 1];
     i++;
   }
   return flags;
@@ -544,12 +625,9 @@ function readJsonish(file) {
 
 function main() {
   const f = parseArgs(process.argv);
-  if (!f.out || !(f.timing || f.words || f.audio)) {
-    throw new Error('usage: lipsync.mjs (--timing timing.json | --words words.json) [--audio voice.wav] --out host-track.js [--lang auto] [--fps 30] [--offset 0] [--dur s] [--faces faces.json] [--readings readings.json] [--seed 1] [--var HOST_TRACK] [--check file]');
-  }
-  const name = f.var || 'HOST_TRACK';
-  if (!/^[A-Za-z_$][\w$]*$/.test(name)) throw new Error(`--var must be a JavaScript identifier, got ${name}`);
-  const lang = f.lang || 'auto', fps = f.fps ? Number(f.fps) : 30, offset = f.offset ? Number(f.offset) : 0;
+  if (!f.out || !(f.timing || f.words || f.audio)) throw new Error(USAGE);
+  const lang = f.lang || 'auto', fps = f.fps ? Number(f.fps) : 30;
+  if (!(fps > 0)) throw new Error('--fps must be positive');
   let units = [], lines = null, dur = f.dur ? Number(f.dur) : undefined;
   const readings = f.readings ? JSON.parse(fs.readFileSync(f.readings, 'utf8')) : null;
   if (readings && (typeof readings !== 'object' || Array.isArray(readings))) throw new Error('--readings must be a JSON object { "word": "reading" }');
@@ -567,16 +645,23 @@ function main() {
     if (dur == null) dur = x.length / sr;
   }
   const faces = f.faces ? JSON.parse(fs.readFileSync(f.faces, 'utf8')) : null;
-  const result = buildTrack({ units, env, cue, dur, fps, offset, seed: f.seed ? Number(f.seed) : 1, faces });
+  const result = buildTrack({ units, env, cue, dur, seed: f.seed ? Number(f.seed) : 1, faces });
   const src = [f.timing || f.words, f.audio].filter(Boolean).map(p => path.basename(p)).join(' + ');
   fs.mkdirSync(path.dirname(path.resolve(f.out)), { recursive: true });
-  fs.writeFileSync(f.out, `// lip sync for the virtual host from ${src} (lipsync.mjs); times are composition seconds\nwindow.${name} = ${JSON.stringify(result.track)};\n`);
+  fs.writeFileSync(f.out, JSON.stringify(result.track) + '\n');
   const check = f.check || path.join(path.dirname(f.out), 'lipsync-check.txt');
-  fs.writeFileSync(check, checkTable(units, result, lines, `lipsync check: ${src}  lang ${lang}  offset ${offset}s`));
+  fs.writeFileSync(check, checkTable(units, result, lines, `lipsync check: ${src}  lang ${lang}`, fps));
   const t = result.track;
-  console.log(`${f.out}: window.${name}, ${t.dur}s, ${t.mouth.length} mouth changes, ${t.blinks.length} blinks, ${t.nods.length} nods, ${t.faces.length} face spans`);
+  console.log(`${f.out}: motion track, ${t.duration}s at ${t.fps} fps, ${result.nods.length} nods, ${result.phrases.length} phrases${t.expressions ? `, expressions ${Object.keys(t.expressions).join(' ')}` : ''}`);
   console.log(`${check}: per-character check table${units.length ? '' : ' (audio only: no text)'}`);
   if (!env) console.log('note: no --audio, so silences inside lines are not closed and loud/quiet syllables are not told apart');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  try {
+    main();
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+}

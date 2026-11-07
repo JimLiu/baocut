@@ -1,12 +1,12 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
-import { align, mouthLadder, run } from '../skills/baocut/built-in-skills/virtual-host/scripts/host-pack.mjs';
-import { writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/image-io.mjs';
-import { buildTrack, facesOf, fineTimeline, levelsOf, quantize, STEP, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
+import { buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
+import { writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
+import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -124,17 +124,49 @@ describe('virtual-host lip sync', () => {
     for (const run of runsOf(frameString(fine, 60))) if (run[0] !== 'A') expect(run.length).toBeGreaterThanOrEqual(4);
   });
 
-  it('builds the same track from the same input and seed', () => {
+  type Track = { format: string; version: number; fps: number; duration: number; params: Record<string, number[]>; expressions?: Record<string, number[]> };
+  type Built = { track: Track; shapes: string[] };
+  const at = (a: number[], k: number) => a[Math.min(k, a.length - 1)];
+
+  it('writes a 120 fps puppet track whose mouth follows the shapes', () => {
     const units = unitsFromWords(words, 'zh-CN');
-    const a = buildTrack({ units, dur: 2, seed: 1 }).track;
-    const b = buildTrack({ units, dur: 2, seed: 1 }).track;
-    const c = buildTrack({ units, dur: 2, seed: 2 }).track;
+    const { track, shapes } = buildTrack({ units, dur: 2, seed: 1 }) as Built;
+    expect(track).toMatchObject({ format: 'baocut-puppet-track', version: 1, fps: TRACK_FPS, duration: 2 });
+    expect(Object.keys(track.params).sort()).toEqual(['angleX', 'angleY', 'angleZ', 'mouthOpen', 'vowel']);
+    for (const ch of Object.values(track.params)) {
+      expect(ch.length).toBeGreaterThan(0);
+      expect(ch.length).toBeLessThanOrEqual(Math.ceil(track.duration * track.fps) + 1);
+    }
+    expect(shapes).toHaveLength(Math.floor(2 * TRACK_FPS) + 1);
+    // every step draws the mouth of its shape: closed lips shut, rounded lips pull the vowel to "round"
+    for (let k = 0; k < shapes.length; k++) {
+      const [open, vowel] = MOUTH[shapes[k] as keyof typeof MOUTH];
+      expect([at(track.params.mouthOpen, k), at(track.params.vowel, k)]).toEqual([open, vowel]);
+    }
+    expect(shapes.some((s) => s === 'E' || s === 'F')).toBe(true); // 我 wo
+    expect(shapes.at(-1)).toBe('X');
+    expect(Math.max(...track.params.angleY.map(Math.abs))).toBeLessThan(30);
+  });
+
+  it('builds the same track from the same input and seed; the seed moves only the head', () => {
+    const units = unitsFromWords(words, 'zh-CN');
+    const a = (buildTrack({ units, dur: 2, seed: 1 }) as Built).track;
+    const b = (buildTrack({ units, dur: 2, seed: 1 }) as Built).track;
+    const c = (buildTrack({ units, dur: 2, seed: 2 }) as Built).track;
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
-    expect(c.mouth).toEqual(a.mouth);
-    expect(a.mouth[0]).toEqual([0, expect.any(String)]);
-    expect(a.mouth.at(-1)![1]).toBe('X');
-    const shifted = buildTrack({ units, dur: 2, seed: 1, offset: 5 }).track;
-    expect(shifted.mouth.map(([t]: [number]) => +(t - 5).toFixed(4))).toEqual(a.mouth.map(([t]: [number]) => t));
+    expect(c.params.mouthOpen).toEqual(a.params.mouthOpen);
+    expect(c.params.vowel).toEqual(a.params.vowel);
+    expect(c.params.angleX).not.toEqual(a.params.angleX);
+  });
+
+  it('closes the lips for b p m', () => {
+    const bao = { timescale: 1000, segments: [{ text: '宝宝', words: [{ text: '宝', start: 200, end: 500 }, { text: '宝', start: 500, end: 800 }] }] };
+    const { track, shapes } = buildTrack({ units: unitsFromWords(bao, 'zh-CN'), dur: 1.2 }) as Built;
+    const closed = shapes.map((s, k) => (s === 'A' ? k : -1)).filter((k) => k >= 0);
+    expect(closed.length).toBeGreaterThan(0);
+    // one closure inside the second syllable, between the two open vowels
+    expect(closed.some((k) => k / TRACK_FPS > 0.45 && k / TRACK_FPS < 0.6)).toBe(true);
+    for (const k of closed) expect(at(track.params.mouthOpen, k)).toBe(0);
   });
 
   it('turns faces.json lines into spans around the spoken words', () => {
@@ -146,197 +178,172 @@ describe('virtual-host lip sync', () => {
     expect(list[0][0]).toBe(0);
     expect(list[0][1]).toBeCloseTo(1.82, 2);
     expect(() => facesOf([{ line: 3, face: 'smile' }], units)).toThrow(/no spoken text/);
+    // the expression is a weight channel that ramps up and back down
+    const { track } = buildTrack({ units, dur: 3, faces: [{ line: 1, face: 'smile' }] }) as Built;
+    const smile = track.expressions!.smile;
+    expect(Math.max(...smile)).toBe(1);
+    expect(at(smile, Math.round(2.5 * TRACK_FPS))).toBe(0);
+    for (const v of smile) expect(v >= 0 && v <= 1).toBe(true);
+  });
+
+  const lipsync = path.join(skill, 'scripts/lipsync.mjs');
+  it('writes the track and the check table from the command line, and sends offsets to motionIn', () => {
+    const dir = tmp();
+    fs.writeFileSync(path.join(dir, 'intro.words.json'), JSON.stringify(words));
+    const out = path.join(dir, 'host/intro.track.json');
+    const r = spawnSync(process.execPath, [lipsync, '--words', path.join(dir, 'intro.words.json'), '--out', out, '--lang', 'zh-CN'], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8'))).toMatchObject({ format: 'baocut-puppet-track', fps: TRACK_FPS });
+    const check = fs.readFileSync(path.join(dir, 'host/lipsync-check.txt'), 'utf8').split('\n');
+    expect(check[1]).toMatch(/^\d+(\.\d+)?s, \d+ steps at 120 fps \(shown below at 30 fps\), mouth changes \d+, nods \d+, phrases 2$/);
+    expect(check.find((l) => /^\s+[\d.]+\s+好/.test(l))).toMatch(/好\s+hao\s+B·D·E/);
+    const bad = spawnSync(process.execPath, [lipsync, '--words', path.join(dir, 'intro.words.json'), '--out', out, '--offset', '2'], { encoding: 'utf8' });
+    expect(bad.status).toBe(1);
+    expect(bad.stderr).toMatch(/unknown option --offset .*motionIn/);
   });
 });
 
-// A bust on chroma green: shirt, face, two eyes and a closed mouth.
-const GREEN = [0, 177, 64];
-type Rect = [x: number, y: number, w: number, h: number, color: number[]];
-function paint(rects: Rect[], dx = 0, dy = 0, background: number[] | null = GREEN) {
-  const w = 320, h = 320, d = new Uint8ClampedArray(w * h * 4);
-  if (background) for (let p = 0; p < w * h; p++) d.set([...background, 255], p * 4);
-  for (const [x, y, rw, rh, c] of rects) {
-    for (let j = y; j < y + rh; j++) for (let i = x; i < x + rw; i++) {
-      const X = i + dx, Y = j + dy;
-      if (X >= 0 && Y >= 0 && X < w && Y < h) d.set([...c, 255], (Y * w + X) * 4);
-    }
-  }
-  return { w, h, d };
-}
-const DARK = [30, 24, 28], RED = [200, 60, 70];
-const bust: Rect[] = [[40, 200, 240, 120, [60, 90, 200]], [90, 40, 140, 170, [244, 200, 170]]];
-const eyesOpen: Rect[] = [[120, 100, 16, 16, DARK], [184, 100, 16, 16, DARK]];
-const eyesShut: Rect[] = [[120, 106, 16, 4, DARK], [184, 106, 16, 4, DARK]];
-const mouthRest: Rect[] = [[140, 160, 40, 6, RED]];
-const portrait = (eyes = eyesOpen, mouth = mouthRest, dx = 0, dy = 0, background: number[] | null = GREEN) => paint([...bust, ...eyes, ...mouth], dx, dy, background);
+// A flat cartoon bust drawn from filled shapes with outlines, on chroma green: the portrait, its bald repaint and
+// edits that differ from it only where they are asked to (mouths, closed eyes, a smile), like the image model's.
+type RGB = [number, number, number];
+type Shape = { inside: (x: number, y: number) => boolean; fill: RGB; outline?: number };
+const SIZE = 512;
+const ell = (cx: number, cy: number, rx: number, ry: number) => (x: number, y: number) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+const rect = (x0: number, y0: number, x1: number, y1: number) => (x: number, y: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+const stroke = (f: (x: number) => number, x0: number, x1: number, t: number) => (x: number, y: number) => x >= x0 && x <= x1 && Math.abs(y - f(x)) <= t;
 
-describe('virtual-host pack', () => {
-  it('aligns a shifted edit and leaves an in-place edit where it is', () => {
-    // align() runs on keyed (transparent) images
-    const base = portrait(eyesOpen, mouthRest, 0, 0, null);
-    expect(align(base, portrait(eyesOpen, mouthRest, 6, -4, null))).toMatchObject({ s: 1, dx: 6, dy: -4 });
-    expect(align(base, portrait(eyesOpen, [[140, 152, 40, 26, DARK]], 0, 0, null))).toMatchObject({ s: 1, dx: 0, dy: 0 });
-  });
-
-  it('cuts one patch box per group and writes host-data.js', () => {
-    const dir = tmp();
-    fs.mkdirSync(path.join(dir, 'art'));
-    writePng(path.join(dir, 'art/portrait.png'), portrait());
-    writePng(path.join(dir, 'art/mouth-A.png'), portrait(eyesOpen, [[138, 161, 44, 4, DARK]]));
-    writePng(path.join(dir, 'art/mouth-D.png'), portrait(eyesOpen, [[140, 152, 40, 26, DARK], [146, 168, 28, 8, RED]]));
-    writePng(path.join(dir, 'art/eyes-closed.png'), portrait(eyesShut));
-    const manifest = path.join(dir, 'host.json');
-    fs.writeFileSync(manifest, JSON.stringify({ base: 'art/portrait.png', variants: { mouth: { A: 'art/mouth-A.png', D: 'art/mouth-D.png' }, eyes: { closed: 'art/eyes-closed.png' } } }));
-    const { data, report } = run(manifest);
-    expect(report.variants.map((v: { name: string; ok: boolean }) => [v.name, v.ok])).toEqual([['mouth-A', true], ['mouth-D', true], ['eyes-closed', true]]);
-    // the mouth box covers every mouth edit (portrait pixels) and stays clear of the eyes
-    const [mx, my, mw, mh] = report.groups.mouth.box;
-    expect(mx).toBeLessThanOrEqual(138);
-    expect(mx + mw).toBeGreaterThanOrEqual(182);
-    expect(my).toBeLessThanOrEqual(152);
-    expect(my + mh).toBeGreaterThanOrEqual(178);
-    const [, ey, , eh] = report.groups.eyes.box;
-    expect(ey + eh).toBeLessThanOrEqual(my);
-    // both mouth patches share the group box; the base is cropped to the figure
-    expect(data.mouth.A).toMatchObject({ x: data.boxes.mouth[0], y: data.boxes.mouth[1], w: mw, h: mh });
-    expect(data.mouth.D.src).toBe('pack/mouth-D.png');
-    expect(data.w).toBeLessThan(320);
-    const js = fs.readFileSync(path.join(dir, 'pack/host-data.js'), 'utf8');
-    expect(js).toMatch(/^\/\/ virtual host pack/);
-    expect(js).toContain('window.HOST_PACK = {');
-    for (const f of ['base.png', 'mouth-A.png', 'mouth-D.png', 'eyes-closed.png', 'proof.png', 'pack-report.json']) expect(fs.existsSync(path.join(dir, 'pack', f))).toBe(true);
-  });
-
-  it('measures the mouths and warns when they do not open in steps', () => {
-    const ok = { B: { w: 120, h: 20, area: 1800 }, C: { w: 110, h: 46, area: 4000 }, D: { w: 130, h: 78, area: 8000 }, E: { w: 54, h: 70, area: 3000 }, F: { w: 64, h: 52, area: 2600 } };
-    expect(mouthLadder(ok)).toEqual([]);
-    const flat = mouthLadder({ ...ok, C: { w: 110, h: 21, area: 2000 }, F: { w: 60, h: 80, area: 3800 } });
-    expect(flat.join('\n')).toMatch(/C opens barely more than B/);
-    expect(flat.join('\n')).toMatch(/F is not smaller than E/);
-    expect(mouthLadder({ ...ok, D: { w: 130, h: 120, area: 12000 } }).join('\n')).toMatch(/a laugh/);
-  });
-
-  it('splits the head from the body at the neck, and leaves a figure without a neck whole', () => {
-    // face, a narrow neck, then shoulders
-    const necked: Rect[] = [[90, 40, 140, 160, [244, 200, 170]], [140, 200, 40, 40, [236, 190, 160]], [40, 240, 240, 80, [60, 90, 200]]];
-    const figure = (mouth: Rect[]) => paint([...necked, ...eyesOpen, ...mouth]);
-    const dir = tmp();
-    fs.mkdirSync(path.join(dir, 'art'));
-    writePng(path.join(dir, 'art/portrait.png'), figure(mouthRest));
-    writePng(path.join(dir, 'art/mouth-A.png'), figure([[138, 161, 44, 4, DARK]]));
-    writePng(path.join(dir, 'art/mouth-D.png'), figure([[140, 152, 40, 26, DARK], [146, 168, 28, 8, RED]]));
-    const manifest = path.join(dir, 'host.json');
-    fs.writeFileSync(manifest, JSON.stringify({ base: 'art/portrait.png', variants: { mouth: { A: 'art/mouth-A.png', D: 'art/mouth-D.png' } } }));
-    const { data, report } = run(manifest);
-    expect(report.rig.neck).toEqual([200, 239]);
-    expect(report.mouthSizes.D.h).toBeGreaterThan(report.mouthSizes.A.h);
-    // pack pixels: the base is cropped to the figure
-    const top = data.rig.neck[0];
-    expect(data.rig.neck[1] - top).toBe(39);
-    expect(data.rig.pivot[1]).toBe(data.rig.neck[1]);
-    expect(data.rig.head.y + data.rig.head.h).toBeLessThanOrEqual(data.rig.neck[1] + 1);
-    expect(data.rig.body).toBe('pack/body.png');
-    for (const f of ['head.png', 'body.png']) expect(fs.existsSync(path.join(dir, 'pack', f))).toBe(true);
-
-    // the old bust has no neck: the shirt is wider than the face right below the mouth
-    fs.writeFileSync(manifest, JSON.stringify({ base: 'art/portrait.png', variants: { mouth: { A: 'art/mouth-A.png' } }, out: 'pack-off', neck: false }));
-    const off = run(manifest);
-    expect(off.report.rig.reason).toMatch(/neck: false/);
-    expect(off.data.rig).toBeUndefined();
-  });
-
-  it('refuses mouth names that are not shapes or expressions', () => {
-    const dir = tmp();
-    fs.writeFileSync(path.join(dir, 'host.json'), JSON.stringify({ base: 'p.png', variants: { mouth: { a: 'x.png' } } }));
-    expect(() => run(path.join(dir, 'host.json'))).toThrow(/A–G/);
-  });
-});
-
-describe('virtual-host host-kit', () => {
-  type Call = [string, ...unknown[]];
-  function load() {
-    class FakeImage {
-      src = '';
-      decode() {
-        return Promise.resolve();
+function render(shapes: Shape[], line: RGB, background: RGB) {
+  const n = SIZE * SIZE, d = new Uint8ClampedArray(n * 4), m = new Uint8Array(n);
+  for (let p = 0; p < n; p++) d.set([...background, 255], p * 4);
+  for (const s of shapes) {
+    for (let p = 0; p < n; p++) m[p] = s.inside((p % SIZE) + 0.5, Math.floor(p / SIZE) + 0.5) ? 1 : 0;
+    const r = s.outline ?? 0;
+    for (let p = 0; p < n; p++) {
+      if (!m[p]) continue;
+      const x = p % SIZE, y = Math.floor(p / SIZE);
+      let edge = false;
+      for (let j = -r; j <= r && !edge; j++) for (let i = -r; i <= r && !edge; i++) {
+        if (!r || i * i + j * j > r * r) continue;
+        const X = x + i, Y = y + j;
+        edge = X < 0 || Y < 0 || X >= SIZE || Y >= SIZE || !m[Y * SIZE + X];
       }
+      d.set([...(edge ? line : s.fill), 255], p * 4);
     }
-    const warnings: string[] = [];
-    const window: Record<string, unknown> = {};
-    const context = vm.createContext({ window, Image: FakeImage, console: { warn: (m: string) => warnings.push(m) }, document: { querySelector: () => null } });
-    vm.runInContext(fs.readFileSync(path.join(skill, 'host-kit/host-kit.js'), 'utf8'), context);
-    return { HostKit: window.HostKit as { host: (...a: unknown[]) => Host }, warnings };
   }
-  type Host = { draw: (ctx: unknown, t: number, d?: object) => string; blinkAt: (t: number) => number; shapeAt: (t: number) => string };
-  const patch = (name: string) => ({ src: `pack/${name}.png`, x: 10, y: 20, w: 30, h: 10 });
-  const pack = { version: 1, w: 200, h: 300, base: 'pack/base.png', mouth: { A: patch('mouth-A'), B: patch('mouth-B'), D: patch('mouth-D'), smile: patch('mouth-smile') }, eyes: { half: patch('eyes-half'), closed: patch('eyes-closed') }, face: { smile: patch('face-smile') } };
-  const track = { version: 1, fps: 30, dur: 3, offset: 0, mouth: [[0, 'D'], [0.5, 'G'], [1, 'A'], [1.5, 'X']], blinks: [2], nods: [[0, 1]], turns: [[0, 1.5, 0.5, 0]], faces: [[2.5, 3, 'smile'], [1.6, 1.8, 'wink']] };
-  function fakeCtx() {
-    const calls: Call[] = [];
-    const record = (name: string) => (...args: unknown[]) => calls.push([name, ...args]);
-    return { calls, canvas: { width: 1920, height: 1080 }, globalAlpha: 1, save: record('save'), restore: record('restore'), translate: record('translate'), rotate: record('rotate'), scale: record('scale'), drawImage: (im: { src: string }, ...args: unknown[]) => calls.push(['drawImage', im.src, ...args]) };
-  }
-  const drawn = (ctx: ReturnType<typeof fakeCtx>) => ctx.calls.filter((c) => c[0] === 'drawImage').map((c) => c[1]);
+  return { w: SIZE, h: SIZE, d };
+}
 
-  it('draws the mouth of the track and borrows the nearest shape when one is missing', () => {
-    const { HostKit } = load();
-    const host = HostKit.host(pack, track);
-    let ctx = fakeCtx();
-    expect(host.draw(ctx, 0.2)).toBe('D');
-    expect(drawn(ctx)).toEqual(['./pack/base.png', './pack/mouth-D.png']);
-    ctx = fakeCtx();
-    expect(host.draw(ctx, 0.7)).toBe('B'); // no G patch: G falls back to B
-    expect(drawn(ctx)).toContain('./pack/mouth-B.png');
-    ctx = fakeCtx();
-    expect(host.draw(ctx, 1.55)).toBe('X');
-    expect(drawn(ctx)).toEqual(['./pack/base.png']);
+function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null } = {}) {
+  const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26], green: RGB = [0, 177, 64];
+  const neck = { inside: rect(222, 300, 290, 470), fill: skin, outline: 6 };
+  const body = { inside: ell(256, 560, 170, 150), fill: [150, 120, 210] as RGB, outline: 6 };
+  const head = { inside: ell(256, 228, 100, 118), fill: skin, outline: 6 };
+  // a bob: a cap over the forehead and locks down both sides of the face
+  const hairShape = { inside: (x: number, y: number) => ell(256, 214, 120, 126)(x, y) && y < 290 && (y < 168 || !ell(256, 228, 93, 111)(x, y)), fill: hair, outline: 6 };
+  const eye = (cx: number): Shape[] => [
+    { inside: ell(cx, 238, 21, 15), fill: white, outline: 2 },
+    { inside: ell(cx, 239, 9, 10), fill: iris ?? line, outline: 2 },
+    { inside: ell(cx + 3, 235, 2.6, 2.6), fill: white },
+  ];
+  const lid = (cx: number): Shape[] => [
+    { inside: ell(cx, 238, 22, 16), fill: skin },
+    { inside: stroke((x) => 238 + 6 * (1 - ((x - cx) / 21) ** 2), cx - 21, cx + 21, 1.8), fill: line },
+  ];
+  const brow = (cx: number): Shape => ({ inside: stroke((x) => 206 - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: line });
+  const clear: Shape = { inside: ell(256, 302, 34, 18), fill: skin };
+  const mouths: Record<string, Shape[]> = {
+    rest: [{ inside: stroke(() => 302, 236, 276, 2.5), fill: line }],
+    half: [clear, { inside: ell(256, 302, 22, 6), fill: dark, outline: 2 }, { inside: rect(240, 297, 272, 299), fill: white }],
+    open: [clear, { inside: ell(256, 304, 22, 14), fill: dark, outline: 2 }, { inside: ell(256, 312, 12, 5), fill: [220, 90, 100] }],
+    round: [clear, { inside: ell(256, 303, 13, 13), fill: dark, outline: 2 }],
+    wide: [clear, { inside: ell(256, 302, 22, 7), fill: white, outline: 2 }, { inside: stroke(() => 305, 238, 274, 1.5), fill: line }],
+    smile: [clear, { inside: stroke((x) => 296 + 7 * (1 - ((x - 256) / 28) ** 2), 228, 284, 2.5), fill: line }],
+  };
+  const draw = ({ bald = false, eyes = [...eye(214), ...eye(298)], mouth = mouths.rest } = {}) =>
+    render([neck, body, head, ...(bald ? [] : [hairShape]), brow(214), brow(298), ...eyes, ...mouth], line, green);
+  return {
+    portrait: draw(),
+    bald: draw({ bald: true }),
+    lids: draw({ eyes: [...lid(214), ...lid(298)] }),
+    half: draw({ mouth: mouths.half }),
+    open: draw({ mouth: mouths.open }),
+    round: draw({ mouth: mouths.round }),
+    wide: draw({ mouth: mouths.wide }),
+    smile: draw({ mouth: mouths.smile }),
+  };
+}
+
+function writeCharacter(dir: string, look: Parameters<typeof drawCharacter>[0] = {}, mouths?: Record<string, string>) {
+  fs.mkdirSync(path.join(dir, 'art'), { recursive: true });
+  for (const [k, im] of Object.entries(drawCharacter(look))) writePng(path.join(dir, `art/${k}.png`), im);
+  const cfg = {
+    name: 'synth', portrait: 'art/portrait.png', bald: 'art/bald.png',
+    mouths: mouths ?? { half: 'art/half.png', open: 'art/open.png', round: 'art/round.png', wide: 'art/wide.png' },
+    lids: 'art/lids.png', expressions: { smile: 'art/smile.png' },
+  };
+  fs.writeFileSync(path.join(dir, 'character.json'), JSON.stringify(cfg));
+  return path.join(dir, 'character.json');
+}
+
+type Report = { ok: boolean; package: string; checks: { ok: boolean; item: string; note: string }[] };
+const build = (cfg: string) => {
+  const r = spawnSync(process.execPath, [path.join(skill, 'scripts/puppet-build.mjs'), cfg], { encoding: 'utf8' });
+  const report = JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/report.json'), 'utf8')) as Report;
+  return { status: r.status, stdout: r.stdout, report };
+};
+const texturesIn = (v: unknown): string[] =>
+  typeof v === 'string' ? (v.startsWith('textures/') ? [v] : []) : v && typeof v === 'object' ? Object.values(v).flatMap(texturesIn) : [];
+
+describe('virtual-host puppet package', { timeout: 60_000 }, () => {
+  it('masks the hair for the bald repaint', () => {
+    const cfg = writeCharacter(tmp());
+    const r = spawnSync(process.execPath, [path.join(skill, 'scripts/puppet-mask.mjs'), cfg], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    const { strokes } = JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'hair-mask.json'), 'utf8')) as { strokes: { radius: number; points: number[][] }[] };
+    expect(strokes.length).toBeGreaterThan(0);
+    expect(strokes.length).toBeLessThanOrEqual(500);
+    // the cap over the forehead is in the mask, the eyes and the mouth are not
+    const hit = (x: number, y: number) => strokes.some((s) => s.points.some(([px, py], i) => {
+      const [qx, qy] = s.points[Math.min(i + 1, s.points.length - 1)];
+      const t = Math.max(0, Math.min(1, ((x - px) * (qx - px) + (y - py) * (qy - py)) / ((qx - px) ** 2 + (qy - py) ** 2 || 1)));
+      return Math.hypot(x - (px + t * (qx - px)), y - (py + t * (qy - py))) <= s.radius;
+    }));
+    expect(hit(256, 120)).toBe(true);
+    expect(hit(214, 238)).toBe(false);
+    expect(hit(256, 302)).toBe(false);
+    expect(fs.existsSync(path.join(path.dirname(cfg), 'hair-mask.png'))).toBe(true);
   });
 
-  it('blinks at the track times, uses the expression mouth at rest, and is deterministic', () => {
-    const { HostKit, warnings } = load();
-    const host = HostKit.host(pack, track);
-    // the lid closes in about 67 ms, stays shut to 100 ms and opens more slowly
-    expect([2.01, 2.05, 2.08, 2.12, 2.16, 2.25].map((t) => host.blinkAt(t))).toEqual([0, 1, 2, 1, 1, 0]);
-    let ctx = fakeCtx();
-    host.draw(ctx, 2.08);
-    expect(drawn(ctx)).toContain('./pack/eyes-closed.png');
-    // expressions keep their eyes open, so the blink goes on top of them
-    ctx = fakeCtx();
-    host.draw(ctx, 2.08, { face: 'smile' });
-    expect(drawn(ctx)).toEqual(['./pack/base.png', './pack/face-smile.png', './pack/eyes-closed.png', './pack/mouth-smile.png']);
-    ctx = fakeCtx();
-    host.draw(ctx, 2.8);
-    expect(drawn(ctx)).toEqual(['./pack/base.png', './pack/face-smile.png', './pack/mouth-smile.png']);
-    const a = fakeCtx(), b = fakeCtx();
-    host.draw(a, 0.9);
-    host.draw(b, 0.9);
-    expect(a.calls).toEqual(b.calls);
-    host.draw(fakeCtx(), 1.7);
-    expect(warnings).toEqual(['host: no face or mouth patch named wink; drawing the plain face']);
+  it('builds a package whose layers give back the portrait at rest', () => {
+    const cfg = writeCharacter(tmp());
+    const { status, report } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    expect(report.checks.find((c) => c.item === 'portrait')!.note).toMatch(/no glasses$/);
+    for (const v of ['lids', 'mouth half', 'mouth open', 'mouth round', 'mouth wide', 'expression smile'])
+      expect(report.checks.find((c) => c.item === `${v} lines up`)!.note).toMatch(/shift 0,0, scale 1/);
+    const names = zipNames(fs.readFileSync(report.package)) as string[];
+    expect(names[0]).toBe('model.json');
+    const model = JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8'));
+    expect(model).toMatchObject({ format: 'baocut-puppet', version: 1, name: 'synth', canvas: [SIZE, SIZE], expressions: [{ id: 'smile' }] });
+    expect(model.rig).toBeUndefined();
+    for (const t of texturesIn(model)) expect(names).toContain(t);
+    for (const id of ['back_hair', 'front_hair', 'face', 'body', 'eye_L', 'eye_R', 'iris_L', 'iris_R', 'brows', 'mouth', 'expr_smile'])
+      expect(model.layers.map((l: { id: string }) => l.id)).toContain(id);
   });
 
-  it('nods and turns only the head when the pack has a head and body', () => {
-    const { HostKit } = load();
-    const rigged = { ...pack, rig: { body: 'pack/body.png', head: { src: 'pack/head.png', x: 40, y: 0, w: 120, h: 200 }, neck: [180, 200], pivot: [100, 200] } };
-    const still = { ...track, nods: [] };
-    const draws = (p: object, tr: object, t: number, o = {}) => {
-      const ctx = fakeCtx();
-      HostKit.host(p, tr, o).draw(ctx, t);
-      return ctx.calls;
-    };
-    const bodyCalls = (calls: Call[]) => calls.slice(0, calls.findIndex((c) => c[0] === 'drawImage' && c[1] === './pack/body.png') + 1);
-    const nodding = draws(rigged, track, 0.12), resting = draws(rigged, still, 0.12);
-    expect(nodding.some((c) => c[1] === './pack/base.png')).toBe(false);
-    // the body is drawn the same whether or not the head nods; the head is not
-    expect(bodyCalls(nodding)).toEqual(bodyCalls(resting));
-    expect(bodyCalls(nodding).length).toBeGreaterThan(0);
-    expect(nodding).not.toEqual(resting);
-    // the head above the neck is one draw, the neck is cut into 2-pixel strips (plus one row of overlap)
-    const head = nodding.filter((c) => c[1] === './pack/head.png');
-    expect(head).toHaveLength(1 + 10);
-    expect(head[0].slice(2)).toEqual([0, 0, 120, 181, 40, 0, 120, 181]);
-    expect(head[1].slice(2)).toEqual([0, 180, 120, 3, 40, 180, 120, 3]);
-    // rig: false draws the whole figure as one picture again
-    expect(draws(rigged, track, 0.12, { rig: false }).filter((c) => c[0] === 'drawImage').map((c) => c[1])[0]).toBe('./pack/base.png');
+  it('measures coloured line art: brown outlines, irises and hair', () => {
+    const { status, report } = build(writeCharacter(tmp(), { line: [70, 30, 14], hair: [150, 90, 50], iris: [120, 70, 40] }));
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    const [r, g, b] = report.checks.find((c) => c.item === 'portrait')!.note.match(/line (\d+),(\d+),(\d+)/)!.slice(1).map(Number);
+    expect(Math.abs(r - 70) + Math.abs(g - 30) + Math.abs(b - 14)).toBeLessThan(16);
+  });
+
+  it('says which edit to redo when the mouths do not open in steps', () => {
+    const cfg = writeCharacter(tmp(), {}, { half: 'art/open.png', open: 'art/half.png' });
+    const { status, stdout } = build(cfg);
+    expect(status).toBe(1);
+    expect(stdout).toMatch(/^FIX {2}mouth ladder: half 28 px tall, open 12 px; open must be taller than half$/m);
   });
 });
