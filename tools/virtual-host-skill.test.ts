@@ -364,8 +364,17 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   };
   const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[] } = {}) =>
     render([neck, body, head, ...(bald ? [] : [hairShape]), ...brows, ...eyes, ...cheeks, ...mouth], line, green);
+  // the part map (references/art.md section 5): the same shapes, each part in its key colour, the eye lines black
+  const key = (s: Shape, fill: RGB, outline?: number): Shape => ({ inside: s.inside, fill, outline });
+  const eyeMap = (cx: number) => { const [w, i, hl] = eye(cx); return [key(w, [255, 255, 255], 2), key(i, [0, 255, 255]), key(hl, [0, 255, 255])]; };
+  const partmap = render([
+    key(neck, [255, 128, 0]), key(body, [128, 128, 128]), key(head, [255, 255, 0]),
+    { inside: (x, y) => hairShape.inside(x, y) && y < 200, fill: [255, 0, 0] }, { inside: (x, y) => hairShape.inside(x, y) && y >= 200, fill: [255, 0, 255] },
+    key(brow(214), [128, 0, 255]), key(brow(298), [128, 0, 255]), ...eyeMap(214), ...eyeMap(298), key(mouths.rest[0], [128, 0, 0]),
+  ], [0, 0, 0], green);
   return {
     portrait: draw(),
+    partmap,
     bald: draw({ bald: true }),
     lids: draw({ eyes: [...lid(214), ...lid(298)] }),
     half: draw({ mouth: mouths.half }),
@@ -377,11 +386,11 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   };
 }
 
-function writeCharacter(dir: string, look: Parameters<typeof drawCharacter>[0] = {}, mouths?: Record<string, string>) {
+function writeCharacter(dir: string, look: Parameters<typeof drawCharacter>[0] = {}, mouths?: Record<string, string>, o: { partmap?: boolean } = {}) {
   fs.mkdirSync(path.join(dir, 'art'), { recursive: true });
   for (const [k, im] of Object.entries(drawCharacter(look))) writePng(path.join(dir, `art/${k}.png`), im);
   const cfg = {
-    name: 'synth', portrait: 'art/portrait.png', bald: 'art/bald.png',
+    name: 'synth', portrait: 'art/portrait.png', bald: 'art/bald.png', ...(o.partmap ? { partmap: 'art/partmap.png' } : {}),
     mouths: mouths ?? { half: 'art/half.png', open: 'art/open.png', round: 'art/round.png', wide: 'art/wide.png' },
     lids: 'art/lids.png', expressions: { smile: 'art/smile.png', angry: 'art/angry.png' },
   };
@@ -464,6 +473,22 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(status).toBe(0);
     const [r, g, b] = report.checks.find((c) => c.item === 'portrait')!.note.match(/line (\d+),(\d+),(\d+)/)!.slice(1).map(Number);
     expect(Math.abs(r - 70) + Math.abs(g - 30) + Math.abs(b - 14)).toBeLessThan(16);
+  });
+
+  it('builds the BaoCut and LivLiv packages along a part map', () => {
+    const cfg = writeCharacter(tmp(), { hair: [230, 190, 90] }, undefined, { partmap: true });
+    const { status, report, stdout } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    expect(stdout).toMatch(/^ok {3}rest matches the portrait/m);
+    const dir = path.join(path.dirname(cfg), 'puppet');
+    const model = JSON.parse(fs.readFileSync(path.join(dir, 'package/model.json'), 'utf8'));
+    const ids = model.layers.map((l: { id: string }) => l.id);
+    for (const id of ['body', 'face', 'mouth', 'brows', 'side_hair', 'front_hair', 'expr_smile', 'expr_angry']) expect(ids).toContain(id);
+    const lv = JSON.parse(fs.readFileSync(path.join(dir, 'livliv/model.json'), 'utf8'));
+    expect(lv).toMatchObject({ format: 'livliv-model', version: 4, canvas: [SIZE, SIZE], files: { cover: 'cover.png', avatar: 'avatar.png' } });
+    expect(lv.layers.map((l: { id: string }) => l.id)).toEqual(ids);
+    expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
   });
 
   it('says which edit to redo when the mouths do not open in steps', () => {
