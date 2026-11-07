@@ -23,6 +23,8 @@
     {k: 'trans', entry: 'media', icon: 'translate', hue: 'green',   title: '转录并翻译',   desc: '转录完自动润色、翻译、对齐时间轴', ai: true},
     {k: 'clean', entry: 'media', icon: 'mic',       hue: 'orange',  title: '剪口播',       desc: '转录完自动找出口癖、长停顿与坏拍', ai: true},
     {k: 'ask',   entry: 'media', icon: 'agent',     hue: 'purple',  title: '交给 Agent',   desc: '用一句话交代组合活', ai: true, agentOnly: true},
+    /* 剪成短视频（2026-11-07）：快捷开始的第一张；同 AI 工具 Tab 的剪成短视频（product-design §5.10），只交给 Agent，不进固定流程。 */
+    {k: 'shorts', entry: 'media', icon: 'clip',     hue: 'purple',  title: '剪成短视频',   desc: '找出值得单独发布的话题，各剪成一支短视频', ai: true, agentOnly: true},
     {k: 'anim',  entry: 'agent', icon: 'anim',       hue: 'blue',    title: '动画视频',     desc: '产品介绍、知识讲解、数据故事', ai: true, agentOnly: true,
       skill: 'baocut', hint: '讲什么、给谁看、大概多长',
       examples: ['把这份 PDF 做成一条 60 秒的产品介绍动画', '用三个数据讲清楚今年的增长，配上动态图表']},
@@ -141,6 +143,8 @@
   const TARGET_SLOT = '目标语言';
   const TRANS_TEMPLATE = `转录这个视频，并翻译成{{${TARGET_SLOT}}}，做成双语字幕。`;
   const STARTERS = [
+    /* 剪成短视频排第一（2026-11-07）；措辞同 AI 工具 Tab 的意图句（model-agent.js INTENTS.shortscut），Agent 按 shorts-segments 去做。 */
+    {goal: 'shorts', needs: '视频', link: '视频链接', say: () => '找出这个视频里最值得单独发布的话题，每个话题剪成一支完整的短视频。'},
     {goal: 'sub',   needs: '视频', link: '视频链接', say: () => '给这个视频加上字幕。'},
     {goal: 'trans', needs: '视频', link: '视频链接', say: (o) => (o && o.targetName ? `转录这个视频，并${into(o.targetName)}，做成双语字幕。` : TRANS_TEMPLATE)},
     {goal: 'clean', needs: '视频', link: '视频链接', say: () => '转录这个视频，找出口癖、长停顿和说错重来的地方，剪掉之前先让我看一遍。'},

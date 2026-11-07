@@ -324,6 +324,7 @@ export const ja: CopyMessages = {
     enableFailed: (message: string) => `オンにできませんでした：${message}`,
   },
   homeStarter: {
+    shorts: { title: 'ショート動画に切り出す', needs: '動画', link: '動画のリンク', prompt: 'この動画から単独で公開する価値が最も高い話題を見つけ、それぞれを完結したショート動画に切り出してください。' },
     sub: { title: '字幕を付ける', needs: '動画', link: '動画のリンク', prompt: 'この動画に字幕を付けてください。' },
     trans: { title: '文字起こしと翻訳', needs: '動画', link: '動画のリンク', prompt: 'この動画を文字起こしして{{翻訳先の言語}}に翻訳し、二言語字幕にしてください。' },
     clean: {

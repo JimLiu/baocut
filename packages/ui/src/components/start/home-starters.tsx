@@ -25,19 +25,19 @@ const card = style({
   outlineColor: 'focus-ring',
   '--bc-quick-200': {
     type: 'backgroundColor',
-    value: { tone: { blue: 'blue-200', green: 'green-200', orange: 'orange-200', magenta: 'magenta-200' } },
+    value: { tone: { purple: 'purple-200', blue: 'blue-200', green: 'green-200', orange: 'orange-200', magenta: 'magenta-200' } },
   },
   '--bc-quick-300': {
     type: 'backgroundColor',
-    value: { tone: { blue: 'blue-300', green: 'green-300', orange: 'orange-300', magenta: 'magenta-300' } },
+    value: { tone: { purple: 'purple-300', blue: 'blue-300', green: 'green-300', orange: 'orange-300', magenta: 'magenta-300' } },
   },
   '--bc-quick-400': {
     type: 'backgroundColor',
-    value: { tone: { blue: 'blue-400', green: 'green-400', orange: 'orange-400', magenta: 'magenta-400' } },
+    value: { tone: { purple: 'purple-400', blue: 'blue-400', green: 'green-400', orange: 'orange-400', magenta: 'magenta-400' } },
   },
   '--bc-quick-1000': {
     type: 'backgroundColor',
-    value: { tone: { blue: 'blue-1000', green: 'green-1000', orange: 'orange-1000', magenta: 'magenta-1000' } },
+    value: { tone: { purple: 'purple-1000', blue: 'blue-1000', green: 'green-1000', orange: 'orange-1000', magenta: 'magenta-1000' } },
   },
   '--bc-quick-screen': { type: 'backgroundColor', value: 'gray-25' },
   '--bc-quick-mute': { type: 'backgroundColor', value: 'gray-300' },
@@ -53,11 +53,12 @@ const name = style({
 });
 
 // 插画里的小色块（<i>）各几块：画法在 app.css 的 .bc-quick-screen[data-kind]。
-const STARTER_ART: Record<StarterKey, number> = { sub: 2, trans: 4, clean: 9, a2v: 7 };
+const STARTER_ART: Record<StarterKey, number> = { shorts: 3, sub: 2, trans: 4, clean: 9, a2v: 7 };
 
 /**
- * 起始页「快捷开始」那一节（原型 new-agent.jsx `HomeStarters`）：比模板常用，排在模板前面，四张和模板卡同宽的带色卡片，
- * 上面一幅按色系画的小插画（字幕条、双语行、波形），下面是名字。点一下把一句提示词放进输入框，不发送。
+ * 起始页「快捷开始」那一节（原型 new-agent.jsx `HomeStarters`）：比模板常用，排在模板前面，和模板卡同宽的带色卡片，
+ * 一行四张与模板对齐，第五张换到下一行；上面一幅按色系画的小插画（竖屏短片、字幕条、双语行、波形），下面是名字。
+ * 点一下把一句提示词放进输入框，不发送。
  * 标题行尾的「新建空白视频」不经过 Agent，直接建一个空视频在功能区打开。`target` 是上次「转录并翻译」填的目标语言，没有时那句话留待填项。
  * `narrow` 与模板网格同一个开关：窄时两列。
  */

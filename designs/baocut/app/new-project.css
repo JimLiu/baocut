@@ -40,6 +40,7 @@
 .home-quick__card--green   { --q-200: var(--green-200);   --q-300: var(--green-300);   --q-400: var(--green-400);   --q-1000: var(--green-1000); }
 .home-quick__card--orange  { --q-200: var(--orange-200);  --q-300: var(--orange-300);  --q-400: var(--orange-400);  --q-1000: var(--orange-1000); }
 .home-quick__card--magenta { --q-200: var(--magenta-200); --q-300: var(--magenta-300); --q-400: var(--magenta-400); --q-1000: var(--magenta-1000); }
+.home-quick__card--purple  { --q-200: var(--purple-200);  --q-300: var(--purple-300);  --q-400: var(--purple-400);  --q-1000: var(--purple-1000); }
 .home-quick__card { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 6px; text-align: start; font: inherit; color: var(--gray-900);
   background: transparent; border: none; border-radius: 10px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.45, 0, 0.4, 1), transform 150ms cubic-bezier(0.45, 0, 0.4, 1); }
 .home-quick__card:hover { background: var(--gray-75); }
@@ -53,6 +54,10 @@
   transition: transform 150ms cubic-bezier(0.45, 0, 0.4, 1); }
 .home-quick__card:hover .home-quick__screen { transform: scale(1.04); }
 .home-quick__screen i { display: block; flex: none; border-radius: 4px; background: var(--q-1000); }
+/* 剪成短视频：横屏里并排三支竖屏，中间那支是挑中的 */
+.home-quick__screen--shorts { align-items: center; justify-content: center; }
+.home-quick__screen--shorts i { height: 72%; aspect-ratio: 9 / 16; background: var(--q-400); }
+.home-quick__screen--shorts i:nth-child(2) { height: 100%; background: var(--q-1000); }
 /* 加字幕：上面是画面，下面两行字幕 */
 .home-quick__screen--sub { flex-direction: column; align-items: center; }
 .home-quick__screen--sub::before { content: ''; flex: 1; align-self: stretch; border-radius: 4px; background: var(--q-200); }

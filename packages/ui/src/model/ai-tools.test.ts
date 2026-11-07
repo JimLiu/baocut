@@ -299,8 +299,8 @@ describe('剪成短视频', () => {
 });
 
 describe('AI 工具 Tab', () => {
-  it('列表第一批是从文稿出发的三组加「画面」组里的剪成短视频与「声音」组，写作与发布各有一句副题；脚注说清翻译在哪、智能裁剪还没来', () => {
-    expect(LIST_GROUPS).toEqual(['transcript', 'writing', 'publish', 'frame', 'sound']);
+  it('列表第一批是「画面」组里的剪成短视频排最前，接着是从文稿出发的三组与「声音」组，写作与发布各有一句副题；脚注说清翻译在哪、智能裁剪还没来', () => {
+    expect(LIST_GROUPS).toEqual(['frame', 'transcript', 'writing', 'publish', 'sound']);
     expect(listedTools('frame').map((t) => t.id)).toEqual(['shortscut']);
     expect(LIST_GROUPS.flatMap((g) => listedTools(g)).map((t) => t.id)).not.toContain('crop');
     expect(LIST_GROUPS.filter((g) => g !== 'frame' && g !== 'sound').flatMap((g) => listedTools(g)).map((t) => t.id)).toEqual([

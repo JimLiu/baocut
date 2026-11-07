@@ -327,6 +327,7 @@ export const zhHans: CopyMessages = {
     enableFailed: (message: string) => `没能启用：${message}`,
   },
   homeStarter: {
+    shorts: { title: '剪成短视频', needs: '视频', link: '视频链接', prompt: '找出这个视频里最值得单独发布的话题，每个话题剪成一支完整的短视频。' },
     sub: { title: '加字幕', needs: '视频', link: '视频链接', prompt: '给这个视频加上字幕。' },
     trans: { title: '转录并翻译', needs: '视频', link: '视频链接', prompt: '转录这个视频，并翻译成{{目标语言}}，做成双语字幕。' },
     clean: { title: '剪口播', needs: '视频', link: '视频链接', prompt: '转录这个视频，找出口癖、长停顿和说错重来的地方，剪掉之前先让我看一遍。' },

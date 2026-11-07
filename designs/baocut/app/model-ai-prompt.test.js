@@ -5,8 +5,8 @@ global.window = {};
 require('./model-ai-prompt.js');
 const P = window.BC_AIPROMPT;
 
-test('列表：从文稿出发的三组加「画面」组；画面组只开剪成短视频，智能裁剪另有去处说明', () => {
-  assert.deepEqual(P.GROUPS_NOW, ['整理文稿', '写作', '发布', '画面', '声音']);
+test('列表：「画面」组排第一，接着是从文稿出发的三组；画面组只开剪成短视频，智能裁剪另有去处说明', () => {
+  assert.deepEqual(P.GROUPS_NOW, ['画面', '整理文稿', '写作', '发布', '声音']);
   assert.deepEqual(P.listed('声音', ['soundtrack']), ['soundtrack']);
   assert.deepEqual(P.GROUPS_LATER, ['翻译']);
   assert.deepEqual(P.listed('画面', ['crop', 'shortscut']), ['shortscut']);

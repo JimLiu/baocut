@@ -392,6 +392,7 @@ const en = {
    *（视频网站的链接也行）。`trans.prompt` 里恰好一处 `{{目标语言}}` 这样的待填项，各语言自己写标签；上次填过的由起始页填进去。
    */
   homeStarter: {
+    shorts: { title: 'Cut into shorts', needs: 'a video', link: 'a video link', prompt: 'Find the topics in this video most worth posting on their own, and cut each one into a complete short.' },
     sub: { title: 'Add subtitles', needs: 'a video', link: 'a video link', prompt: 'Add subtitles to this video.' },
     trans: { title: 'Transcribe and translate', needs: 'a video', link: 'a video link', prompt: 'Transcribe this video and translate it into {{target language}} as bilingual subtitles.' },
     clean: {

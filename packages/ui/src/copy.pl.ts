@@ -376,6 +376,7 @@ export const pl: CopyMessages = {
    * 措辞不带「动画」「讲解」「图表」这类词，免得被当成某一类制作。`needs` 是提示里「再把什么拖进输入框」。
    */
   homeStarter: {
+    shorts: { title: "Potnij na krótkie filmy", needs: "materiał wideo", link: "link do wideo", prompt: "Znajdź w tym wideo tematy, które najbardziej warto opublikować osobno, i potnij każdy na kompletny krótki film." },
     sub: { title: "Dodaj napisy", needs: "materiał wideo", link: "link do wideo", prompt: "Dodaj napisy do tego wideo." },
     trans: { title: "Transkrybuj i przetłumacz", needs: "materiał wideo", link: "link do wideo", prompt: "Transkrybuj to wideo i przetłumacz na {{język docelowy}} jako dwujęzyczne napisy." },
     clean: {

@@ -355,6 +355,7 @@ export const fr: CopyMessages = {
   },
 
   homeStarter: {
+    shorts: { title: "Découper en vidéos courtes", needs: "une vidéo", link: "un lien vidéo", prompt: "Trouvez les sujets de cette vidéo qui méritent le plus d’être publiés seuls et découpez chacun en une vidéo courte complète." },
     sub: { title: "Ajouter des sous-titres", needs: "une vidéo", link: "un lien vidéo", prompt: "Ajoutez des sous-titres à cette vidéo." },
     trans: { title: "Transcrire et traduire", needs: "une vidéo", link: "un lien vidéo", prompt: "Transcrivez cette vidéo et traduisez-la en {{langue cible}} sous forme de sous-titres bilingues." },
     clean: {

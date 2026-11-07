@@ -825,10 +825,10 @@ export function retranslatePrompt(o: {
 // ---- AI 工具 Tab：列表、模板、内置 skill、会话去向（产品设计 §5.10、§6.9；原型 model-ai-prompt.js） ----
 
 /**
- * 列表页第一批只列从文稿出发的三组，加「画面」组里的剪成短视频与「声音」组的生成配乐（原型 model-ai-prompt.js `GROUPS_NOW`）；
+ * 列表页第一批：「画面」组里的剪成短视频排最前，接着是从文稿出发的三组，最后是「声音」组的生成配乐（原型 model-ai-prompt.js `GROUPS_NOW`）；
  * 翻译与智能裁剪仍从各自面板进来，脚注说清去处。
  */
-export const LIST_GROUPS: readonly AiToolGroup[] = ['transcript', 'writing', 'publish', 'frame', 'sound'];
+export const LIST_GROUPS: readonly AiToolGroup[] = ['frame', 'transcript', 'writing', 'publish', 'sound'];
 
 /** 有白名单的组只露白名单里的工具（原型 model-ai-prompt.js `OPEN_IN_GROUP`）：「画面」组先只开剪成短视频。 */
 const OPEN_IN_GROUP: Partial<Record<AiToolGroup, readonly AiToolId[]>> = { frame: ['shortscut'] };

@@ -325,6 +325,7 @@ export const ko: CopyMessages = {
     enableFailed: (message: string) => `켜지 못했습니다: ${message}`,
   },
   homeStarter: {
+    shorts: { title: '쇼츠로 만들기', needs: '영상', link: '영상 링크', prompt: '이 영상에서 따로 올릴 만한 주제를 찾아 각각 완결된 쇼츠로 잘라 주세요.' },
     sub: { title: '자막 추가', needs: '영상', link: '영상 링크', prompt: '이 영상에 자막을 넣어 주세요.' },
     trans: { title: '전사 및 번역', needs: '영상', link: '영상 링크', prompt: '이 영상을 전사하고 {{번역할 언어}}로 번역해 이중 언어 자막으로 만들어 주세요.' },
     clean: {

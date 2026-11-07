@@ -3,6 +3,7 @@ import { fillSlot, filledSlot, slotLabels } from './prompt-slots.ts';
 
 /**
  * 起始页「快捷开始」那几张卡（产品设计 §3.2.1；原型 model-newproject.js `homeStarters`）：处理已有视频或音频的几件常见事。
+ * 剪成短视频排第一，那句话同 AI 工具 Tab 的剪成短视频的意图（找值得单独发布的话题，各剪成一支）。
  * 点一下只把一句提示词放进输入框，不发送、不展开表单；那句话进了输入框就是用户自己的话，可以改，素材照常从「+」或拖放加，
  * 也可以贴一条视频链接（下载工具能取的页面地址）。
  *
@@ -10,9 +11,9 @@ import { fillSlot, filledSlot, slotLabels } from './prompt-slots.ts';
  * 不填也能发送，交给 Agent 的是 `[目标语言]`，由它先问。
  */
 
-export type StarterKey = 'sub' | 'trans' | 'clean' | 'a2v';
+export type StarterKey = 'shorts' | 'sub' | 'trans' | 'clean' | 'a2v';
 /** 卡片插画的色系（原型 model-newproject.js `GOALS` 的 hue）。 */
-export type StarterTone = 'blue' | 'green' | 'orange' | 'magenta';
+export type StarterTone = 'purple' | 'blue' | 'green' | 'orange' | 'magenta';
 
 export interface HomeStarter {
   key: StarterKey;
@@ -24,8 +25,8 @@ export interface HomeStarter {
 }
 
 /** 这一行的顺序（原型同序）。 */
-export const STARTER_KEYS: readonly StarterKey[] = ['sub', 'trans', 'clean', 'a2v'];
-const STARTER_TONE: Record<StarterKey, StarterTone> = { sub: 'blue', trans: 'green', clean: 'orange', a2v: 'magenta' };
+export const STARTER_KEYS: readonly StarterKey[] = ['shorts', 'sub', 'trans', 'clean', 'a2v'];
+const STARTER_TONE: Record<StarterKey, StarterTone> = { shorts: 'purple', sub: 'blue', trans: 'green', clean: 'orange', a2v: 'magenta' };
 
 /** `target`：上次「转录并翻译」填的目标语言（用户的原话）；没有时那句话留待填项。 */
 export function homeStarters(target: string | null = null): HomeStarter[] {

@@ -316,6 +316,7 @@ export const zhHant: CopyMessages = {
     enableFailed: (message: string) => `無法開啟：${message}`,
   },
   homeStarter: {
+    shorts: { title: '剪成短影音', needs: '影片', link: '影片連結', prompt: '找出這部影片裡最值得單獨發布的話題，每個話題剪成一支完整的短影音。' },
     sub: { title: '加字幕', needs: '影片', link: '影片連結', prompt: '幫這部影片加上字幕。' },
     trans: { title: '轉錄並翻譯', needs: '影片', link: '影片連結', prompt: '轉錄這部影片，並翻譯成{{目標語言}}，做成雙語字幕。' },
     clean: { title: '剪口播影片', needs: '影片', link: '影片連結', prompt: '轉錄這部影片，找出贅字、長停頓和說錯重來的地方，剪掉之前先讓我看一遍。' },

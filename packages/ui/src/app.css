@@ -491,6 +491,20 @@ svg[role='img'][viewBox='0 0 20 20']:not(
   border-radius: 4px;
   background: var(--bc-quick-1000);
 }
+/* 剪成短视频：横屏里并排三支竖屏，中间那支是挑中的 */
+.bc-quick-screen[data-kind='shorts'] {
+  align-items: center;
+  justify-content: center;
+}
+.bc-quick-screen[data-kind='shorts'] i {
+  height: 72%;
+  aspect-ratio: 9 / 16;
+  background: var(--bc-quick-400);
+}
+.bc-quick-screen[data-kind='shorts'] i:nth-child(2) {
+  height: 100%;
+  background: var(--bc-quick-1000);
+}
 /* 加字幕：上面是画面，下面两行字幕 */
 .bc-quick-screen[data-kind='sub'] {
   flex-direction: column;

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '@baocut/protocol';
 import { homeStarters, starterOf, starterTarget } from './home-starters.ts';
 import { slotLabels } from './prompt-slots.ts';
+import { aiTool } from './ai-tools.ts';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -9,8 +10,9 @@ afterEach(() => {
 });
 
 describe('homeStarters', () => {
-  it('四条，按加字幕、转录并翻译、剪口播、音频转视频排', () => {
+  it('五条，按剪成短视频、加字幕、转录并翻译、剪口播、音频转视频排', () => {
     expect(homeStarters().map((s) => [s.key, s.title])).toEqual([
+      ['shorts', '剪成短视频'],
       ['sub', '加字幕'],
       ['trans', '转录并翻译'],
       ['clean', '剪口播'],
@@ -18,7 +20,7 @@ describe('homeStarters', () => {
     ]);
   });
 
-  it('卡片按色系区分，四张不撞色', () => {
+  it('卡片按色系区分，五张不撞色', () => {
     const tones = homeStarters().map((s) => s.tone);
     expect(new Set(tones).size).toBe(tones.length);
   });
@@ -27,6 +29,8 @@ describe('homeStarters', () => {
     for (const s of homeStarters()) expect(s.prompt).toMatch(/。$/);
     expect(starterOf('sub').tip).toBe('填入提示词，再把视频拖进输入框，或贴上视频链接');
     expect(starterOf('a2v').tip).toBe('填入提示词，再把音频拖进输入框，或贴上链接');
+    expect(starterOf('shorts').prompt).toBe('找出这个视频里最值得单独发布的话题，每个话题剪成一支完整的短视频。');
+    expect(starterOf('shorts').tip).toBe('填入提示词，再把视频拖进输入框，或贴上视频链接');
   });
 
   it('「转录并翻译」没有缺省语言：没记住时留待填项，记住了就用上次填的', () => {
@@ -52,6 +56,9 @@ describe('homeStarters', () => {
       expect(slotLabels(template), locale).toHaveLength(1);
       expect(starterTarget(starterOf('trans', 'Klingon').prompt), locale).toBe('Klingon');
       expect(starterOf('sub').tip, locale).not.toBe(starterOf('a2v').tip);
+      // 剪成短视频的卡名与 AI 工具 Tab 里那个工具同名，提示词没有待填项。
+      expect(starterOf('shorts').title, locale).toBe(aiTool('shortscut').name);
+      expect(slotLabels(starterOf('shorts').prompt), locale).toEqual([]);
     }
   });
 
