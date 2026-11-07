@@ -598,6 +598,37 @@ fn scenes() -> Vec<Scene> {
     archive.binary_assets.push(("a_dotlottie@rev_1", dotlottie_fixture()));
     scenes.push(archive);
 
+    // 角色贴纸：合成的角色包跟着 3 秒的动作轨说话、转头，之后交回待机动作；WASM 里同一份重放与光栅。
+    let puppet_asset = |id: &str, kind: &str, media_type: &str| {
+        let (id, mut value) = lottie_asset(id);
+        value["kind"] = json!(kind);
+        value["revisions"]["rev_1"]["mediaType"] = json!(media_type);
+        (id, value)
+    };
+    let mut host = Scene::new(
+        "sticker-puppet",
+        video(
+            vec![item(
+                "host",
+                0,
+                120,
+                json!({ "type": "sticker", "sticker": { "source": "asset" }, "place": { "w": 60 },
+                        "assetRef": { "id": "a_host", "revision": "rev_1" }, "motionRef": { "id": "a_talk", "revision": "rev_1" },
+                        "motionIn": { "ticks": "0", "timescale": 1 } }),
+            )],
+            vec![
+                puppet_asset("a_host", "puppet", "application/x-baocut-puppet+zip"),
+                puppet_asset("a_talk", "other", "application/x-baocut-puppet-track+json"),
+            ],
+            json!({}),
+        ),
+        // 第 6 帧张着嘴、头转开；第 40 帧在动作轨中段；第 110 帧（3.67 秒）动作轨结束，只剩待机动作。
+        &[6, 40, 110],
+    );
+    host.binary_assets.push(("a_host@rev_1", puppet::testing::package_zip()));
+    host.assets.push(("a_talk@rev_1", String::from_utf8(puppet::testing::talking_track(3.0)).unwrap()));
+    scenes.push(host);
+
     scenes.push(Scene::new(
         "template-layers",
         video(
