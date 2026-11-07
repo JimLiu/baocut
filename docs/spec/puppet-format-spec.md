@@ -24,6 +24,7 @@
 - 角色的结构、形变与物理移植自 [LivLiv Player](https://github.com/livliv-dev/player)（Apache-2.0）的 model format v4 与它的运行时；`model.json` 的字段名与含义沿用 v4（`schema/livliv-model-v4.json`、`FORMAT.md`），本规范只写 BaoCut 读哪些字段、怎样校验、哪里不同（§7）。
 - BaoCut 不读 `.livliv` 文件：格式头不同，读到 `"format": "livliv-model"` 一律拒绝（`puppet-invalid`）。
 - 角色包与动作轨分开：同一个角色换一段配音只换动作轨。动作轨由配音的音频分析生成（嘴型、元音、点头），也可以手写。
+- 内置技能 `virtual-host` 带两样生成工具：`puppet-build.mjs` 把一张正面像和几张只改一处的改图（光头、嘴的几帧、闭眼、表情）拆成角色包，不写 `rig` 与 `tuning`，取缺省；`lipsync.mjs` 按逐字时间与配音的音量算动作轨，只写 `mouthOpen`、`vowel`、`angleX` `angleY` `angleZ` 与 `faces.json` 给的表情，眨眼与视线留给待机动作（§5）。用法见技能的 `references/art.md` 与 `references/lipsync.md`。
 - 渲染只用 CPU，预览（preview.wasm）与导出用同一份实现，同一个时刻画出来逐像素相同。
 
 ## 2. 角色包
@@ -33,7 +34,7 @@
 - 角色包是一个 zip：根上是 `model.json`，贴图在 `textures/` 下。整个包可以多套一层目录（直接压缩一个文件夹的结果），这时 `model.json` 与 `textures/` 都在那一层目录里。
 - 条目可以存储或 deflate；加密与 zip64 不支持（`puppet-not-zip`）。
 - 贴图路径写成 `textures/<名字>.png` 或 `textures/<名字>.webp`：名字以字母、数字或 `_` 开头，只含字母、数字与 `_ . -`，不含 `..` 与子目录。`model.json` 引用的每张贴图都要在包里（`puppet-missing-file`）；包里多出来的文件不读。
-- 贴图读进来就预乘 alpha 并生成 mipmap（每级边长减半，2×2 取平均），绘制时三线性采样。眼白的 `mask` 必须是无损的（PNG 或无损 WebP）。
+- 贴图读进来就预乘 alpha 并生成 mipmap（每级边长减半，2×2 取平均），绘制时三线性采样。眼白的 `mask` 应是无损的（PNG 或无损 WebP）：读的时候不检查，有损压缩的边缘会让眼珠漏到眼白外面。
 - 文件扩展名 `.bcpuppet`，媒体类型 `application/x-baocut-puppet+zip`。
 
 ### 2.2 `model.json`
@@ -153,4 +154,4 @@ interface PuppetTrack {
 ## 8. 待评审事项
 
 - 是否读 v4 的 keyforms，让大角度转头更准。
-- 角色包是否带封面（v4 的 `files.cover`），用于素材库的缩略图；现在缩略图按待机的第 0 秒画。
+- 角色包是否带封面（v4 的 `files.cover`），用于素材库的缩略图；现在角色包没有缩略图。
