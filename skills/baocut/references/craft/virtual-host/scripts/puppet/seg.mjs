@@ -18,7 +18,8 @@ export function borderColor(im) {
 /**
  * Character alpha against a saturated key colour, by unmixing: a pixel p = a*fg + (1-a)*key. The key's dominant
  * channel(s) excess over the others measures how much key is in the pixel (spill-free foreground has no such excess
- * beyond what its own colour has). Returns { alpha: Float32Array, fg: RGBA image with key removed, key, bg: Uint8Array }.
+ * beyond what its own colour has). Returns { alpha: Float32Array, fg: RGBA image with key removed, key, bg: Uint8Array,
+ * under(p): the backdrop colour behind pixel p (the mean of the background round it) }.
  */
 export function keyOut(im, o = {}) {
   const key = o.key ?? borderColor(im), { w, h, d } = im, n = w * h;
@@ -36,22 +37,49 @@ export function keyOut(im, o = {}) {
   for (let y = 0; y < h; y++) { border[y * w] = 1; border[y * w + w - 1] = 1; }
   let bg = grow(and(cand, border), cand, w, h);
   bg = or(bg, Uint8Array.from(ex, (v) => (v > 0.85 ? 1 : 0)));
-  // the band near the background is where the edge is mixed: unmix there only
+  // a gap the backdrop shows through that the drawing closes off (between locks of hair) is background too where the
+  // caller says such gaps can be (o.holes) and its colour is near the key's (a green-haired character is not)
+  if (o.holes) {
+    const cc = components(and(minus(cand, bg), o.holes), w, h), dist = new Float64Array(cc.comps.length + 1);
+    for (let p = 0; p < n; p++) if (cc.lab[p]) dist[cc.lab[p]] += Math.hypot(d[4 * p] - key[0], d[4 * p + 1] - key[1], d[4 * p + 2] - key[2]);
+    const keep = new Set(cc.comps.filter((c) => dist[c.id] / c.area < 75).map((c) => c.id));
+    for (let p = 0; p < n; p++) if (keep.has(cc.lab[p])) bg[p] = 1;
+  }
+  // the band near the background is where the edge is mixed: unmix there only. Soft or painted art blends hair tips and
+  // thin gaps into the key deeper than that, so pixels still clearly key-tinted and joined to the background through
+  // such pixels unmix too (a character colour near the key, a mint hoodie say, carries less excess and stays solid)
   const near = distTo(bg, w, h);
+  const soft = grow(bg, Uint8Array.from(ex, (v) => (v > 0.35 ? 1 : 0)), w, h, 12);
+  // the key behind a pixel: the mean of the background round it, since a generated backdrop is not one flat colour
+  const under = (p) => {
+    const x = p % w, y = (p - x) / w, s = [0, 0, 0];
+    let m = 0;
+    for (let j = Math.max(0, y - 8); j <= Math.min(h - 1, y + 8); j++) for (let i = Math.max(0, x - 8); i <= Math.min(w - 1, x + 8); i++) {
+      const q = j * w + i;
+      if (bg[q]) { m++; s[0] += d[4 * q]; s[1] += d[4 * q + 1]; s[2] += d[4 * q + 2]; }
+    }
+    return m ? s.map((v) => v / m) : key;
+  };
   const alpha = new Float32Array(n), fg = { w, h, d: new Uint8ClampedArray(n * 4) };
   for (let p = 0; p < n; p++) {
     const i = p * 4;
     if (bg[p]) { alpha[p] = 0; continue; }
-    let a = 1;
-    if (near[p] <= 3) a = Math.min(1, Math.max(0, 1 - ex[p])); // character colours here (black lines, skin) carry no key excess
+    let a = 1, u = key;
+    if (near[p] <= 3 || soft[p]) {
+      // character colours here (black lines, skin) carry no key excess
+      u = under(p);
+      const uEx = Math.min(...hi.map((k) => u[k])) - Math.max(...lo.map((k) => u[k]));
+      const e = uEx > 0.5 * keyEx ? ex[p] * keyEx / uEx : ex[p];
+      a = Math.min(1, Math.max(0, 1 - e));
+    }
     alpha[p] = a;
     for (let k = 0; k < 3; k++) {
-      const v = a > 0.02 ? (d[i + k] - (1 - a) * key[k]) / a : 0;
+      const v = a > 0.02 ? (d[i + k] - (1 - a) * u[k]) / a : 0;
       fg.d[i + k] = Math.max(0, Math.min(255, v));
     }
     fg.d[i + 3] = Math.round(a * 255);
   }
-  return { alpha, fg, key, bg };
+  return { alpha, fg, key, bg, under };
 }
 
 /**

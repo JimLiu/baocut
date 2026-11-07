@@ -43,11 +43,14 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   if (!cfg.portrait) return fail('config', '"portrait" is required');
   const im = read(cfg.portrait), { w, h } = im, N = w * h;
   const sameSize = (e, f) => (e.w === w && e.h === h ? e : null);
-  const K = keyOut(im);
+  let K = keyOut(im);
   const pm = sameSize(read(cfg.partmap), cfg.partmap);
   if (!pm) return fail('part map', `not ${w}x${h} like the portrait; ask for the same size`);
   const LB = readLabels(im, pm, K);
   const lab = LB.lab;
+  // a gap between locks that the backdrop shows through, closed off from the rest of it: the map says it is hair, so
+  // key colour there is background (green eyes or clothes are other parts and stay)
+  K = keyOut(im, { holes: part(lab, 'front', 'side', 'back') });
   const fgN = count(Uint8Array.from(K.alpha, (a) => (a > 0.5 ? 1 : 0)));
   {
     const okA = Math.abs(LB.A.s - 1) <= 0.03 && LB.A.residual <= 8, farShare = LB.far / fgN;
@@ -563,7 +566,9 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   let diff = 0, worst = 0; const dimg = blank(w, h), off = new Uint8Array(N);
   for (let p = 0; p < N; p++) {
     const a = rest.d[4 * p + 3] / 255;
-    const c = [0, 1, 2].map((k) => rest.d[4 * p + k] * a + K.key[k] * (1 - a));
+    // what shows through: the portrait's own backdrop there (it is not one flat colour)
+    const u = a > 0.999 ? K.key : K.bg[p] ? [im.d[4 * p], im.d[4 * p + 1], im.d[4 * p + 2]] : K.under(p);
+    const c = [0, 1, 2].map((k) => rest.d[4 * p + k] * a + u[k] * (1 - a));
     const e = Math.max(...[0, 1, 2].map((k) => Math.abs(c[k] - im.d[4 * p + k])));
     if (e > 24) { diff++; off[p] = 1; }
     worst = Math.max(worst, e);

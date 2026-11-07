@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
 import { writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
+import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
 
@@ -470,5 +471,55 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     const { status, stdout } = build(cfg);
     expect(status).toBe(1);
     expect(stdout).toMatch(/^FIX {2}mouth ladder: half 28 px tall, open 12 px; open must be taller than half$/m);
+  });
+});
+
+describe('virtual-host key removal', () => {
+  // a generated portrait: the green backdrop darkens down the picture, the hair has a pocket of backdrop behind one
+  // faint strand and a shaded gap closed off inside it, and there are colours near the key that are the drawing
+  const W = 120, H = 120;
+  const under = (y: number): RGB => [3, Math.round(190 - 0.25 * y), 55];
+  const mix = (a: RGB, b: RGB, t: number): RGB => [0, 1, 2].map((k) => Math.round(a[k] * (1 - t) + b[k] * t)) as RGB;
+  const HAIR: RGB = [200, 90, 40];
+  const portrait = () => {
+    const d = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      const inHair = x >= 10 && x < 60 && y >= 10 && y < 110;
+      if (inHair) c = HAIR;
+      if (x >= 26 && x < 34 && y >= 50 && y < 58) c = mix([0, 0, 0], under(y), 0.75); // the shaded gap inside the hair
+      if (x >= 40 && x < 48 && y >= 80 && y < 88) c = [60, 170, 80]; // a green iris
+      if (x >= 14 && x < 24 && y >= 20 && y < 28) c = [100, 200, 120]; // green hair
+      if (x >= 10 && x < 20 && y >= 95 && y < 110) c = [170, 240, 210]; // a mint sleeve at the edge
+      const strand = y >= 28 && y < 92 && x >= 60 && x < 74 && (x >= 72 || y < 30 || y >= 90);
+      if (strand) c = mix(HAIR, under(y), 0.58);
+      else if (y >= 30 && y < 90 && x >= 60 && x < 72) c = mix([0, 0, 0], under(y), 0.82); // the pocket behind it
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    return { w: W, h: H, d };
+  };
+  const at = (x: number, y: number) => y * W + x;
+
+  it('unmixes key colour deeper than the edge band where it joins the backdrop, against the backdrop round it', () => {
+    const K = keyOut(portrait());
+    expect(K.bg[at(66, 60)]).toBe(0);
+    expect(K.alpha[at(66, 60)]).toBeLessThan(0.35);
+    // the backdrop behind a pixel is the backdrop round it, not one colour for the whole picture
+    expect(K.under(at(80, 15))[1] - K.under(at(80, 105))[1]).toBeGreaterThan(15);
+    // a colour of the drawing near the key, at the edge, stays solid past the edge band
+    expect(K.alpha[at(15, 100)]).toBe(1);
+    expect(K.alpha[at(44, 84)]).toBe(1);
+  });
+
+  it('keys out a gap the drawing closes off only where the caller says gaps can be', () => {
+    const plain = keyOut(portrait());
+    expect(plain.alpha[at(30, 54)]).toBe(1);
+    const hair = new Uint8Array(W * H);
+    for (let y = 10; y < 110; y++) for (let x = 10; x < 40; x++) hair[at(x, y)] = 1;
+    const K = keyOut(portrait(), { holes: hair });
+    expect(K.alpha[at(30, 54)]).toBe(0);
+    // green hair is far from the key colour and stays; the iris is outside the hair and stays
+    expect(K.alpha[at(18, 24)]).toBe(1);
+    expect(K.alpha[at(44, 84)]).toBe(1);
   });
 });
