@@ -5,7 +5,7 @@
    放在单选或勾选框下面、不进它的标签：点图等于选这一项，视频、音频是正文播放器，只播不选。
    「发送回答」要每题都有答案；「跳过」按拒绝结束，Agent 自己拿主意；
    直接在输入框发消息也算回答（store 的 sendAgent 把卡片记成「已在输入框回复」）。
-   回答之后卡片收成一行记录（和允许卡一样留在线程里），展开是每题与答案。草稿规则在 model-agent-question.js。 */
+   回答之后卡片收成一行记录（和允许卡一样留在线程里），展开是完整问题、选项与答案。草稿规则在 model-agent-question.js。 */
 (function () {
   const {useState} = React;
   const Q = window.BC_AGENT_QUESTION;
@@ -70,7 +70,14 @@
         <BCDisclosure className="awork" title={<> <Ic n="help" className="ic--14" /> {Q.stateLabel(m.state)} · {(qs[0] && qs[0].header) || '提问'} </>}>
           {qs.map((q) => (
             <div key={q.id} className="aquest__q">
+              {q.header ? <span className="aquest__chip">{q.header}</span> : null}
               <p className="aquest__text">{q.question}</p>
+              {q.options.length ? <div className="aquest__q" role="list" aria-label={q.question}>
+                {q.options.map((o) => <div key={o.label} className="aquest__opt" role="listitem">
+                  <span>{o.label}</span>
+                  {o.description ? <span className="aquest__desc">{o.description}</span> : null}
+                </div>)}
+              </div> : null}
               {m.state === 'answered' ? <p className="aquest__answer">{Q.answerText(m.answers, q.id)}</p> : null}
             </div>
           ))}
