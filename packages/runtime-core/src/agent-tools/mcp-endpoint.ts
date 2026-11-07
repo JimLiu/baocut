@@ -6,8 +6,10 @@ import type { ToolCatalog, ToolResult } from './tool-catalog.ts';
 import type { ToolPrincipal } from './tool-scope.ts';
 
 /**
- * MCP 端点（架构设计 §3.5、§4.8）：一个无状态的 MCP Streamable HTTP 端点，只回 `application/json`，
- * 不开 SSE、不发会话号。工具桥与对外的 MCP 服务共用它，区别只在认证得到的主体与工具目录：
+ * MCP 端点（架构设计 §3.5、§4.8）：一个无状态的 MCP Streamable HTTP 端点，不发会话号、不开独立的 GET 流。
+ * 回答默认是 `application/json`；一次调用过了 `MCP_KEEPALIVE_MS` 还没结果（在等用户批准或回答）、客户端又接受
+ * `text/event-stream` 时，这次回答改成 SSE：每隔 `MCP_KEEPALIVE_MS` 发一次保活，结果作为最后一个事件（§3.12）。
+ * 工具桥与对外的 MCP 服务共用它，区别只在认证得到的主体与工具目录：
  *
  * - 工具桥挂在本机网关上：原生智能体（Codex）按 `config.mcp_servers` 连上来，用会话令牌认证；
  * - MCP 服务有自己的回环监听：其他应用里的智能体用发放给客户端的令牌认证，另外只接受回环的 `Host`（防 DNS 重绑定）。
@@ -31,7 +33,17 @@ export interface McpEndpointOptions {
   onToolCall?: (name: string, principal: ToolPrincipal, result: ToolResult) => void;
   /** 会话主体的角色（Bot 技术方案 §10.1）：带 `roles` 的工具按它露出；不给时都按普通会话。 */
   roleOf?: (conversationId: string) => ConversationRole;
+  /** 改用 SSE 保活前等多久、之后每隔多久保活一次；默认 `MCP_KEEPALIVE_MS`（测试用短的）。 */
+  keepAliveMs?: number;
 }
+
+/**
+ * 一次调用等了这么久还没结果，就改用 SSE 回答并按这个间隔保活。等批准、等回答的工具调用可能挂上几个小时，
+ * 而一直不发数据的连接会被客户端当成断了：Claude Code 2.1.274 之前的 Bun fetch 约 4–5 分钟没有数据就以
+ * 「The operation timed out.」放弃（单服务器的 `timeout` 管不到它），它的工具空闲看门狗没有回答或进度满 5 分钟也会放弃。
+ * 请求带了 `progressToken` 时保活是 `notifications/progress`（两种都能重新计时），否则是 SSE 注释行。
+ */
+export const MCP_KEEPALIVE_MS = 25_000;
 
 const PATH = '/mcp';
 // Authenticated local submissions have no artificial body-size ceiling.
@@ -119,14 +131,28 @@ export class McpEndpoint {
       response.writeHead(202).end();
       return;
     }
+    const settled = this.#settle(message, principal);
+    if (!acceptsEventStream(request.headers.accept)) {
+      reply(response, await settled);
+      return;
+    }
+    const keepAlive = startKeepAlive(response, progressTokenOf(message), this.#options.keepAliveMs ?? MCP_KEEPALIVE_MS);
+    const payload = await settled;
+    keepAlive.stop();
+    if (keepAlive.streaming) finishStream(response, payload);
+    else reply(response, payload);
+  }
+
+  /** 一次请求的 JSON-RPC 回答：结果或错误，不抛出。 */
+  async #settle(message: JsonRpcRequest, principal: ToolPrincipal): Promise<unknown> {
     try {
       const result = await this.#dispatch(message, principal);
-      reply(response, { jsonrpc: '2.0', id: message.id, result });
+      return { jsonrpc: '2.0', id: message.id, result };
     } catch (error) {
       // i18n-ignore: 回给 MCP 客户端（智能体）的 JSON-RPC 错误
       const failure = error instanceof JsonRpcFailure ? error : new JsonRpcFailure(-32603, '内部错误');
       if (!(error instanceof JsonRpcFailure)) this.#log.error('MCP method failed', { method: message.method, error: String(error) });
-      reply(response, { jsonrpc: '2.0', id: message.id, error: { code: failure.code, message: failure.message } });
+      return { jsonrpc: '2.0', id: message.id, error: { code: failure.code, message: failure.message } };
     }
   }
 
@@ -185,8 +211,55 @@ function isRequest(message: unknown): message is JsonRpcRequest {
 }
 
 function reply(response: ServerResponse, payload: unknown): void {
+  if (response.destroyed || response.writableEnded) return;
   const text = JSON.stringify(payload);
   response.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) }).end(text);
+}
+
+/** 客户端接受 SSE 回答（Streamable HTTP 要求客户端两种都列；只列 JSON 的照旧只回 JSON）。 */
+function acceptsEventStream(accept: string | undefined): boolean {
+  return (accept ?? '').split(',').some((part) => part.split(';')[0]!.trim().toLowerCase() === 'text/event-stream');
+}
+
+function progressTokenOf(message: JsonRpcRequest): string | number | undefined {
+  const meta = message.params?._meta as { progressToken?: unknown } | undefined;
+  const token = meta?.progressToken;
+  return typeof token === 'string' || typeof token === 'number' ? token : undefined;
+}
+
+function sseEvent(payload: unknown): string {
+  return `event: message\ndata: ${JSON.stringify(payload)}\n\n`;
+}
+
+/**
+ * 过了 `every` 还没结果：发 SSE 头，之后每隔 `every` 发一次保活（有 `progressToken` 时是递增的进度通知，否则是注释行）。
+ * 连接断了就停；`streaming` 说明结果该走 SSE 还是 JSON。
+ */
+function startKeepAlive(response: ServerResponse, token: string | number | undefined, every: number): { readonly streaming: boolean; stop(): void } {
+  let streaming = false;
+  let progress = 0;
+  const timer = setInterval(() => {
+    if (response.destroyed || response.writableEnded) return;
+    if (!streaming) {
+      streaming = true;
+      response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
+    }
+    progress += 1;
+    response.write(token === undefined ? ': keep-alive\n\n' : sseEvent({ jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken: token, progress } }));
+  }, every);
+  const stop = () => clearInterval(timer);
+  response.once('close', stop);
+  return {
+    get streaming() {
+      return streaming;
+    },
+    stop,
+  };
+}
+
+function finishStream(response: ServerResponse, payload: unknown): void {
+  if (response.destroyed || response.writableEnded) return;
+  response.end(sseEvent(payload));
 }
 
 /** 本机已认证的提交不按固定大小截断。 */
