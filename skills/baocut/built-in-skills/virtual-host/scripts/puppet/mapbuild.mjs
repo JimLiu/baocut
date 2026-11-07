@@ -474,13 +474,19 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
       if (!browsRedrawn) patch = minus(patch, dilate(browFull, w, h, 4));
       eyeBox.forEach((m, i) => { if (!eyesHit[i]) patch = minus(patch, dilate(or(m, eyeDrawn[i]), w, h, 2)); });
       const soft = blur(Float32Array.from(or(patch, and(dilate(blush, w, h, 10), cheeks))), w, h, 2);
+      // the edit's own mouth can reach past the portrait's (a broad smile): every changed stroke that reaches into the
+      // mouth area is that mouth, and the talking patch shows the face under all of it, so its ends never stay on
+      // beside the talking mouth
+      const inMouth = new Set();
+      for (let p = 0; p < N; p++) if (mouthArea[p] && sc.lab[p]) inMouth.add(sc.lab[p]);
+      const talkFace = or(mouthArea, dilate(compMask(sc.lab, [...inMouth]), w, h, 2));
       const L = blank(w, h), T = blank(w, h);
       for (let p = 0; p < N; p++) {
         const a = Math.min(1, soft[p] * 1.25);
         if (a <= 0.01 || !area[p]) continue;
         const c = rgb(E, p);
         setPx(L, p, c, a);
-        setPx(T, p, mouthArea[p] ? rgb(blankFace, p) : c, a);
+        setPx(T, p, talkFace[p] ? rgb(blankFace, p) : c, a);
       }
       const bx = alphaBox(L, w, h, 2);
       expressions.push({ id });

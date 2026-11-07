@@ -467,13 +467,19 @@ const expressions = [];
     patch = minus(patch, minus(dilate(G.hair, w, h, 4), redrawn));
     // a blush fades out slowly: let the patch reach round it
     const soft = blur(Float32Array.from(or(patch, and(dilate(blush, w, h, 10), cheeks))), w, h, 2);
+    // the edit's own mouth can reach past the portrait's (a broad smile): every changed stroke that reaches into the
+    // mouth area is that mouth, and the talking patch shows skin under all of it, so its ends never stay on beside the
+    // talking mouth
+    const inMouth = new Set();
+    for (let p = 0; p < N; p++) if (mouthArea[p] && sc.lab[p]) inMouth.add(sc.lab[p]);
+    const talkSkin = or(mouthArea, dilate(compMask(sc.lab, [...inMouth]), w, h, 2));
     const L = blank(w, h), T = blank(w, h);
     for (let p = 0; p < N; p++) {
       const a = Math.min(1, soft[p] * 1.25);
       if (a <= 0.01 || !area[p]) continue;
       const c = rgb(E, p);
       setPx(L, p, c, a);
-      setPx(T, p, mouthArea[p] ? skin : c, a);
+      setPx(T, p, talkSkin[p] ? skin : c, a);
     }
     if (DEBUG) {
       const dm = blank(w, h);

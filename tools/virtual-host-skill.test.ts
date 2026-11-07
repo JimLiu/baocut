@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
-import { writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
+import { readPng, writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
@@ -360,6 +360,8 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     round: [clear, { inside: ell(256, 303, 13, 13), fill: dark, outline: 2 }],
     wide: [clear, { inside: ell(256, 302, 22, 7), fill: white, outline: 2 }, { inside: stroke(() => 305, 238, 274, 1.5), fill: line }],
     smile: [clear, { inside: stroke((x) => 296 + 7 * (1 - ((x - 256) / 28) ** 2), 228, 284, 2.5), fill: line }],
+    // a smile much wider than the portrait's mouth, its ends past the mouth's own area
+    broad: [clear, { inside: stroke((x) => 296 + 7 * (1 - ((x - 256) / 44) ** 2), 212, 300, 2.5), fill: line }],
     frown: [clear, { inside: stroke((x) => 300 + 6 * ((x - 256) / 22) ** 2, 234, 278, 2.5), fill: line }],
   };
   const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[] } = {}) =>
@@ -382,6 +384,7 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     round: draw({ mouth: mouths.round }),
     wide: draw({ mouth: mouths.wide }),
     smile: draw({ mouth: mouths.smile }),
+    broad: draw({ mouth: mouths.broad }),
     angry: draw({ brows: [vBrow(214), vBrow(298)], eyes: [...eye(214), ...eye(298), ...narrowed(214), ...narrowed(298)], mouth: mouths.frown, cheeks: [blush(198), blush(314)] }),
   };
 }
@@ -465,6 +468,36 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(angry.x + angry.w).toBeGreaterThanOrEqual(328);
     expect(angry.y).toBeLessThanOrEqual(198);
     expect(angry.y + angry.h).toBeGreaterThanOrEqual(282);
+  });
+
+  it('clears the whole edited mouth from the talking patch, even a smile wider than the portrait mouth', () => {
+    for (const partmap of [false, true]) {
+      const dir = tmp();
+      const cfgFile = writeCharacter(dir, partmap ? { hair: [230, 190, 90] } : {}, undefined, { partmap });
+      const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
+      fs.writeFileSync(cfgFile, JSON.stringify({ ...cfg, expressions: { ...cfg.expressions, smile: 'art/broad.png' } }));
+      const { status, report } = build(cfgFile);
+      expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+      expect(status).toBe(0);
+      const pkg = path.join(dir, 'puppet/package');
+      type Layer = { id: string; x: number; y: number; texture: string; talk: string };
+      const smile = (JSON.parse(fs.readFileSync(path.join(pkg, 'model.json'), 'utf8')) as { layers: Layer[] }).layers.find((l) => l.id === 'expr_smile')!;
+      // dark line pixels at the smile's two ends (x 212-224 and 288-300), outside the portrait mouth's area
+      const ends = (file: string) => {
+        const im = readPng(path.join(pkg, file));
+        let n = 0;
+        for (let y = 288; y <= 306; y++) for (const [x0, x1] of [[212, 224], [288, 300]]) for (let x = x0; x <= x1; x++) {
+          const i = x - smile.x, j = y - smile.y;
+          if (i < 0 || j < 0 || i >= im.w || j >= im.h) continue;
+          const q = 4 * (j * im.w + i);
+          if (im.d[q + 3] > 128 && (im.d[q] + im.d[q + 1] + im.d[q + 2]) / 3 < 100) n++;
+        }
+        return n;
+      };
+      expect(ends(smile.texture)).toBeGreaterThan(20);
+      // while the mouth layer talks, none of the smile is left beside it
+      expect(ends(smile.talk)).toBe(0);
+    }
   });
 
   it('measures coloured line art: brown outlines, irises and hair', () => {
