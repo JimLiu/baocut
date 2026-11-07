@@ -285,9 +285,15 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
  * `keep`: pixels that stay in the patch (the brows it redrew), or null; `under` the bare face; `pivots` per side, the
  * neutral eyes' (the lid line). Returns `whole` (the patch and its talking copy as they were, for the LivLiv package),
  * `eyes` ([{ side, L, pivot }] for the sides cut) and `note` (for the check line).
+ *
+ * An open eye over the cut patch is the patch as drawn, over whatever is under it: where the patch is opaque it fades
+ * into the bare face over the region's soft edge and the eye layer is opaque; where the patch is see-through (an edit
+ * that barely changed the face) its colour stays and the eye layer takes a share of its opacity, so shut, the face
+ * under the patch shows there. A soft eye layer over a patch gone to the bare face left a ring of it round the eye.
  */
 export function cutExpressionEyes({ L, T, under, regions, pivots, keep, w, h }) {
   const N = w * h, whole = { L: clone(L), talk: clone(T) }, out = [];
+  const mix = (c, u, k) => c.map((v, i) => Math.round(v + (u[i] - v) * k));
   regions.R.forEach((M, s) => {
     if (!M) return;
     const R = keep ? minus(M, keep) : M;
@@ -295,10 +301,15 @@ export function cutExpressionEyes({ L, T, under, regions, pivots, keep, w, h }) 
     const f = blur(Float32Array.from(R), w, h, 1);
     const X = blank(w, h);
     for (let p = 0; p < N; p++) {
-      const a = Math.min(1, 1.25 * f[p]) * (L.d[4 * p + 3] / 255);
-      if (!(a > 0.01)) continue;
-      setPx(X, p, rgb(L, p), a);
-      for (const P of [L, T]) setPx(P, p, rgb(under, p), P.d[4 * p + 3] / 255);
+      const k = Math.min(1, 1.25 * f[p]), a = L.d[4 * p + 3] / 255;
+      if (!(k > 0.01) || !(a > 0)) continue;
+      const ax = a > 254.5 / 255 ? 1 : a * k;
+      setPx(X, p, rgb(L, p), ax);
+      for (const P of [L, T]) {
+        const aP = P.d[4 * p + 3] / 255;
+        if (ax === 1) setPx(P, p, mix(rgb(P, p), rgb(under, p), k), aP);
+        else setPx(P, p, rgb(P, p), Math.max(0, (aP - ax) / (1 - ax)));
+      }
     }
     out.push({ side: s ? 'R' : 'L', L: X, pivot: pivots[s] });
   });

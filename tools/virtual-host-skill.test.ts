@@ -8,7 +8,7 @@ import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_R
 import { readPng, writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
 import { smoothFill, strandFill } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/fill.mjs';
-import { expressionEyeRegions } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/expreyes.mjs';
+import { expressionEyeRegions, cutExpressionEyes } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/expreyes.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
 
@@ -847,6 +847,38 @@ describe('virtual-host expression eye regions', () => {
       expect(at(x, cy)).toBe(1);
       expect(at(x, Math.floor(top(x + 0.5)! - 12))).toBe(0);
     }
+  });
+
+  it('cuts the eye so that, open, it over the cut patch is the patch as drawn, over any face under it', () => {
+    const N = draw(cy + 1), E = draw(cy - 3);
+    const changed = new Uint8Array(W * H).map((_, p) => [0, 1, 2].some((k) => N.im.d[4 * p + k] !== E.im.d[4 * p + k]) ? 1 : 0);
+    // the patch see-through across the outer corner, where an edit barely changed the face
+    const drawn = new Uint8ClampedArray(E.im.d);
+    for (let y = 0; y < H; y++) for (let x = 0; x < cx - 20; x++) drawn[4 * (y * W + x) + 3] = 40 + 4 * x;
+    const patch = { w: W, h: H, d: new Uint8ClampedArray(drawn) }, T = { w: W, h: H, d: new Uint8ClampedArray(drawn) };
+    const regions = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes: [{ drawn: N.drawn, hit: true }, null], changed, skin, w: W, h: H });
+    // the bare face lighter than the expression's skin (an edit that blushes or shades the face)
+    const under = { w: W, h: H, d: new Uint8ClampedArray(W * H * 4).map((_, i) => [255, 236, 214, 255][i % 4]) };
+    const { eyes } = cutExpressionEyes({ L: patch, T, under, regions, pivots: [[cx, cy], null], keep: null, w: W, h: H });
+    expect(eyes.map((e: { side: string }) => e.side)).toEqual(['L']);
+    const X = eyes[0].L.d, bg = [30, 200, 60];
+    for (const P of [patch, T]) {
+      let worst = 0;
+      for (let p = 0; p < W * H; p++) {
+        const ax = X[4 * p + 3] / 255, ap = P.d[4 * p + 3] / 255, a0 = drawn[4 * p + 3] / 255;
+        for (let k = 0; k < 3; k++) {
+          const cut = X[4 * p + k] * ax + (1 - ax) * (P.d[4 * p + k] * ap + bg[k] * (1 - ap));
+          worst = Math.max(worst, Math.abs(cut - (drawn[4 * p + k] * a0 + bg[k] * (1 - a0))));
+        }
+      }
+      // a soft eye over a patch gone to the bare face left a light ring round the eye
+      expect(worst).toBeLessThanOrEqual(2);
+    }
+    // shut, the opaque patch shows the bare face inside the region and itself outside it; the see-through part of the
+    // region shows the face under the patch
+    expect([...patch.d.slice(4 * (cy * W + cx), 4 * (cy * W + cx) + 3)]).toEqual([255, 236, 214]);
+    expect([...patch.d.slice(4 * (5 * W + cx + 30), 4 * (5 * W + cx + 30) + 3)]).toEqual(skin);
+    expect(patch.d[4 * (cy * W + cx - 25) + 3]).toBe(0);
   });
 });
 
