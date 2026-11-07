@@ -21,6 +21,7 @@ video-engine = { path = "crates/video-engine" }
 video-model = { path = "crates/video-model" }
 render-graph = { path = "crates/render-graph" }
 frame-render = { path = "crates/frame-render", default-features = false }
+puppet = { path = "crates/puppet" }
 media-core = { path = "crates/media-core" }
 motion = { path = "crates/motion" }
 scene-primitives = { path = "crates/scene-primitives" }
@@ -71,6 +72,8 @@ opt-level = 3
 opt-level = 3
 [profile.wasm.package.frame-render]
 opt-level = 3
+[profile.wasm.package.puppet]
+opt-level = 3
 
 # 调试构建里成片导出与预览测试也逐帧走光栅：这几个 crate 不优化时一帧要慢一个数量级，导出测试会超时。
 [profile.dev.package.tiny-skia]
@@ -82,6 +85,8 @@ opt-level = 3
 [profile.dev.package.subtitle-render]
 opt-level = 3
 [profile.dev.package.frame-render]
+opt-level = 3
+[profile.dev.package.puppet]
 opt-level = 3
 # 成片导出的其余逐帧路径：Worker 本身（搬帧、预乘）、解码与编码的管道读写、求计划，以及排版用的 cosmic-text / swash / rustybuzz；
 # 开发态（`npm run dev` 用 debug 的 Worker）不优化时导出比 release 慢两倍以上。

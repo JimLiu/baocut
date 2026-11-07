@@ -3343,6 +3343,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d8f70e07b9c3962945a74e59ca1c511bba65b6419468acc217c457d93f3c740"
 
 [[package]]
+name = "puppet"
+version = "0.4.0"
+dependencies = [
+ "image",
+ "miniz_oxide",
+ "rayon",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pxfm"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"

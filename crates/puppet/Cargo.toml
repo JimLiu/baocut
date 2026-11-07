@@ -1,0 +1,19 @@
+[package]
+name = "puppet"
+description = "BaoCut 的分层角色（puppet）：读角色包（model.json + 分层贴图），按参数逐帧形变网格、跑头发与身体的弹簧，用 CPU 三角形光栅画成一帧预乘 RGBA。导出与编辑器预览（preview-wasm）共用同一份实现；形变与绘制顺序移植自 LivLiv Player（Apache-2.0）"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+# 进 WASM 的构建不开 `parallel`（没有线程）；原生导出开它，按行带分给多个线程画。
+[features]
+default = []
+parallel = ["dep:rayon"]
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+miniz_oxide = "0.8"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+rayon = { version = "1.10", optional = true }
