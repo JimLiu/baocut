@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
-import { buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
+import { buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
 import { writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
@@ -146,6 +146,28 @@ describe('virtual-host lip sync', () => {
     expect(shapes.some((s) => s === 'E' || s === 'F')).toBe(true); // 我 wo
     expect(shapes.at(-1)).toBe('X');
     expect(Math.max(...track.params.angleY.map(Math.abs))).toBeLessThan(30);
+  });
+
+  it('lets the voice set how far each shape opens, and opens the mouth on a loud syllable the words left out', () => {
+    // 大 at 0.1–0.4 s with the voice rising and falling through it; then a loud syllable at 0.6–0.75 s with no word
+    const da = { timescale: 1000, segments: [{ text: '大', words: [{ text: '大', start: 100, end: 400 }] }] };
+    const env = Float32Array.from({ length: 101 }, (_, i) => (i >= 10 && i < 40 ? Math.sin(((i - 10) / 30) * Math.PI) : i >= 60 && i < 75 ? 0.8 : 0));
+    const { track, shapes } = buildTrack({ units: unitsFromWords(da, 'zh-CN'), env, dur: 1 }) as Built;
+    const open = (t: number) => at(track.params.mouthOpen, Math.round(t * TRACK_FPS));
+    for (let k = 0; k < shapes.length; k++) {
+      const [lo, hi] = OPEN_RANGE[shapes[k] as keyof typeof OPEN_RANGE];
+      expect(at(track.params.mouthOpen, k)).toBeGreaterThanOrEqual(lo);
+      expect(at(track.params.mouthOpen, k)).toBeLessThanOrEqual(hi);
+    }
+    // inside the syllable the mouth follows the voice instead of holding one value
+    expect(open(0.25)).toBeGreaterThan(0.8);
+    expect(open(0.15)).toBeLessThan(open(0.25));
+    expect(open(0.35)).toBeLessThan(open(0.25));
+    expect(new Set(track.params.mouthOpen.slice(Math.round(0.1 * TRACK_FPS), Math.round(0.4 * TRACK_FPS))).size).toBeGreaterThan(10);
+    expect(open(0.5)).toBe(0);
+    expect(shapes[Math.round(0.67 * TRACK_FPS)]).not.toBe('X');
+    expect(open(0.67)).toBeGreaterThan(0.5);
+    expect(open(0.9)).toBe(0);
   });
 
   it('builds the same track from the same input and seed; the seed moves only the head', () => {

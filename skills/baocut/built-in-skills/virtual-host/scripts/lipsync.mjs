@@ -22,6 +22,7 @@ const GAP_CLOSE = 0.15; // 字与字之间停顿超过 150 毫秒就闭嘴
 const PHRASE_GAP = 0.35; // 停顿超过这么久算新的一句
 const SILENT = 0.05, SILENT_RUN = 8; // 音量低于它连续 80 毫秒算静音
 const VOICELESS = 15; // 清辅音声母最长按 150 毫秒算
+const LOUD = 0.25, LOUD_RUN = 4; // 读音这里不说话，声音却有 40 毫秒响过它：逐字时间偏了或漏了字，这段按声音出口型
 // 张多大跟音量走：音量分小、中、大三档，上下各留 0.04 的回差，免得在门槛附近来回跳
 const LEVELS = [0.25, 0.5], HYST = 0.04;
 // 读音给的口型在各档实际画哪张：D 小声是 B、中等是 C；C 小声是 B；E 小声是 F。其余口型不随音量变
@@ -265,7 +266,7 @@ export function levelsOf(env, n) {
   return out;
 }
 
-/** 细时间轴（10 毫秒一格）：读音给的口型，再按音量闭嘴、降档；读音不明的格子按音量与元音线索选 */
+/** 细时间轴（10 毫秒一格）：读音给的口型，再按音量闭嘴、降档；读音不明的格子、读音说这里不说话而声音响着的格子按音量与元音线索选 */
 export function fineTimeline(units, n, env, cue, audioOnly = false) {
   const fine = new Array(n).fill(audioOnly ? '?' : 'X');
   const owner = new Int32Array(n).fill(-1);
@@ -294,6 +295,13 @@ export function fineTimeline(units, n, env, cue, audioOnly = false) {
         const keepFrom = k >= 0 && loud >= 6 ? Math.max(i, j - VOICELESS) : j;
         for (let m = i; m < j; m++) if (m < keepFrom || owner[m] !== k) fine[m] = 'X';
       }
+      i = j;
+    }
+    for (let i = 0; i < n;) {
+      if (fine[i] !== 'X' || (env[i] ?? 0) < SILENT) { i++; continue; }
+      let j = i, loud = 0;
+      for (; j < n && fine[j] === 'X' && (env[j] ?? 0) >= SILENT; j++) if (env[j] >= LOUD) loud++;
+      if (loud >= LOUD_RUN) fine.fill('?', i, j);
       i = j;
     }
     const lv = levelsOf(env, n);
@@ -473,6 +481,11 @@ export const TRACK_FPS = 120;
  * E 圆嘴；F 小圆嘴（半张的圆嘴）；G 咬唇（扁嘴那一帧画的是上齿压下唇）
  */
 export const MOUTH = { X: [0, 0], A: [0, 0], B: [0.3, 0], C: [0.85, 0], D: [1, 0], E: [0.85, -1], F: [0.3, -1], G: [0.3, 1] };
+/**
+ * 有声音时张多大跟着音量连续走（LivLiv 的做法：一个字里嘴随声音张开再收拢，字与字之间、声音停下就合上），口型只定
+ * [下限, 上限]：B 不过半张、C 不过张开；圆唇、咬唇留一点开口，不然小声时那两帧出不来；X、A 闭上。没有声音时用 MOUTH
+ */
+export const OPEN_RANGE = { X: [0, 0], A: [0, 0], B: [0, 0.45], C: [0, 0.85], D: [0, 1], E: [0.2, 1], F: [0.2, 0.45], G: [0.3, 0.3] };
 // 头的动作（度）：待机那样的慢游移，每句的朝向，音节上的点头
 const DRIFT = [[3.5, 0.7], [2, 0.9], [3, 0.5]]; // angleX、angleY、angleZ 的 [幅度, 角速度]
 const FACE_X = 7, FACE_Y = 4, TILT = 0.25, NOD = 4.5, NOD_S = 0.36, EASE_IN = 0.5, EASE_OUT = 0.8, FACE_RAMP = 0.25;
@@ -487,6 +500,17 @@ function trimTail(a) {
   while (k > 0 && a[k - 1] === a[k]) k--;
   return a.slice(0, k + 1);
 }
+
+/** 包络在 t 秒的值（10 毫秒一格之间线性插值） */
+const envAt = (env, t) => {
+  const x = t / STEP, i = Math.floor(x), a = env[i] ?? 0, b = env[i + 1] ?? a;
+  return a + (b - a) * (x - i);
+};
+/** 这一步的口型在这个音量下张多大 */
+export const openAt = (shape, e) => {
+  const [lo, hi] = OPEN_RANGE[shape];
+  return r3(Math.min(hi, Math.max(lo, e)));
+};
 
 /** 每一步的转头、点头、歪头 */
 function headChannels(ticks, m, phrases) {
@@ -557,7 +581,7 @@ export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, 
   const m = motion(units, env, phrases, seed);
   const fc = facesOf(faces, units);
   const params = {
-    mouthOpen: trimTail(shapes.map(s => MOUTH[s][0])),
+    mouthOpen: trimTail(shapes.map((s, k) => (env ? openAt(s, envAt(env, k / TRACK_FPS)) : MOUTH[s][0]))),
     vowel: trimTail(shapes.map(s => MOUTH[s][1])),
     ...headChannels(ticks, m, phrases),
   };
