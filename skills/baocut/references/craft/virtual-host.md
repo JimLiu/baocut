@@ -87,6 +87,7 @@
 - [`scripts/lipsync.mjs`](virtual-host/scripts/lipsync.mjs)
 - [`scripts/pinyin-table.mjs`](virtual-host/scripts/pinyin-table.mjs)
 - [`scripts/puppet/align.mjs`](virtual-host/scripts/puppet/align.mjs)
+- [`scripts/puppet/brows.mjs`](virtual-host/scripts/puppet/brows.mjs)
 - [`scripts/puppet/edits.mjs`](virtual-host/scripts/puppet/edits.mjs)
 - [`scripts/puppet/expression-labels.json`](virtual-host/scripts/puppet/expression-labels.json)
 - [`scripts/puppet/eyes.mjs`](virtual-host/scripts/puppet/eyes.mjs)

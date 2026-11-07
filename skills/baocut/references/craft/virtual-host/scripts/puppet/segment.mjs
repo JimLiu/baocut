@@ -101,11 +101,43 @@ export function segment(im, cfg = {}) {
   const dc = components(notHair, w, h);
   const bc = components(minus(minus(or(C.dark, C.fill), hair), glass), w, h);
   const midX = (eyes[0].box[2] + eyes[1].box[0]) / 2;
-  const browComps = [0, 1].map((s) => bc.comps
-    .filter((c) => c.area > 150 && c.cy < eyeTop && c.cy > eyeTop - 2.5 * eyeH && (s ? c.cx > midX : c.cx < midX) && c.x1 - c.x0 < 0.6 * (eyes[1].box[2] - eyes[0].box[0]))
-    .sort((p, q) => q.area - p.area)[0]);
-  const brows = compMask(bc.lab, browComps.filter(Boolean).map((c) => c.id));
-  log('brows', browComps.map((c) => c && [c.x0, c.y0, c.x1, c.y1]));
+  const browLike = (c, s) => c.area > 150 && c.cy < eyeTop && c.cy > eyeTop - 2.5 * eyeH && (s ? c.cx > midX : c.cx < midX) && c.x1 - c.x0 < 0.6 * (eyes[1].box[2] - eyes[0].box[0]);
+  const offHair = [0, 1].map((s) => bc.comps.filter((c) => browLike(c, s)).sort((p, q) => q.area - p.area)[0]);
+  const browComps = [...offHair];
+  // brows drawn over the bangs: a side with none off the hair takes a dark stroke inside the hair (when the hair has a
+  // colour of its own) that is cut off from the hair's own lines, all round it hair, with a brow's place and shape.
+  // They stay in the hair mask too (the bald repaint goes under them)
+  const browOnHair = new Uint8Array(n);
+  if (hairRGB && Math.hypot(hairRGB[0] - line[0], hairRGB[1] - line[1], hairRGB[2] - line[2]) >= 40 && !browComps.every(Boolean)) {
+    const inHair = new Uint8Array(n);
+    for (let p = 0; p < n; p++) {
+      if (!hair[p] || glass[p] || K.alpha[p] < 0.5) continue;
+      const r = K.fg.d[4 * p], g = K.fg.d[4 * p + 1], b = K.fg.d[4 * p + 2];
+      if (luma(r, g, b) < 100 && Math.hypot(r - hairRGB[0], g - hairRGB[1], b - hairRGB[2]) >= 40) inHair[p] = 1;
+    }
+    const hc = components(inHair, w, h);
+    const enclosed = (c) => {
+      for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) {
+        if (hc.lab[y * w + x] !== c.id) continue;
+        for (const [i, j] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const X = x + i, Y = y + j;
+          if (X < 0 || Y < 0 || X >= w || Y >= h) return false;
+          const q = Y * w + X;
+          if (hc.lab[q] !== c.id && !hair[q]) return false;
+        }
+      }
+      return true;
+    };
+    for (const s of [0, 1]) {
+      if (browComps[s]) continue;
+      const c = hc.comps.filter((c) => browLike(c, s) && c.x1 - c.x0 >= 2 * (c.y1 - c.y0) && enclosed(c)).sort((p, q) => q.area - p.area)[0];
+      if (!c) continue;
+      browComps[s] = c;
+      for (let p = 0; p < n; p++) if (hc.lab[p] === c.id) browOnHair[p] = 1;
+    }
+  }
+  const brows = or(compMask(bc.lab, offHair.filter(Boolean).map((c) => c.id)), browOnHair);
+  log('brows', browComps.map((c) => c && [c.x0, c.y0, c.x1, c.y1]), 'on the bangs', count(browOnHair));
 
   // face skin: the skin component under the left eye's rim (cheek); the chin is its lowest row
   const S = components(C.skin, w, h);
@@ -179,6 +211,6 @@ export function segment(im, cfg = {}) {
   const neck = rows.length > 5 ? { top: y0, fillTop: nb[1], left: fit('l'), right: fit('r'), lw: rows.reduce((s, r) => s + r.lw, 0) / rows.length } : null;
   log('neck', neck && { top: neck.top, l: +neck.left(neck.top).toFixed(1), r: +neck.right(neck.top).toFixed(1), lw: +neck.lw.toFixed(1) });
 
-  return { w, h, K, skin, line, hairRGB, hairMask, C, char, charBox, H, hair, hairBox, eyes, iris, rims, rimW, glass, brows, browComps, mouth, mouthComp: mc,
+  return { w, h, K, skin, line, hairRGB, hairMask, C, char, charBox, H, hair, hairBox, eyes, iris, rims, rimW, glass, brows, browComps, browOnHair, mouth, mouthComp: mc,
     faceComp, chin, chinSkin, lw, headSkin, headShade, neckSkin, neckShadow, head, neck, eyeTop, eyeBot };
 }

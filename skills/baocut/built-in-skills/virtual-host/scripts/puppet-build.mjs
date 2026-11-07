@@ -27,6 +27,8 @@ import { buildEye } from './puppet/eyes.mjs';
 import { segment, boxMask } from './puppet/segment.mjs';
 import { fillHoles, softEdge, fromMask, setPx, rgb, alphaBox, unionBox, cut, bleed, nearestIndex } from './puppet/layers.mjs';
 import { registered, strokes } from './puppet/edits.mjs';
+import { browNear, redrawnBrows, browNoteOf, writeBrowDebug, sideOf } from './puppet/brows.mjs';
+import { smoothFill } from './puppet/fill.mjs';
 import { zip } from './puppet/zip.mjs';
 
 const args = process.argv.slice(2);
@@ -74,6 +76,14 @@ try {
 }
 check(true, 'portrait', `${w}x${h}, key ${G.K.key}, skin ${G.skin}, line ${G.line}, hair ${G.hairRGB ?? 'line colour'}, ${G.rims ? 'glasses' : 'no glasses'}`);
 const { K, C, skin } = G;
+{
+  // both brows: an expression moves them, and one that is not found stays still under its edit
+  const midX = (G.eyes[0].box[2] + G.eyes[1].box[0]) / 2, px = [0, 1].map((s) => count(sideOf(G.brows, s, midX, w, h)));
+  const lost = ['L', 'R'].filter((_, s) => !G.browComps[s]);
+  check(!lost.length, 'brows', lost.length
+    ? `brow ${lost.join(' and ')} not found; redraw the portrait with both eyebrows clearly visible (below the bangs, or drawn over them), or add a "partmap"`
+    : `L ${px[0]} / R ${px[1]} px, ${count(G.browOnHair)} on the bangs`);
+}
 const Lline = luma(...G.line);
 const neckSkinCol = medianColor(im, erode(G.neckSkin, w, h, 2));
 log('neck skin', neckSkinCol);
@@ -274,6 +284,7 @@ const mouthY = Math.round(G.mouthComp ? (G.mouthComp.y0 + G.mouthComp.y1) / 2 : 
 
 // face: the bald repaint's head with the eyes, brows, glasses and mouth painted out in skin
 const featCore = or(or(eyeRegion, G.brows), or(G.glass, G.mouth));
+let faceL = null; // the face layer: the bare face under the features
 let rimBlank = new Uint8Array(N);
 if (G.rims) {
   // the repaint may redraw a rim's top under the hair: anything dark near the rims goes too
@@ -289,6 +300,7 @@ if (G.rims) {
   for (let p = 0; p < N; p++) if (blankM[p]) setPx(L, p, skin, 1);
   softEdge(L, faceM, faceSrc, rest, faceKey, w, h, { allow: not(G.hair) });
   add('face', L, { group: 'head', depth: 0 });
+  faceL = L;
   if (DEBUG) writeGray(path.join(DBG, 'blank.png'), w, h, blankM.map((v) => v * 255));
 }
 
@@ -393,6 +405,12 @@ const expressions = [];
   // what the open eye layers draw, lashes included
   const eyeDrawn = ['L', 'R'].map((s) => { const L = eyeLayers.find((e) => e.id === `eye_${s}`).L; return Uint8Array.from({ length: N }, (_, p) => (L.d[4 * p + 3] > 0 ? 1 : 0)); });
   const browZone = and(dilate(G.brows, w, h, 6), seen);
+  const midX = (G.eyes[0].box[2] + G.eyes[1].box[0]) / 2;
+  const near = browNear({ full: G.brows, boxes: G.browComps.map((c) => (c ? [c.x0, c.y0, c.x1, c.y1] : null)), eyes: G.eyes.map((e) => e.box), midX, eyeH, w, h });
+  const browCol = medianColor(im, count(erode(G.brows, w, h, 1)) ? erode(G.brows, w, h, 1) : G.brows);
+  // round brows drawn over the bangs the patch has no colours (it is under the hair): what the edit changed there is
+  // read from the edit as registered
+  const browZoneHair = count(G.browOnHair) ? minus(and(dilate(G.browOnHair, w, h, 6), near), seen) : null;
   // the cheeks, where a blush goes: below the eyes, clear of the nose and the mouth
   const shade = components(G.headShade, w, h);
   const nose = dilate(compMask(shade.lab, shade.comps.filter((c) => c.y1 < mc.y0).map((c) => c.id)), w, h, 6);
@@ -451,8 +469,19 @@ const expressions = [];
     const pc = components(pink, w, h);
     const blush = compMask(pc.lab, pc.comps.filter((c) => c.area >= 150).map((c) => c.id));
     const eyesHit = eyeBox.map((m) => count(and(solid, m)) > 0.02 * count(m));
-    const browsRedrawn = count(browZone) > 0 && count(and(solid, browZone)) > 0.05 * count(browZone);
-    if (!count(kept) && !count(blush)) { check(false, `expression ${id}`, 'the edit changed nothing on the face; redo it'); continue; }
+    let browsOnHairMoved = false;
+    if (browZoneHair) {
+      const sh = new Uint8Array(N);
+      for (let p = 0; p < N; p++) {
+        if (!browZoneHair[p]) continue;
+        let m = 0;
+        for (let k = 0; k < 3; k++) m = Math.max(m, Math.abs(R.im.d[4 * p + k] - im.d[4 * p + k]));
+        if (m > 40) sh[p] = 1;
+      }
+      browsOnHairMoved = count(and(dilate(erode(sh, w, h, 1), w, h, 1), sh)) > 0.05 * count(browZoneHair);
+    }
+    const browsRedrawn = (count(browZone) > 0 && count(and(solid, browZone)) > 0.05 * count(browZone)) || browsOnHairMoved;
+    if (!count(kept) && !count(blush) && !browsOnHairMoved) { check(false, `expression ${id}`, 'the edit changed nothing on the face; redo it'); continue; }
     let seed = or(or(kept, blush), G.mouth);
     eyeBox.forEach((m, i) => { if (eyesHit[i]) seed = or(seed, m); });
     if (browsRedrawn) seed = or(seed, browZone);
@@ -486,28 +515,47 @@ const expressions = [];
       for (let p = 0; p < N; p++) dm.d.set([patch[p] * 255, solid[p] * 255, (cheeks[p] ? 120 : 0) + blush[p] * 135, 255], 4 * p);
       writePng(path.join(DBG, `expr-${id}-masks.png`), dm);
     }
+    // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them, the bare
+    // face beneath them). Read from the edit as registered where the patch has no colours (the hair): a brow or hair
+    // pixel needs no skin matching. Found nothing (a brow the colour of the hair): the brows stay in the patch
+    let BT = null, browNote = '';
+    if (browsRedrawn) {
+      const Eb = clone(R.im);
+      for (let p = 0; p < N; p++) if (area[p]) Eb.d.set(E.d.subarray(4 * p, 4 * p + 3), 4 * p);
+      const B = redrawnBrows({ E: Eb, im, near, full: G.brows, browCol, hairCol, skin, midX, L, T, under: faceL, w, h });
+      if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, near, w, h);
+      BT = B.BT;
+      browNote = BT ? browNoteOf(B.bm, G.hair, midX, w, h) : '; brows kept in the patch (none found)';
+    }
     const box = alphaBox(L, w, h, 2);
     expressions.push({ id });
     const parts = [eyesHit.every(Boolean) ? 'eyes' : eyesHit[0] ? 'left eye' : eyesHit[1] ? 'right eye' : '', browsRedrawn ? 'brows' : '', count(blush) ? 'blush' : '', 'mouth'].filter(Boolean);
-    check(true, `expression ${id}`, `${box[2]}x${box[3]} px patch: ${parts.join(', ')}`);
-    layers.push({ id: `expr_${id}`, L, talk: T, def: { group: 'head', depth: 0, role: 'expr', expression: id, ...(browsRedrawn ? { brows: 'redrawn' } : {}) }, hidden: true });
+    check(true, `expression ${id}`, `${box[2]}x${box[3]} px patch: ${parts.join(', ')}${browNote}`);
+    layers.push({ id: `expr_${id}`, L, talk: T, ...(BT ? { browTex: BT } : {}), def: { group: 'head', depth: 0, role: 'expr', expression: id, ...(browsRedrawn ? { brows: 'redrawn' } : {}) }, hidden: true });
   }
 }
 
-// glasses (frames only), front hair, brows: cut from the portrait, edges unmixed against what's under them
+// glasses (frames only), front hair, brows: cut from the portrait, edges unmixed against what's under them. Under brows
+// drawn over the bangs the bangs are filled from the clean hair round them, 2 px past the brow (its outline or halo is
+// the brow's, not the hair's), and the brows layer carries those pixels as drawn: the rest is the portrait, and a
+// redrawn brow leaves plain hair
+const bangsFill = or(G.browOnHair, and(dilate(G.browOnHair, w, h, 2), G.hair));
 if (G.rims) {
   const L = fromMask(im, null, G.glass, w, h);
   softEdge(L, G.glass, im, rest, K, w, h, { allow: not(G.hair) });
   add('glasses', L, { group: 'head', depth: 0.03 });
 }
 {
-  const L = fromMask(K.fg, K.alpha, G.hair, w, h);
+  let fg = K.fg;
+  if (count(bangsFill)) { fg = clone(K.fg); smoothFill(fg, bangsFill, minus(G.hair, bangsFill), w, h); }
+  const L = fromMask(fg, K.alpha, G.hair, w, h);
   softEdge(L, G.hair, K.fg, rest, K, w, h, { allow: not(or(G.brows, G.glass)) });
   add('front_hair', L, { group: 'hair_front', depth: 0.12 });
 }
 {
-  const L = fromMask(im, null, G.brows, w, h);
-  softEdge(L, G.brows, im, rest, K, w, h, {});
+  const bm = or(G.brows, bangsFill);
+  const L = fromMask(im, null, bm, w, h);
+  softEdge(L, bm, im, rest, K, w, h, {});
   add('brows', L, { group: 'head', depth: 0 });
 }
 
@@ -542,7 +590,7 @@ for (const Lr of layers) {
   let box;
   if (Lr.frames) box = unionBox(Lr.frames.map((f) => alphaBox(f, w, h, 3)));
   else if (Lr.maskFull) box = unionBox([alphaBox(Lr.L, w, h, 2)]);
-  else box = alphaBox(Lr.L, w, h, 2);
+  else box = Lr.browTex ? unionBox([alphaBox(Lr.L, w, h, 2), alphaBox(Lr.browTex, w, h, 2)]) : alphaBox(Lr.L, w, h, 2);
   if (!box) { log('skip empty layer', Lr.id); continue; }
   const def = { id: Lr.id, texture: `textures/${Lr.id}.png`, x: box[0], y: box[1], w: box[2], h: box[3], ...Lr.def };
   if (Lr.frames) {
@@ -555,6 +603,10 @@ for (const Lr of layers) {
     def.talk = `textures/${Lr.id}_talk.png`;
     writePng(path.join(PKG, def.talk), bleed(cut(Lr.talk, box)));
   }
+  if (Lr.browTex) {
+    def.brow_tex = `textures/${Lr.id}_brows.png`;
+    writePng(path.join(PKG, def.brow_tex), bleed(cut(Lr.browTex, box)));
+  }
   if (Lr.maskFull) {
     def.mask = `textures/${Lr.id}_mask.png`;
     const mc = cut(Lr.maskFull, box);
@@ -563,7 +615,7 @@ for (const Lr of layers) {
     writePng(path.join(PKG, def.mask), mc);
   }
   // key order like the reference models
-  const order = ['id', 'texture', 'frames', 'visemes', 'mask', 'talk', 'x', 'y', 'w', 'h', 'group', 'depth', 'role', 'expression', 'brows', 'pivot', 'clip', 'range'];
+  const order = ['id', 'texture', 'frames', 'visemes', 'mask', 'talk', 'brow_tex', 'x', 'y', 'w', 'h', 'group', 'depth', 'role', 'expression', 'brows', 'pivot', 'clip', 'range'];
   defs.push(Object.fromEntries(order.filter((k) => def[k] !== undefined).map((k) => [k, def[k]])));
 }
 const model = {
@@ -581,7 +633,7 @@ fs.writeFileSync(path.join(PKG, 'model.json'), JSON.stringify(model, null, 1) + 
 const errs = [];
 for (const d of defs) {
   if (d.x < 0 || d.y < 0 || d.x + d.w > w || d.y + d.h > h) errs.push(`${d.id}: box outside the canvas`);
-  for (const f of [d.texture, ...(d.frames ?? []), d.mask].filter(Boolean)) {
+  for (const f of [d.texture, ...(d.frames ?? []), d.mask, d.talk, d.brow_tex].filter(Boolean)) {
     const t = readImage(path.join(PKG, f));
     if (t.w !== d.w || t.h !== d.h) errs.push(`${d.id}: ${f} is ${t.w}x${t.h}, box ${d.w}x${d.h}`);
   }
@@ -611,7 +663,7 @@ writePng(path.join(OUT, 'rest-diff.png'), dimg);
 check(!errs.length, 'package', errs.length ? errs.join('; ') : `${defs.length} layers`);
 log('layers', defs.map((d) => `${d.id} ${d.w}x${d.h}@${d.x},${d.y}`).join(' | '));
 const files = [['model.json', fs.readFileSync(path.join(PKG, 'model.json'))]];
-for (const d of defs) for (const f of [d.texture, ...(d.frames ?? []), d.mask, d.talk].filter(Boolean)) if (!files.some(([n]) => n === f)) files.push([f, fs.readFileSync(path.join(PKG, f))]);
+for (const d of defs) for (const f of [d.texture, ...(d.frames ?? []), d.mask, d.talk, d.brow_tex].filter(Boolean)) if (!files.some(([n]) => n === f)) files.push([f, fs.readFileSync(path.join(PKG, f))]);
 const pkgFile = path.join(OUT, `${NAME.replace(/[^\w.-]+/g, '-')}.bcpuppet`);
 fs.writeFileSync(pkgFile, zip(files));
 const ok = checks.every((c) => c.ok);

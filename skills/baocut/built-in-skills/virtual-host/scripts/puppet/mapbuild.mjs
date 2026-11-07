@@ -13,6 +13,7 @@ import { fillHoles, softEdge, setPx, rgb, alphaBox, nearestIndex } from './layer
 import { registered } from './edits.mjs';
 import { readLabels, part, PARTS, NAMES } from './partmap.mjs';
 import { smoothFill } from './fill.mjs';
+import { browNear, redrawnBrows, browNoteOf, writeBrowDebug } from './brows.mjs';
 import { writeLayers, writePackages } from './pack.mjs';
 
 // soft shading redrawn by an edit leaves more residual than flat colours (puppet-build.mjs uses 6)
@@ -467,15 +468,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
     const eyeBox = eyeParts.map((e) => and(dilate(box(w, h, ...e.box), w, h, 4), area));
     const eyeDrawn = ['L', 'R'].map((s) => { const Lr = layers.find((l) => l.id === `eye_${s}`).L; return Uint8Array.from({ length: N }, (_, p) => (Lr.d[4 * p + 3] > 0 ? 1 : 0)); });
     const browZone = and(dilate(browFull, w, h, 6), area);
-    // where an edit's brows can be, over skin or hair: round the old brows and down to the eyes (a sad or angry brow
-    // can drop that far), never on an eye
-    const aboveEyes = or(box(w, h, 0, 0, midX - 1, eyeParts[0].box[1] - 2), box(w, h, midX, 0, w - 1, eyeParts[1].box[1] - 2));
-    let browNear = dilate(browFull, w, h, Math.max(4, Math.round(0.3 * eyeH)));
-    for (const s of [0, 1]) {
-      const b = brows[s] && bbox(brows[s], w, h);
-      if (b) browNear = or(browNear, box(w, h, b[0] - 0.25 * (b[2] - b[0]), b[1], b[2] + 0.25 * (b[2] - b[0]), eyeParts[s].box[1]));
-    }
-    browNear = and(browNear, aboveEyes);
+    const near = browNear({ full: browFull, boxes: brows.map((b) => b && bbox(b, w, h)), eyes: eyeParts.map((e) => e.box), midX, eyeH, w, h });
     const cheeks = minus(and(area, box(w, h, fb[0], eyeBot, fb[2], mb[3] + 0.2 * mw)), or(or(...eyeBox.map((m) => dilate(m, w, h, 4))), dilate(M.mouth, w, h, 10)));
     const mouthArea = dilate(box(w, h, mb[0] - 0.2 * mw, mb[1] - 0.25 * mw, mb[2] + 0.2 * mw, chin - 4), w, h, 2);
     const changes = (E) => {
@@ -526,56 +519,14 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
         setPx(L, p, c, a);
         setPx(T, p, talkFace[p] ? rgb(blankFace, p) : c, a);
       }
-      // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them): on each
-      // side the widest brow-coloured strokes near the old brow, changed by the edit or on the old brow; the patch shows
-      // the face under them. Found nothing (a brow the colour of the hair): the brows stay in the patch
+      // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them, the bare
+      // face beneath them). Found nothing (a brow the colour of the hair): the brows stay in the patch
       let BT = null, browNote = '';
       if (browsRedrawn) {
-        const like = new Uint8Array(N), hairApart = dist3(browCol, frontCol) >= 40;
-        for (let p = 0; p < N; p++) {
-          if (!browNear[p]) continue;
-          const c = rgb(E, p), dB = dist3(c, browCol);
-          if (dB >= dist3(c, skin) || (hairApart && dB >= dist3(c, frontCol))) continue;
-          let m = 0;
-          for (let k = 0; k < 3; k++) m = Math.max(m, Math.abs(E.d[4 * p + k] - im.d[4 * p + k]));
-          if (browFull[p] || m > 30) like[p] = 1;
-        }
-        const lc = components(dilate(like, w, h, 1), w, h), pick = [];
-        for (const s of [0, 1]) {
-          const mine = lc.comps.filter((c) => (c.cx >= midX) === (s === 1) && c.x1 - c.x0 >= 0.8 * (c.y1 - c.y0));
-          const top = mine.filter((c) => c.x1 - c.x0 > c.y1 - c.y0).reduce((a, c) => Math.max(a, c.area), 0);
-          if (top) pick.push(...mine.filter((c) => c.area >= 0.5 * top).map((c) => c.id));
-        }
-        const bm = and(compMask(lc.lab, pick), like);
-        if (DEBUG) {
-          // the edit's brows: grey where they can be, red brow-coloured strokes, green the ones taken
-          const dm = blank(w, h);
-          for (let p = 0; p < N; p++) {
-            if (bm[p]) setPx(dm, p, [0, 200, 0], 1);
-            else if (like[p]) setPx(dm, p, [230, 0, 0], 1);
-            else if (browNear[p]) setPx(dm, p, [120, 120, 120], 1);
-          }
-          writePng(path.join(DBG, `brows-${id}.png`), dm);
-        }
-        if (count(bm)) {
-          BT = blank(w, h);
-          const fe = blur(Float32Array.from(bm), w, h, 1);
-          for (let p = 0; p < N; p++) {
-            const a = bm[p] ? 1 : Math.min(1, 1.5 * fe[p]);
-            if (a > 0.02) setPx(BT, p, rgb(E, p), a);
-          }
-          // the players mesh a layer only where its own texture is opaque, so the patch is the bare face under all of its
-          // brows, also where the edit left a brow as it was (the neutral brows fade out under a redrawn one)
-          const under = dilate(bm, w, h, 1);
-          for (let p = 0; p < N; p++) {
-            if (!under[p]) continue;
-            const a = Math.max(L.d[4 * p + 3], blankFace.d[4 * p + 3]) / 255;
-            setPx(L, p, rgb(blankFace, p), a);
-            setPx(T, p, rgb(blankFace, p), Math.max(T.d[4 * p + 3] / 255, a));
-          }
-          const onBangs = and(bm, or(M.front, browOnHair));
-          browNote = `; brows L ${count(sideOf(bm, 0))} / R ${count(sideOf(bm, 1))} px, ${count(onBangs)} of them on the bangs`;
-        } else browNote = '; brows kept in the patch (none found)';
+        const B = redrawnBrows({ E, im, near, full: browFull, browCol, hairCol: frontCol, skin, midX, L, T, under: blankFace, w, h });
+        if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, near, w, h);
+        BT = B.BT;
+        browNote = BT ? browNoteOf(B.bm, or(M.front, browOnHair), midX, w, h) : '; brows kept in the patch (none found)';
       }
       const bx = alphaBox(L, w, h, 2);
       expressions.push({ id });

@@ -10,7 +10,7 @@
 A cartoon presenter character for <channel / topic>.
 Character: <who: age, hair, glasses, clothes, colours>.
 Style: clean flat 2D vector illustration, thick even dark outlines, flat colours with at most one darker shade per colour, limited palette.
-Head-and-shoulders, facing the camera straight on, head centered, eyes open looking at the viewer with the whites showing, eyebrows clearly visible,
+Head-and-shoulders, facing the camera straight on, head centered, eyes open looking at the viewer with the whites showing, eyebrows clearly visible, the bangs ending above them,
 neutral relaxed expression, mouth gently closed as one short line.
 Plain solid #00B140 green background, no shadow on the background, no text, no props.
 Square 1024x1024. The face should take about 45% of the image height.
@@ -111,12 +111,14 @@ New expression: <描述>. Draw it in exactly the same line weight and colors as 
 | --- | --- |
 | `portrait: 1024x1024, key …, skin …, line …, hair …, glasses` | 量到的底色、皮肤、描边、头发颜色，有没有眼镜。没戴眼镜却写着 `glasses`：`character.json` 写 `"glasses": false` |
 | `FIX portrait: …` | 正面像不在能拆的范围，后面写着缺什么（皮肤色、头发、睁开的眼睛、闭着的嘴）：照第 1 节重画，或给 `skin`、`line`、`hair` |
+| `brows: L … / R … px, … on the bangs` | 两边眉毛各多少像素，`on the bangs` 是画在刘海上的（头发是自己的颜色时，刘海里和发丝线条不相连的深色笔画）。这些眉毛单独成层、画在刘海上面，底下的刘海用旁边的头发补上。`FIX brows: brow … not found` 是这边的眉毛找不到（被刘海盖住，或和刘海一个颜色），表情动不了它：照第 1 节重画，让眉毛露在刘海下面，或者加 `partmap`（第 5 节） |
 | `bald repaint: …% of the character changed away from the hair` | 重绘改了头发以外的地方，超过 1% 时 `FIX`：用 `hair-mask.json` 做选区重画 |
 | `<名> lines up: residual …, shift …, scale …` | 改图对齐到正面像后，要改的那块之外还差多少（0–255 的平均灰度差，6 以内算对上）。`FIX` 是模型把别处也重画了：重画那一张 |
 | `closed eye L/R: … px` | 闭眼的改图在这只眼睛的位置画了多少。`FIX` 是这只眼睛没闭上：重画 `lids` |
 | `mouth <名>: …x… px` | 这张嘴的宽和高。`FIX … drew no mouth` 是嘴的位置什么也没画：重画 |
 | `mouth ladder` | `open` 要比 `half` 高，否则说话时看不出开合：重画开得不够的那张 |
 | `expression <名>: …x… px patch: …` | 表情补丁的大小和里面有什么（`eyes` 或一只眼、`brows`、`blush`、`mouth`）。少了描述里要改的那处（比如生气却没有 `brows`），是改图没画出来：重画。`FIX … changed nothing on the face`：重画 |
+| `expression <名>: …; brows L … / R … px, … of them on the bangs` | 改了眉毛的表情，改过的眉毛单独切出（`brow_tex`），和中性眉毛一样画在刘海上面，挪到刘海上也看得见。`brows kept in the patch (none found)` 是眉毛附近没找到眉毛，眉毛留在表情补丁里；眉毛压在刘海上时会被刘海盖住，看一眼成品，眉毛不见了就重画表情 |
 | `rest matches the portrait: … px off …, … px of them in patches …` | 静止时和正面像差得多的像素。沿着轮廓的一两像素细线是边缘重新抠图的误差，不算；成块的（3 像素以上厚）超过角色的 0.05%，或者全部加起来超过 1% 时 `FIX`：看 `rest-diff.png` 亮在哪里，多半是某张改图或光头重绘没对上，重画那张 |
 | `package: … layers` | 角色包合规。`FIX` 时后面是不合规的地方，是脚本的问题，如实告诉用户 |
 

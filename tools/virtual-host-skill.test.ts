@@ -459,7 +459,7 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(status).toBe(0);
     const note = (id: string) => report.checks.find((c) => c.item === `expression ${id}`)!.note;
     expect(note('smile')).toMatch(/px patch: mouth$/);
-    expect(note('angry')).toMatch(/px patch: eyes, brows, blush, mouth$/);
+    expect(note('angry')).toMatch(/px patch: eyes, brows, blush, mouth; brows L \d+ \/ R \d+ px, 0 of them on the bangs$/);
     type Layer = { id: string; x: number; y: number; w: number; h: number; texture: string; talk?: string; brows?: string; role?: string; expression?: string };
     const layers = (JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8')) as { layers: Layer[] }).layers;
     const smile = layers.find((l) => l.id === 'expr_smile')!, angry = layers.find((l) => l.id === 'expr_angry')!;
@@ -529,16 +529,19 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
   });
 
-  it('draws the brows an expression moved over the bangs', () => {
+  it.each([true, false])('draws the brows an expression moved over the bangs (part map %s)', (partmap) => {
     const dir = tmp();
-    const cfgFile = writeCharacter(dir, { hair: [230, 190, 90], fringe: true }, undefined, { partmap: true });
+    const cfgFile = writeCharacter(dir, { hair: [230, 190, 90], fringe: true }, undefined, { partmap });
     const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
     fs.writeFileSync(cfgFile, JSON.stringify({ ...cfg, expressions: { ...cfg.expressions, surprised: 'art/raised.png' } }));
     const { status, report } = build(cfgFile);
     expect(report.checks.filter((c) => !c.ok)).toEqual([]);
     expect(status).toBe(0);
+    // without a part map the brows are found on the bangs: dark strokes inside the hair, cut off from its lines
+    if (!partmap) expect(report.checks.find((c) => c.item === 'brows')!.note).toMatch(/^L \d+ \/ R \d+ px, [1-9]\d* on the bangs$/);
+    expect(report.checks.find((c) => c.item === 'expression surprised')!.note).toMatch(/brows L [1-9]\d* \/ R [1-9]\d* px, [1-9]\d* of them on the bangs$/);
     type Layer = { id: string; x: number; y: number; texture: string; brow_tex?: string };
-    for (const pkg of ['package', 'livliv'].map((d) => path.join(dir, 'puppet', d))) {
+    for (const pkg of (partmap ? ['package', 'livliv'] : ['package']).map((d) => path.join(dir, 'puppet', d))) {
       const layers = (JSON.parse(fs.readFileSync(path.join(pkg, 'model.json'), 'utf8')) as { layers: Layer[] }).layers;
       const ids = layers.map((l) => l.id);
       // the brows come after the bangs, so the brows the expressions draw are drawn over the hair too
@@ -575,6 +578,13 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     const { status, stdout } = build(cfg);
     expect(status).toBe(1);
     expect(stdout).toMatch(/^FIX {2}mouth ladder: half 28 px tall, open 12 px; open must be taller than half$/m);
+  });
+
+  it('says to redraw when the brows cannot be told from the bangs', () => {
+    // brows in the line colour on bangs in the line colour: nothing to move
+    const { status, stdout } = build(writeCharacter(tmp(), { hair: [24, 20, 22], fringe: true }));
+    expect(status).toBe(1);
+    expect(stdout).toMatch(/^FIX {2}brows: brow L and R not found; redraw the portrait with both eyebrows clearly visible/m);
   });
 });
 
