@@ -35,7 +35,7 @@ import {
   type TaskSummary,
 } from '@baocut/protocol';
 import { TopicLog, type Logger, type TopicSubscription } from '@baocut/harness';
-import { isDotLottie } from '@baocut/runtime-storage/library';
+import { isDotLottie, isPuppetPackage } from '@baocut/runtime-storage/library';
 import type { TrustedPrincipal } from '../gateway.ts';
 import { TRASH_DIR, scanDirectory } from '../space-catalog.ts';
 import { EngineHost } from './engine-host.ts';
@@ -1414,24 +1414,25 @@ async function locateVideoDir(location: VideoLocation): Promise<{ rootReal: stri
   return { rootReal, dir: real };
 }
 
-/** Lottie 文件的大小上限：再大就不是贴纸动画了。 */
+/** 要读内容才能确认的类型的大小上限（Lottie 文件，再大就不是贴纸动画了；角色包与动作轨按分层角色格式规范 §2.4、§4）。 */
 const LOTTIE_MAX_BYTES = 32 * 2 ** 20;
+const PUPPET_MAX_BYTES = 64 * 2 ** 20;
+const PUPPET_TRACK_MAX_BYTES = 64 * 2 ** 20;
 
 /**
- * 链接素材可以经媒体通道给出去的扩展名，及其应有的媒体类型的大类（与引擎按扩展名认媒体类型的表一致）。
+ * 链接素材按登记的媒体类型分的大类，及各类文件应有的扩展名（与引擎按扩展名认媒体类型的表一致）。
  * 视频容器里只有声音时引擎按音频处理，所以音视频算一类。
  */
-type ServableGroup = 'av' | 'image' | 'font' | 'json' | 'dotlottie';
-const LINKED_SERVABLE: Record<string, ServableGroup> = {};
-for (const [group, exts] of Object.entries({
+type ServableGroup = 'av' | 'image' | 'font' | 'json' | 'dotlottie' | 'puppet' | 'puppet-track';
+const LINKED_SERVABLE: Record<ServableGroup, readonly string[]> = {
   av: ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'mp3', 'm4a', 'aac', 'wav', 'flac', 'ogg', 'oga', 'opus'],
   image: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'],
   font: ['ttf', 'otf', 'woff2'],
   json: ['json'],
   dotlottie: ['lottie'],
-}) as [ServableGroup, string[]][]) {
-  for (const ext of exts) LINKED_SERVABLE[ext] = group;
-}
+  puppet: ['bcpuppet'],
+  'puppet-track': ['json'],
+};
 
 function servableGroup(mediaType: string): ServableGroup | null {
   if (/^(video|audio)\//.test(mediaType)) return 'av';
@@ -1439,6 +1440,8 @@ function servableGroup(mediaType: string): ServableGroup | null {
   if (mediaType.startsWith('font/')) return 'font';
   if (mediaType === 'application/json') return 'json';
   if (mediaType === 'application/zip') return 'dotlottie';
+  if (mediaType === 'application/x-baocut-puppet+zip') return 'puppet';
+  if (mediaType === 'application/x-baocut-puppet-track+json') return 'puppet-track';
   return null;
 }
 
@@ -1460,25 +1463,30 @@ async function servableAsset(blob: ResolvedAsset, videoDir: string): Promise<{ r
 }
 
 /**
- * 链接素材能不能经媒体通道给出去。界面与预览会请求的是图片、音视频（播放、波形、缩略图、转写）、字体与 Lottie 动画：
+ * 链接素材能不能经媒体通道给出去。界面与预览会请求的是图片、音视频（播放、波形、缩略图、转写）、字体、Lottie 动画与
+ * 角色（角色包与动作轨）：
  *
  * - 登记的媒体类型与文件实际的扩展名必须是同一大类。媒体类型来自视频里的记录，别处拿来的视频可以随便写；
  *   再要求文件本身叫 `*.mp4`、`*.png`、`*.ttf` 之类，登记成「图片」的 `~/.ssh/id_rsa` 就读不出来。
- * - JSON 只放行读出来确实是 Lottie 动画的（有版本、尺寸、帧率、帧范围与图层），本机别的 JSON（配置、凭据）登记成素材也读不出来；
- *   `.lottie` 只放行 zip 中央目录里确实有 `animations/*.json` 的压缩包。
+ * - JSON 只放行读出来确实是 Lottie 动画的（有版本、尺寸、帧率、帧范围与图层）或角色动作轨（顶层 `format` 是
+ *   `baocut-puppet-track`），本机别的 JSON（配置、凭据）登记成素材也读不出来；`.lottie` 只放行 zip 中央目录里确实有
+ *   `animations/*.json` 的压缩包，角色包（`.bcpuppet`）只放行中央目录里有 `model.json` 的。
  * - 不放行字幕文件（`srt`、`vtt`、`ass`）：内容是任意文本，没法像媒体那样按类型确认，预览也不经媒体通道读它们
  *   （字幕是视频里的文档）。不放行目录（代码包）：媒体通道只给单个文件，代码包合成的预览用预渲染的视频。
  */
 async function servableLinked(blob: ResolvedAsset): Promise<boolean> {
   const group = servableGroup(blob.mediaType);
-  if (!group || LINKED_SERVABLE[path.extname(blob.path).slice(1).toLowerCase()] !== group) return false;
-  if (group !== 'json' && group !== 'dotlottie') return true;
+  if (!group || !LINKED_SERVABLE[group].includes(path.extname(blob.path).slice(1).toLowerCase())) return false;
+  if (group === 'av' || group === 'image' || group === 'font') return true;
+  const limit = group === 'puppet' ? PUPPET_MAX_BYTES : group === 'puppet-track' ? PUPPET_TRACK_MAX_BYTES : LOTTIE_MAX_BYTES;
   try {
     const stat = await fs.stat(blob.path);
-    if (!stat.isFile() || stat.size > LOTTIE_MAX_BYTES) return false;
+    if (!stat.isFile() || stat.size > limit) return false;
     if (group === 'dotlottie') return isDotLottie(await fs.readFile(blob.path));
+    if (group === 'puppet') return isPuppetPackage(await fs.readFile(blob.path));
     const data: unknown = JSON.parse(await fs.readFile(blob.path, 'utf8'));
     if (typeof data !== 'object' || data === null) return false;
+    if (group === 'puppet-track') return (data as Record<string, unknown>).format === 'baocut-puppet-track';
     const lottie = data as Record<string, unknown>;
     return (
       typeof lottie.v === 'string' &&

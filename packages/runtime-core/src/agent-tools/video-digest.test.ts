@@ -100,6 +100,46 @@ describe('digestVideo', () => {
     };
   }
 
+  it('角色贴纸进摘要时带上它的动作轨与 motionIn', () => {
+    const digest = digestVideo(
+      video([
+        {
+          ...base,
+          ...visual,
+          id: 'item_host',
+          trackId: 'trk_v1',
+          type: 'sticker',
+          span: { fromFrame: 0, durationFrames: 90 },
+          sticker: { source: 'asset' },
+          assetRef: { id: 'asset_b', revision: '1' },
+          motionRef: { id: 'asset_v', revision: '1' },
+          motionIn: { ticks: '3', timescale: 2 },
+        },
+        {
+          ...base,
+          ...visual,
+          id: 'item_plain',
+          trackId: 'trk_v1',
+          type: 'sticker',
+          span: { fromFrame: 90, durationFrames: 30 },
+          sticker: { source: 'asset' },
+          assetRef: { id: 'asset_b', revision: '1' },
+        },
+      ]),
+      '片子',
+      [],
+    );
+    const item = (id: string) => digest.items.find((i) => i.id === id);
+    expect(item('item_host')).toMatchObject({
+      type: 'sticker',
+      asset: { id: 'asset_b' },
+      motion: { id: 'asset_v', revision: '1', name: 'talk.mp4' },
+      motionInSeconds: 1.5,
+    });
+    expect(item('item_plain')).not.toHaveProperty('motion');
+    expect(item('item_plain')).not.toHaveProperty('motionInSeconds');
+  });
+
   it('图文、计时读数、合成与字幕实例进摘要：各带自己的内容，没有素材的不写 asset', () => {
     const digest = digestVideo(
       video([

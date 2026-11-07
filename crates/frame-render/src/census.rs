@@ -31,13 +31,13 @@ impl LayerMedia for NoMedia {
     }
 }
 
-/// 会排字的层：文字、图形、字幕与生成器（声波与 Lottie 贴纸除外）。
+/// 会排字的层：文字、图形、字幕与生成器（声波、Lottie 与角色贴纸除外）。
 fn shapes_text(layer: &VisualLayer) -> bool {
     match layer.kind {
         LayerKind::Text | LayerKind::Shape | LayerKind::Caption => true,
         LayerKind::Generator => !matches!(
             &layer.content,
-            Some(LayerContent::Generator { generator, .. }) if generator == "baocut.audio-visualizer" || generator == "baocut.lottie"
+            Some(LayerContent::Generator { generator, .. }) if generator == "baocut.audio-visualizer" || generator == "baocut.lottie" || generator == "baocut.puppet"
         ),
         LayerKind::Video | LayerKind::Image | LayerKind::Unsupported => false,
     }

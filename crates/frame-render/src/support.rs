@@ -166,6 +166,30 @@ pub mod asset_text {
     pub fn lottie_unparsable(detail: &str) -> Text {
         msg!("frameRender.lottieUnparsable", "The Lottie asset can’t be parsed: {detail}", detail)
     }
+
+    pub fn puppet_unreadable() -> Text {
+        msg!("frameRender.puppetUnreadable", "The character package can’t be read")
+    }
+
+    pub fn puppet_unreadable_detail(detail: &str) -> Text {
+        msg!(
+            "frameRender.puppetUnreadableDetail",
+            "The character package can’t be read: {detail}",
+            detail
+        )
+    }
+
+    pub fn puppet_track_unreadable() -> Text {
+        msg!("frameRender.puppetTrackUnreadable", "The character’s motion track can’t be read")
+    }
+
+    pub fn puppet_track_unreadable_detail(detail: &str) -> Text {
+        msg!(
+            "frameRender.puppetTrackUnreadableDetail",
+            "The character’s motion track can’t be read: {detail}",
+            detail
+        )
+    }
 }
 
 pub fn kind_name(kind: LayerKind) -> &'static str {
@@ -190,6 +214,7 @@ pub const GENERATORS: &[&str] = &[
     "baocut.placeholder",
     "baocut.sticker",
     "baocut.lottie",
+    "baocut.puppet",
     "baocut.template",
 ];
 

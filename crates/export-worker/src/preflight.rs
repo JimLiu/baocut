@@ -85,7 +85,7 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
         if dropped {
             continue;
         }
-        if let Some(item) = check_lottie(input, layer) {
+        if let Some(item) = check_lottie(input, layer).or_else(|| check_puppet(input, layer)) {
             items.push(item);
             continue;
         }
@@ -264,6 +264,37 @@ fn check_lottie(input: &Input, layer: &VisualLayer) -> Option<UnsupportedItem> {
             Ok(bytes) => frame_render::lottie_problem(&bytes).map(|(reason, why)| (reason, asset_text::lottie_unparsable(&why))),
         },
     }?;
+    Some(UnsupportedItem::asset(layer, None, problem.0, problem.1))
+}
+
+/// 角色贴纸的角色包与动作轨有没有冻结、解不解得开（与合成时同一个解析）。
+fn check_puppet(input: &Input, layer: &VisualLayer) -> Option<UnsupportedItem> {
+    let Some(LayerContent::Generator { generator, parameters, .. }) = &layer.content else {
+        return None;
+    };
+    if layer.kind != LayerKind::Generator || generator != "baocut.puppet" {
+        return None;
+    }
+    let bytes = |key: &str| -> Option<Result<Vec<u8>, String>> {
+        let asset: VersionRef = parameters.get(key).cloned().and_then(|v| serde_json::from_value(v).ok())?;
+        Some(match input.asset(&asset.id, &asset.revision) {
+            None => Err(String::new()),
+            Some(entry) => std::fs::read(&entry.path).map_err(|e| e.to_string()),
+        })
+    };
+    let unreadable = |detail: String| {
+        if detail.is_empty() { asset_text::puppet_unreadable() } else { asset_text::puppet_unreadable_detail(&detail) }
+    };
+    let problem = match bytes("asset") {
+        None => Some(("puppet-asset-missing", asset_text::puppet_unreadable())),
+        Some(Err(e)) => Some(("puppet-asset-missing", unreadable(e))),
+        Some(Ok(bytes)) => frame_render::puppet_problem(&bytes).map(|(reason, why)| (reason, asset_text::puppet_unreadable_detail(&why))),
+    };
+    let problem = problem.or_else(|| match bytes("motion")? {
+        Err(e) if e.is_empty() => Some(("puppet-track-missing", asset_text::puppet_track_unreadable())),
+        Err(e) => Some(("puppet-track-missing", asset_text::puppet_track_unreadable_detail(&e))),
+        Ok(bytes) => frame_render::puppet_track_problem(&bytes).map(|why| ("puppet-track-invalid", asset_text::puppet_track_unreadable_detail(&why))),
+    })?;
     Some(UnsupportedItem::asset(layer, None, problem.0, problem.1))
 }
 

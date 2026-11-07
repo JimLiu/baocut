@@ -140,6 +140,8 @@ interface PuppetTrack {
 | `puppet-missing-file` | `model.json` 引用的贴图不在包里 |
 | `puppet-image` | 贴图不是能解码的 PNG 或 WebP |
 
+上表是角色包的代码。视频里的角色贴纸画不出来时，导出预检、导出与预览的跳过原因（`EXPORT_UNSUPPORTED_CONTENT` 的 `reason`）是：角色包解不开时用上表的代码；角色包的字节读不到（没有冻结、文件不见了、预览还在取）是 `puppet-asset-missing`；动作轨的字节读不到是 `puppet-track-missing`；动作轨解不开（上表任何一种）是 `puppet-track-invalid`。这几种都是整层不画（`scope: 'asset'`），不会退回只画待机动作。
+
 ## 7. 与 LivLiv v4 的差异
 
 - 格式头是 `baocut-puppet`，不读 v4 的 `meta`、`requires`、`files`，也不读 keyforms（转头的实测修正）；`profile.id` 只用来选画风相关的缺省。

@@ -109,7 +109,7 @@ pub fn plan_video(video: VideoView<'_>, sequence_id: &str, range: Option<(Ratio,
     layers.sort_by(|a, b| a.item_id.cmp(&b.item_id));
     let assets: BTreeSet<(Id, String)> = layers
         .iter()
-        .flat_map(|layer| layer.asset.clone().into_iter().chain(generator_asset(layer)))
+        .flat_map(|layer| layer.asset.clone().into_iter().chain(generator_assets(layer)))
         .map(|asset| (asset.id, asset.revision))
         .collect();
     Ok(VideoPlan {
@@ -124,11 +124,15 @@ pub fn plan_video(video: VideoView<'_>, sequence_id: &str, range: Option<(Ratio,
     })
 }
 
-/// 生成器层参数里引用的素材（Lottie 贴纸的 `asset`）：层本身不带素材，但导出要冻结它，帧光栅从字节读。
-fn generator_asset(layer: &VisualLayer) -> Option<VersionRef> {
+/// 生成器层参数里引用的素材（Lottie 与角色贴纸的 `asset`，角色的动作轨 `motion`）：层本身不带素材，但导出要冻结
+/// 它们，帧光栅从字节读。
+fn generator_assets(layer: &VisualLayer) -> Vec<VersionRef> {
     match &layer.content {
-        Some(LayerContent::Generator { parameters, .. }) => parameters.get("asset").cloned().and_then(|v| serde_json::from_value(v).ok()),
-        _ => None,
+        Some(LayerContent::Generator { parameters, .. }) => ["asset", "motion"]
+            .iter()
+            .filter_map(|k| parameters.get(*k).cloned().and_then(|v| serde_json::from_value(v).ok()))
+            .collect(),
+        _ => Vec::new(),
     }
 }
 

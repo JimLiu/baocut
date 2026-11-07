@@ -126,3 +126,15 @@ fn rejects_broken_packages() {
     assert_eq!(Package::from_zip(&zip(&f)).unwrap_err().kind, ErrorKind::Invalid);
     assert_eq!(Package::from_zip(b"not a zip").unwrap_err().kind, ErrorKind::NotZip);
 }
+
+/// `tests/fixtures/synthetic.bcpuppet` 是 [`puppet::testing::package_zip`] 的字节，给 Runtime 的端到端测试用（TS 那边
+/// 拼不出贴图）。合成角色改了就跑 `BAOCUT_WRITE_FIXTURES=1 cargo test -p puppet --test synthetic` 重写它。
+#[test]
+fn the_package_fixture_matches_the_synthetic_package() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/synthetic.bcpuppet");
+    let bytes = puppet::testing::package_zip();
+    if std::env::var_os("BAOCUT_WRITE_FIXTURES").is_some() {
+        std::fs::write(&path, &bytes).unwrap();
+    }
+    assert!(std::fs::read(&path).unwrap() == bytes, "rerun with BAOCUT_WRITE_FIXTURES=1 to refresh {}", path.display());
+}

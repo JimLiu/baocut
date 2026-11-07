@@ -324,7 +324,10 @@ function describeItem(item: SequenceItem, range: { start: number; end: number },
   };
 }
 
-/** 各类型自己的内容：文字、计时读数或章节文字、合成的预渲染替身、字幕指向的文档。图形的几何、各类样式、生成类元素与合成的参数不进摘要。 */
+/**
+ * 各类型自己的内容：文字、计时读数或章节文字、合成的预渲染替身、字幕指向的文档、角色贴纸的动作轨。图形的几何、各类样式、
+ * 生成类元素与合成的参数不进摘要。
+ */
 function describeContent(item: SequenceItem, snapshot: VideoSnapshot): Record<string, unknown> {
   switch (item.type) {
     case 'text': {
@@ -344,6 +347,13 @@ function describeContent(item: SequenceItem, snapshot: VideoSnapshot): Record<st
         document: { id: item.documentId, name: snapshot.documents[item.documentId]?.name ?? null },
         ...(item.styleDocumentId ? { styleDocumentId: item.styleDocumentId } : {}),
         ...(item.scopeItemIds?.length ? { scopeItemIds: item.scopeItemIds } : {}),
+      };
+    case 'sticker':
+      return {
+        ...(item.motionRef
+          ? { motion: { id: item.motionRef.id, revision: item.motionRef.revision, name: snapshot.assets[item.motionRef.id]?.name ?? null } }
+          : {}),
+        ...(item.motionIn ? { motionInSeconds: round(mediaTimeToSeconds(item.motionIn)) } : {}),
       };
     default:
       return {};

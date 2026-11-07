@@ -228,6 +228,17 @@ pub fn lottie_problem(bytes: &[u8]) -> Option<(&'static str, String)> {
     load_lottie("lottie", bytes, None).err()
 }
 
+/// 角色包解不解得开（与合成时同一个解析，含建网格）：解不开时给出跳过原因（`puppet-*`，分层角色格式规范 §6）与说明。
+pub fn puppet_problem(bytes: &[u8]) -> Option<(&'static str, String)> {
+    let error = puppet::Package::from_zip(bytes).and_then(|p| puppet::Puppet::new(&p)).err()?;
+    Some((error.code(), error.message))
+}
+
+/// 角色动作轨解不解得开：解不开时给出说明（跳过原因是 `puppet-track-invalid`）。
+pub fn puppet_track_problem(bytes: &[u8]) -> Option<String> {
+    puppet::Track::parse(bytes).err().map(|e| e.message)
+}
+
 #[cfg(all(test, feature = "host"))]
 mod tests {
     #[test]

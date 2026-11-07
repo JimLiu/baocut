@@ -419,7 +419,10 @@ function ElementPage({ children, ...props }: ItemPageProps<VisualItem> & { child
   );
 }
 
-/** 素材贴纸动不动：Lottie 与动图（GIF、APNG）动；素材还没到（或不认得）时按动的算，播放方式那一节照给。 */
+/**
+ * 素材贴纸有没有播放方式可选：Lottie 与动图（GIF、APNG）有；角色跟着角色时钟走，不读播放方式。素材还没到（或不认得）
+ * 时按有的算，那一节照给。
+ */
 function isAnimatedAsset(ref: VersionRef | undefined, assets: Record<string, AssetRecord>): boolean {
   const asset = ref ? assets[ref.id] : undefined;
   if (!asset) return true;

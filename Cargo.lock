@@ -1316,6 +1316,7 @@ dependencies = [
  "editor-semantics",
  "message-ref",
  "motion",
+ "puppet",
  "render-graph",
  "render-raster",
  "serde",

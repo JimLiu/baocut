@@ -836,6 +836,11 @@ fn live_layer(
     ))
 }
 
+/// 角色贴纸待机动作的种子（视频格式规范 §3.7）：lineage 起源实例 ID 的 32 位 FNV-1a，拆开的各段相同。
+pub fn puppet_seed(origin_item_id: &str) -> u32 {
+    origin_item_id.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193))
+}
+
 /// 视觉实例在 `t` 的画面层（含效果栈）。不检查它是否覆盖这一刻、是否启用、轨道是否显示：转场的另一侧
 /// 要在自己的区间之外取画面（源时刻落在 handles 里）。画不出来（全透明、框没有面积）时为 `None`；音频与字幕没有。
 /// 旧画法画不了的种类给出 `Unsupported` 的层，不是 `None`。`markers` 是实例所在序列的标记，章节文字按它求字。
@@ -1005,6 +1010,20 @@ fn visual_layer(
                         "loop": sticker.sticker.r#loop.clone().unwrap_or_else(|| "loop".into()),
                     });
                     let made = generator("baocut.lottie", parameters, sticker.span)?;
+                    generator_layer(&sticker.base.id, &pixel, op(sticker.place.opacity()), made)
+                }
+                // 角色贴纸（视频格式规范 §3.7）：帧光栅画角色时钟 `motionIn + 局部时间` 那一刻。
+                (Some(asset), Some(AssetKind::Puppet)) => {
+                    let motion_in = sticker.motion_in.as_ref().map(|m| m.to_ratio("motionIn")).transpose()?.map_or(0.0, Ratio::to_f64);
+                    let origin = sticker.base.lineage.as_ref().map_or(sticker.base.id.as_str(), |l| l.origin_item_id.as_str());
+                    let mut parameters = Map::new();
+                    parameters.insert("asset".into(), serde_json::json!(asset));
+                    if let Some(motion) = &sticker.motion_ref {
+                        parameters.insert("motion".into(), serde_json::json!(motion));
+                    }
+                    parameters.insert("motionIn".into(), serde_json::json!(motion_in));
+                    parameters.insert("seed".into(), serde_json::json!(puppet_seed(origin)));
+                    let made = generator("baocut.puppet", Value::Object(parameters), sticker.span)?;
                     generator_layer(&sticker.base.id, &pixel, op(sticker.place.opacity()), made)
                 }
                 (Some(_), _) => unsupported(&sticker.base.id, &pixel, "sticker-asset-not-supported"),

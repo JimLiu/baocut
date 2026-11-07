@@ -1020,6 +1020,112 @@ fn unreadable_lottie_is_refused_or_skipped() {
     assert_eq!(skipping.skipped()[0].reason, "lottie-unreadable");
 }
 
+fn puppet_assets() -> Vec<(String, Value)> {
+    let asset = |id: &str, kind: &str, media_type: &str| {
+        (
+            id.to_string(),
+            json!({
+                "id": id, "kind": kind, "name": id, "currentRevision": "rev_1",
+                "revisions": { "rev_1": {
+                    "revision": "rev_1", "contentHash": format!("sha256:{id}"), "byteLength": 1000, "mediaType": media_type,
+                    "storage": { "mode": "managed" }, "provenance": { "origin": "import" }
+                }}
+            }),
+        )
+    };
+    vec![
+        asset("a_host", "puppet", "application/x-baocut-puppet+zip"),
+        asset("a_talk", "other", "application/x-baocut-puppet-track+json"),
+    ]
+}
+
+/// 角色贴纸：`(实例 ID, 开头帧, 帧数, 角色时钟从第几秒开始, lineage 起源)`，都挂着同一条动作轨。
+fn puppet_video(stickers: &[(&str, i64, i64, f64, Option<&str>)]) -> video_model::VideoSnapshot {
+    let items = stickers
+        .iter()
+        .map(|&(id, from, frames, motion_in, origin)| {
+            let mut body = json!({
+                "type": "sticker", "sticker": { "source": "asset" }, "place": { "w": 60 },
+                "span": { "fromFrame": from, "durationFrames": frames },
+                "assetRef": { "id": "a_host", "revision": "rev_1" },
+                "motionRef": { "id": "a_talk", "revision": "rev_1" },
+                "motionIn": { "ticks": ((motion_in * 30.0).round() as i64).to_string(), "timescale": 30 },
+            });
+            if let Some(origin) = origin {
+                body["lineage"] = json!({ "originItemId": origin, "parentItemId": origin, "viaTransactionId": "tx_split" });
+            }
+            item(id, 0, frames, body)
+        })
+        .collect();
+    video(items, puppet_assets(), json!({}))
+}
+
+fn puppet_media() -> Media {
+    let mut media = Media::default();
+    media.assets.insert("a_host".into(), puppet::testing::package_zip());
+    media.assets.insert("a_talk".into(), puppet::testing::talking_track(3.0));
+    media
+}
+
+#[test]
+fn character_stickers_move_with_their_motion_track() {
+    let video = puppet_video(&[("host", 0, 90, 0.0, None)]);
+    let mut media = puppet_media();
+    let mut r = renderer(false, frame_render::Documents::default());
+    let a = render_with(&mut r, &video, at(6.0), &mut media);
+    let b = render_with(&mut r, &video, at(40.0), &mut media);
+    assert!(painted(&a) > 300, "painted {}", painted(&a));
+    assert_ne!(a, b);
+    // 往回 seek、换一个渲染器从头画：同一时刻画出来逐字节相同
+    assert_eq!(render_with(&mut r, &video, at(6.0), &mut media), a);
+    assert_eq!(render(&video, at(40.0), &mut media), b);
+}
+
+#[test]
+fn split_character_halves_meet_at_the_seam() {
+    // 整段 [0, 90) 与拆开的两段 [0, 45) + [45, 90)（后一段从角色时钟的 1.5 秒开始、lineage 指向前一段）：
+    // 后一段的每一帧与整段的同一帧相同（种子跟着 lineage 起源走，时钟接得上）
+    let whole = puppet_video(&[("host", 0, 90, 0.0, None)]);
+    let split = puppet_video(&[("host", 0, 45, 0.0, None), ("host_b", 45, 45, 1.5, Some("host"))]);
+    let mut media = puppet_media();
+    for frame in [45.0, 46.0, 70.0] {
+        assert_eq!(render(&split, at(frame), &mut media), render(&whole, at(frame), &mut media), "frame {frame}");
+    }
+    // 复制出来的实例（没有 lineage）种子不同：动作轨结束以后的待机动作不一样
+    let idle_whole = puppet_video(&[("host", 0, 300, 0.0, None)]);
+    let idle_copy = puppet_video(&[("other", 0, 300, 0.0, None)]);
+    let (mut a, mut b) = (renderer(false, frame_render::Documents::default()), renderer(false, frame_render::Documents::default()));
+    let differ = (100..300)
+        .filter(|&f| {
+            let t = at(f64::from(f));
+            render_with(&mut a, &idle_whole, t, &mut media) != render_with(&mut b, &idle_copy, t, &mut media)
+        })
+        .count();
+    assert!(differ > 0, "idle frames never differ");
+}
+
+#[test]
+fn unreadable_characters_are_refused_or_skipped() {
+    let video = puppet_video(&[("host", 0, 90, 0.0, None)]);
+    let mut broken = puppet_media();
+    broken.assets.insert("a_host".into(), b"not a zip".to_vec());
+    let error = try_render(&mut renderer(false, frame_render::Documents::default()), &video, 0.1, &mut broken).unwrap_err();
+    assert_eq!((error.items[0].scope, error.items[0].reason.as_str()), ("asset", "puppet-not-zip"));
+    assert_eq!(frame_render::puppet_problem(b"not a zip").unwrap().0, "puppet-not-zip");
+    assert!(frame_render::puppet_problem(&puppet::testing::package_zip()).is_none());
+
+    let mut no_track = puppet_media();
+    no_track.assets.remove("a_talk");
+    let error = try_render(&mut renderer(false, frame_render::Documents::default()), &video, 0.1, &mut no_track).unwrap_err();
+    assert_eq!(error.items[0].reason, "puppet-track-missing");
+    let mut bad_track = puppet_media();
+    bad_track.assets.insert("a_talk".into(), b"{}".to_vec());
+    let mut skipping = renderer(true, frame_render::Documents::default());
+    assert_eq!(painted(&render_with(&mut skipping, &video, 0.1, &mut bad_track)), 0);
+    assert_eq!(skipping.skipped()[0].reason, "puppet-track-invalid");
+    assert!(frame_render::puppet_track_problem(b"{}").is_some());
+}
+
 #[test]
 fn whiteboards_reveal_their_image() {
     let video = video(

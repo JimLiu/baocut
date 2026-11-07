@@ -109,7 +109,7 @@ pub trait LayerMedia {
         false
     }
 
-    /// 素材的原始字节（Lottie 贴纸要读它）。缺省没有。
+    /// 素材的原始字节（Lottie 与角色贴纸要读它，角色还读动作轨）。缺省没有。
     fn asset_bytes(&mut self, _asset: &VersionRef) -> Option<Vec<u8>> {
         None
     }
@@ -198,6 +198,11 @@ pub struct FrameRenderer {
     caption_rasters: u64,
     templates: TemplateScenes,
     lotties: HashMap<String, Option<Arc<Lottie>>>,
+    /// 读好的角色包与动作轨（键是 `素材ID@版本`）；解不开的记下错误（跳过原因与说明）。与输出尺寸无关。
+    puppets: HashMap<String, Result<Arc<puppet::Package>, (&'static str, String)>>,
+    puppet_tracks: HashMap<String, Result<Arc<puppet::Track>, String>>,
+    /// 各角色贴纸实例的播放器（跨帧留着物理状态）与它按什么建的（包、动作轨、`motionIn`、种子）：变了就重建。
+    puppet_players: HashMap<String, (String, puppet::Player)>,
     /// SVG 图片按输出长边光栅好的画面（键是 `素材ID@版本`，换过色的是它的变体 ID）；读不出来的是 `None`。换尺寸时作废。
     svgs: HashMap<String, Option<Arc<Pixmap>>>,
     /// 模板台标的图片（键是 `素材ID@版本`；SVG 按输出长边光栅）；读不出来的是 `None`。换尺寸时作废。
@@ -261,6 +266,9 @@ impl FrameRenderer {
             caption_rasters: 0,
             templates: TemplateScenes::default(),
             lotties: HashMap::new(),
+            puppets: HashMap::new(),
+            puppet_tracks: HashMap::new(),
+            puppet_players: HashMap::new(),
             svgs: HashMap::new(),
             template_logos: HashMap::new(),
             gifs: HashMap::new(),
@@ -451,7 +459,7 @@ impl FrameRenderer {
         }
     }
 
-    /// 换输出尺寸（预览的画布随窗口变）：按尺寸编的内核计划与按长边光栅的 SVG 随之作废，Lottie 与频谱留着。
+    /// 换输出尺寸（预览的画布随窗口变）：按尺寸编的内核计划与按长边光栅的 SVG 随之作废，Lottie、角色与频谱留着。
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), RenderError> {
         if (width, height) == (self.options.width, self.options.height) {
             return Ok(());
@@ -822,6 +830,31 @@ impl FrameRenderer {
                 natural = Some(dims);
                 injected = Some(source);
             }
+            // 角色贴纸：按框的大小画角色时钟 `motionIn + 局部时间` 那一刻（视频格式规范 §3.7）
+            (LayerKind::Generator, Some(LayerContent::Generator { generator, parameters, .. })) if generator == "baocut.puppet" => {
+                let clock = parameters.get("motionIn").and_then(Value::as_f64).unwrap_or(0.0) + layer.source_seconds.unwrap_or(0.0);
+                let mut probe = element.clone();
+                probe.keyframe_place(eval);
+                let Some(player) = self.puppet_player(layer, parameters, media)? else {
+                    return Ok(None);
+                };
+                let [cw, ch] = player.puppet().model().canvas;
+                let dims = (f64::from(cw.max(1)), f64::from(ch.max(1)));
+                let geom = BoxGeom::of(&probe, Some(dims), (f64::from(size.0), f64::from(size.1)));
+                let (w, h) = (geom.w.round().clamp(1.0, 4096.0) as u32, geom.h.round().clamp(1.0, 4096.0) as u32);
+                let mut px = vec![0u8; w as usize * h as usize * 4];
+                player.render(clock, w, h, &mut px);
+                let mut source = Arc::new(
+                    IntSize::from_wh(w, h)
+                        .and_then(|size| Pixmap::from_vec(px, size))
+                        .ok_or_else(|| RenderError::new("EXPORT_RENDER_FAILED", format!("item {}: the character frame has no usable size", layer.item_id)))?,
+                );
+                if let Some(fx) = &fx {
+                    apply_to_source(fx, Arc::make_mut(&mut source), short_edge);
+                }
+                natural = Some(dims);
+                injected = Some(source);
+            }
             (LayerKind::Generator, Some(LayerContent::Generator { generator, .. })) if generator == "baocut.audio-visualizer" => {
                 self.visualizer_track(&element, context, media);
                 if !self.visualizer_shown(&element.id, eval) {
@@ -1061,6 +1094,76 @@ impl FrameRenderer {
             self.lotties.insert(key.clone(), entry);
         }
         Ok(self.lotties.get(&key).cloned().flatten())
+    }
+
+    /// 角色贴纸实例的播放器：角色包与动作轨按素材版本缓存，播放器按实例留着（换包、换动作轨、改 `motionIn` 或种子
+    /// 时重建）。字节还没有（预览还在取）时不缓存；读不到、解不开时按选项报错或跳过（`puppet-*`）。
+    fn puppet_player(
+        &mut self,
+        layer: &VisualLayer,
+        parameters: &Value,
+        media: &mut dyn LayerMedia,
+    ) -> Result<Option<&mut puppet::Player>, RenderError> {
+        let reference = |key: &str| -> Option<VersionRef> { parameters.get(key).cloned().and_then(|v| serde_json::from_value(v).ok()) };
+        let Some(asset) = reference("asset") else {
+            self.refuse_or_skip(vec![asset_item(layer, "puppet-asset-missing", asset_text::puppet_unreadable())])?;
+            return Ok(None);
+        };
+        let motion = reference("motion");
+        let motion_in = parameters.get("motionIn").and_then(Value::as_f64).unwrap_or(0.0);
+        let seed = parameters.get("seed").and_then(Value::as_u64).unwrap_or(0);
+        let package_key = format!("{}@{}", asset.id, asset.revision);
+        if !self.puppets.contains_key(&package_key) {
+            let Some(bytes) = media.asset_bytes(&asset) else {
+                self.refuse_or_skip(vec![asset_item(layer, "puppet-asset-missing", asset_text::puppet_unreadable())])?;
+                return Ok(None);
+            };
+            let parsed = puppet::Package::from_zip(&bytes)
+                .and_then(|package| puppet::Puppet::new(&package).map(|_| Arc::new(package)))
+                .map_err(|e| (e.code(), e.message));
+            self.puppets.insert(package_key.clone(), parsed);
+        }
+        let package = match &self.puppets[&package_key] {
+            Ok(package) => package.clone(),
+            Err((reason, why)) => {
+                let item = asset_item(layer, reason, asset_text::puppet_unreadable_detail(why));
+                self.refuse_or_skip(vec![item])?;
+                return Ok(None);
+            }
+        };
+        let track = match &motion {
+            None => None,
+            Some(motion) => {
+                let track_key = format!("{}@{}", motion.id, motion.revision);
+                if !self.puppet_tracks.contains_key(&track_key) {
+                    let Some(bytes) = media.asset_bytes(motion) else {
+                        self.refuse_or_skip(vec![asset_item(layer, "puppet-track-missing", asset_text::puppet_track_unreadable())])?;
+                        return Ok(None);
+                    };
+                    let parsed = puppet::Track::parse(&bytes).map(Arc::new).map_err(|e| e.message);
+                    self.puppet_tracks.insert(track_key.clone(), parsed);
+                }
+                match &self.puppet_tracks[&track_key] {
+                    Ok(track) => Some(track.clone()),
+                    Err(why) => {
+                        let item = asset_item(layer, "puppet-track-invalid", asset_text::puppet_track_unreadable_detail(why));
+                        self.refuse_or_skip(vec![item])?;
+                        return Ok(None);
+                    }
+                }
+            }
+        };
+        let config = format!(
+            "{package_key}|{}|{motion_in}|{seed}",
+            motion.as_ref().map_or(String::new(), |m| format!("{}@{}", m.id, m.revision))
+        );
+        if self.puppet_players.get(&layer.item_id).is_none_or(|(built, _)| *built != config) {
+            // 包在缓存时已经建过一次网格，这里不会失败
+            let rig = puppet::Puppet::new(&package).map_err(|e| RenderError::new("EXPORT_RENDER_FAILED", e.message))?;
+            let player = puppet::Player::new(rig, track, seed, motion_in);
+            self.puppet_players.insert(layer.item_id.clone(), (config, player));
+        }
+        Ok(self.puppet_players.get_mut(&layer.item_id).map(|(_, player)| player))
     }
 
     /// 模板台标的图片：素材字节解成画面（SVG 按输出的长边光栅，其余取第一帧），按素材版本缓存。读不到（预览里字节

@@ -679,6 +679,43 @@ describe.skipIf(!engine || !ffmpeg)('视频（真实引擎）', () => {
     expect((failed.details as EngineErrorBody).code).toBe('MEDIA_PROBE_FAILED');
   });
 
+  it('链接的角色包与动作轨：只放行中央目录里有 model.json 的包、format 是动作轨的 JSON', async () => {
+    const { ref, snapshot } = await create();
+    const pkg = path.join(fixtures, 'host.bcpuppet');
+    await fs.copyFile(new URL('../../../../crates/puppet/tests/fixtures/synthetic.bcpuppet', import.meta.url), pkg);
+    const track = path.join(fixtures, 'talk.json');
+    const trackJson = (format: string) =>
+      JSON.stringify({ format, version: 1, fps: 30, duration: 1, params: { mouthOpen: [0, 0.8, 0] } });
+    await fs.writeFile(track, trackJson('baocut-puppet-track'));
+    const linked = await client.request('edits.apply', {
+      videoId: ref.videoId,
+      commandId: newId('cmd'),
+      expectedRevision: snapshot.video.revision,
+      operations: [
+        { type: 'importAsset', path: pkg, storage: 'linked', ref: 'host' },
+        { type: 'importAsset', path: track, storage: 'linked', ref: 'talk' },
+      ],
+    });
+    const assets = runtime.videos.mirror(ref.videoId)!.video.assets;
+    const host = assets[linked.receipt.refs!.host!]!;
+    const talk = assets[linked.receipt.refs!.talk!]!;
+    expect([host.kind, host.revisions[host.currentRevision]!.mediaType]).toEqual(['puppet', 'application/x-baocut-puppet+zip']);
+    expect([talk.kind, talk.revisions[talk.currentRevision]!.mediaType]).toEqual(['other', 'application/x-baocut-puppet-track+json']);
+    for (const asset of [host, talk]) {
+      const handle = await client.request('media.resolve', { videoId: ref.videoId, assetId: asset.id });
+      expect((await fetch(handle.url)).status).toBe(200);
+    }
+
+    // 原处换成长度相同、却没有 model.json 的 zip，或 format 不是动作轨的 JSON：不放行。
+    const bytes = await fs.readFile(pkg);
+    await fs.writeFile(pkg, Buffer.from(bytes.toString('latin1').replaceAll('model.json', 'model.jsox'), 'latin1'));
+    await fs.writeFile(track, trackJson('baocut-puppet-trick'));
+    for (const asset of [host, talk]) {
+      const refused = await rejection(client.request('media.resolve', { videoId: ref.videoId, assetId: asset.id }));
+      expect(refused.code).toBe('forbidden');
+    }
+  });
+
   it('素材分析：波形峰值与缩略图由 Runtime 算出，按内容摘要缓存；只分析音视频', async () => {
     const { ref, snapshot } = await create();
     const added = await importClip(ref.videoId, snapshot.video.revision);

@@ -124,11 +124,11 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'insertItems',
     family: 'items',
     doc: [
-      '- {"type":"insertItems","items":[{"type","trackId"|"trackRef","span":{"fromFrame","durationFrames"},…}]}：按实例的完整字段一次写入一批片段（视频格式规范 §3.4–§3.9 的 SequenceItem，不带 id 与 lineage），时间是整帧、不再量化。用在 addItem 表达不了的字段上：视频的 timeMap（{"kind":"linear","sourceIn":{"ticks","timescale"},"rate":{"num":1,"den":1}}，从原片哪一刻起放）、crop（四边比例）、focalPoint、mode / fit / place、embeddedAudio（{"enabled","volume","fadeIn"?,"fadeOut"?}，淡变与 sourceIn 同样写 {"ticks","timescale"}）；文字实例的 text 与 style（text 也可换成计时读数 counter，或章节文字 chapter：{"field":"title"|"summary"|"number","numberFormat"?:"1"|"01"|"1/N"}，画此刻所在章节的标题、摘要或序号，章节之外不画；一个 chapter 文字从 0 帧铺到片尾就是跟着章节换的小标题，改章节不用动它，三者只给一个）；字幕实例的 documentId（或同一笔 putDocument 的 documentRef）、styleDocumentId、scopeItemIds；内置元素声波 visualizer（{"style"} 必填，缺省跟着整条序列混好的声音动）与进度条 progress（{"style"} 必填），不写 place 时按种类的缺省落位（声波横条贴在画面底部、高为画面的 20%）。视频、图片给 assetRef（{"id","revision"}，revision 取 videos_inspect 素材列表里的 revision）或同一笔 importAsset 的 assetImportRef，二者只给一个；新轨道用同一笔 addTrack 的 trackRef。字段与重叠由引擎校验。',
+      '- {"type":"insertItems","items":[{"type","trackId"|"trackRef","span":{"fromFrame","durationFrames"},…}]}：按实例的完整字段一次写入一批片段（视频格式规范 §3.4–§3.9 的 SequenceItem，不带 id 与 lineage），时间是整帧、不再量化。用在 addItem 表达不了的字段上：视频的 timeMap（{"kind":"linear","sourceIn":{"ticks","timescale"},"rate":{"num":1,"den":1}}，从原片哪一刻起放）、crop（四边比例）、focalPoint、mode / fit / place、embeddedAudio（{"enabled","volume","fadeIn"?,"fadeOut"?}，淡变与 sourceIn 同样写 {"ticks","timescale"}）；文字实例的 text 与 style（text 也可换成计时读数 counter，或章节文字 chapter：{"field":"title"|"summary"|"number","numberFormat"?:"1"|"01"|"1/N"}，画此刻所在章节的标题、摘要或序号，章节之外不画；一个 chapter 文字从 0 帧铺到片尾就是跟着章节换的小标题，改章节不用动它，三者只给一个）；字幕实例的 documentId（或同一笔 putDocument 的 documentRef）、styleDocumentId、scopeItemIds；内置元素声波 visualizer（{"style"} 必填，缺省跟着整条序列混好的声音动）与进度条 progress（{"style"} 必填），不写 place 时按种类的缺省落位（声波横条贴在画面底部、高为画面的 20%）。视频、图片给 assetRef（{"id","revision"}，revision 取 videos_inspect 素材列表里的 revision）或同一笔 importAsset 的 assetImportRef，二者只给一个；新轨道用同一笔 addTrack 的 trackRef。角色贴纸（会动的卡通角色）是 {"type":"sticker","sticker":{"source":"asset"}} 指向 puppet 素材（.bcpuppet 角色包），动作轨（嘴型、点头等，format 为 baocut-puppet-track 的 JSON）给 motionRef 或同一笔 importAsset 的 motionImportRef，motionIn（{"ticks","timescale"}，缺省 0）是实例开头对着动作轨的第几秒；没有动作轨时只做待机动作。字段与重叠由引擎校验。',
     ],
     schema: op('insertItems', {
       items: z
-        .array(z.looseObject({ type: z.string().describe('实例种类：video、image、text、caption、visualizer、progress 等') }))
+        .array(z.looseObject({ type: z.string().describe('实例种类：video、image、text、caption、sticker、visualizer、progress 等') }))
         .min(1)
         .describe('要写入的实例，字段同视频格式规范的 SequenceItem'),
       sequenceId,
@@ -306,10 +306,10 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'replaceItemAsset',
     family: 'items',
     doc: [
-      '- {"type":"replaceItemAsset","itemId","assetRef"?:{"id","revision"},"assetImportRef"?,"timeMap"?}：原地换一个视频、图片或音频片段的素材：片段 ID、轨道、起点与长度、位置与裁剪、效果、遮罩、关键帧、声音、名字与跟随都不变，转场、字幕的 scopeItemIds 与闪避规则照样指着它。assetRef（revision 取 videos_inspect 素材列表里的 revision）与同一笔 importAsset 的 assetImportRef 只给一个。种类：视频片段换视频，图片换图片，音频换音频或视频。timeMap 给了就整个替换（写法同 insertItems，例如从新素材 0 秒起放），省略是不改；图片没有 timeMap。新素材盖不住片段取用的源区间时以 SOURCE_TIME_OUT_OF_RANGE 拒绝，不截短、不推开别人：新素材更短时同一笔里先 trimItem 收短，或给从 0 起的 timeMap。新素材的余量不够的两侧转场会被去掉，列在回执的 removedTransitions；回执的 impact.assetSwaps 列出前后的素材版本。一次换一个片段，多个片段写多条。',
+      '- {"type":"replaceItemAsset","itemId","assetRef"?:{"id","revision"},"assetImportRef"?,"timeMap"?}：原地换一个视频、图片、音频片段或素材贴纸的素材：片段 ID、轨道、起点与长度、位置与裁剪、效果、遮罩、关键帧、声音、名字与跟随都不变，转场、字幕的 scopeItemIds 与闪避规则照样指着它。assetRef（revision 取 videos_inspect 素材列表里的 revision）与同一笔 importAsset 的 assetImportRef 只给一个。种类：视频片段换视频，图片换图片，音频换音频或视频；素材贴纸换图片、Lottie 或角色包，角色贴纸换上一条动作轨时只换它的 motionRef（重新配音后换动作轨用这个，角色不动），贴纸没有 timeMap。timeMap 给了就整个替换（写法同 insertItems，例如从新素材 0 秒起放），省略是不改；图片没有 timeMap。新素材盖不住片段取用的源区间时以 SOURCE_TIME_OUT_OF_RANGE 拒绝，不截短、不推开别人：新素材更短时同一笔里先 trimItem 收短，或给从 0 起的 timeMap。新素材的余量不够的两侧转场会被去掉，列在回执的 removedTransitions；回执的 impact.assetSwaps 列出前后的素材版本。一次换一个片段，多个片段写多条。',
     ],
     schema: op('replaceItemAsset', {
-      itemId: idOf('要换素材的视频、图片或音频片段'),
+      itemId: idOf('要换素材的视频、图片、音频片段或素材贴纸'),
       assetRef: z
         .object({ id: idOf('素材 ID'), revision: z.string().describe('素材版本') })
         .optional()
@@ -318,7 +318,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
       timeMap: z
         .looseObject({ kind: z.enum(['linear', 'hold']).describe('linear（从 sourceIn 起按 rate 放）或 hold（停在 sourceAt）') })
         .optional()
-        .describe('整个替换时间映射，写法同 insertItems 的 timeMap；省略是不改，图片不能给'),
+        .describe('整个替换时间映射，写法同 insertItems 的 timeMap；省略是不改，图片与贴纸不能给'),
       sequenceId,
     }),
     example: {

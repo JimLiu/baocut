@@ -121,6 +121,19 @@ export function looksLikeZip(head: Uint8Array): boolean {
  * 只看条目名字；动画读不读得开由引擎导入时用内核判断。读不出中央目录的不算。
  */
 export function isDotLottie(bytes: Uint8Array): boolean {
+  return zipHasEntry(bytes, /^(animations|a)\/[^/]+\.json$/);
+}
+
+/**
+ * 角色包（`.bcpuppet`，分层角色格式规范 §2.1）：zip 的中央目录里有 `model.json`（或包在一层目录里的 `<目录>/model.json`）。
+ * 只看条目名字；角色读不读得开由引擎导入时判断。
+ */
+export function isPuppetPackage(bytes: Uint8Array): boolean {
+  return zipHasEntry(bytes, /^([^/]+\/)?model\.json$/);
+}
+
+/** zip 的中央目录里有没有名字合 `pattern` 的条目；读不出中央目录的算没有。 */
+function zipHasEntry(bytes: Uint8Array, pattern: RegExp): boolean {
   if (!looksLikeZip(bytes)) return false;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   // 中央目录结尾记录：22 字节，后面至多 65535 字节的注释。
@@ -140,7 +153,7 @@ export function isDotLottie(bytes: Uint8Array): boolean {
     const skip = nameLength + view.getUint16(at + 30, true) + view.getUint16(at + 32, true);
     if (at + 46 + nameLength > bytes.length) return false;
     const name = Buffer.from(bytes.subarray(at + 46, at + 46 + nameLength)).toString('utf8');
-    if (/^(animations|a)\/[^/]+\.json$/.test(name)) return true;
+    if (pattern.test(name)) return true;
     at += 46 + skip;
   }
   return false;

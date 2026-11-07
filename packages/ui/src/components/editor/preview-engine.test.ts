@@ -340,6 +340,52 @@ test.each([
   engine.dispose();
 });
 
+test('角色层：角色包与动作轨两份字节都送进去；还在取时照画（与 Lottie 一样不等），但不报这一层被跳过', async () => {
+  const pkg = { id: 'asset_host', revision: 'r1' };
+  const motion = { id: 'asset_talk', revision: 'r1' };
+  const content = { generator: 'baocut.puppet', parameters: { asset: pkg, motion, motionIn: 0, seed: 1 } };
+  const layers = [{ kind: 'generator', itemId: 'host', matrix: [1, 0, 0, 1, 0, 0], opacity: 1, content }];
+  const plan = { canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 }, layers, voices: [] };
+  const sent: unknown[] = [];
+  const ready = new Set<string>(['asset_host']);
+  // 内核的样子：动作轨的字节没送到时跳过这一层
+  const skipped = () =>
+    sent.some((asset) => (asset as { id: string }).id === 'asset_talk')
+      ? []
+      : [{ itemId: 'host', reason: 'puppet-track-missing', message: 'host: The character’s motion track can’t be read' }];
+  const planner = {
+    ...fakePlanner(),
+    planAt: () => plan,
+    setDocuments: () => {},
+    clearPictures: () => {},
+    setAsset: (asset: unknown) => sent.push(asset),
+    render: () => ({ plan, warnings: [], skipped: skipped(), spectra: [] }),
+    frame: () => new Uint8ClampedArray(960 * 540 * 4),
+  } as unknown as RenderPlanner;
+  let notify = () => {};
+  const assets = {
+    get: (asset: { id: string }) => (ready.has(asset.id) ? { state: 'ready', value: new Uint8Array([1]) } : { state: 'loading' }),
+    subscribe: (listener: () => void) => ((notify = listener), () => {}),
+  };
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner), null, assets as never);
+  const canvas = { width: 0, height: 0, getContext: () => context };
+  const context = { canvas, putImageData: () => {} };
+  engine.attachCanvas(canvas as unknown as HTMLCanvasElement, 0.5);
+  const seen: PreviewStatus[] = [];
+  engine.onStatus((status) => seen.push(status));
+  engine.setVideo(sequence, {} as never);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(sent).toEqual([pkg]);
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+
+  ready.add('asset_talk');
+  notify();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(sent).toContainEqual(motion);
+  expect(seen.at(-1)).toEqual({ kind: 'ready' });
+  engine.dispose();
+});
+
 test('本机字体：报缺的族里排字点了名的 face 向宿主要一次，到了注入计划器再画；取的时候不报缺字体，取不到的照报', async () => {
   const layers = [{ kind: 'text', itemId: 'title', matrix: [1, 0, 0, 1, 0, 0], opacity: 1, content: {} }];
   const plan = { canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 }, layers, voices: [] };

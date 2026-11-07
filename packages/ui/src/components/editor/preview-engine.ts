@@ -1547,7 +1547,10 @@ export class PreviewEngine {
     this.#sentSpeech = transcripts;
   }
 
-  /** Lottie 层、模板的图片台标与 SVG、GIF 图片层的素材字节：取到的送进去（同一份只送一次），还在取的层记进 `pending`。 */
+  /**
+   * Lottie 与角色层（角色另有动作轨）、模板的图片台标与 SVG、GIF 图片层的素材字节：取到的送进去（同一份只送一次），
+   * 还在取的层记进 `pending`。
+   */
   #sendAssets(planner: RenderPlanner, layers: VisualLayer[], pending: Set<Id>): void {
     for (const layer of layers) {
       if (layer.kind === 'caption') {
@@ -1561,15 +1564,19 @@ export class PreviewEngine {
         }
         continue;
       }
-      let asset: unknown;
+      let assets: unknown[];
       if (layer.kind === 'generator' && (layer.content.generator === 'baocut.lottie' || layer.content.generator === 'baocut.template'))
-        asset = layer.content.parameters.asset;
-      else if (isMediaLayer(layer) && this.#kernelDecoded(layer)) asset = layer.asset;
+        assets = [layer.content.parameters.asset];
+      else if (layer.kind === 'generator' && layer.content.generator === 'baocut.puppet')
+        assets = [layer.content.parameters.asset, layer.content.parameters.motion];
+      else if (isMediaLayer(layer) && this.#kernelDecoded(layer)) assets = [layer.asset];
       else continue;
-      if (!isVersionRef(asset) || !this.#assets) continue;
-      const state = this.#assets.get(asset, BYTES);
-      if (state.state === 'ready') planner.setAsset(asset, state.value);
-      else if (state.state === 'loading') pending.add(layer.itemId);
+      for (const asset of assets) {
+        if (!isVersionRef(asset) || !this.#assets) continue;
+        const state = this.#assets.get(asset, BYTES);
+        if (state.state === 'ready') planner.setAsset(asset, state.value);
+        else if (state.state === 'loading') pending.add(layer.itemId);
+      }
     }
   }
 

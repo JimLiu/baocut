@@ -7,17 +7,18 @@ license-file.workspace = true
 publish.workspace = true
 
 # 进 WASM 的构建用 `--no-default-features --features wasm-safe`（字体由宿主注入）；原生导出用缺省的 `host`
-# （内置字体、素材频谱的解码与分析）。SVG 光栅两侧都有（`render-raster/svg`）：图片层的 SVG 在内核里画。
+# （内置字体、素材频谱的解码与分析、角色按行带多线程画）。SVG 光栅两侧都有（`render-raster/svg`）：图片层的 SVG 在内核里画。
 [features]
 default = ["host"]
 external-fonts = ["host", "render-raster/external-fonts", "subtitle-render/external-fonts"]
-host = ["subtitle-render/host", "render-raster/media", "waveform/dsp"]
+host = ["subtitle-render/host", "render-raster/media", "waveform/dsp", "puppet/parallel"]
 wasm-safe = ["subtitle-render/wasm-safe", "render-raster/wasm-safe", "render-raster/svg"]
 
 [dependencies]
 caption-scene.workspace = true
 message-ref.workspace = true
 motion.workspace = true
+puppet.workspace = true
 render-graph.workspace = true
 render-raster.workspace = true
 speech-doc.workspace = true

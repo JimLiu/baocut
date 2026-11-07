@@ -7,7 +7,7 @@ import { composeTranscribeHint } from './glossary-hint.ts';
 import { formatInvalid } from './library-errors.ts';
 import { LibraryStore } from './library-store.ts';
 import { storedZip } from '../testing/index.ts';
-import { extensionOf, isDotLottie, sniffBytes } from './media-sniff.ts';
+import { extensionOf, isDotLottie, isPuppetPackage, sniffBytes } from './media-sniff.ts';
 import { assertVoiceConsentClip, assertVoiceUploadAllowed, resolveVoiceClone } from './voice-access.ts';
 
 /** 最小的 PNG 文件头：库只按文件头认类型，品牌图片不做解码校验。 */
@@ -445,5 +445,13 @@ describe('用户库的存储', () => {
     expect(isDotLottie(storedZip([['animations/deep/wave.json', '{}']]))).toBe(false);
     expect(isDotLottie(Buffer.from('PK\x03\x04 truncated', 'latin1'))).toBe(false);
     expect(extensionOf('application/zip')).toBe('lottie');
+  });
+
+  it('角色包：中央目录里有 model.json（或包在一层目录里）才算', () => {
+    expect(isPuppetPackage(storedZip([['model.json', '{}'], ['textures/face.png', 'x']]))).toBe(true);
+    expect(isPuppetPackage(storedZip([['host/model.json', '{}']]))).toBe(true);
+    expect(isPuppetPackage(storedZip([['a/b/model.json', '{}']]))).toBe(false);
+    expect(isPuppetPackage(storedZip([['animations/wave.json', '{}']]))).toBe(false);
+    expect(isDotLottie(storedZip([['model.json', '{}']]))).toBe(false);
   });
 });

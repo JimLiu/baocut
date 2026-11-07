@@ -122,6 +122,46 @@ fn lottie_stickers_freeze_the_asset_named_in_their_parameters() {
 }
 
 #[test]
+fn character_stickers_become_puppet_generators_that_freeze_package_and_motion() {
+    // logo 换成角色贴纸：拆分出来的后一段（lineage 指向原实例），挂着动作轨，从角色时钟的 1.5 秒开始。
+    let mut json: serde_json::Value = serde_json::to_value(fixture()).expect("夹具能序列化");
+    for (id, kind, media_type) in [
+        ("asset_host", "puppet", "application/x-baocut-puppet+zip"),
+        ("asset_talk", "other", "application/x-baocut-puppet-track+json"),
+    ] {
+        let mut asset = json["assets"]["asset_logo"].clone();
+        asset["id"] = id.into();
+        asset["kind"] = kind.into();
+        asset["revisions"]["rev_1"]["mediaType"] = media_type.into();
+        json["assets"][id] = asset;
+    }
+    let items = json["sequences"]["seq_main"]["items"].as_array_mut().expect("实例");
+    let logo = items.iter_mut().find(|item| item["id"] == "item_logo").expect("logo");
+    logo["type"] = "sticker".into();
+    logo["assetRef"] = serde_json::json!({ "id": "asset_host", "revision": "rev_1" });
+    logo["motionRef"] = serde_json::json!({ "id": "asset_talk", "revision": "rev_1" });
+    logo["motionIn"] = serde_json::json!({ "ticks": "3", "timescale": 2 });
+    logo["lineage"] = serde_json::json!({ "originItemId": "item_host", "parentItemId": "item_host", "viaTransactionId": "tx_split" });
+    logo["sticker"] = serde_json::json!({ "source": "asset" });
+    logo.as_object_mut().expect("对象").remove("fit");
+    let video: VideoSnapshot = serde_json::from_value(json).expect("改过的夹具仍是完整的快照");
+    let plan = plan_video(VideoView::from(&video), "seq_main", Some((seconds(2, 1), seconds(7, 2)))).expect("概览");
+    let host = plan.layers.iter().find(|l| l.item_id == "item_logo").expect("角色层");
+    let Some(render_graph::LayerContent::Generator { generator, parameters, .. }) = &host.content else {
+        panic!("角色贴纸是生成器层：{:?}", host.content);
+    };
+    assert_eq!(generator, "baocut.puppet");
+    assert_eq!(parameters["asset"], serde_json::json!({ "id": "asset_host", "revision": "rev_1" }));
+    assert_eq!(parameters["motion"], serde_json::json!({ "id": "asset_talk", "revision": "rev_1" }));
+    assert_eq!(parameters["motionIn"], 1.5);
+    // 种子跟着 lineage 起源走：拆开的两段一样
+    assert_eq!(parameters["seed"], render_graph::puppet_seed("item_host"));
+    assert_ne!(render_graph::puppet_seed("item_host"), render_graph::puppet_seed("item_logo"));
+    let assets: Vec<&str> = plan.assets.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(assets, ["asset_host", "asset_land", "asset_talk"]);
+}
+
+#[test]
 fn whole_sequence_lists_unsupported_transitions_and_caption_documents() {
     let video = fixture();
     let plan = plan_video(VideoView::from(&video), "seq_main", None).expect("概览");
