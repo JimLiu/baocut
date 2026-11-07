@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
-import { buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
+import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
 import { writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
@@ -208,6 +208,35 @@ describe('virtual-host lip sync', () => {
     for (const v of smile) expect(v >= 0 && v <= 1).toBe(true);
   });
 
+  it('plays one-shot acts from faces.json on the head, in place of the syllable nods they overlap', () => {
+    const units = unitsFromWords(words, 'zh-CN');
+    const { list, acts } = facesOf([{ line: 1, act: 'nod' }, { t0: 1.2, t1: 2, face: 'smile', act: 'shake' }], units);
+    expect(list).toEqual([[1.2, 2, 'smile']]);
+    // a line's act starts on its first word, a span's on t0
+    expect(acts).toEqual([[units[0].t0, 'nod'], [1.2, 'shake']]);
+    expect(() => facesOf([{ line: 1, act: 'hop' }], units)).toThrow(/act must be one of nod, shake, tilt, shy/);
+    expect(() => facesOf([{ line: 1 }], units)).toThrow(/needs a face .* or an act/);
+    // the curves: shake turns the head ±13°, nod dips it down, tilt leans it; all ease in and out to nothing
+    const peak = (id: string, k: number) => Math.max(...Array.from({ length: 400 }, (_, i) => Math.abs(actAt(id, (i / 400) * ACTS[id as keyof typeof ACTS])[k])));
+    expect(peak('shake', 0)).toBeCloseTo(13, 0);
+    expect(Math.min(...Array.from({ length: 100 }, (_, i) => actAt('nod', i / 100)[1]))).toBeLessThan(-9);
+    expect(peak('tilt', 2)).toBeCloseTo(11, 0);
+    for (const id of Object.keys(ACTS)) {
+      expect(actAt(id, 0).every((v: number) => v === 0)).toBe(true);
+      expect(actAt(id, ACTS[id as keyof typeof ACTS] + 0.01).every((v: number) => v === 0)).toBe(true);
+    }
+    // on the track the act adds to the head's own motion and the nods under it are dropped
+    const base = buildTrack({ units, dur: 3, seed: 2 }) as Built & { nods: [number, number][] };
+    const shook = buildTrack({ units, dur: 3, seed: 2, faces: [{ t0: 0.1, t1: 1.4, act: 'shake' }] }) as Built & { nods: [number, number][]; acts: [number, string][] };
+    expect(shook.acts).toEqual([[0.1, 'shake']]);
+    expect(base.nods.some(([t]) => t > -0.1 && t < 1.15)).toBe(true);
+    expect(shook.nods.some(([t]) => t > -0.1 && t < 1.15)).toBe(false);
+    for (let k = 0; k < 3 * TRACK_FPS; k += 7) {
+      const d = at(shook.track.params.angleX, k) - at(base.track.params.angleX, k);
+      expect(Math.abs(d - actAt('shake', k / TRACK_FPS - 0.1)[0])).toBeLessThan(0.02);
+    }
+  });
+
   const lipsync = path.join(skill, 'scripts/lipsync.mjs');
   it('writes the track and the check table from the command line, and sends offsets to motionIn', () => {
     const dir = tmp();
@@ -272,6 +301,13 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     { inside: stroke((x) => 238 + 6 * (1 - ((x - cx) / 21) ** 2), cx - 21, cx + 21, 1.8), fill: line },
   ];
   const brow = (cx: number): Shape => ({ inside: stroke((x) => 206 - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: line });
+  // angry: brows pulled down toward the nose, the upper lids lowered flat over the irises, a blush on the cheeks
+  const vBrow = (cx: number): Shape => ({ inside: stroke((x) => 198 + 10 * (cx < 256 ? x - (cx - 22) : cx + 22 - x) / 44, cx - 22, cx + 22, 3), fill: line });
+  const narrowed = (cx: number): Shape[] => [
+    { inside: (x, y) => ell(cx, 238, 22, 16)(x, y) && y < 233, fill: skin },
+    { inside: stroke(() => 233, cx - 20, cx + 20, 1.8), fill: line },
+  ];
+  const blush = (cx: number): Shape => ({ inside: ell(cx, 275, 14, 7), fill: [250, 182, 170] });
   const clear: Shape = { inside: ell(256, 302, 34, 18), fill: skin };
   const mouths: Record<string, Shape[]> = {
     rest: [{ inside: stroke(() => 302, 236, 276, 2.5), fill: line }],
@@ -280,9 +316,10 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     round: [clear, { inside: ell(256, 303, 13, 13), fill: dark, outline: 2 }],
     wide: [clear, { inside: ell(256, 302, 22, 7), fill: white, outline: 2 }, { inside: stroke(() => 305, 238, 274, 1.5), fill: line }],
     smile: [clear, { inside: stroke((x) => 296 + 7 * (1 - ((x - 256) / 28) ** 2), 228, 284, 2.5), fill: line }],
+    frown: [clear, { inside: stroke((x) => 300 + 6 * ((x - 256) / 22) ** 2, 234, 278, 2.5), fill: line }],
   };
-  const draw = ({ bald = false, eyes = [...eye(214), ...eye(298)], mouth = mouths.rest } = {}) =>
-    render([neck, body, head, ...(bald ? [] : [hairShape]), brow(214), brow(298), ...eyes, ...mouth], line, green);
+  const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[] } = {}) =>
+    render([neck, body, head, ...(bald ? [] : [hairShape]), ...brows, ...eyes, ...cheeks, ...mouth], line, green);
   return {
     portrait: draw(),
     bald: draw({ bald: true }),
@@ -292,6 +329,7 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     round: draw({ mouth: mouths.round }),
     wide: draw({ mouth: mouths.wide }),
     smile: draw({ mouth: mouths.smile }),
+    angry: draw({ brows: [vBrow(214), vBrow(298)], eyes: [...eye(214), ...eye(298), ...narrowed(214), ...narrowed(298)], mouth: mouths.frown, cheeks: [blush(198), blush(314)] }),
   };
 }
 
@@ -301,7 +339,7 @@ function writeCharacter(dir: string, look: Parameters<typeof drawCharacter>[0] =
   const cfg = {
     name: 'synth', portrait: 'art/portrait.png', bald: 'art/bald.png',
     mouths: mouths ?? { half: 'art/half.png', open: 'art/open.png', round: 'art/round.png', wide: 'art/wide.png' },
-    lids: 'art/lids.png', expressions: { smile: 'art/smile.png' },
+    lids: 'art/lids.png', expressions: { smile: 'art/smile.png', angry: 'art/angry.png' },
   };
   fs.writeFileSync(path.join(dir, 'character.json'), JSON.stringify(cfg));
   return path.join(dir, 'character.json');
@@ -342,16 +380,38 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(report.checks.filter((c) => !c.ok)).toEqual([]);
     expect(status).toBe(0);
     expect(report.checks.find((c) => c.item === 'portrait')!.note).toMatch(/no glasses$/);
-    for (const v of ['lids', 'mouth half', 'mouth open', 'mouth round', 'mouth wide', 'expression smile'])
+    for (const v of ['lids', 'mouth half', 'mouth open', 'mouth round', 'mouth wide', 'expression smile', 'expression angry'])
       expect(report.checks.find((c) => c.item === `${v} lines up`)!.note).toMatch(/shift 0,0, scale 1/);
     const names = zipNames(fs.readFileSync(report.package)) as string[];
     expect(names[0]).toBe('model.json');
     const model = JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8'));
-    expect(model).toMatchObject({ format: 'baocut-puppet', version: 1, name: 'synth', canvas: [SIZE, SIZE], expressions: [{ id: 'smile' }] });
+    expect(model).toMatchObject({ format: 'baocut-puppet', version: 1, name: 'synth', canvas: [SIZE, SIZE], expressions: [{ id: 'smile' }, { id: 'angry' }] });
     expect(model.rig).toBeUndefined();
     for (const t of texturesIn(model)) expect(names).toContain(t);
-    for (const id of ['back_hair', 'front_hair', 'face', 'body', 'eye_L', 'eye_R', 'iris_L', 'iris_R', 'brows', 'mouth', 'expr_smile'])
+    for (const id of ['back_hair', 'front_hair', 'face', 'body', 'eye_L', 'eye_R', 'iris_L', 'iris_R', 'brows', 'mouth', 'expr_smile', 'expr_angry'])
       expect(model.layers.map((l: { id: string }) => l.id)).toContain(id);
+  });
+
+  it('cuts each expression as one patch of what it changed: eyes, brows, blush and mouth', () => {
+    const cfg = writeCharacter(tmp());
+    const { status, report } = build(cfg);
+    expect(status).toBe(0);
+    const note = (id: string) => report.checks.find((c) => c.item === `expression ${id}`)!.note;
+    expect(note('smile')).toMatch(/px patch: mouth$/);
+    expect(note('angry')).toMatch(/px patch: eyes, brows, blush, mouth$/);
+    type Layer = { id: string; x: number; y: number; w: number; h: number; texture: string; talk?: string; brows?: string; role?: string; expression?: string };
+    const layers = (JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8')) as { layers: Layer[] }).layers;
+    const smile = layers.find((l) => l.id === 'expr_smile')!, angry = layers.find((l) => l.id === 'expr_angry')!;
+    expect(angry).toMatchObject({ role: 'expr', expression: 'angry', brows: 'redrawn' });
+    expect(angry.talk).toMatch(/^textures\/.+\.png$/);
+    expect(smile.brows).toBeUndefined();
+    // the smile left the eyes alone: its patch stays below them, so blinks and gaze show through
+    expect(smile.y).toBeGreaterThan(253);
+    // the angry patch covers both eyes (whites 193-319 x 223-253), the brows and the blush below the eyes
+    expect(angry.x).toBeLessThanOrEqual(184);
+    expect(angry.x + angry.w).toBeGreaterThanOrEqual(328);
+    expect(angry.y).toBeLessThanOrEqual(198);
+    expect(angry.y + angry.h).toBeGreaterThanOrEqual(282);
   });
 
   it('measures coloured line art: brown outlines, irises and hair', () => {

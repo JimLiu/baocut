@@ -63,7 +63,7 @@ interface PuppetModel {
 每层是 v4 的一个 layer：`id`、`texture`、层框 `x y w h`（模型像素）、`group`（`head`、`body`、`hair_back`、`hair_side`、`hair_front`、`hair_inner`，不认识的拒绝）与按需的 `depth`、`role`、`expression`、`frames`、`visemes`、`mask`、`talk`、`brow_tex`、`pivot`、`clip`、`range`、`brows`、`bones`、`rigid`、`blush`、`show`、`hide`、`fall`、`fall_end`。
 
 - `id` 在包里唯一。层框可以伸出画布，但不超过一个画布远：`x ≥ −宽`、`y ≥ −高`、`x + w ≤ 2 × 宽`、`y + h ≤ 2 × 高`，`w`、`h` 为正。
-- 读的 `role`：`mouth`（嘴，`frames` 是各帧，`visemes` 标出每帧是 `closed`、`half`、`open`、`round`、`wide` 还是 `shut`，两者等长；没有 `visemes` 时前三帧按 `closed half open`）、`expr` 与 `expr_brows`（表情补丁与它的眉毛，属于 `expression` 指的表情，缺省 `smile`）、`eye_L` `eye_R`（眼白，带 `mask`）、`iris_L` `iris_R` `shine_L` `shine_R`（眼珠与高光，被眼白裁切，`range` 是行程）、`lid_L` `lid_R`、`blush`、`neck_shadow`。别的 `role` 按普通层画。`id` 为 `brows` 的层是中性的眉毛。
+- 读的 `role`：`mouth`（嘴，`frames` 是各帧，`visemes` 标出每帧是 `closed`、`half`、`open`、`round`、`wide` 还是 `shut`，两者等长；没有 `visemes` 时前三帧按 `closed half open`）、`expr` 与 `expr_brows`（表情补丁与它的眉毛，属于 `expression` 指的表情，缺省 `smile`）、`eye_L` `eye_R`（眼白，带 `mask`）、`iris_L` `iris_R` `shine_L` `shine_R`（眼珠与高光，被眼白裁切，`range` 是行程）、`lid_L` `lid_R`、`blush`、`neck_shadow`。别的 `role` 按普通层画。`id` 为 `brows` 的层是中性的眉毛。`expr` 层的 `talk` 是说话时换用的贴图（嘴的位置是皮肤），这时嘴挪到最后一个 `expr` 层之后画；`brows` 为 `"redrawn"` 时表情自己画了眉毛，中性眉毛按这些表情里最大的不透明度淡出。
 - 所有层的网格共用一张格子，格子边长是 `max(6, round(max(画布宽, 画布高) / 128))` 模型像素；同一个格点在每一层上按同样的方式移动，重叠的层不会错开。
 
 ### 2.4 上限

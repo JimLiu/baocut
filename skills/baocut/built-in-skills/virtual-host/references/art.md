@@ -52,6 +52,16 @@ New mouth: <描述>. Draw it in exactly the same line weight and colors as the o
 
 闭眼的模板把 mouth 换成 eyes：`Change ONLY the eyes`，`same eyes, eyebrows` 换成 `same eyebrows, mouth`，`outside the mouth area` 换成 `outside the eyes`，并加一句 `Keep the mouth closed as in the original.`，结尾写 `New eyes: <描述>. Draw them in …`。没戴眼镜时去掉 `glasses`。
 
+整脸表情（眼睛、眉毛、脸颊、嘴一起变）的模板：
+
+```text
+Edit the attached character image. Change ONLY the facial expression: the eyes, eyebrows, mouth and the cheeks. Keep everything else pixel-identical:
+same head position and size, same face outline, hair, ears, nose, glasses, clothes, colors, outlines, lighting and background.
+The hair does not change, even where it meets the eyebrows. Do not move, zoom, crop or re-draw anything outside the eyes, eyebrows, mouth and cheeks.
+Keep the eyes and the mouth centered on the same spots as in the original; the eyebrows may move down or tilt, but stay above the eyes and below the hairline.
+New expression: <描述>. Draw it in exactly the same line weight and colors as the original.
+```
+
 | `character.json` 里 | 模板 | 描述（英文照写） | 用在 |
 | --- | --- | --- | --- |
 | `mouths.half` | 嘴 | barely open, as in "ee" or "s": the lips parted by a narrow gap that shows a thin strip of the upper teeth; about as wide as the original closed mouth, the opening about one fifth as tall as it is wide | 小声、大多数辅音、i |
@@ -60,11 +70,14 @@ New mouth: <描述>. Draw it in exactly the same line weight and colors as the o
 | `mouths.wide` | 嘴 | upper teeth resting on the lower lip, as in "f" or "v": about as wide as the original closed mouth, the upper teeth showing above the lower lip | f v |
 | `lids` | 眼睛 | both eyes fully closed in a relaxed blink: each eye becomes the single line of the lowered upper eyelid, curving gently downward like a shallow "u" where the lower half of the open eye was; not the upward "^" arcs of a laughing face | 眨眼 |
 | `expressions.smile` | 嘴 | a gentle happy smile with the lips closed: a little wider than the original closed mouth, both corners curving up into a soft upward arc; no teeth showing | 表情 |
+| `expressions.shy` | 整脸 | shy and bashful: a soft pink blush on both cheeks with three short diagonal pink lines on each, the eyebrows raised a little at their inner ends into a gentle worried slant, both eyes glancing down and to one side with the upper lids slightly lowered, the mouth a small closed wavy line a little narrower than the original | 表情 |
+| `expressions.angry` | 整脸 | angry: the eyebrows pulled down hard toward the nose into a sharp V, both eyes narrowed with the upper lids lowered into a flat straight line across the top of the iris, the mouth a closed frown with both corners turned down | 表情 |
+| `expressions.sad` | 整脸 | sad: the inner ends of the eyebrows raised and the outer ends lowered, the upper eyelids drooping a little, the eyes glossy with one extra small highlight each but no tears running, the mouth a small closed curve with the corners turned down | 表情 |
 
 - `half` 与 `open` 必须有，`round`、`wide` 没有时用 `half` 或 `open` 代替（圆唇、咬唇就看不出来）。`open` 要比 `half` 张得开，打包时检查（`mouth ladder`）。
 - 闭眼是放松地闭上：上眼皮落下来的一条往下弯的线。往上弯的「^ ^」是笑眯眼，用来眨眼像在突然发笑。没有 `lids` 时眨眼只把睁着的眼睛压扁。
-- 表情只取眼睛下沿以下的改动（嘴、脸颊）：表情里照常眨眼、看向别处；说话时嘴照样换口型，表情的嘴只在不说话时出现。别的表情（惊讶、为难）照 `smile` 的写法换描述，名字自取，`faces.json` 里用同一个名字。
-- 实测（GPT Image 2.6 Sunburst，扁平矢量，两个角色各 4 种嘴、闭眼、笑，加光头重绘，共 14 张）：全部对齐在原位（位移 0、缩放 1），没有一张要重画。别的模型先试两三张，打包看结果再决定。
+- 表情取改图在脸上改了的地方（眼睛、眉毛、脸颊的红晕、嘴），合成一块补丁盖在眼睛和嘴上、刘海下面。只改了嘴的（`smile`）表情里照常眨眼、看向别处；改了眼睛的，那只眼睛整个用表情画的，表情显示时不眨眼。改了眉毛的，中性的眉毛跟着淡出。说话时嘴照样换口型，表情的嘴只在不说话时出现。别的表情（惊讶、为难）照上面的写法换描述，名字自取，`faces.json` 里用同一个名字。
+- 实测（GPT Image 2.6 Sunburst，扁平矢量，两个角色各 4 种嘴、闭眼、笑，加光头重绘，共 14 张；再各加害羞、生气、难过 6 张）：全部对齐在原位（位移 0 到 0.25、缩放 1），没有一张要重画。别的模型先试两三张，打包看结果再决定。
 
 ## 4. 打包
 
@@ -99,7 +112,7 @@ New mouth: <描述>. Draw it in exactly the same line weight and colors as the o
 | `closed eye L/R: … px` | 闭眼的改图在这只眼睛的位置画了多少。`FIX` 是这只眼睛没闭上：重画 `lids` |
 | `mouth <名>: …x… px` | 这张嘴的宽和高。`FIX … drew no mouth` 是嘴的位置什么也没画：重画 |
 | `mouth ladder` | `open` 要比 `half` 高，否则说话时看不出开合：重画开得不够的那张 |
-| `expression <名>: …x… px patch` | 表情改动的范围。`FIX … changed nothing below the eyes`：重画 |
+| `expression <名>: …x… px patch: …` | 表情补丁的大小和里面有什么（`eyes` 或一只眼、`brows`、`blush`、`mouth`）。少了描述里要改的那处（比如生气却没有 `brows`），是改图没画出来：重画。`FIX … changed nothing on the face`：重画 |
 | `rest matches the portrait: … px off …, … px of them in patches …` | 静止时和正面像差得多的像素。沿着轮廓的一两像素细线是边缘重新抠图的误差，不算；成块的（3 像素以上厚）超过角色的 0.05%，或者全部加起来超过 1% 时 `FIX`：看 `rest-diff.png` 亮在哪里，多半是某张改图或光头重绘没对上，重画那张 |
 | `package: … layers` | 角色包合规。`FIX` 时后面是不合规的地方，是脚本的问题，如实告诉用户 |
 

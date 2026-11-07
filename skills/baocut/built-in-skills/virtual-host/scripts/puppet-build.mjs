@@ -367,40 +367,117 @@ for (const e of eyeLayers) add(e.id, e.L, e.def, e);
   add('mouth', frames.closed, { group: 'head', depth: 0, role: 'mouth', pivot: [round1((mc.x0 + mc.x1) / 2), round1((mc.y0 + mc.y1) / 2)] }, { frames: visemes.map((v) => frames[v]), visemes });
 }
 
-// expressions: what each edit changed in the lower face, cut as a patch over the mouth; while talking the patch is
+// expressions: what each edit changed on the face (eyes, brows, cheeks, mouth), cut as one soft patch drawn over the
+// eyes and mouth, under the front hair. An eye the edit touched is covered whole, or the live iris would show beside
+// the expression's own; when it redrew the brows the neutral brows fade out while it shows. While talking the patch is
 // drawn without its mouth (the "talk" texture) and the talking mouth goes over it
 const expressions = [];
-for (const [id, f] of Object.entries(cfg.expressions ?? {})) {
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) { check(false, `expression ${id}`, 'ids are 1-64 letters, digits, _ or -'); continue; }
-  const fc = G.faceComp, mc = G.mouthComp, mw = mc.x1 - mc.x0;
-  const zoneTop = G.eyeBot + 0.25 * (G.eyeBot - G.eyeTop);
-  const R = registered(im, sameSize(readImage(P(f)), f), [fc.x0 - 20, G.eyeTop - 60, fc.x1 + 20, G.chin + 30], [[fc.x0, zoneTop, fc.x1, G.chin]]);
-  alignCheck(`expression ${id}`, R.A);
+{
+  const fc = G.faceComp, mc = G.mouthComp, mw = mc.x1 - mc.x0, eyeH = G.eyeBot - G.eyeTop;
+  const browTop = Math.min(G.eyeTop, ...G.browComps.filter(Boolean).map((c) => c.y0));
   const faceIn = erode(fillHoles(or(G.headSkin, G.headShade), w, h), w, h, 2);
-  const zone = and(faceIn, boxMask(w, h, fc.x0, zoneTop, fc.x1, G.chin - G.lw));
-  const changed = new Uint8Array(N);
-  for (let p = 0; p < N; p++) if (zone[p] && Math.max(...[0, 1, 2].map((k) => Math.abs(R.im.d[4 * p + k] - im.d[4 * p + k]))) > 40) changed[p] = 1;
-  const cc = components(changed, w, h);
-  const kept = compMask(cc.lab, cc.comps.filter((c) => c.area >= 25).map((c) => c.id));
-  if (!count(kept)) { check(false, `expression ${id}`, 'the edit changed nothing below the eyes; redo it'); continue; }
-  const patch = and(fillHoles(dilate(or(kept, G.mouth), w, h, 6), w, h), faceIn);
-  const soft = blur(Float32Array.from(patch), w, h, 2);
-  const L = blank(w, h), T = blank(w, h);
-  const eskin = medianColor(R.im, and(patch, Uint8Array.from({ length: N }, (_, p) => (Math.hypot(...[0, 1, 2].map((k) => R.im.d[4 * p + k] - skin[k])) < 30 ? 1 : 0))));
+  // the hair keeps its own layer: the patch has none of it. Under the glasses the patch carries what is next to the
+  // frames, not the edit's own frames (they would show beside the real ones when the head turns)
+  const area = minus(and(or(faceIn, dilate(G.brows, w, h, 12)), boxMask(w, h, fc.x0, browTop - 0.5 * eyeH, fc.x1, G.chin - G.lw)), dilate(G.hair, w, h, 1));
+  const glassD = dilate(G.glass, w, h, 2), seen = minus(area, glassD);
+  const fromSeen = nearestIndex(seen, w, h, G.lw + 8);
+  const eyeBox = G.eyes.map((e) => and(dilate(boxMask(w, h, ...e.box), w, h, 4), area));
+  // what the open eye layers draw, lashes included
+  const eyeDrawn = ['L', 'R'].map((s) => { const L = eyeLayers.find((e) => e.id === `eye_${s}`).L; return Uint8Array.from({ length: N }, (_, p) => (L.d[4 * p + 3] > 0 ? 1 : 0)); });
+  const browZone = and(dilate(G.brows, w, h, 6), seen);
+  // the cheeks, where a blush goes: below the eyes, clear of the nose and the mouth
+  const shade = components(G.headShade, w, h);
+  const nose = dilate(compMask(shade.lab, shade.comps.filter((c) => c.y1 < mc.y0).map((c) => c.id)), w, h, 6);
+  const cheeks = minus(and(seen, boxMask(w, h, fc.x0, G.eyeBot, fc.x1, mc.y1 + 0.2 * mw)), or(or(...eyeBox.map((m) => dilate(m, w, h, 4))), or(nose, dilate(G.mouth, w, h, 10))));
+  const skinCore = and(erode(G.headSkin, w, h, 3), seen);
+  const isSkin = Uint8Array.from({ length: N }, (_, p) => (Math.hypot(im.d[4 * p] - skin[0], im.d[4 * p + 1] - skin[1], im.d[4 * p + 2] - skin[2]) < 30 ? 1 : 0));
   const mouthArea = dilate(boxMask(w, h, mc.x0 - 0.2 * mw, mc.y0 - 0.25 * mw, mc.x1 + 0.2 * mw, G.chin - G.lw - 4), w, h, 2);
-  // the edit's skin may be a shade off the portrait's: move its colours onto the portrait's skin so the patch has no seam
-  const Ls = luma(...eskin), shift = [0, 1, 2].map((k) => skin[k] - eskin[k]);
-  const onSkin = (c) => { const t = Math.max(0, Math.min(1, (luma(...c) - Lline) / (Ls - Lline))); return c.map((v, k) => Math.max(0, Math.min(255, Math.round(v + t * shift[k])))); };
-  for (let p = 0; p < N; p++) {
-    const a = Math.min(1, soft[p] * 1.25);
-    if (a <= 0.01) continue;
-    setPx(L, p, onSkin(rgb(R.im, p)), a);
-    setPx(T, p, mouthArea[p] ? skin : onSkin(rgb(R.im, p)), a);
+  const tSkin = (c, Ls) => Math.max(0, Math.min(1, (luma(...c) - Lline) / (Ls - Lline)));
+  // what the edit changed: strong (lines, fills) and pink (a blush: the green falls further than the red)
+  const changes = (E) => {
+    const strong = new Uint8Array(N), pink = new Uint8Array(N);
+    for (let p = 0; p < N; p++) {
+      if (!seen[p]) continue;
+      const d = [0, 1, 2].map((k) => E.d[4 * p + k] - im.d[4 * p + k]), m = Math.max(...d.map(Math.abs));
+      if (m > 40) strong[p] = 1;
+      if (cheeks[p] && m > 10 && d[0] - d[1] > 12) pink[p] = 1;
+    }
+    return { strong, pink };
+  };
+  for (const [id, f] of Object.entries(cfg.expressions ?? {})) {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) { check(false, `expression ${id}`, 'ids are 1-64 letters, digits, _ or -'); continue; }
+    const R = registered(im, sameSize(readImage(P(f)), f), [fc.x0 - 60, browTop - 140, fc.x1 + 60, G.chin + 40], [[fc.x0 - 4, browTop - 12, fc.x1 + 4, G.chin]]);
+    alignCheck(`expression ${id}`, R.A);
+    // the edit's skin may be a shade off the portrait's, and drift across the face: move its colours onto the
+    // portrait's skin, first as a whole, then by what is left round each place on the skin it did not change
+    const eskin = medianColor(R.im, and(skinCore, Uint8Array.from({ length: N }, (_, p) => (Math.hypot(...[0, 1, 2].map((k) => R.im.d[4 * p + k] - skin[k])) < 30 ? 1 : 0))));
+    const Ls = luma(...eskin), shift = [0, 1, 2].map((k) => skin[k] - eskin[k]);
+    const E = blank(w, h);
+    for (let p = 0; p < N; p++) if (seen[p]) { const c = rgb(R.im, p), t = tSkin(c, Ls); E.d.set([...c.map((v, k) => v + t * shift[k]), 255], 4 * p); }
+    {
+      const c0 = changes(E), away = dilate(or(c0.strong, c0.pink), w, h, 8);
+      const U = new Float32Array(N), Rk = [0, 1, 2].map(() => new Float32Array(N));
+      for (let p = 0; p < N; p++) {
+        if (!seen[p] || !isSkin[p] || away[p]) continue;
+        const d = [0, 1, 2].map((k) => E.d[4 * p + k] - im.d[4 * p + k]);
+        if (Math.max(...d.map(Math.abs)) >= 20) continue;
+        U[p] = 1; for (let k = 0; k < 3; k++) Rk[k][p] = d[k];
+      }
+      const den = blur(U, w, h, 16), num = Rk.map((r) => blur(r, w, h, 16));
+      for (let p = 0; p < N; p++) {
+        if (!seen[p] || den[p] < 0.02) continue;
+        const t = tSkin(rgb(E, p), luma(...skin));
+        for (let k = 0; k < 3; k++) E.d[4 * p + k] -= t * num[k][p] / den[p];
+      }
+    }
+    for (let p = 0; p < N; p++) {
+      if (seen[p]) for (let k = 0; k < 3; k++) E.d[4 * p + k] = Math.max(0, Math.min(255, Math.round(E.d[4 * p + k])));
+      else if (area[p] && fromSeen[p] >= 0) for (let k = 0; k < 3; k++) E.d[4 * p + k] = E.d[4 * fromSeen[p] + k];
+    }
+    const { strong, pink } = changes(E);
+    // thin slivers along the lines are a redraw a pixel off, not a change: what is left after opening decides
+    const solid = and(dilate(erode(strong, w, h, 1), w, h, 1), strong);
+    const sc = components(strong, w, h), real = new Set();
+    for (let p = 0; p < N; p++) if (solid[p] && sc.lab[p]) real.add(sc.lab[p]);
+    const kept = compMask(sc.lab, sc.comps.filter((c) => c.area >= 25 && real.has(c.id)).map((c) => c.id));
+    const pc = components(pink, w, h);
+    const blush = compMask(pc.lab, pc.comps.filter((c) => c.area >= 150).map((c) => c.id));
+    const eyesHit = eyeBox.map((m) => count(and(solid, m)) > 0.02 * count(m));
+    const browsRedrawn = count(browZone) > 0 && count(and(solid, browZone)) > 0.05 * count(browZone);
+    if (!count(kept) && !count(blush)) { check(false, `expression ${id}`, 'the edit changed nothing on the face; redo it'); continue; }
+    let seed = or(or(kept, blush), G.mouth);
+    eyeBox.forEach((m, i) => { if (eyesHit[i]) seed = or(seed, m); });
+    if (browsRedrawn) seed = or(seed, browZone);
+    // brows and eyes it kept stay the neutral layers': a copy a pixel or two off would thicken the brows, and a sliver
+    // of an open lid would stay over the eye when it blinks
+    let patch = and(fillHoles(dilate(seed, w, h, 6), w, h), area);
+    if (!browsRedrawn) patch = minus(patch, dilate(G.brows, w, h, 4));
+    eyeBox.forEach((m, i) => { if (!eyesHit[i]) patch = minus(patch, dilate(or(m, eyeDrawn[i]), w, h, 2)); });
+    // nor a sliver of the hair's outline: the front hair moves against the face when the head turns
+    let redrawn = browsRedrawn ? browZone : new Uint8Array(N);
+    eyeBox.forEach((m, i) => { if (eyesHit[i]) redrawn = or(redrawn, m); });
+    patch = minus(patch, minus(dilate(G.hair, w, h, 4), redrawn));
+    // a blush fades out slowly: let the patch reach round it
+    const soft = blur(Float32Array.from(or(patch, and(dilate(blush, w, h, 10), cheeks))), w, h, 2);
+    const L = blank(w, h), T = blank(w, h);
+    for (let p = 0; p < N; p++) {
+      const a = Math.min(1, soft[p] * 1.25);
+      if (a <= 0.01 || !area[p]) continue;
+      const c = rgb(E, p);
+      setPx(L, p, c, a);
+      setPx(T, p, mouthArea[p] ? skin : c, a);
+    }
+    if (DEBUG) {
+      const dm = blank(w, h);
+      for (let p = 0; p < N; p++) dm.d.set([patch[p] * 255, solid[p] * 255, (cheeks[p] ? 120 : 0) + blush[p] * 135, 255], 4 * p);
+      writePng(path.join(DBG, `expr-${id}-masks.png`), dm);
+    }
+    const box = alphaBox(L, w, h, 2);
+    expressions.push({ id });
+    const parts = [eyesHit.every(Boolean) ? 'eyes' : eyesHit[0] ? 'left eye' : eyesHit[1] ? 'right eye' : '', browsRedrawn ? 'brows' : '', count(blush) ? 'blush' : '', 'mouth'].filter(Boolean);
+    check(true, `expression ${id}`, `${box[2]}x${box[3]} px patch: ${parts.join(', ')}`);
+    layers.push({ id: `expr_${id}`, L, talk: T, def: { group: 'head', depth: 0, role: 'expr', expression: id, ...(browsRedrawn ? { brows: 'redrawn' } : {}) }, hidden: true });
   }
-  const box = alphaBox(L, w, h, 2);
-  expressions.push({ id });
-  check(true, `expression ${id}`, `${box[2]}x${box[3]} px patch`);
-  layers.push({ id: `expr_${id}`, L, talk: T, def: { group: 'head', depth: 0, role: 'expr', expression: id }, hidden: true });
 }
 
 // glasses (frames only), front hair, brows: cut from the portrait, edges unmixed against what's under them
@@ -472,7 +549,7 @@ for (const Lr of layers) {
     writePng(path.join(PKG, def.mask), mc);
   }
   // key order like the reference models
-  const order = ['id', 'texture', 'frames', 'visemes', 'mask', 'talk', 'x', 'y', 'w', 'h', 'group', 'depth', 'role', 'expression', 'pivot', 'clip', 'range'];
+  const order = ['id', 'texture', 'frames', 'visemes', 'mask', 'talk', 'x', 'y', 'w', 'h', 'group', 'depth', 'role', 'expression', 'brows', 'pivot', 'clip', 'range'];
   defs.push(Object.fromEntries(order.filter((k) => def[k] !== undefined).map((k) => [k, def[k]])));
 }
 const model = {

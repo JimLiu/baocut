@@ -447,20 +447,30 @@ function motion(units, env, phrases, seed) {
   return { nods, turns, phase: [R(), R(), R()].map(v => v * 2 * Math.PI) };
 }
 
-/** faces.json：[{line, face}]（line 从 1 数，与核对表一致）或 [{t0, t1, face}]，也可以 {default, items:[…]} */
+/**
+ * faces.json：[{line, face, act}]（line 从 1 数，与核对表一致）或 [{t0, t1, face, act}]，也可以 {default, items:[…]}。
+ * face 是角色包里的表情，act 是一次性动作（ACTS），在这句第一个字（或 t0）开始；两者至少有一个
+ */
 export function facesOf(spec, units) {
-  if (!spec) return { def: null, list: [] };
+  if (!spec) return { def: null, list: [], acts: [] };
   const items = Array.isArray(spec) ? spec : Array.isArray(spec.items) ? spec.items : [];
-  const list = [];
+  const list = [], acts = [];
+  const isId = v => typeof v === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(v);
   for (const it of items) {
-    if (!it || typeof it.face !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(it.face)) throw new Error('every faces entry needs a face: the id of an expression in the character package (letters, digits, _ or -)');
+    if (!it || !(isId(it.face) || it.act != null)) throw new Error(`every faces entry needs a face (the id of an expression in the character package: letters, digits, _ or -) or an act (${Object.keys(ACTS).join(', ')})`);
+    if (it.face != null && !isId(it.face)) throw new Error('faces: a face is the id of an expression in the character package (letters, digits, _ or -)');
+    if (it.act != null && !Object.hasOwn(ACTS, it.act)) throw new Error(`faces: act must be one of ${Object.keys(ACTS).join(', ')}`);
+    let t0, t1, at;
     if (it.line != null) {
       const us = units.filter(u => u.line === Number(it.line) - 1);
       if (!us.length) throw new Error(`faces: line ${it.line} has no spoken text`);
-      list.push([Math.max(0, us[0].t0 - 0.15), us[us.length - 1].t1 + 0.3, it.face]);
-    } else if (it.t0 != null && it.t1 != null) list.push([Number(it.t0), Number(it.t1), it.face]);
+      [t0, t1, at] = [Math.max(0, us[0].t0 - 0.15), us[us.length - 1].t1 + 0.3, us[0].t0];
+    } else if (it.t0 != null && it.t1 != null) [t0, t1, at] = [Number(it.t0), Number(it.t1), Number(it.t0)];
     else throw new Error('a faces entry needs line, or t0 and t1');
+    if (it.face != null) list.push([t0, t1, it.face]);
+    if (it.act != null) acts.push([at, it.act]);
   }
+  acts.sort((a, b) => a[0] - b[0]);
   list.sort((a, b) => a[0] - b[0]);
   const merged = [];
   for (const f of list) {
@@ -469,7 +479,7 @@ export function facesOf(spec, units) {
     else merged.push([...f]);
   }
   if (spec.default != null && !(typeof spec.default === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(spec.default))) throw new Error('faces: default must be an expression id');
-  return { def: spec.default ?? null, list: merged };
+  return { def: spec.default ?? null, list: merged, acts };
 }
 
 // ---------- 动作轨 ----------
@@ -488,6 +498,11 @@ export const MOUTH = { X: [0, 0], A: [0, 0], B: [0.3, 0], C: [0.85, 0], D: [1, 0
 export const OPEN_RANGE = { X: [0, 0], A: [0, 0], B: [0, 0.45], C: [0, 0.85], D: [0, 1], E: [0.2, 1], F: [0.2, 0.45], G: [0.3, 0.3] };
 // 头的动作（度）：待机那样的慢游移，每句的朝向，音节上的点头
 const DRIFT = [[3.5, 0.7], [2, 0.9], [3, 0.5]]; // angleX、angleY、angleZ 的 [幅度, 角速度]
+/**
+ * 一次性动作和它们的长度（秒），曲线移植自 LivLiv actions.ts：叠在头的动作上，前 0.18 秒渐入、后 0.22 秒渐出。
+ * nod 点头两下，shake 摇头，tilt 歪头想一想，shy 低头侧脸。LivLiv 的 hop 要整个人上下动，角色参数里没有，不做
+ */
+export const ACTS = { nod: 0.95, shake: 1.05, tilt: 1.8, shy: 2.4 };
 const FACE_X = 7, FACE_Y = 4, TILT = 0.25, NOD = 4.5, NOD_S = 0.36, EASE_IN = 0.5, EASE_OUT = 0.8, FACE_RAMP = 0.25;
 
 const smooth = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -512,8 +527,19 @@ export const openAt = (shape, e) => {
   return r3(Math.min(hi, Math.max(lo, e)));
 };
 
-/** 每一步的转头、点头、歪头 */
-function headChannels(ticks, m, phrases) {
+/** 动作开始后 t 秒的 [angleX, angleY, angleZ] 偏移（度） */
+export function actAt(id, t) {
+  const d = ACTS[id];
+  if (!(t >= 0 && t < d)) return [0, 0, 0];
+  const e = smooth(t / 0.18) * (1 - smooth((t - d + 0.22) / 0.22));
+  if (id === 'nod') return [0, -(t < 0.45 ? 11 * Math.sin((Math.PI * t) / 0.45) : 6 * Math.sin((Math.PI * Math.min(t - 0.45, 0.45)) / 0.45)) * e, 0];
+  if (id === 'shake') return [13 * Math.sin((2 * Math.PI * t) / 0.5) * e, 0, 0];
+  if (id === 'tilt') return [3 * e, 2 * e, 11 * e];
+  return [9 * e, -12 * e, -4 * e];
+}
+
+/** 每一步的转头、点头、歪头，加上 faces.json 里的动作 */
+function headChannels(ticks, m, phrases, acts = []) {
   const ax = new Array(ticks), ay = new Array(ticks), az = new Array(ticks);
   for (let k = 0; k < ticks; k++) {
     const t = k / TRACK_FPS;
@@ -536,9 +562,11 @@ function headChannels(ticks, m, phrases) {
       if (tau >= 0 && tau < NOD_S) nod -= NOD * sN * Math.sin((Math.PI * tau) / NOD_S);
     }
     const d = DRIFT.map(([amp, w], i) => amp * Math.sin(w * t + m.phase[i]));
-    ax[k] = r2(d[0] + fx);
-    ay[k] = r2(d[1] + fy + nod);
-    az[k] = r2(d[2] - TILT * fx);
+    const a = [0, 0, 0];
+    for (const [ta, id] of acts) actAt(id, t - ta).forEach((v, i) => { a[i] += v; });
+    ax[k] = r2(d[0] + fx + a[0]);
+    ay[k] = r2(d[1] + fy + nod + a[1]);
+    az[k] = r2(d[2] - TILT * fx + a[2]);
   }
   return { angleX: ax, angleY: ay, angleZ: az };
 }
@@ -566,7 +594,7 @@ function expressionChannels(ticks, fc) {
 
 /**
  * 主体：units（unitsFromTiming / unitsFromWords 的结果，可以是空数组 = 只有声音）+ 音量包络与元音线索 → 动作轨
- * （人偶格式规范 §4）。轨的 0 秒是配音的 0 秒。返回 { track, shapes（每一步的口型字母）, fine, owner, phrases, nods }
+ * （人偶格式规范 §4）。轨的 0 秒是配音的 0 秒。返回 { track, shapes（每一步的口型字母）, fine, owner, phrases, nods, acts }
  */
 export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, faces = null }) {
   const audioOnly = !units.length;
@@ -580,10 +608,12 @@ export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, 
   const phrases = phrasesOf(units, env, end);
   const m = motion(units, env, phrases, seed);
   const fc = facesOf(faces, units);
+  // 动作进行时不再自动点头
+  m.nods = m.nods.filter(([t]) => !fc.acts.some(([ta, id]) => t > ta - 0.2 && t < ta + ACTS[id]));
   const params = {
     mouthOpen: trimTail(shapes.map((s, k) => (env ? openAt(s, envAt(env, k / TRACK_FPS)) : MOUTH[s][0]))),
     vowel: trimTail(shapes.map(s => MOUTH[s][1])),
-    ...headChannels(ticks, m, phrases),
+    ...headChannels(ticks, m, phrases, fc.acts),
   };
   const expressions = expressionChannels(ticks, fc);
   const track = {
@@ -594,7 +624,7 @@ export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, 
     params,
     ...(Object.keys(expressions).length ? { expressions } : {}),
   };
-  return { track, shapes, fine, owner, phrases, nods: m.nods };
+  return { track, shapes, fine, owner, phrases, nods: m.nods, acts: fc.acts };
 }
 
 /** 口型核对表：每句的每个字下面写读音、读音给的口型和按视频帧率看到的口型 */
@@ -606,7 +636,7 @@ export function checkTable(units, result, lines, header, fps = 30) {
   const pct = Object.keys(count).sort().map(s => `${s} ${Math.round((count[s] / frames.length) * 100)}%`).join('  ');
   let changes = 0;
   for (let k = 1; k < shapes.length; k++) if (shapes[k] !== shapes[k - 1]) changes++;
-  const out = [header, `${track.duration}s, ${shapes.length} steps at ${TRACK_FPS} fps (shown below at ${fps} fps), mouth changes ${changes}, nods ${result.nods.length}, phrases ${result.phrases.length}`, `shapes: ${pct}`];
+  const out = [header, `${track.duration}s, ${shapes.length} steps at ${TRACK_FPS} fps (shown below at ${fps} fps), mouth changes ${changes}, nods ${result.nods.length}${result.acts?.length ? `, acts ${result.acts.map(([t, id]) => `${id}@${t.toFixed(2)}`).join(' ')}` : ''}, phrases ${result.phrases.length}`, `shapes: ${pct}`];
   const unknown = units.filter(u => !u.plan).length;
   if (unknown) out.push(`units without a reading (mouth from loudness and vowel colour): ${unknown} of ${units.length}`);
   let li = -1;
@@ -676,7 +706,7 @@ function main() {
   const check = f.check || path.join(path.dirname(f.out), 'lipsync-check.txt');
   fs.writeFileSync(check, checkTable(units, result, lines, `lipsync check: ${src}  lang ${lang}`, fps));
   const t = result.track;
-  console.log(`${f.out}: motion track, ${t.duration}s at ${t.fps} fps, ${result.nods.length} nods, ${result.phrases.length} phrases${t.expressions ? `, expressions ${Object.keys(t.expressions).join(' ')}` : ''}`);
+  console.log(`${f.out}: motion track, ${t.duration}s at ${t.fps} fps, ${result.nods.length} nods, ${result.phrases.length} phrases${result.acts.length ? `, acts ${result.acts.map(a => a[1]).join(' ')}` : ''}${t.expressions ? `, expressions ${Object.keys(t.expressions).join(' ')}` : ''}`);
   console.log(`${check}: per-character check table${units.length ? '' : ' (audio only: no text)'}`);
   if (!env) console.log('note: no --audio, so silences inside lines are not closed and loud/quiet syllables are not told apart');
 }
