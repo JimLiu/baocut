@@ -90,8 +90,9 @@ export function bbox(m, w, h) {
   return x1 < 0 ? null : [x0, y0, x1, y1];
 }
 
-/** separable box blur of a float field, radius r */
+/** separable box blur of a float field, radius r (whole pixels: a fractional radius is rounded, it would index between pixels) */
 export function blur(f, w, h, r) {
+  r = Math.round(r);
   if (r <= 0) return Float32Array.from(f);
   const tmp = new Float32Array(w * h), out = new Float32Array(w * h), k = 2 * r + 1;
   for (let y = 0; y < h; y++) {

@@ -102,7 +102,8 @@ export function packageErrors(pkgDir, model) {
 /**
  * Write the BaoCut package (and the LivLiv one when o.livliv). model: { name, canvas, profile, anchors, expressions
  * ([{id}] in our ids), layers (defs) }. rest: the layers composited at rest (full canvas), for the cover and avatar.
- * Returns { bcpuppet, livliv?, errors }.
+ * o.whole: by layer id, an expression patch with its eyes still in it ({ L, talk }, full canvas), for the LivLiv
+ * package, which has no expr_eye roles. Returns { bcpuppet, livliv?, errors }.
  */
 export function writePackages(outDir, pkgDir, model, rest, o = {}) {
   const [w, h] = model.canvas;
@@ -118,11 +119,21 @@ export function writePackages(outDir, pkgDir, model, rest, o = {}) {
   const out = { errors, bcpuppet: path.join(outDir, `${base}.bcpuppet`) };
   fs.writeFileSync(out.bcpuppet, zip(packageFiles(pkgDir, model.layers)));
   if (!o.livliv) return out;
-  // the LivLiv package: the same layers, anchors and rig; the tuning left to the player's defaults
+  // the LivLiv package: the same layers, anchors and rig; the tuning left to the player's defaults. LivLiv would draw
+  // an expression's own eyes (roles expr_eye_*, ours) as a plain layer, always on: they go back into the patch
   const lvDir = path.join(outDir, 'livliv');
   fs.rmSync(lvDir, { recursive: true, force: true });
   fs.mkdirSync(lvDir, { recursive: true });
   fs.cpSync(path.join(pkgDir, 'textures'), path.join(lvDir, 'textures'), { recursive: true });
+  const ownEyes = (d) => (d.role ?? '').startsWith('expr_eye_');
+  for (const d of model.layers) {
+    if (ownEyes(d)) fs.rmSync(path.join(lvDir, d.texture), { force: true });
+    const W = o.whole?.[d.id];
+    if (!W) continue;
+    const box = [d.x, d.y, d.w, d.h];
+    writePng(path.join(lvDir, d.texture), bleed(cut(W.L, box)));
+    if (d.talk) writePng(path.join(lvDir, d.talk), bleed(cut(W.talk, box)));
+  }
   // the cover: the character at rest on transparent, cut to its box; the avatar: the face in a ~96 px square
   const cb = alphaBox(rest, w, h, 4);
   writePng(path.join(lvDir, 'cover.png'), crop(rest, ...cb));
@@ -137,7 +148,7 @@ export function writePackages(outDir, pkgDir, model, rest, o = {}) {
     requires: [],
     files: { cover: 'cover.png', avatar: 'avatar.png' },
     canvas: [w, h], profile: model.profile, anchors: model.anchors, rig: RIG, expressions: lvExprs,
-    layers: model.layers.map((d) => (d.expression ? { ...d, expression: idMap[d.expression] ?? d.expression } : d)),
+    layers: model.layers.filter((d) => !ownEyes(d)).map((d) => (d.expression ? { ...d, expression: idMap[d.expression] ?? d.expression } : d)),
   };
   fs.writeFileSync(path.join(lvDir, 'model.json'), JSON.stringify(lv, null, 1) + '\n');
   errors.push(...packageErrors(lvDir, lv).map((e) => `livliv ${e}`));

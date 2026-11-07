@@ -15,6 +15,7 @@ import { readLabels, part, PARTS, NAMES } from './partmap.mjs';
 import { smoothFill, strandFill } from './fill.mjs';
 import { browNear, redrawnBrows, browNoteOf, writeBrowDebug } from './brows.mjs';
 import { writeLayers, writePackages, NECK_UP_MAX } from './pack.mjs';
+import { cutExpressionEyes, expressionEyeLayers } from './expreyes.mjs';
 
 // soft shading redrawn by an edit leaves more residual than flat colours (puppet-build.mjs uses 6)
 const RESIDUAL_MAX = 8;
@@ -540,18 +541,22 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
       }
       // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them, the bare
       // face beneath them). Found nothing (a brow the colour of the hair): the brows stay in the patch
-      let BT = null, browNote = '';
+      let BT = null, browNote = '', browPx = null;
       if (browsRedrawn) {
         const B = redrawnBrows({ E, im, near, full: browFull, browCol, hairCol: frontCol, skin, midX, L, T, under: blankFace, w, h });
         if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, near, w, h);
         BT = B.BT;
+        if (BT) browPx = dilate(B.bm, w, h, 2);
         browNote = BT ? browNoteOf(B.bm, or(M.front, browOnHair), midX, w, h) : '; brows kept in the patch (none found)';
       }
+      // the eyes it drew go to layers of their own that blink, the bare face under them in the patch
+      const X = cutExpressionEyes({ E, im, L, T, under: blankFace, eyes: eyeBox.map((zone, s) => ({ zone, hit: eyesHit[s], pivot: eyeInfo[s].pivot })), changed: kept, keep: browPx, w, h });
       const bx = alphaBox(L, w, h, 2);
       expressions.push({ id });
       const parts = [eyesHit.every(Boolean) ? 'eyes' : eyesHit[0] ? 'left eye' : eyesHit[1] ? 'right eye' : '', browsRedrawn ? 'brows' : '', count(blush) ? 'blush' : '', 'mouth'].filter(Boolean);
-      check(true, `expression ${id}`, `${bx[2]}x${bx[3]} px patch: ${parts.join(', ')}${browNote}`);
-      layers.push({ id: `expr_${id}`, L, talk: T, ...(BT ? { browTex: BT } : {}), def: { group: 'head', depth: 0, role: 'expr', expression: id, ...(browsRedrawn ? { brows: 'redrawn' } : {}) }, hidden: true });
+      check(true, `expression ${id}`, `${bx[2]}x${bx[3]} px patch: ${parts.join(', ')}${browNote}${X.note}`);
+      layers.push({ id: `expr_${id}`, L, talk: T, ...(BT ? { browTex: BT } : {}), whole: X.whole, def: { group: 'head', depth: 0, role: 'expr', expression: id, ...(browsRedrawn ? { brows: 'redrawn' } : {}) }, hidden: true });
+      layers.push(...expressionEyeLayers(id, X.eyes));
     }
   }
 
@@ -636,7 +641,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   // ---------------------------------------------------------------- write and check
   const defs = writeLayers(layers, PKG, w, h);
   const profile = cfg.profile ?? { id: 'anime_half', facing: 'front', glasses: false };
-  const outp = writePackages(OUT, PKG, { name: NAME, canvas: [w, h], profile, anchors, expressions, layers: defs }, rest, { livliv: cfg.livliv !== false, meta: cfg.meta });
+  const outp = writePackages(OUT, PKG, { name: NAME, canvas: [w, h], profile, anchors, expressions, layers: defs }, rest, { livliv: cfg.livliv !== false, meta: cfg.meta, whole: Object.fromEntries(layers.filter((l) => l.whole).map((l) => [l.id, l.whole])) });
   let diff = 0, worst = 0; const dimg = blank(w, h), off = new Uint8Array(N);
   for (let p = 0; p < N; p++) {
     const a = rest.d[4 * p + 3] / 255;

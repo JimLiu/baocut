@@ -392,6 +392,8 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     // one brow raised 7 px, the other left as it was
     raised: draw({ brows: [brow(214, 7), brow(298)] }),
     angry: draw({ brows: [vBrow(214), vBrow(298)], eyes: [...eye(214), ...eye(298), ...narrowed(214), ...narrowed(298)], mouth: mouths.frown, cheeks: [blush(198), blush(314)] }),
+    // laughing with the eyes shut
+    happy: draw({ eyes: [...lid(214), ...lid(298)], mouth: mouths.broad }),
   };
 }
 
@@ -464,9 +466,10 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(status).toBe(0);
     const note = (id: string) => report.checks.find((c) => c.item === `expression ${id}`)!.note;
     expect(note('smile')).toMatch(/px patch: mouth$/);
-    expect(note('angry')).toMatch(/px patch: eyes, brows, blush, mouth; brows L \d+ \/ R \d+ px, 0 of them on the bangs$/);
-    type Layer = { id: string; x: number; y: number; w: number; h: number; texture: string; talk?: string; brows?: string; role?: string; expression?: string };
-    const layers = (JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8')) as { layers: Layer[] }).layers;
+    expect(note('angry')).toMatch(/px patch: eyes, brows, blush, mouth; brows L \d+ \/ R \d+ px, 0 of them on the bangs; eyes L R blink$/);
+    type Layer = { id: string; x: number; y: number; w: number; h: number; texture: string; talk?: string; brows?: string; role?: string; expression?: string; pivot?: number[] };
+    const pkg = path.join(path.dirname(cfg), 'puppet/package');
+    const layers = (JSON.parse(fs.readFileSync(path.join(pkg, 'model.json'), 'utf8')) as { layers: Layer[] }).layers;
     const smile = layers.find((l) => l.id === 'expr_smile')!, angry = layers.find((l) => l.id === 'expr_angry')!;
     expect(angry).toMatchObject({ role: 'expr', expression: 'angry', brows: 'redrawn' });
     expect(angry.talk).toMatch(/^textures\/.+\.png$/);
@@ -478,6 +481,38 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(angry.x + angry.w).toBeGreaterThanOrEqual(328);
     expect(angry.y).toBeLessThanOrEqual(198);
     expect(angry.y + angry.h).toBeGreaterThanOrEqual(282);
+    // the eyes it drew are layers of their own after the patch, squashed onto the neutral eye's lid line in a blink;
+    // under them the patch and its talking copy are bare skin (the irises are line-coloured, centred at row 239)
+    const ids = layers.map((l) => l.id);
+    const lum = (l: Layer, file: string, x: number, y: number) => {
+      const im = readPng(path.join(pkg, file)), q = 4 * ((y - l.y) * im.w + (x - l.x));
+      return im.d[q + 3] > 200 ? (im.d[q] + im.d[q + 1] + im.d[q + 2]) / 3 : -1;
+    };
+    for (const [s, cx] of [['L', 214], ['R', 298]] as const) {
+      const e = layers.find((l) => l.id === `expr_angry_eye_${s}`)!;
+      expect(e).toMatchObject({ role: `expr_eye_${s}`, expression: 'angry', pivot: layers.find((l) => l.id === `eye_${s}`)!.pivot });
+      expect(ids.indexOf(e.id)).toBe(ids.indexOf('expr_angry') + (s === 'L' ? 1 : 2));
+      expect(lum(e, e.texture, cx, 239)).toBeLessThan(60);
+      expect(lum(angry, angry.texture, cx, 239)).toBeGreaterThan(180);
+      expect(lum(angry, angry.talk!, cx, 239)).toBeGreaterThan(180);
+    }
+    expect(ids.some((i) => i.startsWith('expr_smile_eye'))).toBe(false);
+  });
+
+  it('leaves the eyes of an expression that shut them in its patch', () => {
+    for (const partmap of [false, true]) {
+      const dir = tmp();
+      const cfgFile = writeCharacter(dir, partmap ? { hair: [230, 190, 90] } : {}, undefined, { partmap });
+      const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
+      fs.writeFileSync(cfgFile, JSON.stringify({ ...cfg, expressions: { happy: 'art/happy.png' } }));
+      const { status, report } = build(cfgFile);
+      expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+      expect(status).toBe(0);
+      expect(report.checks.find((c) => c.item === 'expression happy')!.note).toMatch(/px patch: eyes, mouth; eyes L R drawn shut, kept in the patch$/);
+      const ids = (JSON.parse(fs.readFileSync(path.join(dir, 'puppet/package/model.json'), 'utf8')) as { layers: { id: string }[] }).layers.map((l) => l.id);
+      expect(ids).toContain('expr_happy');
+      expect(ids.some((i) => i.startsWith('expr_happy_eye'))).toBe(false);
+    }
   });
 
   it('clears the whole edited mouth from the talking patch, even a smile wider than the portrait mouth', () => {
@@ -530,7 +565,21 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     for (const id of ['body', 'face', 'mouth', 'brows', 'side_hair', 'front_hair', 'expr_smile', 'expr_angry']) expect(ids).toContain(id);
     const lv = JSON.parse(fs.readFileSync(path.join(dir, 'livliv/model.json'), 'utf8'));
     expect(lv).toMatchObject({ format: 'livliv-model', version: 4, canvas: [SIZE, SIZE], files: { cover: 'cover.png', avatar: 'avatar.png' } });
-    expect(lv.layers.map((l: { id: string }) => l.id)).toEqual(ids);
+    // LivLiv has no expr_eye roles (it would draw them always on): its angry patch keeps the eyes, the irises dark
+    type Layer = { id: string; x: number; y: number; texture: string; talk?: string; role?: string };
+    const own = (l: Layer) => (l.role ?? '').startsWith('expr_eye_');
+    expect(model.layers.filter(own).map((l: Layer) => l.id)).toEqual(['expr_angry_eye_L', 'expr_angry_eye_R']);
+    expect(lv.layers.map((l: { id: string }) => l.id)).toEqual(model.layers.filter((l: Layer) => !own(l)).map((l: Layer) => l.id));
+    expect(fs.readdirSync(path.join(dir, 'livliv/textures')).filter((f) => f.includes('_eye_'))).toEqual([]);
+    const lum = (pkg: string, l: Layer, file: string, x: number, y: number) => {
+      const im = readPng(path.join(dir, pkg, file)), q = 4 * ((y - l.y) * im.w + (x - l.x));
+      return (im.d[q] + im.d[q + 1] + im.d[q + 2]) / 3;
+    };
+    const ab = model.layers.find((l: Layer) => l.id === 'expr_angry'), al = lv.layers.find((l: Layer) => l.id === 'expr_angry');
+    for (const f of [ab.texture, ab.talk]) {
+      expect(lum('package', ab, f, 214, 239)).toBeGreaterThan(180);
+      expect(lum('livliv', al, f, 214, 239)).toBeLessThan(60);
+    }
     expect(model.rig).toEqual({ neck: { twist: 0.5 } });
     expect(lv.rig).toEqual(model.rig);
     expect(lv.anchors.neck_y).toBe(model.anchors.neck_y);

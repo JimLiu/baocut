@@ -90,6 +90,7 @@
 - [`scripts/puppet/brows.mjs`](virtual-host/scripts/puppet/brows.mjs)
 - [`scripts/puppet/edits.mjs`](virtual-host/scripts/puppet/edits.mjs)
 - [`scripts/puppet/expression-labels.json`](virtual-host/scripts/puppet/expression-labels.json)
+- [`scripts/puppet/expreyes.mjs`](virtual-host/scripts/puppet/expreyes.mjs)
 - [`scripts/puppet/eyes.mjs`](virtual-host/scripts/puppet/eyes.mjs)
 - [`scripts/puppet/fill.mjs`](virtual-host/scripts/puppet/fill.mjs)
 - [`scripts/puppet/layers.mjs`](virtual-host/scripts/puppet/layers.mjs)
