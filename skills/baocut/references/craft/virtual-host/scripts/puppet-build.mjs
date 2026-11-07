@@ -31,7 +31,7 @@ import { browNear, redrawnBrows, browNoteOf, writeBrowDebug, sideOf } from './pu
 import { strandFill } from './puppet/fill.mjs';
 import { zip } from './puppet/zip.mjs';
 import { RIG, NECK_UP_MAX } from './puppet/pack.mjs';
-import { cutExpressionEyes, expressionEyeLayers } from './puppet/expreyes.mjs';
+import { expressionEyeRegions, cutExpressionEyes, expressionEyeLayers, writeEyeDebug } from './puppet/expreyes.mjs';
 
 const args = process.argv.slice(2);
 const cfgArg = args.find((a) => !a.startsWith('--'));
@@ -520,19 +520,23 @@ const expressions = [];
     // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them, the bare
     // face beneath them). Read from the edit as registered where the patch has no colours (the hair): a brow or hair
     // pixel needs no skin matching. Found nothing (a brow the colour of the hair): the brows stay in the patch
+    // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
+    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s] })), changed: kept, skin, w, h });
+    if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h);
     let BT = null, browNote = '', browPx = null;
     if (browsRedrawn) {
       const Eb = clone(R.im);
       for (let p = 0; p < N; p++) if (area[p]) Eb.d.set(E.d.subarray(4 * p, 4 * p + 3), 4 * p);
-      const B = redrawnBrows({ E: Eb, im, near, full: G.brows, browCol, hairCol, skin, midX, L, T, under: faceL, w, h });
-      if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, near, w, h);
+      const browSearch = minus(near, dilate(ER.any, w, h, 1));
+      const B = redrawnBrows({ E: Eb, im, near: browSearch, full: G.brows, browCol, hairCol, skin, midX, L, T, under: faceL, w, h });
+      if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, browSearch, w, h);
       BT = B.BT;
       if (BT) browPx = dilate(B.bm, w, h, 2);
       browNote = BT ? browNoteOf(B.bm, G.hair, midX, w, h) : '; brows kept in the patch (none found)';
     }
     // the eyes it drew go to layers of their own that blink, the bare face under them in the patch
     const pivots = ['L', 'R'].map((s) => eyeLayers.find((e) => e.id === `eye_${s}`).def.pivot);
-    const X = cutExpressionEyes({ E, im, L, T, under: faceL, eyes: eyeBox.map((zone, s) => ({ zone, hit: eyesHit[s], pivot: pivots[s] })), changed: kept, keep: browPx, w, h });
+    const X = cutExpressionEyes({ L, T, under: faceL, regions: ER, pivots, keep: browPx, w, h });
     const box = alphaBox(L, w, h, 2);
     expressions.push({ id });
     const parts = [eyesHit.every(Boolean) ? 'eyes' : eyesHit[0] ? 'left eye' : eyesHit[1] ? 'right eye' : '', browsRedrawn ? 'brows' : '', count(blush) ? 'blush' : '', 'mouth'].filter(Boolean);
