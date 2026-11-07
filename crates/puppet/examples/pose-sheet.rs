@@ -1,13 +1,17 @@
 //! 把一个角色包按一组固定姿势画成一张拼图，开发时看角色包能不能用：静止、左右转头、抬头低头、歪头、闭眼、
-//! 看左看右、各帧嘴（半张、张开、圆嘴、扁嘴）、笑、挑眉。每格先按姿势的参数走 1.2 秒物理，弹簧停稳再画。
+//! 看左看右、各帧嘴（半张、张开、圆嘴、扁嘴）、表情（缺省 `smile`）、带着表情快闭上眼与闭眼、挑眉。每格先按姿势的
+//! 参数走 1.2 秒物理，弹簧停稳再画。
 //!
-//!   cargo run -p puppet --release --example pose-sheet -- <角色包 .bcpuppet 或解开的目录> <out.png> [格子高度]
+//!   cargo run -p puppet --release --example pose-sheet -- <角色包 .bcpuppet 或解开的目录> <out.png> [格子高度] [表情]
 //!
 //! 格子从左到右、从上到下依次是 `POSES` 的顺序，终端里打印一遍。
 
 use std::path::Path;
 
 use puppet::{Package, Params, Puppet, TICK};
+
+/// 姿势里这个键是表情的权重，表情由命令行给
+const EXPR: &str = "expr";
 
 const POSES: &[(&str, &[(&str, f64)])] = &[
     ("rest", &[]),
@@ -23,7 +27,9 @@ const POSES: &[(&str, &[(&str, f64)])] = &[
     ("mouth-open", &[("mouthOpen", 0.9)]),
     ("mouth-round", &[("mouthOpen", 0.9), ("vowel", -1.0)]),
     ("mouth-wide", &[("mouthOpen", 0.9), ("vowel", 1.0)]),
-    ("smile", &[("smile", 1.0)]),
+    ("expr", &[(EXPR, 1.0)]),
+    ("expr-closing", &[(EXPR, 1.0), ("eyeLOpen", 0.15), ("eyeROpen", 0.15)]),
+    ("expr-blink", &[(EXPR, 1.0), ("eyeLOpen", 0.0), ("eyeROpen", 0.0)]),
     ("brows-up", &[("browLY", 1.0), ("browRY", 1.0)]),
     ("turn-talk", &[("angleX", 20.0), ("angleY", -10.0), ("mouthOpen", 0.9), ("bodyX", 6.0)]),
 ];
@@ -40,13 +46,14 @@ fn load(path: &Path) -> Package {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let [src, out, rest @ ..] = args.as_slice() else {
-        eprintln!("usage: pose-sheet <package.bcpuppet | folder> <out.png> [cell height]");
+        eprintln!("usage: pose-sheet <package.bcpuppet | folder> <out.png> [cell height] [expression]");
         std::process::exit(2);
     };
     let package = load(Path::new(src));
     let mut puppet = Puppet::new(&package).expect("build the rig");
     let [mw, mh] = puppet.model().canvas;
     let ch: u32 = rest.first().and_then(|v| v.parse().ok()).unwrap_or(384);
+    let expr = rest.get(1).map_or("smile", String::as_str);
     let cw = ((f64::from(mw) / f64::from(mh)) * f64::from(ch)).round().max(1.0) as u32;
     let cols = 4u32;
     let rows = (POSES.len() as u32).div_ceil(cols);
@@ -55,12 +62,12 @@ fn main() {
     for (k, (name, params)) in POSES.iter().enumerate() {
         puppet.reset();
         let mut p = Params::default();
-        for (key, v) in *params {
+        for (key, v) in params.iter().filter(|(key, _)| *key != EXPR) {
             p.set(Params::index(key).expect("known parameter"), *v);
         }
         puppet.params = p;
-        if let Some((_, v)) = params.iter().find(|(key, _)| *key == "smile") {
-            puppet.set_expression("smile", *v);
+        if let Some((_, v)) = params.iter().find(|(key, _)| *key == EXPR) {
+            puppet.set_expression(expr, *v);
         }
         for _ in 0..(1.2 / TICK) as usize {
             puppet.update(TICK, false);
@@ -78,7 +85,7 @@ fn main() {
                 sheet.put_pixel(x0 + x, y0 + y, image::Rgba([px[0], px[1], px[2], 255]));
             }
         }
-        println!("{k:2} {name}");
+        println!("{k:2} {}", name.replace(EXPR, expr));
     }
     sheet.save(out).expect("write the sheet");
     println!("{}x{} cells of {cw}x{ch} -> {out}", cols, rows);
