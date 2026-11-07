@@ -190,3 +190,42 @@ fn seeking_back_during_idle_moves_gives_the_same_frame() {
         assert_eq!(frame(&mut p, t), direct[k], "at {t}");
     }
 }
+
+/// 表情自己画的眉毛（`brow_tex`）在最后一个 `brows` 层之后画，盖在刘海上；表情关着时不画。表情补丁本身在刘海下面，
+/// 在眉毛底下是不透明的脸（网格只铺在层贴图不透明的地方）。
+#[test]
+fn an_expression_draws_its_brows_over_the_bangs() {
+    use puppet::testing::{model, png};
+    // 刘海是模型的 70..186 × 30..70。中性眉毛（第 66–69 行）与表情画的眉毛（第 58–63 行）都压在刘海上
+    let bar = |y0: f64, y1: f64, rgb: [u8; 3]| {
+        png(64, 16, move |_, y| if (y0..y1).contains(&(y + 56.0)) { [rgb[0], rgb[1], rgb[2], 255] } else { [0, 0, 0, 0] })
+    };
+    let mut m = model();
+    m["expressions"] = serde_json::json!([{ "id": "smile" }, { "id": "surprised" }]);
+    let layers = m["layers"].as_array_mut().unwrap();
+    let bangs = layers.iter().position(|l| l["id"] == "front_hair").unwrap();
+    layers.insert(bangs, serde_json::json!({ "id": "expr_surprised", "role": "expr", "expression": "surprised", "texture": "textures/patch.png",
+        "brow_tex": "textures/surprised_brows.png", "x": 96, "y": 56, "w": 64, "h": 16, "group": "head" }));
+    layers.push(serde_json::json!({ "id": "brows", "texture": "textures/brows.png", "x": 96, "y": 56, "w": 64, "h": 16, "group": "head" }));
+    let mut fs = files("");
+    fs[0].1 = serde_json::to_vec(&m).unwrap();
+    fs.push(("textures/patch.png".into(), png(64, 16, |_, _| [250, 220, 200, 255])));
+    fs.push(("textures/brows.png".into(), bar(66.0, 70.0, [20, 20, 20])));
+    fs.push(("textures/surprised_brows.png".into(), bar(58.0, 64.0, [200, 30, 200])));
+    let pkg = Package::from_zip(&zip(&fs)).unwrap();
+    let on = track(serde_json::json!({
+        "format": "baocut-puppet-track", "version": 1, "fps": 30, "duration": 2.0,
+        "expressions": { "surprised": vec![1.0; 61] }
+    }));
+    let mut p = Player::new(Puppet::new(&pkg).unwrap(), Some(on), 1, 0.0);
+    let px = frame(&mut p, 1.0);
+    // 画面缩一半，头随待机动一两个像素：脸中线上从上往下是刘海、表情画的眉毛、中性眉毛、脸
+    let rows = |px: &[u8], rgb: [u8; 4]| (20..40).filter(|&y| at(px, 64, y) == rgb).collect::<Vec<_>>();
+    let (up, flat) = (rows(&px, [200, 30, 200, 255]), rows(&px, [20, 20, 20, 255]));
+    assert!(!up.is_empty() && !flat.is_empty() && up.last() < flat.first(), "{up:?} {flat:?}");
+    assert_eq!(at(&px, 64, up[0] - 2), [100, 70, 50, 255]);
+    let mut p = Player::new(Puppet::new(&pkg).unwrap(), None, 1, 0.0);
+    let px = frame(&mut p, 0.0);
+    assert!(rows(&px, [200, 30, 200, 255]).is_empty());
+    assert!(!rows(&px, [20, 20, 20, 255]).is_empty());
+}

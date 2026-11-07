@@ -328,13 +328,15 @@ function render(shapes: Shape[], line: RGB, background: RGB) {
   return { w: SIZE, h: SIZE, d };
 }
 
-function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null } = {}) {
+function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false } = {}) {
   const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26], green: RGB = [0, 177, 64];
   const neck = { inside: rect(222, 300, 290, 470), fill: skin, outline: 6 };
   const body = { inside: ell(256, 560, 170, 150), fill: [150, 120, 210] as RGB, outline: 6 };
   const head = { inside: ell(256, 228, 100, 118), fill: skin, outline: 6 };
-  // a bob: a cap over the forehead and locks down both sides of the face
-  const hairShape = { inside: (x: number, y: number) => ell(256, 214, 120, 126)(x, y) && y < 290 && (y < 168 || !ell(256, 228, 93, 111)(x, y)), fill: hair, outline: 6 };
+  // a bob: a cap over the forehead and locks down both sides of the face; with a fringe the bangs come down past the
+  // brows, which are drawn over them
+  const inFringe = (x: number, y: number) => fringe && y < 218 && Math.abs(x - 256) < 80;
+  const hairShape = { inside: (x: number, y: number) => ell(256, 214, 120, 126)(x, y) && y < 290 && (y < 168 || inFringe(x, y) || !ell(256, 228, 93, 111)(x, y)), fill: hair, outline: 6 };
   const eye = (cx: number): Shape[] => [
     { inside: ell(cx, 238, 21, 15), fill: white, outline: 2 },
     { inside: ell(cx, 239, 9, 10), fill: iris ?? line, outline: 2 },
@@ -344,7 +346,7 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     { inside: ell(cx, 238, 22, 16), fill: skin },
     { inside: stroke((x) => 238 + 6 * (1 - ((x - cx) / 21) ** 2), cx - 21, cx + 21, 1.8), fill: line },
   ];
-  const brow = (cx: number): Shape => ({ inside: stroke((x) => 206 - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: line });
+  const brow = (cx: number, up = 0): Shape => ({ inside: stroke((x) => 206 - up - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: line });
   // angry: brows pulled down toward the nose, the upper lids lowered flat over the irises, a blush on the cheeks
   const vBrow = (cx: number): Shape => ({ inside: stroke((x) => 198 + 10 * (cx < 256 ? x - (cx - 22) : cx + 22 - x) / 44, cx - 22, cx + 22, 3), fill: line });
   const narrowed = (cx: number): Shape[] => [
@@ -371,7 +373,8 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   const eyeMap = (cx: number) => { const [w, i, hl] = eye(cx); return [key(w, [255, 255, 255], 2), key(i, [0, 255, 255]), key(hl, [0, 255, 255])]; };
   const partmap = render([
     key(neck, [255, 128, 0]), key(body, [128, 128, 128]), key(head, [255, 255, 0]),
-    { inside: (x, y) => hairShape.inside(x, y) && y < 200, fill: [255, 0, 0] }, { inside: (x, y) => hairShape.inside(x, y) && y >= 200, fill: [255, 0, 255] },
+    { inside: (x, y) => hairShape.inside(x, y) && (y < 200 || inFringe(x, y)), fill: [255, 0, 0] },
+    { inside: (x, y) => hairShape.inside(x, y) && y >= 200 && !inFringe(x, y), fill: [255, 0, 255] },
     key(brow(214), [128, 0, 255]), key(brow(298), [128, 0, 255]), ...eyeMap(214), ...eyeMap(298), key(mouths.rest[0], [128, 0, 0]),
   ], [0, 0, 0], green);
   return {
@@ -385,6 +388,8 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     wide: draw({ mouth: mouths.wide }),
     smile: draw({ mouth: mouths.smile }),
     broad: draw({ mouth: mouths.broad }),
+    // one brow raised 7 px, the other left as it was
+    raised: draw({ brows: [brow(214, 7), brow(298)] }),
     angry: draw({ brows: [vBrow(214), vBrow(298)], eyes: [...eye(214), ...eye(298), ...narrowed(214), ...narrowed(298)], mouth: mouths.frown, cheeks: [blush(198), blush(314)] }),
   };
 }
@@ -522,6 +527,47 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(lv).toMatchObject({ format: 'livliv-model', version: 4, canvas: [SIZE, SIZE], files: { cover: 'cover.png', avatar: 'avatar.png' } });
     expect(lv.layers.map((l: { id: string }) => l.id)).toEqual(ids);
     expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
+  });
+
+  it('draws the brows an expression moved over the bangs', () => {
+    const dir = tmp();
+    const cfgFile = writeCharacter(dir, { hair: [230, 190, 90], fringe: true }, undefined, { partmap: true });
+    const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
+    fs.writeFileSync(cfgFile, JSON.stringify({ ...cfg, expressions: { ...cfg.expressions, surprised: 'art/raised.png' } }));
+    const { status, report } = build(cfgFile);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    type Layer = { id: string; x: number; y: number; texture: string; brow_tex?: string };
+    for (const pkg of ['package', 'livliv'].map((d) => path.join(dir, 'puppet', d))) {
+      const layers = (JSON.parse(fs.readFileSync(path.join(pkg, 'model.json'), 'utf8')) as { layers: Layer[] }).layers;
+      const ids = layers.map((l) => l.id);
+      // the brows come after the bangs, so the brows the expressions draw are drawn over the hair too
+      expect(ids.indexOf('brows')).toBeGreaterThan(ids.indexOf('front_hair'));
+      const front = layers.find((l) => l.id === 'front_hair')!, surprised = layers.find((l) => l.id === 'expr_surprised')!;
+      expect(surprised.brow_tex).toMatch(/^textures\/.+\.png$/);
+      const dark = (l: Layer, file: string, x0: number, y0: number, x1: number, y1: number) => {
+        const im = readPng(path.join(pkg, file));
+        let n = 0;
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const i = x - l.x, j = y - l.y;
+          if (i < 0 || j < 0 || i >= im.w || j >= im.h) continue;
+          const q = 4 * (j * im.w + i);
+          if (im.d[q + 3] > 128 && (im.d[q] + im.d[q + 1] + im.d[q + 2]) / 3 < 100) n++;
+        }
+        return n;
+      };
+      // the raised brow (rows 192-197 at its middle) and the brow the edit left (rows 199-205) are in brow_tex, and the
+      // bangs under the portrait's brows are filled with hair, so the raised brow leaves no old brow behind
+      expect(dark(surprised, surprised.brow_tex!, 206, 192, 222, 196)).toBeGreaterThan(60);
+      expect(dark(surprised, surprised.brow_tex!, 290, 200, 306, 204)).toBeGreaterThan(60);
+      for (const cx of [214, 298]) expect(dark(front, front.texture, cx - 8, 199, cx + 8, 205)).toBe(0);
+      // the players mesh a layer only where its texture is opaque: the patch is opaque under every brow it draws
+      const bt = readPng(path.join(pkg, surprised.brow_tex!)), tex = readPng(path.join(pkg, surprised.texture));
+      expect([bt.w, bt.h]).toEqual([tex.w, tex.h]);
+      let bare = 0;
+      for (let q = 3; q < bt.d.length; q += 4) if (bt.d[q] > 128 && tex.d[q] === 0) bare++;
+      expect(bare).toBe(0);
+    }
   });
 
   it('says which edit to redo when the mouths do not open in steps', () => {

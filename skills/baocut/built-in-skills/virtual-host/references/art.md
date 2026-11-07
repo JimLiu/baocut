@@ -166,7 +166,8 @@ The outlines of the drawing belong to the part they surround; draw no lines betw
 | 报告 | 意思与改法 |
 | --- | --- |
 | `part map: shift …, scale …, residual …, …% of the character in no palette colour` | 分区图对齐到正面像的位移、缩放，和有多少像素不像任何一种规定色。位移大、缩放不是 1，或超过 2% 时 `FIX`：重出分区图 |
-| `parts: eyes …, brows …, mouth … px wide` | 分区图里找到的眼睛、眉毛、嘴。`FIX part map: no face`、`FIX mouth: the map has no mouth` 是分区图没涂出脸或嘴：重出分区图 |
+| `parts: eyes …, brows …, mouth … px wide, … px of brow under the hair, … on the bangs` | 分区图里找到的眼睛、眉毛、嘴。`FIX part map: no face`、`FIX mouth: the map has no mouth` 是分区图没涂出脸或嘴：重出分区图。`on the bangs` 是压在刘海上的眉毛像素，这些眉毛单独成层、画在刘海上面 |
+| `expression <名>: …; brows L … / R … px, … of them on the bangs` | 表情改过的眉毛单独切出（`brow_tex`），和中性眉毛一样画在刘海上面。`brows kept in the patch (none found)` 是眉毛附近没找到眉毛，眉毛留在表情补丁里；眉毛压在刘海上时会被刘海盖住，看一眼成品，眉毛不见了就重画表情 |
 | `bald repaint: …% of the scalp under the hair still looks like hair` | 光头重绘在头发底下还留着头发，超过 8% 时 `FIX`：重画 |
 | `rest matches the portrait` | 同第 4 节 |
 

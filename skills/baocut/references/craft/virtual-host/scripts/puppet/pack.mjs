@@ -19,11 +19,12 @@ export function livlivExpressionId(id) {
   return `x_${s || 'expr'}`.slice(0, 32);
 }
 
-const ORDER = ['id', 'texture', 'frames', 'visemes', 'mask', 'talk', 'x', 'y', 'w', 'h', 'group', 'depth', 'role', 'expression', 'brows', 'pivot', 'clip', 'range'];
+const ORDER = ['id', 'texture', 'frames', 'visemes', 'mask', 'talk', 'brow_tex', 'x', 'y', 'w', 'h', 'group', 'depth', 'role', 'expression', 'brows', 'pivot', 'clip', 'range'];
 
 /**
- * layers: [{ id, L, def, frames?, visemes?, mask?, talk? }] bottom first (L full-canvas RGBA; mask full-canvas, its
- * coverage in the red channel). Writes pkgDir/textures/*.png and returns the layer defs (key order like LivLiv's).
+ * layers: [{ id, L, def, frames?, visemes?, mask?, talk?, browTex? }] bottom first (L full-canvas RGBA; mask full-canvas,
+ * its coverage in the red channel; talk and browTex full-canvas, cut to the layer's box). Writes pkgDir/textures/*.png
+ * and returns the layer defs (key order like LivLiv's).
  */
 export function writeLayers(layers, pkgDir, w, h) {
   fs.rmSync(pkgDir, { recursive: true, force: true });
@@ -32,7 +33,7 @@ export function writeLayers(layers, pkgDir, w, h) {
   for (const Lr of layers) {
     let box;
     if (Lr.frames) box = unionBox(Lr.frames.map((f) => alphaBox(f, w, h, 3)));
-    else box = alphaBox(Lr.L, w, h, 2);
+    else box = Lr.browTex ? unionBox([alphaBox(Lr.L, w, h, 2), alphaBox(Lr.browTex, w, h, 2)]) : alphaBox(Lr.L, w, h, 2);
     if (!box) continue;
     const def = { id: Lr.id, texture: `textures/${Lr.id}.png`, x: box[0], y: box[1], w: box[2], h: box[3], ...Lr.def };
     if (Lr.frames) {
@@ -44,6 +45,10 @@ export function writeLayers(layers, pkgDir, w, h) {
     if (Lr.talk) {
       def.talk = `textures/${Lr.id}_talk.png`;
       writePng(path.join(pkgDir, def.talk), bleed(cut(Lr.talk, box)));
+    }
+    if (Lr.browTex) {
+      def.brow_tex = `textures/${Lr.id}_brows.png`;
+      writePng(path.join(pkgDir, def.brow_tex), bleed(cut(Lr.browTex, box)));
     }
     if (Lr.mask) {
       def.mask = `textures/${Lr.id}_mask.png`;
@@ -60,7 +65,7 @@ export function writeLayers(layers, pkgDir, w, h) {
 /** the files a package's layers name, model.json first */
 function packageFiles(pkgDir, defs, extra = []) {
   const files = [['model.json', fs.readFileSync(path.join(pkgDir, 'model.json'))]];
-  for (const d of defs) for (const f of [d.texture, ...(d.frames ?? []), d.mask, d.talk].filter(Boolean)) if (!files.some(([n]) => n === f)) files.push([f, fs.readFileSync(path.join(pkgDir, f))]);
+  for (const d of defs) for (const f of [d.texture, ...(d.frames ?? []), d.mask, d.talk, d.brow_tex].filter(Boolean)) if (!files.some(([n]) => n === f)) files.push([f, fs.readFileSync(path.join(pkgDir, f))]);
   for (const f of extra) files.push([f, fs.readFileSync(path.join(pkgDir, f))]);
   return files;
 }
@@ -73,7 +78,7 @@ export function packageErrors(pkgDir, model) {
     if (ids.has(d.id)) errs.push(`${d.id}: id used twice`);
     ids.add(d.id);
     if (d.x < 0 || d.y < 0 || d.x + d.w > w || d.y + d.h > h) errs.push(`${d.id}: box outside the canvas`);
-    for (const f of [d.texture, ...(d.frames ?? []), d.mask, d.talk].filter(Boolean)) {
+    for (const f of [d.texture, ...(d.frames ?? []), d.mask, d.talk, d.brow_tex].filter(Boolean)) {
       const t = readImage(path.join(pkgDir, f));
       if (t.w !== d.w || t.h !== d.h) errs.push(`${d.id}: ${f} is ${t.w}x${t.h}, box ${d.w}x${d.h}`);
     }
