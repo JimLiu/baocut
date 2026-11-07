@@ -448,7 +448,11 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(names[0]).toBe('model.json');
     const model = JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8'));
     expect(model).toMatchObject({ format: 'baocut-puppet', version: 1, name: 'synth', canvas: [SIZE, SIZE], expressions: [{ id: 'smile' }, { id: 'angry' }] });
-    expect(model.rig).toBeUndefined();
+    // the neck under the chin goes half way with a head turn; the rest of the rig is the players' defaults
+    expect(model.rig).toEqual({ neck: { twist: 0.5 } });
+    // the head turns round the neck line: just above the chin (row 346)
+    expect(report.checks.find((c) => c.item === 'neck line')!.note).toMatch(/^\d+ px above the chin \(\d+% of the face\)$/);
+    expect(346 - model.anchors.neck_y).toBeLessThan(40);
     for (const t of texturesIn(model)) expect(names).toContain(t);
     for (const id of ['back_hair', 'front_hair', 'face', 'body', 'eye_L', 'eye_R', 'iris_L', 'iris_R', 'brows', 'mouth', 'expr_smile', 'expr_angry'])
       expect(model.layers.map((l: { id: string }) => l.id)).toContain(id);
@@ -527,6 +531,9 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     const lv = JSON.parse(fs.readFileSync(path.join(dir, 'livliv/model.json'), 'utf8'));
     expect(lv).toMatchObject({ format: 'livliv-model', version: 4, canvas: [SIZE, SIZE], files: { cover: 'cover.png', avatar: 'avatar.png' } });
     expect(lv.layers.map((l: { id: string }) => l.id)).toEqual(ids);
+    expect(model.rig).toEqual({ neck: { twist: 0.5 } });
+    expect(lv.rig).toEqual(model.rig);
+    expect(lv.anchors.neck_y).toBe(model.anchors.neck_y);
     expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
   });
 
@@ -542,6 +549,34 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     const model = JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8'));
     // the eye whites start at row 223
     expect(model.anchors.brows[0][3]).toBeLessThan(223);
+  });
+
+  it('keeps the neck line at the chin when the part map has a neck-orange speck up in the face', () => {
+    // red bangs and a yellow face mixing at an edge make orange, the neck's colour
+    const neckY = (speck: boolean) => {
+      const cfg = writeCharacter(tmp(), { hair: [230, 190, 90] }, undefined, { partmap: true });
+      if (speck) {
+        const file = path.join(path.dirname(cfg), 'art/partmap.png'), map = readPng(file);
+        for (let y = 208; y < 214; y++) for (let x = 250; x < 256; x++) map.d.set([255, 128, 0, 255], 4 * (y * map.w + x));
+        writePng(file, map);
+      }
+      const { status, report } = build(cfg);
+      expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+      expect(status).toBe(0);
+      return JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8')).anchors.neck_y;
+    };
+    expect(neckY(true)).toBe(neckY(false));
+  });
+
+  it('says to redo the part map when its neck runs up into the face', () => {
+    const cfg = writeCharacter(tmp(), { hair: [230, 190, 90] }, undefined, { partmap: true });
+    const file = path.join(path.dirname(cfg), 'art/partmap.png'), map = readPng(file);
+    // an orange strip up the cheek, joined to the neck below the chin
+    for (let y = 256; y < 346; y++) for (let x = 222; x < 229; x++) map.d.set([255, 128, 0, 255], 4 * (y * map.w + x));
+    writePng(file, map);
+    const { status, stdout } = build(cfg);
+    expect(status).toBe(1);
+    expect(stdout).toMatch(/^FIX {2}neck line: \d+ px above the chin \(\d+% of the face\); the neck \(orange\) in the part map starts up in the face: redo the map$/m);
   });
 
   it.each([true, false])('draws the brows an expression moved over the bangs (part map %s)', (partmap) => {

@@ -30,6 +30,7 @@ import { registered, strokes } from './puppet/edits.mjs';
 import { browNear, redrawnBrows, browNoteOf, writeBrowDebug, sideOf } from './puppet/brows.mjs';
 import { strandFill } from './puppet/fill.mjs';
 import { zip } from './puppet/zip.mjs';
+import { RIG, NECK_UP_MAX } from './puppet/pack.mjs';
 
 const args = process.argv.slice(2);
 const cfgArg = args.find((a) => !a.startsWith('--'));
@@ -564,6 +565,10 @@ const fc = G.faceComp;
 const skullTop = bbox(baldHead, w, h)?.[1] ?? G.hairBox[1];
 const nk = G.neck;
 const neckY = Math.round(nk ? nk.top + 0.5 * (G.chin - nk.top) : G.chin - 0.05 * (G.chin - skullTop));
+{
+  const up = (G.chin - neckY) / Math.max(1, G.chin - fc.y0);
+  check(up <= NECK_UP_MAX, 'neck line', `${G.chin - neckY} px above the chin (${(100 * up).toFixed(0)}% of the face)${up <= NECK_UP_MAX ? '' : '; the neck was found up in the face: look at the portrait\'s neck and collar'}`);
+}
 const faceX0 = fc.x0 - G.lw, faceX1 = fc.x1 + G.lw;
 const head = { cx: round1((faceX0 + faceX1) / 2), cy: round1((skullTop + neckY) / 2), rx: round1((faceX1 - faceX0) / 2), ry: round1((neckY - skullTop) / 2) };
 let foreheadTop = h;
@@ -621,9 +626,10 @@ for (const Lr of layers) {
 const model = {
   format: 'baocut-puppet', version: 1, name: NAME,
   canvas: [w, h],
-  // the rig and tuning are left to the player's defaults
   profile: cfg.profile ?? { id: 'anime_half', facing: 'front', glasses: !!G.rims },
   anchors,
+  // the tuning is left to the player's defaults
+  rig: RIG,
   expressions,
   layers: defs,
 };

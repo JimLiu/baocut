@@ -19,6 +19,12 @@ export function livlivExpressionId(id) {
   return `x_${s || 'expr'}`.slice(0, 32);
 }
 
+/** the rig both builds write: the neck under the chin goes half way with a head turn; the rest is the players' defaults */
+export const RIG = { neck: { twist: 0.5 } };
+/** how far above the chin the neck line (anchors.neck_y) may be, as a share of the face's height: the head turns and
+ *  tilts round it and its ellipse ends there, so a line up in the face swings the chin off the neck */
+export const NECK_UP_MAX = 0.2;
+
 const ORDER = ['id', 'texture', 'frames', 'visemes', 'mask', 'talk', 'brow_tex', 'x', 'y', 'w', 'h', 'group', 'depth', 'role', 'expression', 'brows', 'pivot', 'clip', 'range'];
 
 /**
@@ -106,13 +112,13 @@ export function writePackages(outDir, pkgDir, model, rest, o = {}) {
     label: STANDARD_EXPRESSIONS[e.id] ?? { und: e.id },
     ...(i < 9 ? { hotkey: String(i + 1) } : {}),
   }));
-  const bc = { format: 'baocut-puppet', version: 1, name: model.name, canvas: [w, h], profile: model.profile, anchors: model.anchors, expressions: exprs, layers: model.layers };
+  const bc = { format: 'baocut-puppet', version: 1, name: model.name, canvas: [w, h], profile: model.profile, anchors: model.anchors, rig: RIG, expressions: exprs, layers: model.layers };
   fs.writeFileSync(path.join(pkgDir, 'model.json'), JSON.stringify(bc, null, 1) + '\n');
   const errors = packageErrors(pkgDir, bc);
   const out = { errors, bcpuppet: path.join(outDir, `${base}.bcpuppet`) };
   fs.writeFileSync(out.bcpuppet, zip(packageFiles(pkgDir, model.layers)));
   if (!o.livliv) return out;
-  // the LivLiv package: the same layers and anchors; the rig and tuning left to the player's defaults
+  // the LivLiv package: the same layers, anchors and rig; the tuning left to the player's defaults
   const lvDir = path.join(outDir, 'livliv');
   fs.rmSync(lvDir, { recursive: true, force: true });
   fs.mkdirSync(lvDir, { recursive: true });
@@ -130,7 +136,7 @@ export function writePackages(outDir, pkgDir, model, rest, o = {}) {
     meta: { generator: { name: 'BaoCut', ...(o.build ? { build: o.build } : {}) }, created: new Date().toISOString().replace(/\.\d+Z$/, 'Z'), ...(o.meta ?? {}) },
     requires: [],
     files: { cover: 'cover.png', avatar: 'avatar.png' },
-    canvas: [w, h], profile: model.profile, anchors: model.anchors, expressions: lvExprs,
+    canvas: [w, h], profile: model.profile, anchors: model.anchors, rig: RIG, expressions: lvExprs,
     layers: model.layers.map((d) => (d.expression ? { ...d, expression: idMap[d.expression] ?? d.expression } : d)),
   };
   fs.writeFileSync(path.join(lvDir, 'model.json'), JSON.stringify(lv, null, 1) + '\n');

@@ -14,7 +14,7 @@ import { registered } from './edits.mjs';
 import { readLabels, part, PARTS, NAMES } from './partmap.mjs';
 import { smoothFill, strandFill } from './fill.mjs';
 import { browNear, redrawnBrows, browNoteOf, writeBrowDebug } from './brows.mjs';
-import { writeLayers, writePackages } from './pack.mjs';
+import { writeLayers, writePackages, NECK_UP_MAX } from './pack.mjs';
 
 // soft shading redrawn by an edit leaves more residual than flat colours (puppet-build.mjs uses 6)
 const RESIDUAL_MAX = 8;
@@ -65,14 +65,17 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   const M = {};
   for (const n of NAMES) M[n] = part(lab, n);
   // each face part only where it can be: the face is the biggest yellow blob; eyes, brows, mouth and ears inside the
-  // head, and no clothes over the eyes (two map colours mixing at an edge can make a third, a brow-purple between pink
-  // and blue hair, a cloth-grey between a black lash and the white); a stray takes the part round it
+  // head, no clothes over the eyes, and neck only in pieces that reach below the chin (two map colours mixing at an
+  // edge can make a third, a brow-purple between pink and blue hair, a cloth-grey between a black lash and the white,
+  // a neck-orange between the red bangs and the yellow face); a stray takes the part round it
   {
     const cc = components(M.face, w, h), big = cc.comps.sort((a, b) => b.area - a.area)[0];
     if (!big) return fail('part map', 'no face (yellow) in the map; redo it');
     const fw0 = big.x1 - big.x0, fh0 = big.y1 - big.y0;
     const inFace = box(w, h, big.x0, big.y0 - 0.15 * fh0, big.x1, big.y1);
+    const nc = components(M.neck, w, h);
     const zone = {
+      neck: compMask(nc.lab, nc.comps.filter((c) => c.y1 > big.y1).map((c) => c.id)),
       face: compMask(cc.lab, [big.id]),
       white: inFace, iris: inFace, lash: inFace, brow: inFace,
       mouth: box(w, h, big.x0, big.y0 + 0.5 * fh0, big.x1, big.y1),
@@ -582,6 +585,10 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   const skullTop = bbox(and(baldFg, headZone), w, h)?.[1] ?? bbox(hairF, w, h)[1];
   const neckTop = neckB ? Math.min(neckB[1], chin) : chin - 0.05 * (chin - skullTop);
   const neckY = Math.round(neckTop + 0.5 * (chin - neckTop));
+  {
+    const up = (chin - neckY) / Math.max(1, chin - fb[1]);
+    check(up <= NECK_UP_MAX, 'neck line', `${chin - neckY} px above the chin (${(100 * up).toFixed(0)}% of the face)${up <= NECK_UP_MAX ? '' : '; the neck (orange) in the part map starts up in the face: redo the map'}`);
+  }
   const fX0 = fb[0], fX1 = fb[2];
   let foreheadTop = h;
   for (let y = 0; y < h && foreheadTop === h; y++) for (let x = fX0; x <= fX1; x++) if (M.face[y * w + x]) { foreheadTop = y; break; }

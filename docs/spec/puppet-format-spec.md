@@ -24,7 +24,7 @@
 - 角色的结构、形变与物理移植自 [LivLiv Player](https://github.com/livliv-dev/player)（Apache-2.0）的 model format v4 与它的运行时；`model.json` 的字段名与含义沿用 v4（`schema/livliv-model-v4.json`、`FORMAT.md`），本规范只写 BaoCut 读哪些字段、怎样校验、哪里不同（§7）。
 - BaoCut 不读 `.livliv` 文件：格式头不同，读到 `"format": "livliv-model"` 一律拒绝（`puppet-invalid`）。
 - 角色包与动作轨分开：同一个角色换一段配音只换动作轨。动作轨由配音的音频分析生成（嘴型、元音、点头），也可以手写。
-- 内置技能 `virtual-host` 带两样生成工具：`puppet-build.mjs` 把一张正面像和几张只改一处的改图（光头、嘴的几帧、闭眼、表情）拆成角色包，不写 `rig` 与 `tuning`，取缺省；`lipsync.mjs` 按逐字时间与配音的音量算动作轨，只写 `mouthOpen`、`vowel`、`angleX` `angleY` `angleZ` 与 `faces.json` 给的表情，眨眼与视线留给待机动作（§5）。用法见技能的 `references/art.md` 与 `references/lipsync.md`。
+- 内置技能 `virtual-host` 带两样生成工具：`puppet-build.mjs` 把一张正面像和几张只改一处的改图（光头、嘴的几帧、闭眼、表情）拆成角色包，`rig` 只写 `neck`（下巴下面的脖子跟着转头走一半），其余的 `rig` 与 `tuning` 取缺省；`lipsync.mjs` 按逐字时间与配音的音量算动作轨，只写 `mouthOpen`、`vowel`、`angleX` `angleY` `angleZ` 与 `faces.json` 给的表情，眨眼与视线留给待机动作（§5）。用法见技能的 `references/art.md` 与 `references/lipsync.md`。
 - 渲染只用 CPU，预览（preview.wasm）与导出用同一份实现，同一个时刻画出来逐像素相同。
 
 ## 2. 角色包
@@ -57,6 +57,8 @@ interface PuppetModel {
 - 字段名用 v4 的 snake_case（`neck_y`、`hair_root_y`、`brow_lines`、`fall_end`……）。未知字段忽略。
 - `anchors.head`（`cx cy rx ry`）与 `anchors.face`（`[x0, y0, x1, y1]`）必须是有限数、半径与宽高为正；`neck_y`、`top_y`、`bottom_y`、`hair_root_y` 必须是有限数。
 - `rig.chains` 最多 64 条，每条 2–256 个有限的点，`k`、`damp`、`drive`、`hang`、`wind` 都是有限数。
+- `anchors.neck_y` 是头与脖子相接的那一行：转头、歪头绕这一行转，头的椭圆到这一行为止。它应在下巴（`jaw.chin`）上面一点；高到脸里时转头和歪头会把下巴甩离脖子。
+- `rig.neck` 是 `{ twist, reach? }`：转头时下巴下面那段脖子跟着下巴往旁边走的份额（`twist`，0 是不跟；没有 `rig.neck` 时不跟），往下到 `reach` 个脸高处减到 0（缺省 0.45），横向只在脸中间那一段。
 
 ### 2.3 层
 
