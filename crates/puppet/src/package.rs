@@ -145,45 +145,84 @@ impl Package {
     }
 
     /// 由 model.json 与一个按包内路径取文件的函数读角色包（测试、开发工具直接读目录）。
-    pub fn from_files(model_json: &[u8], mut file: impl FnMut(&str) -> Result<Option<Vec<u8>>, Error>) -> Result<Package, Error> {
-        if model_json.len() > MAX_MODEL_JSON {
-            return Err(Error::too_large(format!("model.json is larger than {MAX_MODEL_JSON} bytes")));
-        }
-        let model = Model::parse(model_json)?;
-        let mut paths: Vec<&str> = Vec::new();
-        for l in &model.layers {
-            paths.push(&l.texture);
-            paths.extend(l.frames.iter().flatten().map(String::as_str));
-            paths.extend(l.mask.as_deref());
-            paths.extend(l.talk.as_deref());
-            paths.extend(l.brow_tex.as_deref());
-        }
-        paths.sort_unstable();
-        paths.dedup();
+    pub fn from_files(model_json: &[u8], file: impl FnMut(&str) -> Result<Option<Vec<u8>>, Error>) -> Result<Package, Error> {
         let mut textures = HashMap::new();
-        let mut texels = 0u64;
-        for path in paths {
-            let bytes = file(path)?.ok_or_else(|| Error::new(ErrorKind::MissingFile, format!("the package has no \"{path}\"")))?;
-            let (w, h) = image_size(path, &bytes)?;
-            if w == 0 || h == 0 || w > MAX_TEXTURE_SIDE || h > MAX_TEXTURE_SIDE {
-                return Err(Error::too_large(format!(
-                    "\"{path}\" is {w}x{h}: at most {MAX_TEXTURE_SIDE} px a side"
-                )));
-            }
-            texels += u64::from(w) * u64::from(h);
-            if texels > MAX_TEXELS {
-                return Err(Error::too_large(format!(
-                    "the package's images have more than {MAX_TEXELS} pixels in all"
-                )));
-            }
-            textures.insert(path.to_string(), Arc::new(decode(path, &bytes)?));
-        }
+        let model = walk(model_json, file, |path, bytes| {
+            textures.insert(path.to_string(), Arc::new(decode(path, bytes)?));
+            Ok(())
+        })?;
         Ok(Package { model, textures })
+    }
+
+    /// 只检查不解码：清单读得开、引用的贴图都在、尺寸在上限内。导入时用它，比 [`Package::from_zip`] 快得多。
+    pub fn inspect(bytes: &[u8]) -> Result<Model, Error> {
+        let zip = Zip::open(bytes)?;
+        let root = zip.root()?;
+        let model_bytes = zip.read(&format!("{root}model.json"), MAX_MODEL_JSON)?;
+        let mut total = model_bytes.len();
+        walk(
+            &model_bytes,
+            |path| {
+                let name = format!("{root}{path}");
+                if !zip.has(&name) {
+                    return Ok(None);
+                }
+                let data = zip.read(&name, MAX_ENTRY_BYTES)?;
+                total += data.len();
+                if total > MAX_PACKAGE_BYTES {
+                    return Err(Error::too_large(format!(
+                        "the package unpacks to more than {MAX_PACKAGE_BYTES} bytes"
+                    )));
+                }
+                Ok(Some(data))
+            },
+            |_, _| Ok(()),
+        )
     }
 
     pub fn texture(&self, path: &str) -> &Arc<Texture> {
         &self.textures[path]
     }
+}
+
+/// 读清单，按包内路径逐个取贴图、检查尺寸，交给 `each`。
+fn walk(
+    model_json: &[u8],
+    mut file: impl FnMut(&str) -> Result<Option<Vec<u8>>, Error>,
+    mut each: impl FnMut(&str, &[u8]) -> Result<(), Error>,
+) -> Result<Model, Error> {
+    if model_json.len() > MAX_MODEL_JSON {
+        return Err(Error::too_large(format!("model.json is larger than {MAX_MODEL_JSON} bytes")));
+    }
+    let model = Model::parse(model_json)?;
+    let mut paths: Vec<&str> = Vec::new();
+    for l in &model.layers {
+        paths.push(&l.texture);
+        paths.extend(l.frames.iter().flatten().map(String::as_str));
+        paths.extend(l.mask.as_deref());
+        paths.extend(l.talk.as_deref());
+        paths.extend(l.brow_tex.as_deref());
+    }
+    paths.sort_unstable();
+    paths.dedup();
+    let mut texels = 0u64;
+    for path in paths {
+        let bytes = file(path)?.ok_or_else(|| Error::new(ErrorKind::MissingFile, format!("the package has no \"{path}\"")))?;
+        let (w, h) = image_size(path, &bytes)?;
+        if w == 0 || h == 0 || w > MAX_TEXTURE_SIDE || h > MAX_TEXTURE_SIDE {
+            return Err(Error::too_large(format!(
+                "\"{path}\" is {w}x{h}: at most {MAX_TEXTURE_SIDE} px a side"
+            )));
+        }
+        texels += u64::from(w) * u64::from(h);
+        if texels > MAX_TEXELS {
+            return Err(Error::too_large(format!(
+                "the package's images have more than {MAX_TEXELS} pixels in all"
+            )));
+        }
+        each(path, &bytes)?;
+    }
+    Ok(model)
 }
 
 fn reader(bytes: &[u8]) -> image::ImageReader<Cursor<&[u8]>> {

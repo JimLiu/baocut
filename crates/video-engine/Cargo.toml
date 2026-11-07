@@ -13,6 +13,8 @@ message-ref.workspace = true
 render-graph.workspace = true
 # 导入 Lottie 素材时用内核的读法（JSON 或 `.lottie` 压缩包）取尺寸与时长；不开 `media`，不带解码与字体。
 render-raster.workspace = true
+# 导入角色包与动作轨时按渲染器的读法检查（不解码贴图）。
+puppet.workspace = true
 timeline.workspace = true
 video-model.workspace = true
 rusqlite = { version = "0.40.2", features = ["bundled"] }

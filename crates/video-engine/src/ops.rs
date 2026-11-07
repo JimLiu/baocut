@@ -2036,7 +2036,7 @@ pub(crate) fn trim_item(
                 rate,
             };
         }
-        // 其余画面实例与字幕：只改区间。
+        // 其余画面实例与字幕：只改区间（角色贴纸的时钟跟着开头走，见 [`shift_motion_in`]）。
         other => {
             let span = other.span_mut().expect("除音频外的实例都在帧网格上");
             let q = editor_semantics::quantize_input(at, &grid, alignment, "at")?;
@@ -2047,10 +2047,12 @@ pub(crate) fn trim_item(
             if new_end <= new_from {
                 return Err(ErrorBody::range_collapsed(item_id, msg!("engine.trimToZero", "The clip has no length after trimming")));
             }
+            let shift = new_from - span.from_frame;
             *span = FrameSpan {
                 from_frame: new_from,
                 duration_frames: new_end - new_from,
             };
+            shift_motion_in(state, other, shift, fps)?;
             ctx.time_resolution.push(q.receipt);
         }
     }
@@ -2063,6 +2065,33 @@ pub(crate) fn trim_item(
         seconds_between(new_start, new_end),
     );
     crate::item_keyframes::rewindow_item(state, item_id, window, fps)
+}
+
+/// 角色贴纸的开头往后挪了 `shift` 帧（拆分出的后一段、裁掉开头；负数是往前拉长）：`motionIn` 加上同样的秒数，
+/// 角色时钟跟着内容走，口型不跳（视频格式规范 §3.7）。别的实例不变。
+fn shift_motion_in(state: &VideoState, item: &mut TimelineItem, shift: i64, fps: Rate) -> EngineResult<()> {
+    let TimelineItem::Sticker(s) = item else {
+        return Ok(());
+    };
+    let puppet = s
+        .asset_ref
+        .as_ref()
+        .and_then(|r| state.assets.get(&r.id))
+        .is_some_and(|a| a.kind == AssetKind::Puppet);
+    if !puppet || shift == 0 {
+        return Ok(());
+    }
+    let base = match &s.motion_in {
+        Some(t) => t.to_ratio("motionIn")?,
+        None => Ratio::ZERO,
+    };
+    let moved = base
+        .checked_add(frame_time(i128::from(shift), fps).ok_or_else(overflow)?)
+        .ok_or_else(overflow)?;
+    s.motion_in = (moved != Ratio::ZERO)
+        .then(|| MediaTime::from_ratio(moved, "motionIn"))
+        .transpose()?;
+    Ok(())
 }
 
 /// `replaceItemAsset`：只换视频、图片、音频实例的素材（与可选的时间映射），实例的其余部分原样保留。
@@ -2111,7 +2140,7 @@ fn replace_item_asset(
             if let Some(next) = time_map {
                 *map = next.clone();
             }
-            std::mem::replace(asset_ref, target.clone())
+            Some(std::mem::replace(asset_ref, target.clone()))
         }
         TimelineItem::Image(image) => {
             if time_map.is_some() {
@@ -2120,14 +2149,36 @@ fn replace_item_asset(
                     msg!("engine.replaceAssetImageTimeMap", "is an image clip and has no time mapping; leave out timeMap"),
                 ));
             }
-            std::mem::replace(&mut image.asset_ref, target.clone())
+            Some(std::mem::replace(&mut image.asset_ref, target.clone()))
+        }
+        // 素材贴纸：动作轨素材换 `motionRef`（没有时加上），别的换 `assetRef`；种类在下面的 check_item 里查
+        TimelineItem::Sticker(sticker) if sticker.asset_ref.is_some() => {
+            if time_map.is_some() {
+                return Err(not_applicable(
+                    item_id,
+                    msg!(
+                        "engine.replaceAssetStickerTimeMap",
+                        "is a sticker and has no time mapping; leave out timeMap"
+                    ),
+                ));
+            }
+            let motion = state
+                .assets
+                .get(&target.id)
+                .and_then(|a| a.revisions.get(&target.revision))
+                .is_some_and(|r| r.media_type == crate::import::PUPPET_TRACK_MEDIA_TYPE);
+            if motion {
+                sticker.motion_ref.replace(target.clone())
+            } else {
+                sticker.asset_ref.replace(target.clone())
+            }
         }
         _ => {
             return Err(not_applicable(
                 item_id,
                 msg!(
                     "engine.replaceAssetNotMedia",
-                    "is not a video, image or audio clip; swap the code bundle of a composition clip with replaceCodeBundle"
+                    "is not a video, image, audio or asset sticker clip; swap the code bundle of a composition clip with replaceCodeBundle"
                 ),
             ));
         }
@@ -2443,6 +2494,7 @@ pub(crate) fn split_item(
                 duration_frames: span.duration_frames - split,
             };
             l.span_mut().expect("同一类型").duration_frames = split;
+            shift_motion_in(state, r, split, fps)?;
             ctx.time_resolution.push(q.receipt);
         }
     }
@@ -2496,7 +2548,7 @@ pub enum JoinKeep {
 }
 
 /// 合并时不比较的字段：两段本来就该不同的身份与时间，外加名字（只是标签，字段一致时取靠前那件的）。
-const JOIN_OWN_KEYS: [&str; 8] = [
+const JOIN_OWN_KEYS: [&str; 9] = [
     "id",
     "name",
     "lineage",
@@ -2505,6 +2557,7 @@ const JOIN_OWN_KEYS: [&str; 8] = [
     "subframeOffset",
     "playDuration",
     "timeMap",
+    "motionIn",
 ];
 
 pub(crate) fn join_items(state: &mut VideoState, sequence_id: Option<&str>, item_ids: &[Id], keep: Option<JoinKeep>) -> EngineResult<()> {
@@ -2579,6 +2632,28 @@ pub(crate) fn join_items(state: &mut VideoState, sequence_id: Option<&str>, item
         (Some(x), Some(y)) if x == y => {}
         _ => return Err(refuse(msg!("engine.joinSourceGap", "the source time is not continuous"), json!({ "rule": "source-gap" }))),
     }
+    // 角色贴纸的时钟也要接得上：靠后那件的 motionIn = 靠前那件的 motionIn + 长度（拆分的逆操作）。
+    if let (TimelineItem::Sticker(e), TimelineItem::Sticker(l)) = (early, late) {
+        let clock = |t: &Option<MediaTime>| t.as_ref().map_or(Ok(Ratio::ZERO), |t| t.to_ratio("motionIn"));
+        let length = early_range.1.checked_sub(early_range.0).ok_or_else(overflow)?;
+        let expected = clock(&e.motion_in)?.checked_add(length).ok_or_else(overflow)?;
+        let puppet = e
+            .asset_ref
+            .as_ref()
+            .and_then(|r| state.assets.get(&r.id))
+            .is_some_and(|a| a.kind == AssetKind::Puppet);
+        let continuous = if puppet {
+            clock(&l.motion_in)? == expected
+        } else {
+            e.motion_in == l.motion_in
+        };
+        if !continuous {
+            return Err(refuse(
+                msg!("engine.joinSourceGap", "the source time is not continuous"),
+                json!({ "rule": "source-gap", "field": "motionIn" }),
+            ));
+        }
+    }
 
     let (early_id, late_id) = (early.base().id.clone(), late.base().id.clone());
     let early_duration = seconds_between(early_range.0, early_range.1);
@@ -2641,6 +2716,9 @@ pub(crate) fn join_items(state: &mut VideoState, sequence_id: Option<&str>, item
     }
     if let (Some(map), Some(early_map)) = (merged.time_map_mut(), early.time_map()) {
         *map = early_map.clone();
+    }
+    if let (TimelineItem::Sticker(m), TimelineItem::Sticker(e)) = (&mut merged, early) {
+        m.motion_in.clone_from(&e.motion_in);
     }
     let merged_base = merged.base_mut();
     merged_base.id = early_id.clone();
@@ -3917,26 +3995,27 @@ fn check_time_map(state: &VideoState, id: &str, map: &TimeMap, length: Ratio, as
 }
 
 /// `insertItems` 里引用同一事务新建对象的字段：`trackRef` → `trackId`，`documentRef` → `documentId`，
-/// `styleDocumentRef` → `styleDocumentId`，`assetImportRef`（`importAsset` 的 `ref`）→ `assetRef`（那个素材的当前版本）。
-/// 同一个对象不能既给 ID 又给 ref。
+/// `styleDocumentRef` → `styleDocumentId`，`assetImportRef`（`importAsset` 的 `ref`）→ `assetRef`（那个素材的当前版本），
+/// 角色贴纸的 `motionImportRef` → `motionRef`。同一个对象不能既给 ID 又给 ref。
 fn resolve_item_refs(state: &VideoState, body: &mut serde_json::Map<String, Value>, ctx: &EditContext<'_>, n: usize) -> EngineResult<()> {
     let fail = |message: Text| ErrorBody::invalid_operation(message).details(json!({ "itemIndex": n }));
-    if let Some(value) = body.remove("assetImportRef") {
+    for (import_key, ref_key) in [("assetImportRef", "assetRef"), ("motionImportRef", "motionRef")] {
+        let Some(value) = body.remove(import_key) else { continue };
         let Value::String(reference) = value else {
             return Err(fail(msg!(
                 "engine.itemRefNotString",
                 "{field} of clip {number} must be a string",
-                field = "assetImportRef",
+                field = import_key,
                 number = n + 1
             )));
         };
-        if body.contains_key("assetRef") {
+        if body.contains_key(ref_key) {
             return Err(fail(msg!(
                 "engine.itemRefAndId",
                 "Clip {number} gives both {id} and {reference}",
                 number = n + 1,
-                id = "assetRef",
-                reference = "assetImportRef"
+                id = ref_key,
+                reference = import_key
             )));
         }
         let asset_id = ctx
@@ -3948,7 +4027,7 @@ fn resolve_item_refs(state: &VideoState, body: &mut serde_json::Map<String, Valu
                 reference
             )))?;
         let asset = state.assets.get(asset_id).ok_or_else(|| ErrorBody::not_found(kinds::asset(), asset_id))?;
-        body.insert("assetRef".into(), json!({ "id": asset_id, "revision": asset.current_revision }));
+        body.insert(ref_key.into(), json!({ "id": asset_id, "revision": asset.current_revision }));
     }
     for (ref_key, id_key, what) in [
         ("trackRef", "trackId", kinds::track as fn() -> Text),

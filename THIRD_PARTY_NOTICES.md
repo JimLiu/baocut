@@ -575,7 +575,9 @@ DEALINGS IN THE SOFTWARE.
 - 来源：LivLiv Player（https://github.com/livliv-dev/player）
 - 许可：Apache License, Version 2.0（全文见上文「Paseo」一节）
 
-内置 skill `virtual-host` 移植、改写了它的几处算法：`scripts/lipsync.mjs` 的人声频段音量包络（`speech.ts` 的 `envelope()`）、元音音色线索（`vowel.ts`）与音节起点判据（`talk.ts`），以及眨眼的间隔（`runtime/idle.ts`，`lipsync.mjs` 定时刻）。改动写在各文件开头与相应函数的注释里。BaoCut 没有使用、也不分发它 `characters/` 目录下的角色（那些不在 Apache-2.0 之内）。它的 NOTICE：
+`crates/puppet`（分层角色的渲染器）移植了它的运行时 `src/runtime/puppet.ts` 与 `idle.ts`：网格格子、头部椭球的转动、头发与身体的权重场与弹簧、身体滞后与呼吸、下巴随嘴帧下移、眼睛压扁与眼珠裁切、嘴帧的滞回、表情与眉毛的绘制顺序、链条的绳子模拟与待机动作；角色包的 `model.json` 沿用它 model format v4（`schema/livliv-model-v4.json`）的字段名。改动：用 CPU 三角形光栅代替 WebGL2，眼珠的模板与软遮罩合成一张屏幕空间的覆盖图；格式头改成 `baocut-puppet`，不读 keyforms；随机的部分改由动作轨或固定种子的待机动作给出；物理改为固定 1/120 秒步长从 0 秒重放并存快照，任意时刻 seek 结果相同（`crates/puppet/src/lib.rs` 开头与 `docs/spec/puppet-format-spec.md` §7）。
+
+内置 skill `virtual-host` 移植、改写了它的几处算法：`scripts/lipsync.mjs` 的人声频段音量包络（`speech.ts` 的 `envelope()`）、元音音色线索（`vowel.ts`）与音节起点判据（`talk.ts`），以及眨眼的间隔（`runtime/idle.ts`，`lipsync.mjs` 定时刻）。改动写在各文件开头与相应函数的注释里。BaoCut 没有使用、也不分发它 `characters/` 目录下的角色（那些不在 Apache-2.0 之内），测试用的角色是合成的。它的 NOTICE：
 
 ```text
 LivLiv Player

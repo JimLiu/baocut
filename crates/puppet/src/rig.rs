@@ -334,6 +334,42 @@ pub struct Puppet {
     nasal: [Option<Nasal>; 2],
 }
 
+/// 跨步的全部状态（物理、缓动、嘴、参数）：存一份就能从这一步接着走，往回 seek 不必从头重放。
+#[derive(Clone)]
+pub(crate) struct State {
+    params: Params,
+    expr: BTreeMap<String, f64>,
+    springs: [[Spring; 2]; 3],
+    last_head: Option<[f64; 2]>,
+    drive: Drive,
+    body: [f64; 2],
+    bust: Bust,
+    time: f64,
+    smile_shown: f64,
+    mouth_frame: usize,
+    mouth_w: Vec<f64>,
+    mouth_held: f64,
+    mouth_amp: u8,
+    mouth_shape: Shape,
+    talk_left: f64,
+    chains: Vec<ChainState>,
+}
+
+/// 一条链跨步的状态（静止关节、段长这些不变的不存）。
+#[derive(Clone)]
+struct ChainState {
+    p: Vec<f64>,
+    q: Vec<f64>,
+    disp: Vec<f64>,
+    beta: Vec<f64>,
+    w: [f64; 2],
+    v: [f64; 2],
+    acc: [f64; 2],
+    rho: f64,
+    started: bool,
+    moving: bool,
+}
+
 const FRONT: usize = 0;
 const BACK: usize = 1;
 const SIDE: usize = 2;
@@ -550,6 +586,72 @@ impl Puppet {
         self.talk_left = 0.0;
         self.params = Params::default();
         self.expr.clear();
+    }
+
+    pub(crate) fn save(&self) -> State {
+        State {
+            params: self.params,
+            expr: self.expr.clone(),
+            springs: self.springs,
+            last_head: self.last_head,
+            drive: self.drive,
+            body: self.body,
+            bust: self.bust,
+            time: self.time,
+            smile_shown: self.smile_shown,
+            mouth_frame: self.mouth_frame,
+            mouth_w: self.mouth_w.clone(),
+            mouth_held: self.mouth_held,
+            mouth_amp: self.mouth_amp,
+            mouth_shape: self.mouth_shape,
+            talk_left: self.talk_left,
+            chains: self
+                .chains
+                .iter()
+                .map(|c| ChainState {
+                    p: c.p.clone(),
+                    q: c.q.clone(),
+                    disp: c.disp.clone(),
+                    beta: c.beta.clone(),
+                    w: c.w,
+                    v: c.v,
+                    acc: c.acc,
+                    rho: c.rho,
+                    started: c.started,
+                    moving: c.moving,
+                })
+                .collect(),
+        }
+    }
+
+    pub(crate) fn load(&mut self, s: &State) {
+        self.params = s.params;
+        self.expr.clone_from(&s.expr);
+        self.springs = s.springs;
+        self.last_head = s.last_head;
+        self.drive = s.drive;
+        self.body = s.body;
+        self.bust = s.bust;
+        self.time = s.time;
+        self.smile_shown = s.smile_shown;
+        self.mouth_frame = s.mouth_frame;
+        self.mouth_w.clone_from(&s.mouth_w);
+        self.mouth_held = s.mouth_held;
+        self.mouth_amp = s.mouth_amp;
+        self.mouth_shape = s.mouth_shape;
+        self.talk_left = s.talk_left;
+        for (c, cs) in self.chains.iter_mut().zip(&s.chains) {
+            c.p.clone_from(&cs.p);
+            c.q.clone_from(&cs.q);
+            c.disp.clone_from(&cs.disp);
+            c.beta.clone_from(&cs.beta);
+            c.w = cs.w;
+            c.v = cs.v;
+            c.acc = cs.acc;
+            c.rho = cs.rho;
+            c.started = cs.started;
+            c.moving = cs.moving;
+        }
     }
 
     /// 设置表情的权重（`smile` 写进参数）。

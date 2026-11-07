@@ -102,12 +102,13 @@ pub struct CodeEdit {
     pub ripple_frames: Option<i64>,
 }
 
-/// 一个实例换了素材（`replaceItemAsset`）：换掉的与换上的素材版本。
+/// 一个实例换了素材（`replaceItemAsset`）：换掉的与换上的素材版本。给角色贴纸加上第一条动作轨时没有换掉的。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetSwap {
     pub item_id: Id,
-    pub previous_asset_ref: VersionRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_asset_ref: Option<VersionRef>,
     pub asset_ref: VersionRef,
 }
 

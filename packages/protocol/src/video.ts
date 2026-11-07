@@ -538,6 +538,10 @@ export interface StickerProps {
 export interface StickerItem extends VisualBase, MediaFields {
   type: 'sticker';
   assetRef?: VersionRef;
+  /** 角色贴纸（`assetRef` 是 `puppet` 素材）的动作轨：`application/x-baocut-puppet-track+json` 的素材版本。 */
+  motionRef?: VersionRef;
+  /** 角色贴纸：实例开头对着角色时钟的第几秒，缺省 0，可以为负（视频格式规范 §3.7）。 */
+  motionIn?: MediaTime;
   sticker: StickerProps;
 }
 
@@ -1075,7 +1079,7 @@ export interface Sequence {
 }
 
 /** `bundle` 是代码包：一个目录。 */
-export type AssetKind = 'video' | 'audio' | 'image' | 'lottie' | 'font' | 'caption' | 'document' | 'bundle' | 'other';
+export type AssetKind = 'video' | 'audio' | 'image' | 'lottie' | 'puppet' | 'font' | 'caption' | 'document' | 'bundle' | 'other';
 
 export interface FileLocator {
   /** 绝对路径，或相对视频目录的路径（文件在项目目录里时）。 */
@@ -1709,7 +1713,8 @@ export interface CodeEdit {
 /** 一个片段换了素材（`replaceItemAsset`）：换掉的与换上的素材版本。片段 ID 不变。 */
 export interface AssetSwap {
   itemId: Id;
-  previousAssetRef: VersionRef;
+  /** 给角色贴纸加上第一条动作轨时没有。 */
+  previousAssetRef?: VersionRef;
   assetRef: VersionRef;
 }
 

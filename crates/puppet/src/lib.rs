@@ -6,8 +6,8 @@
 //! 网格格子、头部椭球的转动、头发与身体的权重场、两段弹簧、身体滞后与呼吸、下巴随嘴帧下移、眼睛压扁与眼珠裁切、
 //! 嘴帧的滞回、表情与眉毛的绘制顺序。改动：用 CPU 三角形光栅代替 WebGL2（像素中心、左上规则、三线性
 //! mipmap、预乘混合与 GL 一致）；眼珠的模板与软遮罩合成一张屏幕空间的覆盖图；随机的部分（眨眼、扫视、
-//! 头的游移）不在渲染器里，由动作轨给出，没有动作轨时用固定种子的待机动作；物理按固定 1/120 秒步长从条目
-//! 开头重放，任意时刻 seek 结果都一样；链条（`rig.chains` 与层的 `bones`）照 LivLiv 的绳子模拟移植，状态
+//! 头的游移）不在渲染器里，由动作轨给出，没有动作轨时用固定种子的待机动作；物理按固定 1/120 秒步长从角色
+//! 时钟的 0 秒重放（每 10 秒存一份快照），任意时刻 seek 结果都一样；链条（`rig.chains` 与层的 `bones`）照 LivLiv 的绳子模拟移植，状态
 //! 按 f32 取整；不读 v4 的 keyforms（转头的实测修正，忽略）。
 
 mod draw;
@@ -18,6 +18,8 @@ mod package;
 mod player;
 mod raster;
 mod rig;
+#[doc(hidden)]
+pub mod testing;
 pub mod track;
 
 use std::fmt;
@@ -25,7 +27,7 @@ use std::fmt;
 pub use model::Model;
 pub use package::{Package, Texture};
 pub use player::Player;
-pub use rig::{Params, Puppet};
+pub use rig::{Params, Puppet, TICK};
 pub use track::Track;
 
 /// 读角色包、动作轨出错时的种类；`code()` 是给宿主（导出、预览的跳过提示）用的稳定代码。

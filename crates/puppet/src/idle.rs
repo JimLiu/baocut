@@ -3,6 +3,7 @@
 
 use crate::rig::Params;
 
+#[derive(Clone)]
 pub(crate) struct Idle {
     rng: u64,
     next_blink: f64,

@@ -421,8 +421,8 @@ pub struct ShapeItem {
     pub shape: ShapeProps,
 }
 
-/// 贴纸（§3.7）：模板贴纸画目录里的矢量，素材贴纸画 `assetRef` 指向的图片、视频或 Lottie。
-/// `MediaFields` 只用于素材贴纸。
+/// 贴纸（§3.7）：模板贴纸画目录里的矢量，素材贴纸画 `assetRef` 指向的图片、视频、Lottie 或角色包。
+/// `MediaFields` 只用于素材贴纸；`motionRef` 与 `motionIn` 只用于角色贴纸。
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StickerItem {
@@ -436,6 +436,13 @@ pub struct StickerItem {
     pub media: MediaFields,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_ref: Option<VersionRef>,
+    /// 角色贴纸的动作轨（§3.7）：一份 `baocut-puppet-track` JSON 素材。没有时角色只做待机动作。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_ref: Option<VersionRef>,
+    /// 角色贴纸开头对应角色时钟（动作轨）的第几秒，缺省 0，可以是负的（开头早于动作轨）。拆分与裁掉开头时由
+    /// 引擎更新，画面不跳。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion_in: Option<MediaTime>,
     pub sticker: StickerProps,
 }
 
@@ -720,13 +727,14 @@ impl TimelineItem {
         }
     }
 
-    /// 实例引用的全部素材版本：内容本身，加上合成的预渲染替身。
+    /// 实例引用的全部素材版本：内容本身，加上合成的预渲染替身、角色贴纸的动作轨。
     pub fn asset_refs(&self) -> impl Iterator<Item = &VersionRef> {
-        let prerender = match self {
+        let extra = match self {
             TimelineItem::Composition(c) => c.prerender.as_ref(),
+            TimelineItem::Sticker(s) => s.motion_ref.as_ref(),
             _ => None,
         };
-        self.asset_ref().into_iter().chain(prerender)
+        self.asset_ref().into_iter().chain(extra)
     }
 
     /// 帧网格上的区间。音频实例在采样级定位，没有。
@@ -875,6 +883,8 @@ pub enum AssetKind {
     Image,
     /// Lottie 动画（JSON），只由素材贴纸引用（§3.7）。
     Lottie,
+    /// 分层角色包（`.bcpuppet`，见 puppet-format-spec），只由素材贴纸引用（§3.7）。
+    Puppet,
     Font,
     Caption,
     Document,

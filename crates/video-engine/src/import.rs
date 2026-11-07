@@ -29,6 +29,15 @@ pub const LOTTIE_ARCHIVE_MEDIA_TYPE: &str = "application/zip";
 /// Lottie 素材的大小上限：再大就不是贴纸动画了（与 Runtime 放行链接 Lottie 的上限相同）。
 pub const LOTTIE_MAX_BYTES: u64 = 32 << 20;
 
+/// 角色包（`.bcpuppet`，zip）的媒体类型。
+pub const PUPPET_MEDIA_TYPE: &str = "application/x-baocut-puppet+zip";
+
+/// 角色动作轨（`"format": "baocut-puppet-track"` 的 JSON）的媒体类型。种类仍是 `other`。
+pub const PUPPET_TRACK_MEDIA_TYPE: &str = "application/x-baocut-puppet-track+json";
+
+/// 角色包的大小上限（压缩后）。一个角色二三十张分层，WebP 通常几 MiB。
+pub const PUPPET_MAX_BYTES: u64 = 64 << 20;
+
 /// 导入时 bytes 怎么放。调用方不指定时由 [`prepare_import`] 按来源决定（视频格式规范 §4.2）。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -89,6 +98,7 @@ pub fn media_type_of(path: &Path) -> Option<(AssetKind, &'static str)> {
         // 读出来是 Lottie 动画的 JSON 在 [`prepare_import`] 里改记成 `lottie`，别的 JSON 仍是 `other`。
         "json" => (AssetKind::Other, "application/json"),
         "lottie" => (AssetKind::Lottie, LOTTIE_ARCHIVE_MEDIA_TYPE),
+        "bcpuppet" => (AssetKind::Puppet, PUPPET_MEDIA_TYPE),
         _ => return None,
     })
 }
@@ -119,6 +129,8 @@ pub fn blob_extension(media_type: &str) -> &'static str {
         "text/x-ass" => "ass",
         "application/json" => "json",
         LOTTIE_ARCHIVE_MEDIA_TYPE => "lottie",
+        PUPPET_MEDIA_TYPE => "bcpuppet",
+        PUPPET_TRACK_MEDIA_TYPE => "json",
         _ => "bin",
     }
 }
@@ -449,10 +461,16 @@ pub fn prepare_import(
     if !meta.is_file() {
         return Err(ErrorBody::invalid_operation(msg!("engine.importNotFile", "Only files or directories can be imported")));
     }
-    let (mut kind, media_type) = media_type_of(source).ok_or_else(|| ErrorBody::invalid_operation(msg!("engine.fileTypeUnsupported", "This kind of file is not supported")))?;
-    // JSON 读出来像 Lottie 动画（有版本、帧率、帧范围与图层）就按 Lottie 收。
-    if kind == AssetKind::Other && media_type == "application/json" && meta.len() <= LOTTIE_MAX_BYTES && looks_like_lottie_json(source) {
-        kind = AssetKind::Lottie;
+    let (mut kind, mut media_type) = media_type_of(source)
+        .ok_or_else(|| ErrorBody::invalid_operation(msg!("engine.fileTypeUnsupported", "This kind of file is not supported")))?;
+    // JSON 读出来像 Lottie 动画（有版本、帧率、帧范围与图层）就按 Lottie 收；声明了角色动作轨格式的按动作轨收。
+    if kind == AssetKind::Other && media_type == "application/json" {
+        if meta.len() <= LOTTIE_MAX_BYTES && looks_like_lottie_json(source) {
+            kind = AssetKind::Lottie;
+        } else if declares_puppet_track(source) {
+            check_puppet_track(source)?;
+            media_type = PUPPET_TRACK_MEDIA_TYPE;
+        }
     }
     // 只有 ffprobe 认得的媒体才探测；矢量图、字体、字幕与数据文件没有可探测的流。Lottie 用内核的读法取尺寸与时长。
     let probe = if kind == AssetKind::Lottie {
@@ -464,6 +482,8 @@ pub fn prepare_import(
             )));
         }
         probe_lottie(source, &original_name)?
+    } else if kind == AssetKind::Puppet {
+        probe_puppet(source, meta.len())?
     } else if matches!(kind, AssetKind::Video | AssetKind::Audio) || (kind == AssetKind::Image && media_type != "image/svg+xml") {
         probe(source, ffprobe, kind)?
     } else {
@@ -559,6 +579,86 @@ fn looks_like_lottie_json(source: &Path) -> bool {
             .iter()
             .all(|key| doc.get(*key).and_then(Value::as_f64).is_some_and(f64::is_finite))
         && doc.get("layers").is_some_and(Value::is_array)
+}
+
+/// JSON 的顶层 `format` 是不是角色动作轨（`baocut-puppet-track`）。只看声明；内容由 [`check_puppet_track`] 查。
+fn declares_puppet_track(source: &Path) -> bool {
+    #[derive(serde::Deserialize)]
+    struct Head {
+        format: Option<String>,
+    }
+    fs::read(source)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Head>(&bytes).ok())
+        .and_then(|h| h.format)
+        .is_some_and(|f| f == puppet::track::TRACK_FORMAT)
+}
+
+/// 动作轨按渲染器的读法读一遍（[`puppet::Track::parse`]）：读不开、超出上限的不收。
+fn check_puppet_track(source: &Path) -> EngineResult<()> {
+    let bytes = fs::read(source).map_err(|e| {
+        ErrorBody::asset_missing(
+            "",
+            msg!(
+                "engine.importUnreadable",
+                "Cannot read the file to import: {error}",
+                error = e.to_string()
+            ),
+        )
+    })?;
+    puppet::Track::parse(&bytes).map(|_| ()).map_err(|e| {
+        ErrorBody::probe_failed(msg!(
+            "engine.puppetTrackUnreadable",
+            "Not a readable character motion track: {error}",
+            error = e.to_string()
+        ))
+    })
+}
+
+/// 角色包的尺寸：按渲染器的读法检查清单与全部贴图（不解码），显示尺寸是角色的画布。角色没有时长与音轨，跟着
+/// 实例的区间一直动。
+fn probe_puppet(source: &Path, len: u64) -> EngineResult<ProbeInfo> {
+    if len > PUPPET_MAX_BYTES {
+        return Err(ErrorBody::invalid_operation(msg!(
+            "engine.puppetTooLarge",
+            "The character package is over {size} MiB",
+            size = PUPPET_MAX_BYTES >> 20
+        )));
+    }
+    let bytes = fs::read(source).map_err(|e| {
+        ErrorBody::asset_missing(
+            "",
+            msg!(
+                "engine.importUnreadable",
+                "Cannot read the file to import: {error}",
+                error = e.to_string()
+            ),
+        )
+    })?;
+    let model = puppet::Package::inspect(&bytes).map_err(|e| {
+        ErrorBody::probe_failed(msg!(
+            "engine.puppetUnreadable",
+            "Not a readable character package: {error}",
+            error = e.to_string()
+        ))
+    })?;
+    let video = VideoInfo {
+        display_width: model.canvas[0],
+        display_height: model.canvas[1],
+        rotation: 0,
+        pixel_aspect_ratio: Rate { num: 1, den: 1 },
+        frame_rate: FrameRateInfo::Cfr {
+            rate: Rate { num: 30, den: 1 },
+        },
+        pts_origin: MediaTime::zero(),
+        has_alpha: true,
+    };
+    Ok(ProbeInfo {
+        duration: None,
+        timebase: None,
+        video: Some(video),
+        audio: None,
+    })
 }
 
 fn lottie_recovery() -> Text {
@@ -922,6 +1022,42 @@ mod tests {
         assert_lottie_probe(&prepared);
         assert_eq!(prepared.media_type, LOTTIE_ARCHIVE_MEDIA_TYPE);
         assert_eq!(blob_rel_path("sha256:ab", &prepared.media_type), PathBuf::from("blobs/ab.lottie"));
+    }
+
+    #[test]
+    fn a_character_package_imports_as_puppet_with_its_canvas_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let prepared = import(dir.path(), "host.bcpuppet", &puppet::testing::package_zip()).unwrap();
+        assert_eq!(prepared.kind, AssetKind::Puppet);
+        assert_eq!(prepared.media_type, PUPPET_MEDIA_TYPE);
+        let video = prepared.probe.video.as_ref().unwrap();
+        assert_eq!(
+            (video.display_width, video.display_height),
+            (puppet::testing::W, puppet::testing::H)
+        );
+        assert!(video.has_alpha);
+        assert!(prepared.probe.duration.is_none() && prepared.probe.audio.is_none());
+        assert_eq!(blob_rel_path("sha256:ab", &prepared.media_type), PathBuf::from("blobs/ab.bcpuppet"));
+
+        let broken = import(dir.path(), "broken.bcpuppet", b"PK\x03\x04 not really a zip").unwrap_err();
+        assert_eq!(broken.code, "MEDIA_PROBE_FAILED", "{broken:?}");
+        let mut files = puppet::testing::files("");
+        files.retain(|(name, _)| name != "textures/iris.png");
+        let missing = import(dir.path(), "missing.bcpuppet", &puppet::testing::zip(&files)).unwrap_err();
+        assert_eq!(missing.code, "MEDIA_PROBE_FAILED", "{missing:?}");
+    }
+
+    #[test]
+    fn a_motion_track_imports_as_other_with_the_track_media_type() {
+        let dir = tempfile::tempdir().unwrap();
+        let track = import(dir.path(), "talk.json", &puppet::testing::talking_track(2.0)).unwrap();
+        assert_eq!(track.kind, AssetKind::Other);
+        assert_eq!(track.media_type, PUPPET_TRACK_MEDIA_TYPE);
+        assert_eq!(blob_rel_path("sha256:ab", &track.media_type), PathBuf::from("blobs/ab.json"));
+
+        let bad = br#"{"format":"baocut-puppet-track","version":1,"fps":30,"duration":1,"params":{"nope":[0]}}"#;
+        let refused = import(dir.path(), "bad.json", bad).unwrap_err();
+        assert_eq!(refused.code, "MEDIA_PROBE_FAILED", "{refused:?}");
     }
 
     #[test]

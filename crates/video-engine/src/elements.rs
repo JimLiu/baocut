@@ -288,6 +288,17 @@ fn check_v3_fields(item: &TimelineItem) -> Result<(), Text> {
             if !s.is_asset() && !s.media.is_empty() {
                 return Err(msg!("engine.stickerMediaFields", "mode, fit, bg, mask and fx are only for asset stickers"));
             }
+            if let Some(t) = &s.motion_in {
+                let at = seconds(t);
+                if !(at.is_finite() && at.abs() <= MOTION_IN_LIMIT) {
+                    return Err(msg!(
+                        "engine.motionInRange",
+                        "motionIn must be between -{limit} and {limit} seconds: {value}",
+                        limit = MOTION_IN_LIMIT,
+                        value = at
+                    ));
+                }
+            }
         }
         TimelineItem::Audio(a) => check_volume_and_fades(a.mix.volume, a.mix.fade_in.as_ref(), a.mix.fade_out.as_ref())?,
         TimelineItem::Video(v) => {
@@ -435,11 +446,35 @@ fn check_assets(state: &VideoState, item: &TimelineItem) -> EngineResult<()> {
             &[AssetKind::Audio, AssetKind::Video],
             msg!("engine.audioAssetKind", "The asset of an audio clip has no sound"),
         ),
-        TimelineItem::Sticker(StickerItem { asset_ref: Some(r), .. }) => expect(
-            r,
-            &[AssetKind::Image, AssetKind::Video, AssetKind::Lottie],
-            msg!("engine.stickerAssetKind", "An asset sticker can only use an image, video or Lottie asset"),
-        ),
+        TimelineItem::Sticker(s) => {
+            if let Some(r) = &s.asset_ref {
+                expect(
+                    r,
+                    &[AssetKind::Image, AssetKind::Video, AssetKind::Lottie, AssetKind::Puppet],
+                    msg!(
+                        "engine.stickerAssetKind",
+                        "An asset sticker can only use an image, video, Lottie or character asset"
+                    ),
+                )?;
+            }
+            let puppet = s.asset_ref.as_ref().and_then(kind_of) == Some(AssetKind::Puppet);
+            if !puppet && (s.motion_ref.is_some() || s.motion_in.is_some()) {
+                return Err(ErrorBody::invalid_operation(msg!(
+                    "engine.stickerMotionOnlyPuppet",
+                    "motionRef and motionIn are only for character stickers"
+                )));
+            }
+            match &s.motion_ref {
+                Some(r) if media_type_of(state, r) != Some(crate::import::PUPPET_TRACK_MEDIA_TYPE) => {
+                    Err(ErrorBody::invalid_operation(msg!(
+                        "engine.stickerMotionKind",
+                        "The motion track of a character sticker must be a character motion track asset"
+                    ))
+                    .entities([r.id.clone()]))
+                }
+                _ => Ok(()),
+            }
+        }
         TimelineItem::Placeholder(PlaceholderItem { asset_ref: Some(r), .. }) => {
             expect(
                 r,
@@ -470,6 +505,14 @@ fn check_assets(state: &VideoState, item: &TimelineItem) -> EngineResult<()> {
         }
         _ => Ok(()),
     }
+}
+
+/// `motionIn` 的范围（秒）：与动作轨的时长上限相同。
+const MOTION_IN_LIMIT: f64 = puppet::track::MAX_DURATION;
+
+/// 素材这一版的媒体类型。
+fn media_type_of<'a>(state: &'a VideoState, r: &VersionRef) -> Option<&'a str> {
+    state.assets.get(&r.id)?.revisions.get(&r.revision).map(|v| v.media_type.as_str())
 }
 
 fn seconds(t: &MediaTime) -> f64 {

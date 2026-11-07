@@ -710,7 +710,9 @@ interface ChapterTextProps {           // TextItem.chapter
 
 interface StickerItem extends VisualItemBase, MediaFields {   // MediaFields 只用于素材贴纸
   type: 'sticker';
-  assetRef?: VersionRef;               // 素材贴纸必有：图片、视频或 Lottie 素材（§4.1）
+  assetRef?: VersionRef;               // 素材贴纸必有：图片、视频、Lottie 或分层角色素材（§4.1）
+  motionRef?: VersionRef;              // 只用于角色贴纸：动作轨素材
+  motionIn?: MediaTime;                // 只用于角色贴纸：实例开头对着角色时钟的第几秒，缺省 0，可以为负，绝对值不超过 6 小时
   sticker: StickerProps;
 }
 interface StickerProps {
@@ -835,7 +837,12 @@ interface CompositionItem extends VisualItemBase {
   - 不在任何一章里的帧（第一章之前、序列没有章节、`durationFrames` 留出的空档）这个实例不画，帧计划里没有它的层。这与模板层的 `{chapter}` 不同：章节外不回退到首章或末章。
   - 字在帧计划里按整帧求好，写进文字层，预览与导出画同一串。章节改了（`upsertChapter`、`setChapters`、剪口带着章节走）实例不用改：从第 0 帧铺到片尾的一个实例就是随章节换的副标题。
   - 章节文字沿用普通文字的 `style`、`place` 与 `animate`；入场与退场按实例自己的区间播，换章时直接换字，所以同计时一样不能用 `typewriter`、`riseWords`。
-- **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频或 Lottie 素材。`loop` 只对视频、Lottie 与动图（GIF、APNG）素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 与 APNG 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的动图按自己的总时长循环。APNG 只按 `.apng` 扩展名认（`mediaType` 为 `image/apng`），扩展名是 `.png` 的动画 PNG 记成 `image/png`，按第一帧的静态图画。
+- **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频、Lottie 或分层角色素材。`loop` 只对视频、Lottie 与动图（GIF、APNG）素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 与 APNG 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的动图按自己的总时长循环。APNG 只按 `.apng` 扩展名认（`mediaType` 为 `image/apng`），扩展名是 `.png` 的动画 PNG 记成 `image/png`，按第一帧的静态图画。
+- **角色贴纸**。`assetRef` 指向 `puppet` 素材的素材贴纸是角色贴纸，按[分层角色格式规范](puppet-format-spec.md) §5 出帧：实例局部时间 `e` 画角色时钟 `motionIn + e` 那一刻，角色按画布等比缩放、居中画进框里。`loop` 与 `fillOverrides` 不读。
+  - `motionRef` 是一个动作轨素材（`kind: 'other'`，`mediaType` 为 `application/x-baocut-puppet-track+json`）；没有时角色只做待机动作。`motionRef` 与 `motionIn` 只能写在角色贴纸上，`motionRef` 指向别的素材时拒绝（`INVALID_OPERATION`）。
+  - 待机动作的种子是实例 lineage 的 `originItemId`（没有 lineage 时是实例 ID）的 32 位 FNV-1a 摘要：拆开的各段种子相同，复制出来的实例各不相同。
+  - 拆分时右半的 `motionIn` 加上拆分点的局部时间；裁掉开头时加上起点后移的时间，往前拉长时减去；结果为 0 时省略。所以拆开的两段在接缝处接得上（分层角色格式规范 §5）。合并（`joinItems`）要求靠后那件的 `motionIn` 等于靠前那件的 `motionIn` 加它的长度，否则是 `source-gap`（`details.field: 'motionIn'`）；留下靠前那件的。
+  - 换一段配音只换动作轨：`replaceItemAsset` 给动作轨素材时换（或加上）`motionRef`，给别的素材时换 `assetRef`，`motionIn` 不变（命令与协议规范 §4.2）。
 - **声波**。`audio_envelope` 是新建音频视频与 Agent 未指定样式时的默认款；已保存的其他 `style` 不迁移。画面由声音的分析缓存驱动：`audio` 指定取哪一路声音，按序列时刻映射到那一路的源时刻取样；`speaker` 只在这位说话人的词区间里动。
   - `audio_envelope` 使用每个分析帧时域样本的 RMS：样本字节先以 128 为中心除以 128；取平方均值的平方根，再按 `min(1, (RMS / 0.32)^0.65)` 压缩、量化到 0–255。在当前取样时刻两侧各取 60 个样本，间距 0.045 秒（共 121 根）；片段起点前、终点及之后、缓存覆盖外都按静音，不延长首末帧。说话人筛选、剪口、速度、音量与混音先按下面的声音路由求好，再取包络。`minDb`、`maxDb`、`smoothing`、`gain` 不改变包络；它们只用于频谱款。
   - 包络样式的参考框是 1632×340：细柱从 x=12 到 1620，宽 5.5、圆角 2.7，高 `3 + 168×幅度`，围绕 y=130 上下对称；中线 x=816 固定，左侧（含中线）用 `mainColor`（缺省 `#7FE0CF`），右侧用 `secondaryColor`（缺省 `#54616B`）。y=279 的细进度线与下方 `mm:ss` 读数显示实例本地时间与总长，随框等比缩放或按用户几何拉伸，`readout: false` 时这两样都不画（版面另有计时或进度时用）；中线透明度为主色的 22%。默认创作摆位是中心 x=50、y=54、宽 85%，`scaleY = (画布宽 × 0.85 × 340) / (1632 × 画布高 × 0.2)` 保持参考框比例，避开字幕；通用元素的缺省几何表保持不变。预览、导出与跳播共用纯函数求值，不整段烘焙，不依赖字体或系统时间。
@@ -1319,7 +1326,7 @@ type TemplateLayer = {
 ```ts
 interface AssetRecord {
   id: Id;
-  kind: 'video' | 'audio' | 'image' | 'lottie' | 'font' | 'caption' | 'document' | 'bundle' | 'other';
+  kind: 'video' | 'audio' | 'image' | 'lottie' | 'puppet' | 'font' | 'caption' | 'document' | 'bundle' | 'other';
   name: string;
   currentRevision: Revision;
   revisions: Record<Revision, AssetRevision>;
@@ -1352,6 +1359,7 @@ interface AssetRevision {
 - 素材 ID 标识资源的身份；素材版本标识一份确定的 bytes 与元数据。版本一旦写入不再修改。
 - `contentHash` 必填，登记时算好。不存在「摘要待定」的素材版本。
 - `kind: 'lottie'` 是一个 Lottie 动画文件，只能被素材贴纸引用（§3.7）；它没有音轨，显示尺寸取动画声明的宽与高。素材是一份 bodymovin JSON（`mediaType` 是 `application/json`），或一个 `.lottie` 压缩包（`application/zip`，画清单里的当前动画，没有清单时画第一段）。导入时 `.lottie` 文件，以及读出来像 Lottie 的 `.json`（顶层有版本 `v`、数值的 `fr`、`ip`、`op` 与图层数组）记成 `lottie`，别的 JSON 仍是 `other`；版本记下 `video`（动画声明的宽高、帧率，像素比 1，`hasAlpha`）与 `duration`（帧范围除以帧率，按毫秒取整），都用渲染内核读 Lottie 的同一份实现读出。读不开、用了内核不支持的特性或帧范围为空的不收（`MEDIA_PROBE_FAILED`），超过 32 MiB 的不收（`INVALID_OPERATION`）。图片子资源可以是 PNG、JPEG、GIF（首帧）、WebP 或 SVG（按资源声明的宽高光栅，`<text>` 不画），要么内嵌成 data URI，要么放在同一个压缩包里；只写了路径、包里也没有的外部图片读不到，这个实例画不出来，报 `lottie-asset-missing`。
+- `kind: 'puppet'` 是一个分层角色包（`.bcpuppet`，`mediaType` 为 `application/x-baocut-puppet+zip`，格式见分层角色格式规范），只能被素材贴纸引用（§3.7）。它没有音轨与时长；版本记下 `video`（`model.json` 的画布宽高，像素比 1，帧率记 30/1，`hasAlpha: true`）。导入时只读 `model.json` 与各贴图的尺寸，不解码像素；读不开或不合格式的不收（`MEDIA_PROBE_FAILED`），超过 64 MiB 的不收（`INVALID_OPERATION`）。角色的动作轨是 `kind: 'other'` 的 JSON 素材：导入时顶层 `format` 是 `baocut-puppet-track` 的 JSON（先排除 Lottie）按动作轨校验，记成 `application/x-baocut-puppet-track+json`，校验不过不收（`MEDIA_PROBE_FAILED`）。
 - `kind: 'caption'` 与 `kind: 'document'` 是**文件**（一个 SRT、一份 PDF），不是 §4.4 的文档。导入字幕文件时，文件是素材，解析出来的字幕行是文档，文档用 `sourceAssetId` 指回文件。
 - 可变帧率的索引、代理、缩略图、波形和反向 conform 都是派生产物，不属于素材版本。
 - 颜色信息（`ColorInfo`）与许可状态（`LicenseState`）尚未纳入（§10）。
@@ -1383,7 +1391,7 @@ interface FileLocator {
 - 链接的文件找不到时，视频照常打开，素材标为缺失；用到它的实例不得画成空白之后当作成功。缺失经 `videos.assetStatus` 报告（命令与协议规范 §4.1）：每个素材的当前版本与实例引用的版本里，此刻读不到的逐个列出，原因是 `missing`（不在了）、`changed`（已经不是登记时的文件）或 `outside-project`（相对定位越出了项目目录），与取用时 `ASSET_MISSING` 的 `details.reason` 相同。它只看文件在不在、长度对不对，不重算摘要。
 - `linked` 且 `frozen = false` 的素材不能用于严格的冻结导出（架构设计 §5.6）。
 - 定位素材只看 `storage.locator` 里的本机路径。从本机媒体新建视频时，来源也记下原文件的路径（§4.5）。两处都是这台机器上的事实，不进入便携包（§8）。
-- 应用把链接素材交给界面预览时，只放行视频登记的那一个文件，不放行它所在目录里别的东西；而且只放行预览用得到的类型（图片、音视频、字体、确认是 Lottie 的 JSON、中央目录里确实有动画的 `.lottie` 压缩包），登记的媒体类型要与文件实际的扩展名相符。字幕文件与目录不经这条路给出。
+- 应用把链接素材交给界面预览时，只放行视频登记的那一个文件，不放行它所在目录里别的东西；而且只放行预览用得到的类型（图片、音视频、字体、确认是 Lottie 的 JSON、中央目录里确实有动画的 `.lottie` 压缩包、角色包与动作轨），登记的媒体类型要与文件实际的扩展名相符。字幕文件与目录不经这条路给出。
 - 导出的成片可以写到任何位置。视频不要求导出物在视频目录里，只记下它去了哪里（`export-record` 文档，§4.6）。
 - `blobs/` 里归视频管理的只有 `<sha256-hex>.<ext>`（文件素材）与 `<sha256-hex>/`（目录素材）；`blobs/.staging/` 是发布前的临时区，里面修改时间超过宽限期（1 小时）的残留由引擎的 blob GC 清掉（架构设计 §5.2）。名字不是这个形状的条目不归视频管理，GC 与物理删除都不碰。
 
