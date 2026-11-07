@@ -8,6 +8,7 @@ import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_R
 import { readPng, writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
 import { smoothFill, strandFill } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/fill.mjs';
+import { expressionEyeRegions } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/expreyes.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
 
@@ -766,6 +767,86 @@ describe('virtual-host key removal', () => {
     // green hair is far from the key colour and stays; the iris is outside the hair and stays
     expect(K.alpha[at(18, 24)]).toBe(1);
     expect(K.alpha[at(44, 84)]).toBe(1);
+  });
+});
+
+describe('virtual-host expression eye regions', () => {
+  // an eye on skin in the shadow of the bangs: the lash 8 px thick over the whites, a brown crease in the shadow 6 px
+  // above the lash, a wing flicked up from the outer corner. The expression looks up: its iris 4 px higher
+  const W = 120, H = 80, cx = 62, cy = 46, rx = 30, ry = 14;
+  const skin: RGB = [252, 212, 180], shade = skin.map((v) => v * 0.8) as RGB, line: RGB = [40, 25, 25];
+  const top = (X: number) => { const u = (X - cx) / rx; return Math.abs(u) <= 1 ? cy - ry * Math.sqrt(1 - u * u) : null; };
+  const inEye = (X: number, Y: number) => ((X - cx) / rx) ** 2 + ((Y - cy) / ry) ** 2 <= 1;
+  // what an edit can draw as light as the skin, or in its shade: a catchlight in the iris, the whites under the lash in
+  // its shadow, whites as pink as the skin at the corners
+  const pink: RGB = [246, 214, 196], whiteShade: RGB = [220, 188, 165];
+  type Look = { catchlight?: boolean; shadedWhites?: boolean; pinkCorners?: boolean };
+  const draw = (irisY: number, look: Look = {}) => {
+    const d = new Uint8ClampedArray(W * H * 4), drawn = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = y * W + x, X = x + 0.5, Y = y + 0.5, t = top(X), wx = cx - rx - X;
+      let c = skin, eye = false;
+      if (t !== null) {
+        const lt = t - 6;
+        if (Y >= lt - 9 && Y < lt) c = shade;
+        if (Math.abs(Y - (lt - 6)) <= 1 && Math.abs(X - cx) <= 0.95 * rx) c = [185, 120, 105];
+        if (Y >= lt && Y <= t + 2) [c, eye] = [line, true];
+        else if (inEye(X, Y)) {
+          let e: RGB = Math.hypot(X - cx, Y - irisY) <= 9 ? [60, 90, 150] : Y > cy && !inEye(X, Y + 2) ? line : [255, 255, 255];
+          const white = e[0] === 255;
+          if (look.catchlight && Math.hypot(X - (cx + 3), Y - (irisY - 5)) <= 2.5) e = pink;
+          else if (white && look.shadedWhites && Y <= t + 5) e = whiteShade;
+          else if (white && look.pinkCorners && Math.abs(X - cx) > 0.75 * rx) e = pink;
+          [c, eye] = [e, true];
+        }
+      }
+      if (wx >= -1 && wx <= 8 && Math.abs(Y - (cy - wx)) <= 1.2) [c, eye] = [line, true];
+      d.set([...c, 255], 4 * p);
+      drawn[p] = eye ? 1 : 0;
+    }
+    return { im: { w: W, h: H, d }, drawn };
+  };
+
+  it('keeps the crease in the shadow of the bangs and the skin round a corner out of the eye, and its wing in', () => {
+    const N = draw(cy + 1), E = draw(cy - 3);
+    const changed = new Uint8Array(W * H).map((_, p) => [0, 1, 2].some((k) => N.im.d[4 * p + k] !== E.im.d[4 * p + k]) ? 1 : 0);
+    const patch = { w: W, h: H, d: new Uint8ClampedArray(W * H * 4).fill(255) };
+    const { R, shut } = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes: [{ drawn: N.drawn, hit: true }, null], changed, skin, w: W, h: H });
+    expect(shut).toEqual([]);
+    const at = (x: number, y: number) => R[0]![y * W + x];
+    // the eye and its lash
+    expect(at(cx, cy)).toBe(1);
+    expect(at(cx, cy - ry - 3)).toBe(1);
+    // the crease near the corners, within the eye's box: the shadow between it and the lash is skin. Taken for a line,
+    // it carried the region up to the crease column by column, and a blink squashed pieces of the crease with the eye
+    for (const x of [Math.round(cx - 0.85 * rx), Math.round(cx + 0.85 * rx)]) expect(at(x, Math.floor(top(x + 0.5)! - 12))).toBe(0);
+    // past the whites: the wing, and not the skin of the column below it
+    expect(at(cx - rx - 5, cy - 5)).toBe(1);
+    expect(at(cx - rx - 5, cy + 10)).toBe(0);
+  });
+
+  it('takes in what the eye draws as light as the skin or in its shade, up to the lash, and still not the crease', () => {
+    const N = draw(cy + 1), E = draw(cy - 3, { catchlight: true, shadedWhites: true, pinkCorners: true });
+    const changed = new Uint8Array(W * H).map((_, p) => [0, 1, 2].some((k) => N.im.d[4 * p + k] !== E.im.d[4 * p + k]) ? 1 : 0);
+    const patch = { w: W, h: H, d: new Uint8ClampedArray(W * H * 4).fill(255) };
+    const { R, shut } = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes: [{ drawn: N.drawn, hit: true }, null], changed, skin, w: W, h: H });
+    expect(shut).toEqual([]);
+    const at = (x: number, y: number) => R[0]![y * W + x];
+    // a catchlight as light as the skin, where the iris hides the whites: it and the lash over it. A walk from it
+    // stopped at it, and the lash stayed in the patch over the shut eye
+    expect(at(cx + 3, cy - 8)).toBe(1);
+    expect(at(cx + 3, cy - ry - 3)).toBe(1);
+    // the whites in the lash's shadow, and the lash over them
+    for (const x of [cx - 16, cx + 16]) {
+      const t = top(x + 0.5)!;
+      expect(at(x, Math.floor(t + 4))).toBe(1);
+      expect(at(x, Math.floor(t - 3))).toBe(1);
+    }
+    // whites as pink as the skin at both corners: left out, they stayed in the patch, a light stripe over the shut lid
+    for (const x of [Math.round(cx - 0.85 * rx), Math.round(cx + 0.85 * rx)]) {
+      expect(at(x, cy)).toBe(1);
+      expect(at(x, Math.floor(top(x + 0.5)! - 12))).toBe(0);
+    }
   });
 });
 

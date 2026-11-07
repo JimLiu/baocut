@@ -545,7 +545,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
       // face beneath them). Found nothing (a brow the colour of the hair): the brows stay in the patch
       // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
       const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s] })), changed: kept, skin, w, h });
-      if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h);
+      if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h, L);
       let BT = null, browNote = '', browPx = null;
       if (browsRedrawn) {
         const browSearch = minus(near, dilate(ER.any, w, h, 1));
