@@ -141,7 +141,8 @@ impl Puppet {
                 continue;
             }
             if let Some(side) = role.strip_prefix("expr_eye_") {
-                // 表情自己的眼睛：补丁在这里是光脸，先画这一边的闭眼层（乘表情的不透明度），再画压扁的眼睛
+                // 表情自己的眼睛：补丁在这里是光脸（补丁本来半透明的地方让出了一部分不透明度，睁眼时两者叠起来就是原来的
+                // 补丁），先画这一边的闭眼层（乘表情的不透明度），再画压扁的眼睛
                 let a = self.expr_alpha(d);
                 let open = if side == "L" { p.eye_l_open } else { p.eye_r_open };
                 let lid = format!("lid_{side}");
