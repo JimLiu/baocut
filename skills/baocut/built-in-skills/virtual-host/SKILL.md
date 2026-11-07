@@ -22,20 +22,20 @@ version: 2.0.0
 | 项 | 缺省 | 说明 |
 | --- | --- | --- |
 | 角色 | 原创卡通角色 | 用户要照自己的照片或已有形象画时可以（本人或有授权）；不画真实的他人。正面像先给用户看，定了再改图 |
-| 画风 | 扁平矢量、粗描边、平涂色块 | 脚本按颜色分出头发、皮肤、眼白和线条：厚涂、写实、渐变多的画风分不开。能做的范围见第 2 节第 1 步 |
+| 画风 | 扁平矢量、粗描边、平涂色块 | 平涂的脚本按颜色自己分出头发、皮肤、眼白和线条。柔和阴影的动漫、厚涂、Q 版这类分不开颜色的画风，多出一张分区图（`references/art.md` 第 5 节），同时出一份 LivLiv 角色包（`.livliv`） |
 | 出镜 | 右下角常驻 | 也可以左下角、整镜出镜（放大放到画面中间）、两人对话（两个角色包、两条动作轨） |
 | 表情 | 不加 | 笑、害羞、生气、难过这类，每种多一张改图，按句写进 `faces.json`；同一处可配点头、摇头、歪头、低头侧脸的动作（`act`） |
-| 预算 | 约 9 次图片调用 | 正面像 1 次（出 2 张挑）、光头重绘 1、嘴 4、闭眼 1、每种表情 1，再留两三次重画；按 models_capabilities 的 `cost` 估价写进计划 |
+| 预算 | 约 9 次图片调用 | 正面像 1 次（出 2 张挑）、光头重绘 1、嘴 4、闭眼 1、每种表情 1，分区图 1（只有柔和阴影的画风要），再留两三次重画；按 models_capabilities 的 `cost` 估价写进计划 |
 
 口型按读音定闭唇（b p m）、咬唇（f v）、圆唇（o u w）这些特征，按音量定张多大。中文、日文假名、韩文、英文有读音规则，西班牙文、德文这类拉丁字母语言按拼写粗略推；日文汉字、生僻字与俄文、阿拉伯文这类文字读不出读音，只按音量开合，需要时用读音表补（第 3 节）。做中、日、韩、英以外的语言时先告诉用户这一点。
 
 ## 2. 角色包
 
-1. 用 image 生成正面像，提示词在 `references/art.md` 第 1 节，一次出两张给用户挑。脚本能拆的范围：纯色饱和底；正面；有头发（光头角色还不支持）；两只眼睛睁开、露出眼白；嘴闭成一条线；皮肤是浅的暖色（别的肤色在 `character.json` 写 `skin`）；描边是一种深色（黑、深棕都行）。
-2. 用 artifacts_save 把选定的图存进工程，照 `examples/character.example.json` 写 `character.json`（字段见 `references/art.md` 第 4 节），运行 `node puppet-mask.mjs character.json`。它找出头发，写出 `hair-mask.json`（retouch 的选区）和 `hair-mask.png`（白色是头发）。看一眼 PNG：白色应该正好盖住头发，不带耳朵、脸的轮廓。
+1. 用 image 生成正面像，提示词在 `references/art.md` 第 1 节（柔和阴影的画风看第 5 节），一次出两张给用户挑。下面说的范围是平涂的；有分区图时不看画风与颜色，只要纯色底、正面、有头发、眼睛睁开、嘴闭着。平涂脚本能拆的范围：纯色饱和底；正面；有头发（光头角色还不支持）；两只眼睛睁开、露出眼白；嘴闭成一条线；皮肤是浅的暖色（别的肤色在 `character.json` 写 `skin`）；描边是一种深色（黑、深棕都行）。
+2. 用 artifacts_save 把选定的图存进工程，照 `examples/character.example.json` 写 `character.json`（字段见 `references/art.md` 第 4 节；柔和阴影的画风先出分区图写进 `partmap`，照 `examples/character-partmap.example.json`），运行 `node puppet-mask.mjs character.json`。它找出头发，写出 `hair-mask.json`（retouch 的选区）和 `hair-mask.png`（白色是头发）。看一眼 PNG：白色应该正好盖住头发，不带耳朵、脸的轮廓。
 3. 光头重绘：retouch `op: "repaint"`，`files` 给正面像，`mask` 给 `hair-mask.json` 的内容，`prompt` 照 `references/art.md` 第 2 节。结果（`<原名>-repainted.png`）是头发下面的头皮：头发晃开、转头时露出来的就是它。写进 `bald`。
 4. 改图：以正面像为输入（`images` 给它的 entryId），出 4 种嘴（`half`、`open`、`round`、`wide`）、闭眼（`lids`）和要的表情，模板与每张的描述在 `references/art.md` 第 3 节。各张互不依赖，可以同时提交。存进工程，写进 `character.json`。
-5. 运行 `node puppet-build.mjs character.json`。每项检查打一行：`ok` 能用，`FIX` 后面写着重画哪一张、为什么；有 `FIX` 时退出码是 1。重画那一张后整个重跑（几秒到半分钟）。全部 `ok` 后看 `puppet/rest-diff.png`：几乎全黑才对，亮的地方是静止时和正面像不一样的地方。成品是 `puppet/<name>.bcpuppet`。每项检查的读法在 `references/art.md` 第 4 节。
+5. 运行 `node puppet-build.mjs character.json`。每项检查打一行：`ok` 能用，`FIX` 后面写着重画哪一张、为什么；有 `FIX` 时退出码是 1。重画那一张后整个重跑（几秒到半分钟）。全部 `ok` 后看 `puppet/rest-diff.png`：几乎全黑才对，亮的地方是静止时和正面像不一样的地方。成品是 `puppet/<name>.bcpuppet`；有分区图时另有 `puppet/<name>.livliv`，LivLiv 播放器直接能开。每项检查的读法在 `references/art.md` 第 4、5 节。
 
 ## 3. 动作轨
 

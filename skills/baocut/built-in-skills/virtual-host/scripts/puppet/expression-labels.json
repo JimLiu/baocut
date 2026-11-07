@@ -1,0 +1,68 @@
+{
+ "smile": {
+  "en": "Smile",
+  "zh": "笑",
+  "zh-Hant": "笑",
+  "ja": "笑顔"
+ },
+ "shy": {
+  "en": "Shy",
+  "zh": "害羞",
+  "zh-Hant": "害羞",
+  "ja": "照れ"
+ },
+ "angry": {
+  "en": "Angry",
+  "zh": "生气",
+  "zh-Hant": "生氣",
+  "ja": "怒り"
+ },
+ "sad": {
+  "en": "Sad",
+  "zh": "难过",
+  "zh-Hant": "難過",
+  "ja": "悲しい"
+ },
+ "surprised": {
+  "en": "Surprised",
+  "zh": "惊讶",
+  "zh-Hant": "驚訝",
+  "ja": "驚き"
+ },
+ "puffed": {
+  "en": "Puffed cheeks",
+  "zh": "鼓脸",
+  "zh-Hant": "鼓臉",
+  "ja": "ふくれっ面"
+ },
+ "tongue_out": {
+  "en": "Tongue out",
+  "zh": "吐舌",
+  "zh-Hant": "吐舌",
+  "ja": "舌を出す"
+ },
+ "laugh": {
+  "en": "Laughing",
+  "zh": "大笑",
+  "zh-Hant": "大笑",
+  "ja": "大笑い"
+ },
+ "smirk": {
+  "en": "Smirk",
+  "zh": "坏笑",
+  "zh-Hant": "壞笑",
+  "ja": "にやり"
+ },
+ "starry_eyes": {
+  "en": "Starry eyes",
+  "zh": "星星眼",
+  "zh-Hant": "星星眼",
+  "ja": "きらきら目"
+ },
+ "raised_brow": {
+  "en": "Raised brow",
+  "zh": "挑眉",
+  "zh-Hant": "挑眉",
+  "ja": "眉上げ"
+ }
+}

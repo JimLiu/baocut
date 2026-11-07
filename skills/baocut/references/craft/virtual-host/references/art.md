@@ -96,6 +96,10 @@ New expression: <描述>. Draw it in exactly the same line weight and colors as 
 | `out` | 输出目录，缺省 `puppet` |
 | `skin`、`line`、`hair` | 可选。皮肤色、描边色 `[r, g, b]`，不给时从图里量；`hair` 给头发色，`null` 表示头发就是描边色（黑发） |
 | `glasses` | 可选。`false` 时不找眼镜（没戴眼镜却报了 `glasses` 时写它） |
+| `partmap` | 可选。分区图（第 5 节）。有它时按分区图拆层，`skin`、`line`、`hair`、`glasses` 不用 |
+| `profile` | 可选。`{ "id": "anime_half", "facing": "front", "glasses": false }`；`id` 是 `anime_half`、`chibi`（Q 版大头）、`mascot`、`painterly`（厚涂），写进角色包 |
+| `livliv` | 可选。有分区图时缺省出 `.livliv`，`false` 不出 |
+| `meta` | 可选。写进 `.livliv` 的 `meta`，例如 `{ "author": "…" }` |
 
 `node puppet-build.mjs character.json` 抠掉底色，把每张改图对齐到正面像，拆出前后头发、脸、眉毛、两只眼睛与眼珠、嘴的几帧、表情、眼镜、身体，写出 `puppet/`：
 
@@ -119,3 +123,53 @@ New expression: <描述>. Draw it in exactly the same line weight and colors as 
 | `package: … layers` | 角色包合规。`FIX` 时后面是不合规的地方，是脚本的问题，如实告诉用户 |
 
 重画某一张后整个重跑，不单独补一层。全部 `ok` 后放上时间线，在预览里看转头、点头、眨眼和说话（SKILL.md 第 4 节）。
+
+## 5. 分区图：柔和阴影、厚涂与 Q 版
+
+平涂的脚本靠颜色分部位；柔和阴影的动漫、厚涂、Q 版的阴影和高光会把颜色混在一起。这时多出一张**分区图**：把正面像的每个部位涂成一种规定的纯色，脚本对齐到正面像后按它拆层，画风不限。
+
+正面像照第 1 节写，`Style` 一行换成这期的画风，例如：
+
+```text
+Style: a polished soft anime illustration: smooth gradient shading and warm highlights on skin and hair, a gentle rosy warmth on the cheeks, large glossy eyes with a colour gradient in the iris and two small bright highlights, thin dark line art that varies in weight, soft light from the upper left.
+```
+
+构图写成半身（头顶上方到腰，头占上面约 40%）、竖幅 1024x1536，并写 `Nothing in front of the face or the neck; the bangs end at or above the eyebrows`：刘海盖住眼睛时眼睛拆不出来。Q 版写大头、头占上面一半；厚涂写自然比例、柔和笔触、不要硬描边。
+
+分区图是一张改图（以正面像为输入），提示词：
+
+```text
+Turn the attached character image into a flat colour-coded segmentation map of its parts, for a puppet rig.
+Keep every part exactly where it is, with exactly the same outline and size: same head position, same hair silhouette, every hair strand and bang tip in place. Do not move, zoom, crop, simplify or redraw the shapes. Only replace the colours.
+Paint each part in one flat solid colour, with no shading, no gradients, no outlines, no texture, no anti-aliasing halos:
+- the bangs and all the hair on top of the head and in front of the forehead: pure red #FF0000
+- the locks of hair hanging down beside the face and in front of the shoulders: pure magenta #FF00FF
+- the hair behind the head, the neck and the shoulders (the back of the hair): pure blue #0000FF
+- face skin and nose: pure yellow #FFFF00
+- the ears: pink #FF80C0
+- the neck and any other bare skin below the chin: orange #FF8000
+- eyebrows: purple #8000FF, the whole eyebrow even where a strand of hair crosses it
+- the whites of the eyes: pure white #FFFFFF
+- irises and pupils, highlights included: cyan #00FFFF
+- eyelashes and the dark upper and lower eye lines: pure black #000000
+- the lips and the mouth line: dark red #800000
+- all clothing (every garment, collar and button) and any accessory: mid grey #808080
+- the background stays the same plain green #00B140.
+The outlines of the drawing belong to the part they surround; draw no lines between parts.
+```
+
+- 背景色照正面像的底色改。颜色画得不准（暗红画成偏橙）没关系，脚本按图里实际的颜色找最近的那种。
+- 有了 `partmap` 再跑 `puppet-mask.mjs`：头发的选区按分区图的红、品红、蓝三块取。光头重绘的提示词把第 2 节的 `cartoon … flat skin colour … no shading` 换成 `the same character's head … in the same drawing style … the same skin colour and the same soft shading as the face`，并加一句头发盖住的肩膀、衣服照原样画出来。
+- 嘴、闭眼、表情照第 3 节，`KEEP` 里加 `soft shading`；表情照第 3 节的整脸模板（`smile` 也用整脸），另可加 `surprised`（惊讶）。
+- 实测（GPT Image 2.6 Sunburst，柔和阴影的动漫半身像，正面像、分区图、光头重绘、嘴 4、闭眼、表情 5，共 13 张）：一遍全部 `ok`。
+
+`puppet-build.mjs` 看到 `partmap` 就按它拆，多出这几行检查：
+
+| 报告 | 意思与改法 |
+| --- | --- |
+| `part map: shift …, scale …, residual …, …% of the character in no palette colour` | 分区图对齐到正面像的位移、缩放，和有多少像素不像任何一种规定色。位移大、缩放不是 1，或超过 2% 时 `FIX`：重出分区图 |
+| `parts: eyes …, brows …, mouth … px wide` | 分区图里找到的眼睛、眉毛、嘴。`FIX part map: no face`、`FIX mouth: the map has no mouth` 是分区图没涂出脸或嘴：重出分区图 |
+| `bald repaint: …% of the scalp under the hair still looks like hair` | 光头重绘在头发底下还留着头发，超过 8% 时 `FIX`：重画 |
+| `rest matches the portrait` | 同第 4 节 |
+
+成品除了 `<name>.bcpuppet`，还有 `<name>.livliv`（LivLiv v4 角色包，`livliv/` 是解开的文件，带 `cover.png` 与 `avatar.png`）。两份是同一套层：LivLiv 播放器能开，就说明拆层是完整的。

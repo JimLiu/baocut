@@ -1,0 +1,22 @@
+{
+  "name": "host",
+  "portrait": "art/portrait.png",
+  "partmap": "art/partmap.png",
+  "bald": "art/portrait-repainted.png",
+  "mouths": {
+    "half": "art/mouth-half.png",
+    "open": "art/mouth-open.png",
+    "round": "art/mouth-round.png",
+    "wide": "art/mouth-wide.png"
+  },
+  "lids": "art/lids.png",
+  "expressions": {
+    "smile": "art/expr-smile.png",
+    "shy": "art/expr-shy.png",
+    "angry": "art/expr-angry.png",
+    "sad": "art/expr-sad.png",
+    "surprised": "art/expr-surprised.png"
+  },
+  "profile": { "id": "anime_half", "facing": "front", "glasses": false },
+  "out": "puppet"
+}

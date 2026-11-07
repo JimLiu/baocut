@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文
-// The mask for the bald repaint: the portrait's hair (as puppet-build.mjs finds it), grown 4 px, as strokes for the
-// retouch tool's repaint (`mask: { strokes }`). Plain Node >= 22.
+// The mask for the bald repaint: the portrait's hair (as puppet-build.mjs finds it, or as the part map paints it),
+// grown 4 px, as strokes for the retouch tool's repaint (`mask: { strokes }`). Plain Node >= 22.
 //
 //   node puppet-mask.mjs <character.json> [out.json]
 //
-// Reads "portrait" (and "skin" / "line" / "hair" when set) from character.json. Writes out.json (default: hair-mask.json next
+// Reads "portrait" and "partmap" (or, without a part map, "skin" / "line" / "hair" when set) from character.json. Writes out.json (default: hair-mask.json next
 // to character.json) and out.png, the mask to look at: white is what gets repainted.
 import fs from 'node:fs';
 import path from 'node:path';
 import { readImage, writeGray } from './puppet/png.mjs';
 import { segment } from './puppet/segment.mjs';
-import { maskStrokes } from './puppet/seg.mjs';
-import { dilate, count, bbox } from './puppet/ops.mjs';
+import { maskStrokes, keyOut } from './puppet/seg.mjs';
+import { dilate, count, bbox, or } from './puppet/ops.mjs';
+import { readLabels, part } from './puppet/partmap.mjs';
 
 // what the retouch tool takes
 const MAX_STROKES = 500, MAX_SHARE = 0.6;
@@ -30,14 +31,24 @@ if (!cfg.portrait) {
 }
 const out = path.resolve(outArg ?? path.join(path.dirname(cfgPath), 'hair-mask.json'));
 const im = readImage(path.resolve(path.dirname(cfgPath), cfg.portrait)), { w, h } = im;
-let G;
-try {
-  G = segment(im, { skin: cfg.skin, line: cfg.line, hair: cfg.hair, glasses: cfg.glasses });
-} catch (e) {
-  console.error(`FIX  portrait: ${e.message}`);
-  process.exit(1);
+let hair;
+if (cfg.partmap) {
+  const pm = readImage(path.resolve(path.dirname(cfgPath), cfg.partmap));
+  if (pm.w !== w || pm.h !== h) {
+    console.error(`FIX  part map: ${pm.w}x${pm.h}, the portrait is ${w}x${h}; ask for the same size`);
+    process.exit(1);
+  }
+  const { lab } = readLabels(im, pm, keyOut(im));
+  hair = or(or(part(lab, 'front'), part(lab, 'side')), part(lab, 'back'));
+} else {
+  try {
+    hair = segment(im, { skin: cfg.skin, line: cfg.line, hair: cfg.hair, glasses: cfg.glasses }).hair;
+  } catch (e) {
+    console.error(`FIX  portrait: ${e.message}`);
+    process.exit(1);
+  }
 }
-const m = dilate(G.hair, w, h, 4);
+const m = dilate(hair, w, h, 4);
 const share = count(m) / (w * h);
 if (share > MAX_SHARE) {
   console.error(`FIX  the hair mask covers ${(100 * share).toFixed(1)}% of the image (the repaint takes at most 60%): make the character smaller in the frame`);
@@ -51,4 +62,4 @@ while (strokes.length > MAX_STROKES) {
 }
 fs.writeFileSync(out, JSON.stringify({ strokes }) + '\n');
 writeGray(out.replace(/\.json$/, '') + '.png', w, h, m.map((v) => v * 255));
-console.log(`ok   hair mask: ${count(G.hair)} px of hair in ${bbox(G.hair, w, h)}, ${(100 * share).toFixed(1)}% of the image, ${strokes.length} strokes -> ${out}`);
+console.log(`ok   hair mask: ${count(hair)} px of hair in ${bbox(hair, w, h)}, ${(100 * share).toFixed(1)}% of the image, ${strokes.length} strokes -> ${out}`);

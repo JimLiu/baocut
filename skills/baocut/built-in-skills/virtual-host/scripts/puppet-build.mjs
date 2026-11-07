@@ -10,6 +10,9 @@
 //   name, portrait, bald, mouths: { half, open, round?, wide? }, lids?, expressions?: { <id>: edit },
 //   out? (default "puppet"), profile?, skin?: [r, g, b], line?: [r, g, b] (the outline colour; measured when unset),
 //   hair?: [r, g, b] | null (null: the line colour), glasses?
+// With "partmap" (an edit painting each part in one flat key colour, references/art.md section 5) any drawing style
+// works: the part-map build (puppet/mapbuild.mjs) also writes <name>.livliv (the LivLiv v4 package; "livliv": false
+// skips it, "meta" goes into its meta) and skin / line / hair / glasses are not used.
 //
 // Writes into <out>/: <name>.bcpuppet (import this), package/ (the same files unzipped), rest.png (all layers at rest),
 // rest-diff.png (where rest differs from the portrait, brighter = more) and report.json. Every check prints one line,
@@ -35,6 +38,11 @@ if (!cfgArg) {
 const cfgPath = path.resolve(cfgArg);
 const DEBUG = args.includes('--debug');
 const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+// a character with a part map (any drawing style) takes the part-map build
+if (cfg.partmap) {
+  const { buildFromMap } = await import('./puppet/mapbuild.mjs');
+  process.exit(buildFromMap(cfgPath, cfg, { debug: DEBUG }));
+}
 const P = (f) => path.resolve(path.dirname(cfgPath), f);
 const log = (...a) => { if (DEBUG) console.log(...a.map((v) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : v))); };
 const OUT = P(cfg.out ?? 'puppet'), PKG = path.join(OUT, 'package'), DBG = path.join(OUT, 'work');
