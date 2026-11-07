@@ -93,6 +93,25 @@ log('bald repaint changed', count(changed), 'zone', count(zone));
 const baldHead = and(zone, Uint8Array.from(BK.alpha, (a) => (a > 0.02 ? 1 : 0)));
 let faceM = or(minus(G.head, minus(zone, baldHead)), baldHead);
 faceM = and(fillHoles(faceM, w, h), or(G.char, baldHead));
+// below the jaw the repaint shows the neck and the collar behind hanging hair: they stay the body's, or a turn drags
+// their lines along with the head. The jaw, per column: the lowest row of the face in the portrait or of its skin in
+// the repaint (the hair may hide a cheek in the portrait), plus the outline
+{
+  const bs = new Uint8Array(N);
+  for (let p = 0; p < N; p++) if (BK.alpha[p] > 0.9 && Math.hypot(bald.d[4 * p] - skin[0], bald.d[4 * p + 1] - skin[1], bald.d[4 * p + 2] - skin[2]) < 30) bs[p] = 1;
+  const cc = components(bs, w, h), hits = new Map();
+  for (let p = 0; p < N; p++) if (G.headSkin[p] && cc.lab[p]) hits.set(cc.lab[p], (hits.get(cc.lab[p]) ?? 0) + 1);
+  const faceId = [...hits].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0;
+  const jaw = new Int32Array(w).fill(-1);
+  for (let p = 0; p < N; p++) if (G.head[p] || (faceId && cc.lab[p] === faceId)) { const x = p % w, y = (p - x) / w; if (y > jaw[x]) jaw[x] = y; }
+  let cut = 0;
+  for (let p = 0; p < N; p++) {
+    if (!faceM[p] || G.head[p]) continue;
+    const x = p % w, y = (p - x) / w;
+    if (y > (jaw[x] >= 0 ? jaw[x] + G.lw + 2 : G.chin)) { faceM[p] = 0; cut++; }
+  }
+  log('repaint below the jaw left to the body', cut);
+}
 const baldSkin = medianColor(bald, Uint8Array.from({ length: N }, (_, p) => (zone[p] && BK.alpha[p] > 0.98 && Math.hypot(bald.d[4 * p] - skin[0], bald.d[4 * p + 1] - skin[1], bald.d[4 * p + 2] - skin[2]) < 25 ? 1 : 0)));
 log('bald skin', baldSkin, 'portrait skin', skin);
 // strand tips the hair mask missed: thin dark bits next to the hair that the bald repaint turned into skin
@@ -201,7 +220,8 @@ const hairCol = medianColor(im, and(erode(G.hair, w, h, 3), G.hairMask));
 }
 
 // body: everything below the head, the jaw's shadow painted out with neck skin, and the neck carried up under the
-// face to the mouth line (its outlines continued straight up) so a nod or turn never opens a hole under the chin
+// face to the mouth line (its outlines continued straight up) so a nod or turn never opens a hole under the chin; the
+// jaw line's antialiased rim just below the face goes too (a nod showed it as a faint second chin)
 const mouthY = Math.round(G.mouthComp ? (G.mouthComp.y0 + G.mouthComp.y1) / 2 : G.chin - 0.25 * (G.chin - G.eyeBot));
 {
   const bodyM = minus(minus(minus(G.char, faceM), G.hair), G.neckShadow);
@@ -212,11 +232,12 @@ const mouthY = Math.round(G.mouthComp ? (G.mouthComp.y0 + G.mouthComp.y1) / 2 : 
   if (nk) {
     const lineCol = G.line, lw = nk.lw;
     const y1 = Math.min(h - 1, G.chin + G.lw + 4);
+    const under = dilate(faceM, w, h, 2);
     for (let y = Math.max(0, mouthY - 4); y <= y1; y++) {
       const xl = nk.left(Math.max(y, nk.top)), xr = nk.right(Math.max(y, nk.top));
       for (let x = Math.floor(xl - lw); x <= Math.ceil(xr + lw); x++) {
         const p = y * w + x;
-        if (!faceM[p]) continue;
+        if (!under[p]) continue;
         const d = Math.min(Math.abs(x - xl), Math.abs(x - xr));
         const la = Math.max(0, Math.min(1, lw / 2 + 0.5 - d));
         const inside = x > xl && x < xr;
@@ -315,7 +336,10 @@ for (const e of eyeLayers) add(e.id, e.L, e.def, e);
 {
   const fc = G.faceComp, mc = G.mouthComp;
   const faceIn = erode(fillHoles(or(G.headSkin, G.headShade), w, h), w, h, 2);
-  const nose = dilate(G.headShade, w, h, 6);
+  // the nose's shade stays out of the zone; shading on or under the lips is part of the mouth the edits redraw (cut
+  // out, it left a hole of skin in every open mouth)
+  const shade = components(G.headShade, w, h);
+  const nose = dilate(compMask(shade.lab, shade.comps.filter((c) => c.y1 < mc.y0).map((c) => c.id)), w, h, 6);
   const mw = mc.x1 - mc.x0;
   const mz = minus(and(boxMask(w, h, mc.x0 - 0.35 * mw, mc.y0 - 0.3 * mw, mc.x1 + 0.35 * mw, G.chin - G.lw - 8), and(faceIn, not(minus(featCore, G.mouth)))), nose);
   const mzAll = or(mz, dilate(G.mouth, w, h, 3));
