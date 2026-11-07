@@ -2,15 +2,15 @@
   "schema": 1,
   "target": "aarch64-apple-darwin",
   "variant": "cpu",
-  "version": "3.16.3",
-  "build": 91,
-  "date": "2026-11-06",
-  "notes": "Export: The video export dialog now defaults to the canvas resolution. A 4K source in a 1080p canvas exports at 1080p unless you choose the original resolution, avoiding unintended larger files and longer exports.\nAgent: Transcription and link-import results prompt the agent to name speakers from source metadata and transcript evidence before translation, caption creation or delivery, including single-speaker recordings and workflows that skip or only partly polish the transcript. Uncertain identities keep their placeholder names.\nImage generation: Added GPT Image 2.6 Sunburst and Flare and refreshed GPT Image 2.5 model choices for raster generation and reference-image editing. GPT Image 2 remains the default; GPT Image 1 is retained for saved selections but marked unavailable. GPT Image 2.6 SVG, animated GIF, markup and complexity controls are not exposed.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Electron 44.9.3 embeds Node 24.22.0 and does not include the October Node security fixes. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.16.4",
+  "build": 92,
+  "date": "2026-11-07",
+  "notes": "Agent: A question or approval that waits on you no longer fails with \"The operation timed out.\" after about four to five minutes. While a tool call waits, BaoCut now sends keep-alive progress to MCP clients that accept streamed responses, so Claude Code versions before 2.1.274 and Claude Code's tool idle watchdog no longer drop it. Claude Code versions before 2.1.142 can still end such calls after 60 seconds; update Claude Code if that happens.\nAgent: Questions that were stopped, skipped or answered keep their headers, choices and choice descriptions when you expand them in the conversation history, so you can review what was asked.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Electron 44.9.3 embeds Node 24.22.0 and does not include the October Node security fixes. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
   "notesLocalized": {},
   "app": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.16.3-build.91/BaoCut-3.16.3-build.91-aarch64-apple-darwin.zip",
-    "size": 302390017,
-    "sha256": "0364715c02a38d4f26738545aea6bddc7258415bbbe84308af647e0bd64b4330"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.16.4-build.92/BaoCut-3.16.4-build.92-aarch64-apple-darwin.zip",
+    "size": 302390796,
+    "sha256": "34bf43c6fa40b9f3903675908d431d8fcf899d3a0bac8510d31ab6e8b5686999"
   }
 }
