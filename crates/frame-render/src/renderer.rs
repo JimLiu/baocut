@@ -842,8 +842,27 @@ impl FrameRenderer {
                 let dims = (f64::from(cw.max(1)), f64::from(ch.max(1)));
                 let geom = BoxGeom::of(&probe, Some(dims), (f64::from(size.0), f64::from(size.1)));
                 let (w, h) = (geom.w.round().clamp(1.0, 4096.0) as u32, geom.h.round().clamp(1.0, 4096.0) as u32);
+                // 看得见的画面底边落在框的第几行：半身角色的切口在画面外还有余量时，轻跳能往上跳到切口齐着画面底边
+                // （分层角色格式规范 §3 的 moveY）。框转了或上下翻了不算余量
+                let frame_bottom = if geom.rotation == 0.0 && !geom.flip_y && geom.h > 0.0 {
+                    (f64::from(size.1) - (geom.cy - geom.h / 2.0)) * f64::from(h) / geom.h
+                } else {
+                    f64::from(h)
+                };
+                // moveX / moveY 挪整个框，不在框里挪：跳起来时头顶不会被框切掉。整像素挪框（框在画面上的取样相位不变，
+                // 不会一帧清楚一帧糊），不到一像素的余数由角色自己画
+                let (moved, rest) = box_shift(&geom, player.shift(clock, w, h, frame_bottom), (w, h));
                 let mut px = vec![0u8; w as usize * h as usize * 4];
-                player.render(clock, w, h, &mut px);
+                player.render_shifted(clock, w, h, rest, &mut px);
+                if moved != [0.0, 0.0] {
+                    element.keyframe_place(eval);
+                    if let Some(k) = element.keyframes.as_mut() {
+                        k.x = None;
+                        k.y = None;
+                    }
+                    element.place.x = Some(element.place.x.unwrap_or(50.0) + 100.0 * moved[0] / f64::from(size.0));
+                    element.place.y = Some(element.place.y.unwrap_or(50.0) + 100.0 * moved[1] / f64::from(size.1));
+                }
                 let mut source = Arc::new(
                     IntSize::from_wh(w, h)
                         .and_then(|size| Pixmap::from_vec(px, size))
@@ -2346,6 +2365,23 @@ mod font_source_tests {
         )]);
         assert!(renderer.take_engine().resolve_font_source(&digest, 0).is_ok());
     }
+}
+
+/// 角色在 `buf` 大小的缓冲里的平移 `shift`（缓冲像素，框自己的方向）分成两份：整像素的一份挪框（输出像素，画面方向），
+/// 剩下不到一像素的一份（缓冲像素）交给角色自己画。框的镜像与旋转照着框来。
+fn box_shift(geom: &BoxGeom, shift: [f64; 2], buf: (u32, u32)) -> ([f64; 2], [f64; 2]) {
+    let (kx, ky) = (geom.w / f64::from(buf.0.max(1)), geom.h / f64::from(buf.1.max(1)));
+    let flip = |v: [f64; 2]| [if geom.flip_x { -v[0] } else { v[0] }, if geom.flip_y { -v[1] } else { v[1] }];
+    let (sin, cos) = geom.rotation.to_radians().sin_cos();
+    let local = flip([shift[0] * kx, shift[1] * ky]);
+    let screen = [local[0] * cos - local[1] * sin, local[0] * sin + local[1] * cos];
+    if !(screen[0].is_finite() && screen[1].is_finite()) {
+        return ([0.0, 0.0], [0.0, 0.0]);
+    }
+    let moved = [screen[0].round(), screen[1].round()];
+    let left = [screen[0] - moved[0], screen[1] - moved[1]];
+    let back = flip([left[0] * cos + left[1] * sin, -left[0] * sin + left[1] * cos]);
+    (moved, [back[0] / kx, back[1] / ky])
 }
 
 #[cfg(test)]

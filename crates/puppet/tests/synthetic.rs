@@ -177,6 +177,34 @@ fn move_shifts_the_picture_but_never_lifts_a_cut_edge() {
     assert!(top(&down) < top(&still));
 }
 
+/// 框伸出画面时（宿主给出看得见的画面底边在框的第几行），半身角色往上最多跳到切口齐着画面底边：余量够时整段上去，
+/// 不够时停在余量处；画面底边就是框的底边、或框整个在画面里时照旧只往下。平移交给宿主时角色画在原处。
+#[test]
+fn a_cut_edge_below_the_frame_lets_the_move_lift_up_to_it() {
+    let pkg = package();
+    let make = |v: f64| Player::new(Puppet::new(&pkg).unwrap(), Some(offsets("moveY", v)), 2, 0.0);
+    let lift = |v: f64, bottom: f64| {
+        let [x, y] = make(v).shift(1.0, 128, 192, bottom);
+        assert_eq!(x, 0.0);
+        -y
+    };
+    // 画面底边在第 152 行：切口在画面外 40 行，moveY 0.1（19.2 行）整段上去，0.3（57.6 行）停在 40 行
+    assert!((lift(0.1, 152.0) - 19.2).abs() < 1e-4);
+    assert!((lift(0.3, 152.0) - 40.0).abs() < 1e-4);
+    // 画面底边就是框的底边、框整个在画面里：不往上；往下照常
+    assert_eq!(lift(0.3, 192.0), 0.0);
+    assert_eq!(lift(0.3, 260.0), 0.0);
+    assert!((lift(-0.1, 192.0) + 19.2).abs() < 1e-4);
+    // 宿主拿走平移：画在原处；把平移原样还回来就是 render 的那一帧
+    let mut px = vec![0u8; 128 * 192 * 4];
+    make(0.3).render_shifted(1.0, 128, 192, [0.0, 0.0], &mut px);
+    assert_eq!(px, frame(&mut make(0.0), 1.0));
+    let mut p = make(-0.1);
+    let shift = p.shift(1.0, 128, 192, 192.0);
+    p.render_shifted(1.0, 128, 192, shift, &mut px);
+    assert_eq!(px, frame(&mut make(-0.1), 1.0));
+}
+
 #[test]
 fn seeking_back_during_idle_moves_gives_the_same_frame() {
     // 没有动作轨时待机自己做小动作（第一个在 6 秒后）：跨快照往回 seek 也逐位一样

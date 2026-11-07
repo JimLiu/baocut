@@ -147,6 +147,18 @@ impl Player {
         self.seek(t);
         self.puppet.render(w, h, out);
     }
+
+    /// 角色时钟 `t` 秒的 `moveX` `moveY` 在缓冲里的平移，见 [`Puppet::shift`]。
+    pub fn shift(&mut self, t: f64, w: u32, h: u32, frame_bottom: f64) -> [f64; 2] {
+        self.seek(t);
+        self.puppet.shift(w, h, frame_bottom)
+    }
+
+    /// 同 [`Player::render`]，平移由宿主给，见 [`Puppet::render_shifted`]。
+    pub fn render_shifted(&mut self, t: f64, w: u32, h: u32, shift: [f64; 2], out: &mut [u8]) {
+        self.seek(t);
+        self.puppet.render_shifted(w, h, shift, out);
+    }
 }
 
 #[cfg(test)]

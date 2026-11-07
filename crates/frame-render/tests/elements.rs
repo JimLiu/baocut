@@ -1081,6 +1081,36 @@ fn character_stickers_move_with_their_motion_track() {
     assert_eq!(render(&video, at(40.0), &mut media), b);
 }
 
+/// 半身角色的框伸出画面底边时，轻跳（`moveY` 往上）能跳到切口齐着画面底边；框整个在画面里时只往下（分层角色格式
+/// 规范 §3）。
+#[test]
+fn a_character_boxed_past_the_frame_bottom_can_hop_up() {
+    let sticker = |y: f64| {
+        let body = json!({
+            "type": "sticker", "sticker": { "source": "asset" }, "place": { "y": y, "w": 30 },
+            "span": { "fromFrame": 0, "durationFrames": 90 },
+            "assetRef": { "id": "a_host", "revision": "rev_1" },
+            "motionRef": { "id": "a_talk", "revision": "rev_1" },
+        });
+        video(vec![item("host", 0, 90, body)], puppet_assets(), json!({}))
+    };
+    let top = |y: f64, move_y: f64| {
+        let mut media = Media::default();
+        media.assets.insert("a_host".into(), puppet::testing::package_zip());
+        let track = json!({ "format": "baocut-puppet-track", "version": 1, "fps": 30, "duration": 3.0, "offsets": { "moveY": [move_y] } });
+        media.assets.insert("a_talk".into(), serde_json::to_vec(&track).unwrap());
+        painted_bounds(&render(&sticker(y), at(30.0), &mut media)).unwrap().1
+    };
+    // 框 48×72，中心在第 90 行：下面一半（36 行）在画面外。moveY 0.1 是框高的 7.2 行，整段上去；框跟着挪，头顶不被
+    // 框的上沿切掉。0.6 停在切口齐着画面底边（36 行）
+    let rest = top(100.0, 0.0);
+    let (hop, high) = (rest - top(100.0, 0.1), rest - top(100.0, 0.6));
+    assert!((7..=8).contains(&hop), "{hop}");
+    assert!((35..=37).contains(&high), "{high}");
+    // 框在画面中间（第 9 到 81 行）：切口看得见，不往上
+    assert_eq!(top(50.0, 0.1), top(50.0, 0.0));
+}
+
 #[test]
 fn split_character_halves_meet_at_the_seam() {
     // 整段 [0, 90) 与拆开的两段 [0, 45) + [45, 90)（后一段从角色时钟的 1.5 秒开始、lineage 指向前一段）：

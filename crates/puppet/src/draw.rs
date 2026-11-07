@@ -16,24 +16,35 @@ fn eye_alpha(open: f64) -> f64 {
 }
 
 impl Puppet {
-    /// 把当前的形变画进 `w`×`h` 的预乘 RGBA8 缓冲（先清成透明）。角色按画布等比缩放、居中。
+    /// 把当前的形变画进 `w`×`h` 的预乘 RGBA8 缓冲（先清成透明）。角色按画布等比缩放、居中，再按 `moveX` `moveY`
+    /// 平移（缓冲的底边就是看得见的画面的底边）。
     ///
     /// 调用前要先 [`Puppet::update`]（`mesh: true`）。`out` 的长度必须是 `w * h * 4`。
     pub fn render(&self, w: u32, h: u32, out: &mut [u8]) {
+        self.render_shifted(w, h, self.shift(w, h, f64::from(h)), out);
+    }
+
+    /// `moveX` `moveY` 在 `w`×`h` 的缓冲里是多少像素的平移（x 向右、y 向下）。下沿切在画布底边的角色（半身）往上最多
+    /// 走到切口齐着看得见的画面底边，切边不会露出来（LivLiv 的 cutBottom：自动的动作不比摆放时多露切边）。
+    /// `frame_bottom` 是看得见的画面的底边落在缓冲的第几行：缓冲画进一个伸出画面的框时比 `h` 小，框整个在画面里时
+    /// 比 `h` 大（这时切口本来就看得见，只往下）。格式规范 §3。
+    pub fn shift(&self, w: u32, h: u32, frame_bottom: f64) -> [f64; 2] {
+        let (s, _, oy) = self.fit(w, h);
+        let mh = f64::from(self.model.canvas[1]);
+        let cut = self.model.anchors.bottom_y >= mh - 4.0;
+        let room = if frame_bottom.is_finite() { (oy + mh * s - frame_bottom).max(0.0) / f64::from(h) } else { 0.0 };
+        let up = if cut { self.params.move_y.min(room) } else { self.params.move_y };
+        [self.params.move_x * f64::from(w), -up * f64::from(h)]
+    }
+
+    /// 同 [`Puppet::render`]，但平移由宿主给（缓冲像素）：宿主把一部分平移拿去挪整张缓冲（角色贴纸挪框，跳起来
+    /// 不会被框切掉头顶），剩下的交给这里。
+    pub fn render_shifted(&self, w: u32, h: u32, shift: [f64; 2], out: &mut [u8]) {
         let (w, h) = (w as usize, h as usize);
         assert_eq!(out.len(), w * h * 4, "render buffer has the wrong size");
         out.fill(0);
-        let [mw, mh] = self.model.canvas;
-        let s = (w as f64 / f64::from(mw)).min(h as f64 / f64::from(mh));
-        // moveX / moveY 平移整个角色。下沿切在画外的角色（身体画到画布底边）只往下移，切边不会露出来（LivLiv 的
-        // cutBottom：自动的动作不比摆放时多露切边）
-        let cut = self.model.anchors.bottom_y >= f64::from(mh) - 4.0;
-        let up = if cut { self.params.move_y.min(0.0) } else { self.params.move_y };
-        let view = View {
-            s,
-            ox: (w as f64 - f64::from(mw) * s) / 2.0 + self.params.move_x * w as f64,
-            oy: (h as f64 - f64::from(mh) * s) / 2.0 - up * h as f64,
-        };
+        let (s, ox, oy) = self.fit(w as u32, h as u32);
+        let view = View { s, ox: ox + shift[0], oy: oy + shift[1] };
         let mut frame = Frame { w, h, px: out };
         let p = &self.params;
         let layers = &self.layers;
@@ -202,5 +213,14 @@ impl Puppet {
         if !new_brows {
             draw_new_brows(&mut frame);
         }
+    }
+}
+
+impl Puppet {
+    /// 角色在 `w`×`h` 里按画布等比缩放、居中：缩放与左上角。
+    fn fit(&self, w: u32, h: u32) -> (f64, f64, f64) {
+        let [mw, mh] = self.model.canvas;
+        let s = (f64::from(w) / f64::from(mw)).min(f64::from(h) / f64::from(mh));
+        (s, (f64::from(w) - f64::from(mw) * s) / 2.0, (f64::from(h) - f64::from(mh) * s) / 2.0)
     }
 }
