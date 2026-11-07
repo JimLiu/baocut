@@ -297,7 +297,9 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   }
 
   // an edit's skin may be a shade off and drift across the face: move it onto the portrait's, as a whole, then by what
-  // is left round each place it did not change. Returns the edit with its colours in `area` matched (others as they are)
+  // is left round each place it did not change. Returns the edit with its colours in `area` matched (others as they are).
+  // As a whole: onto the portrait's skin over the same pixels, not the whole face's. A shaded face is darker round the
+  // eyes than on the cheeks; matched to the whole face, a closed lid came out a light blotch over the eye
   const Lline = luma(...lineCol);
   const tSkin = (c, Ls) => Math.max(0, Math.min(1, (luma(...c) - Lline) / Math.max(1, Ls - Lline)));
   const changed = (E, area, m0) => {
@@ -311,8 +313,8 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   };
   const matchSkin = (Rim, area) => {
     const skinCore = and(erode(M.face, w, h, 3), area);
-    const eskin = medianColor(Rim, skinCore);
-    const Ls = luma(...eskin), shift = [0, 1, 2].map((k) => skin[k] - eskin[k]);
+    const eskin = medianColor(Rim, skinCore), here = medianColor(im, skinCore);
+    const Ls = luma(...eskin), shift = [0, 1, 2].map((k) => here[k] - eskin[k]);
     const E = clone(Rim);
     for (let p = 0; p < N; p++) if (area[p]) { const c = rgb(Rim, p), t = tSkin(c, Ls); E.d.set([...c.map((v, k) => v + t * shift[k]), 255], 4 * p); }
     const away = dilate(changed(E, area, 30), w, h, 8);
@@ -326,7 +328,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
     const den = blur(U, w, h, 16), num = Rk.map((r) => blur(r, w, h, 16));
     for (let p = 0; p < N; p++) {
       if (!area[p] || den[p] < 0.02) continue;
-      const t = tSkin(rgb(E, p), luma(...skin));
+      const t = tSkin(rgb(E, p), luma(...here));
       for (let k = 0; k < 3; k++) E.d[4 * p + k] -= (t * num[k][p]) / den[p];
     }
     return E;

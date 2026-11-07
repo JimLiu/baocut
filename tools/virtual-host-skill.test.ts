@@ -329,8 +329,11 @@ function render(shapes: Shape[], line: RGB, background: RGB) {
   return { w: SIZE, h: SIZE, d };
 }
 
-function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false } = {}) {
+function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false } = {}) {
   const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26], green: RGB = [0, 177, 64];
+  // a shaded face: the skin round each eye darker than the cheeks, the closed lid as dark as it
+  const shade: RGB = [212, 172, 140], lidSkin = socket ? shade : skin;
+  const sockets: Shape[] = socket ? [ell(214, 238, 34, 26), ell(298, 238, 34, 26)].map((inside) => ({ inside, fill: shade })) : [];
   const neck = { inside: rect(222, 300, 290, 470), fill: skin, outline: 6 };
   const body = { inside: ell(256, 560, 170, 150), fill: [150, 120, 210] as RGB, outline: 6 };
   const head = { inside: ell(256, 228, 100, 118), fill: skin, outline: 6 };
@@ -344,14 +347,14 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     { inside: ell(cx + 3, 235, 2.6, 2.6), fill: white },
   ];
   const lid = (cx: number): Shape[] => [
-    { inside: ell(cx, 238, 22, 16), fill: skin },
+    { inside: ell(cx, 238, 22, 16), fill: lidSkin },
     { inside: stroke((x) => 238 + 6 * (1 - ((x - cx) / 21) ** 2), cx - 21, cx + 21, 1.8), fill: line },
   ];
   const brow = (cx: number, up = 0): Shape => ({ inside: stroke((x) => 206 - up - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: line });
   // angry: brows pulled down toward the nose, the upper lids lowered flat over the irises, a blush on the cheeks
   const vBrow = (cx: number): Shape => ({ inside: stroke((x) => 198 + 10 * (cx < 256 ? x - (cx - 22) : cx + 22 - x) / 44, cx - 22, cx + 22, 3), fill: line });
   const narrowed = (cx: number): Shape[] => [
-    { inside: (x, y) => ell(cx, 238, 22, 16)(x, y) && y < 233, fill: skin },
+    { inside: (x, y) => ell(cx, 238, 22, 16)(x, y) && y < 233, fill: lidSkin },
     { inside: stroke(() => 233, cx - 20, cx + 20, 1.8), fill: line },
   ];
   const blush = (cx: number): Shape => ({ inside: ell(cx, 275, 14, 7), fill: [250, 182, 170] });
@@ -368,7 +371,7 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     frown: [clear, { inside: stroke((x) => 300 + 6 * ((x - 256) / 22) ** 2, 234, 278, 2.5), fill: line }],
   };
   const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[] } = {}) =>
-    render([neck, body, head, ...(bald ? [] : [hairShape]), ...brows, ...eyes, ...cheeks, ...mouth], line, green);
+    render([neck, body, head, ...sockets, ...(bald ? [] : [hairShape]), ...brows, ...eyes, ...cheeks, ...mouth], line, green);
   // the part map (references/art.md section 5): the same shapes, each part in its key colour, the eye lines black
   const key = (s: Shape, fill: RGB, outline?: number): Shape => ({ inside: s.inside, fill, outline });
   const eyeMap = (cx: number) => { const [w, i, hl] = eye(cx); return [key(w, [255, 255, 255], 2), key(i, [0, 255, 255]), key(hl, [0, 255, 255])]; };
@@ -584,6 +587,21 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(lv.rig).toEqual(model.rig);
     expect(lv.anchors.neck_y).toBe(model.anchors.neck_y);
     expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
+  });
+
+  it('keeps a closed lid as dark as the shaded skin round the eye, not the lighter skin of the whole face', () => {
+    const cfg = writeCharacter(tmp(), { hair: [230, 190, 90], socket: true }, undefined, { partmap: true });
+    const { status, report } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    const dir = path.join(path.dirname(cfg), 'puppet');
+    const model = JSON.parse(fs.readFileSync(path.join(dir, 'package/model.json'), 'utf8'));
+    type Layer = { id: string; x: number; y: number; texture: string };
+    const lid = model.layers.find((l: Layer) => l.id === 'eye_L_closed') as Layer;
+    const im = readPng(path.join(dir, 'package', lid.texture)), q = 4 * ((232 - lid.y) * im.w + (214 - lid.x));
+    expect(im.d[q + 3]).toBeGreaterThan(200);
+    // the socket is 40 darker than the cheeks: matched to the whole face's skin the lid came out as light as a cheek
+    expect(Math.abs((im.d[q] + im.d[q + 1] + im.d[q + 2]) / 3 - (212 + 172 + 140) / 3)).toBeLessThan(12);
   });
 
   it('takes a brow-coloured blot in the part map below the eyes for the part round it', () => {
