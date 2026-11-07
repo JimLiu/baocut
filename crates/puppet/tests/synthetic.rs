@@ -138,3 +138,55 @@ fn the_package_fixture_matches_the_synthetic_package() {
     }
     assert!(std::fs::read(&path).unwrap() == bytes, "rerun with BAOCUT_WRITE_FIXTURES=1 to refresh {}", path.display());
 }
+
+fn offsets(ch: &str, v: f64) -> Arc<Track> {
+    track(serde_json::json!({
+        "format": "baocut-puppet-track", "version": 1, "fps": 10, "duration": 2.0,
+        "offsets": { ch: vec![v; 21] }
+    }))
+}
+
+#[test]
+fn offsets_add_to_the_idle() {
+    let pkg = package();
+    let mut idle = Player::new(Puppet::new(&pkg).unwrap(), None, 5, 0.0);
+    let mut added = Player::new(Puppet::new(&pkg).unwrap(), Some(offsets("angleX", 6.0)), 5, 0.0);
+    idle.seek(1.0);
+    added.seek(1.0);
+    let (a, b) = (idle.puppet().params.angle_x, added.puppet().params.angle_x);
+    assert!((b - a - 6.0).abs() < 1e-9, "{a} + 6 != {b}");
+    // 动作轨结束后渐渐交回待机
+    idle.seek(3.0);
+    added.seek(3.0);
+    assert_eq!(idle.puppet().params.angle_x, added.puppet().params.angle_x);
+}
+
+#[test]
+fn move_shifts_the_picture_but_never_lifts_a_cut_edge() {
+    let pkg = package();
+    let make = |tr: Option<Arc<Track>>| Player::new(Puppet::new(&pkg).unwrap(), tr, 2, 0.0);
+    let still = frame(&mut make(None), 1.0);
+    // 往右四分之一个画面：身体右边原来空着的地方现在是身体
+    let right = frame(&mut make(Some(offsets("moveX", 0.25))), 1.0);
+    assert_eq!(at(&still, 118, 180)[3], 0);
+    assert_eq!(at(&right, 118, 180), [60, 90, 160, 255]);
+    // 合成角色的身体到画布底边（被切开的半身）：往上移不显出切口，画面不变；往下移可以
+    assert_eq!(frame(&mut make(Some(offsets("moveY", 0.2))), 1.0), still);
+    let down = frame(&mut make(Some(offsets("moveY", -0.1))), 1.0);
+    let top = |px: &[u8]| (0..40).flat_map(|y| (0..128).map(move |x| (x, y))).filter(|&(x, y)| at(px, x, y)[3] > 0).count();
+    assert!(top(&down) < top(&still));
+}
+
+#[test]
+fn seeking_back_during_idle_moves_gives_the_same_frame() {
+    // 没有动作轨时待机自己做小动作（第一个在 6 秒后）：跨快照往回 seek 也逐位一样
+    let pkg = package();
+    let make = || Player::new(Puppet::new(&pkg).unwrap(), None, 9, 0.0);
+    let times = [7.0, 12.5, 21.0, 27.0];
+    let direct: Vec<Vec<u8>> = times.iter().map(|&t| frame(&mut make(), t)).collect();
+    let mut p = make();
+    frame(&mut p, 29.0);
+    for (k, &t) in times.iter().enumerate().rev() {
+        assert_eq!(frame(&mut p, t), direct[k], "at {t}");
+    }
+}

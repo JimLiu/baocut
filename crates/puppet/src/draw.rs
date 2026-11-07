@@ -15,10 +15,14 @@ impl Puppet {
         out.fill(0);
         let [mw, mh] = self.model.canvas;
         let s = (w as f64 / f64::from(mw)).min(h as f64 / f64::from(mh));
+        // moveX / moveY 平移整个角色。下沿切在画外的角色（身体画到画布底边）只往下移，切边不会露出来（LivLiv 的
+        // cutBottom：自动的动作不比摆放时多露切边）
+        let cut = self.model.anchors.bottom_y >= f64::from(mh) - 4.0;
+        let up = if cut { self.params.move_y.min(0.0) } else { self.params.move_y };
         let view = View {
             s,
-            ox: (w as f64 - f64::from(mw) * s) / 2.0,
-            oy: (h as f64 - f64::from(mh) * s) / 2.0,
+            ox: (w as f64 - f64::from(mw) * s) / 2.0 + self.params.move_x * w as f64,
+            oy: (h as f64 - f64::from(mh) * s) / 2.0 - up * h as f64,
         };
         let mut frame = Frame { w, h, px: out };
         let p = &self.params;

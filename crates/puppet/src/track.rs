@@ -1,5 +1,6 @@
 //! 动作轨：一段配音对应的逐帧参数（`"format": "baocut-puppet-track"`，见 docs/spec/puppet-format-spec.md）。
-//! 换配音只换动作轨，角色包不变。帧之间线性插值；轨里没有的参数由待机动作给出。
+//! 换配音只换动作轨，角色包不变。帧之间线性插值；`params` 里的通道取代待机动作的那个参数，没有的由待机动作给出；
+//! `offsets` 里的通道加在上面（LivLiv 的说话动作与一次性动作就是这样叠在待机上的）。
 
 use std::collections::BTreeMap;
 
@@ -30,6 +31,8 @@ struct Raw {
     #[serde(default)]
     params: BTreeMap<String, Vec<f64>>,
     #[serde(default)]
+    offsets: BTreeMap<String, Vec<f64>>,
+    #[serde(default)]
     expressions: BTreeMap<String, Vec<f64>>,
 }
 
@@ -39,6 +42,7 @@ pub struct Track {
     fps: f64,
     duration: f64,
     params: Vec<Option<Vec<f32>>>,
+    offsets: Vec<Option<Vec<f32>>>,
     expressions: Vec<(String, Vec<f32>)>,
 }
 
@@ -93,11 +97,16 @@ impl Track {
             }
             Ok(v.iter().map(|&x| x as f32).collect())
         };
-        let mut params: Vec<Option<Vec<f32>>> = vec![None; Params::NAMES.len()];
-        for (name, v) in &raw.params {
-            let i = Params::index(name).ok_or_else(|| invalid(format!("motion track has an unknown parameter \"{name}\"")))?;
-            params[i] = Some(check(name, v)?);
-        }
+        let mut channels = |raw: &BTreeMap<String, Vec<f64>>| -> Result<Vec<Option<Vec<f32>>>, Error> {
+            let mut out: Vec<Option<Vec<f32>>> = vec![None; Params::NAMES.len()];
+            for (name, v) in raw {
+                let i = Params::index(name).ok_or_else(|| invalid(format!("motion track has an unknown parameter \"{name}\"")))?;
+                out[i] = Some(check(name, v)?);
+            }
+            Ok(out)
+        };
+        let params = channels(&raw.params)?;
+        let offsets = channels(&raw.offsets)?;
         let mut expressions = Vec::new();
         for (id, v) in &raw.expressions {
             if id.is_empty() || id.len() > 64 {
@@ -109,6 +118,7 @@ impl Track {
             fps: raw.fps,
             duration: raw.duration,
             params,
+            offsets,
             expressions,
         })
     }
@@ -137,6 +147,16 @@ impl Track {
         self.params.get(i)?.as_deref().map(|v| self.at(v, t))
     }
 
+    /// 参数 `i` 在 `t` 秒加在待机与 `params` 上的量（没有这个通道时 None）。
+    pub fn offset(&self, i: usize, t: f64) -> Option<f64> {
+        self.offsets.get(i)?.as_deref().map(|v| self.at(v, t))
+    }
+
+    /// 有没有 `offsets` 通道。
+    pub fn has_offsets(&self) -> bool {
+        self.offsets.iter().any(Option::is_some)
+    }
+
     /// 每个表情在 `t` 秒的权重。
     pub fn expressions(&self, t: f64) -> impl Iterator<Item = (&str, f64)> {
         self.expressions.iter().map(move |(id, v)| (id.as_str(), self.at(v, t)))
@@ -160,20 +180,27 @@ mod tests {
         assert!((t.param(m, 0.15).unwrap() - 0.75).abs() < 1e-6);
         assert_eq!(t.param(m, 9.0), Some(0.5));
         assert_eq!(t.expressions(0.2).collect::<Vec<_>>(), vec![("sad", 1.0)]);
+        assert!(!t.has_offsets() && t.offset(m, 0.1).is_none());
+        let o = Track::parse(
+            br#"{"format":"baocut-puppet-track","version":1,"fps":10,"duration":0.2,"offsets":{"moveY":[0,-0.02,0]}}"#,
+        )
+        .unwrap();
+        let y = Params::index("moveY").unwrap();
+        assert!(o.has_offsets() && !o.has(y));
+        assert!((o.offset(y, 0.05).unwrap() + 0.01).abs() < 1e-6);
     }
 
     #[test]
     fn rejects_bad_tracks() {
-        let bad: [&[u8]; 4] = [
+        let bad: [&[u8]; 6] = [
             br#"{"format":"x","version":1,"fps":30,"duration":1}"#,
             br#"{"format":"baocut-puppet-track","version":2,"fps":30,"duration":1}"#,
             br#"{"format":"baocut-puppet-track","version":1,"fps":30,"duration":1,"params":{"nope":[0]}}"#,
             br#"{"format":"baocut-puppet-track","version":1,"fps":10,"duration":0.1,"params":{"smile":[0,0,0,0]}}"#,
+            br#"{"format":"baocut-puppet-track","version":1,"fps":30,"duration":1,"offsets":{"nope":[0]}}"#,
+            br#"{"format":"baocut-puppet-track","version":1,"fps":30,"duration":1,"offsets":{"angleX":[]}}"#,
         ];
         let kinds: Vec<ErrorKind> = bad.iter().map(|b| Track::parse(b).unwrap_err().kind).collect();
-        assert_eq!(
-            kinds,
-            vec![ErrorKind::Invalid, ErrorKind::Unsupported, ErrorKind::Invalid, ErrorKind::Invalid]
-        );
+        assert_eq!(kinds, vec![ErrorKind::Invalid, ErrorKind::Unsupported, ErrorKind::Invalid, ErrorKind::Invalid, ErrorKind::Invalid, ErrorKind::Invalid]);
     }
 }

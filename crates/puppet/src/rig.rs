@@ -48,6 +48,10 @@ pub struct Params {
     pub body_x: f64,
     pub body_z: f64,
     pub breath: f64,
+    /// 整个角色在画布里的平移（LivLiv 的 `frame.move`）：x 向右、y 向上，单位是画布的宽、高。下沿切在画外的角色
+    /// 只往下移（[`Puppet::render`]）。
+    pub move_x: f64,
+    pub move_y: f64,
 }
 
 impl Default for Params {
@@ -68,13 +72,15 @@ impl Default for Params {
             body_x: 0.0,
             body_z: 0.0,
             breath: 0.0,
+            move_x: 0.0,
+            move_y: 0.0,
         }
     }
 }
 
 impl Params {
     /// 参数名（动作轨里的键），顺序即 [`Params::get`] 的序号。
-    pub const NAMES: [&'static str; 15] = [
+    pub const NAMES: [&'static str; 17] = [
         "angleX",
         "angleY",
         "angleZ",
@@ -90,8 +96,10 @@ impl Params {
         "bodyX",
         "bodyZ",
         "breath",
+        "moveX",
+        "moveY",
     ];
-    const RANGES: [(f64, f64); 15] = [
+    const RANGES: [(f64, f64); 17] = [
         (-30.0, 30.0),
         (-30.0, 30.0),
         (-30.0, 30.0),
@@ -107,6 +115,8 @@ impl Params {
         (-10.0, 10.0),
         (-10.0, 10.0),
         (0.0, 1.0),
+        (-0.5, 0.5),
+        (-0.5, 0.5),
     ];
 
     pub fn index(name: &str) -> Option<usize> {
@@ -133,7 +143,9 @@ impl Params {
             11 => &mut self.vowel,
             12 => &mut self.body_x,
             13 => &mut self.body_z,
-            _ => &mut self.breath,
+            14 => &mut self.breath,
+            15 => &mut self.move_x,
+            _ => &mut self.move_y,
         }
     }
 

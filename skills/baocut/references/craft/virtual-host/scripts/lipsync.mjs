@@ -394,7 +394,7 @@ export function quantize(fine, fps, frames) {
   return shapes;
 }
 
-// ---------- 句子、点头、朝向 ----------
+// ---------- 句子 ----------
 function phrasesOf(units, env, dur) {
   const out = [];
   if (units.length) {
@@ -414,37 +414,6 @@ function phrasesOf(units, env, dur) {
     else out.push({ t0: t, t1: t + STEP, line: out.length });
   }
   return out.filter(p => p.t1 - p.t0 >= 0.1 && p.t0 < dur);
-}
-
-/** 音节起点（LivLiv talk.ts 的判据）：比上一个低点高出 RISE、且到 ONSET 以上；回落 FALL 后才认下一个 */
-function onsetsOf(env) {
-  const RISE = 0.25, ONSET = 0.35, FALL = 0.15, out = [];
-  let armed = true, valley = 0, peak = 0;
-  for (let i = 0; i < env.length; i++) {
-    const v = env[i];
-    if (!armed) { peak = Math.max(peak, v); if (v < peak - FALL) { armed = true; valley = v; } }
-    else { valley = Math.min(valley, v); if (v - valley > RISE && v > ONSET) { armed = false; peak = v; out.push(i * STEP); } }
-  }
-  return out;
-}
-
-/** 点头时刻与每句的朝向。眨眼与视线不在这里：交给播放器的待机动作 */
-function motion(units, env, phrases, seed) {
-  const R = rng(seed);
-  // 点头：每句第一个音节点一下，其余音节三成五的概率轻点，两次至少隔 0.35 秒
-  const onsets = env ? onsetsOf(env) : units.map(u => u.t0);
-  const nods = [];
-  let lastNod = -9, pi = 0;
-  for (const t of onsets) {
-    while (pi < phrases.length && phrases[pi].t1 < t) pi++;
-    const p = phrases[pi];
-    const first = p && t - p.t0 < 0.2 && (!nods.length || nods[nods.length - 1][0] < p.t0 - 0.05);
-    if (t - lastNod < 0.35) continue;
-    if (first) { nods.push([t, 1]); lastNod = t; } else if (R() < 0.35) { nods.push([t, +(0.5 + R() * 0.4).toFixed(2)]); lastNod = t; }
-  }
-  // 每句换个朝向：x -1..1 向左右，y -0.3..0.7 向下上
-  const turns = phrases.map(p => [p.t0, p.t1, +(R() * 2 - 1).toFixed(2), +(R() - 0.3).toFixed(2)]);
-  return { nods, turns, phase: [R(), R(), R()].map(v => v * 2 * Math.PI) };
 }
 
 /**
@@ -496,16 +465,16 @@ export const MOUTH = { X: [0, 0], A: [0, 0], B: [0.3, 0], C: [0.85, 0], D: [1, 0
  * [下限, 上限]：B 不过半张、C 不过张开；圆唇、咬唇留一点开口，不然小声时那两帧出不来；X、A 闭上。没有声音时用 MOUTH
  */
 export const OPEN_RANGE = { X: [0, 0], A: [0, 0], B: [0, 0.45], C: [0, 0.85], D: [0, 1], E: [0.2, 1], F: [0.2, 0.45], G: [0.3, 0.3] };
-// 头的动作（度）：待机那样的慢游移，每句的朝向，音节上的点头
-const DRIFT = [[3.5, 0.7], [2, 0.9], [3, 0.5]]; // angleX、angleY、angleZ 的 [幅度, 角速度]
 /**
- * 一次性动作和它们的长度（秒），曲线移植自 LivLiv actions.ts：叠在头的动作上，前 0.18 秒渐入、后 0.22 秒渐出。
- * nod 点头两下，shake 摇头，tilt 歪头想一想，shy 低头侧脸。LivLiv 的 hop 要整个人上下动，角色参数里没有，不做
+ * 一次性动作和它们的长度（秒），曲线移植自 LivLiv actions.ts：叠在说话的动作上，前 0.18 秒渐入、后 0.22 秒渐出；同一个
+ * 动作还没做完又来一次，前一个在 0.15 秒里淡出。nod 点头两下，shake 摇头，tilt 歪头想一想，hop 蹲一下再跳起（半身角色
+ * 不会露出下面的切口，只往下沉），shy 低头侧脸、眼睛看向一边
  */
-export const ACTS = { nod: 0.95, shake: 1.05, tilt: 1.8, shy: 2.4 };
-const FACE_X = 7, FACE_Y = 4, TILT = 0.25, NOD = 4.5, NOD_S = 0.36, EASE_IN = 0.5, EASE_OUT = 0.8, FACE_RAMP = 0.25;
+export const ACTS = { nod: 0.95, shake: 1.05, tilt: 1.8, hop: 0.65, shy: 2.4 };
+const FACE_RAMP = 0.25;
 
 const smooth = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+const ss = (a, b, x) => smooth((x - a) / (b - a));
 const r2 = v => Math.round(v * 100) / 100;
 const r4 = t => Math.round(t * 1e4) / 1e4;
 const r3 = v => Math.round(v * 1000) / 1000;
@@ -527,48 +496,97 @@ export const openAt = (shape, e) => {
   return r3(Math.min(hi, Math.max(lo, e)));
 };
 
-/** 动作开始后 t 秒的 [angleX, angleY, angleZ] 偏移（度） */
+/** 动作开始后 t 秒加在角色上的量：角度是度，moveY 是画面高度的份额（向上为正） */
 export function actAt(id, t) {
   const d = ACTS[id];
-  if (!(t >= 0 && t < d)) return [0, 0, 0];
+  if (!(t >= 0 && t < d)) return {};
   const e = smooth(t / 0.18) * (1 - smooth((t - d + 0.22) / 0.22));
-  if (id === 'nod') return [0, -(t < 0.45 ? 11 * Math.sin((Math.PI * t) / 0.45) : 6 * Math.sin((Math.PI * Math.min(t - 0.45, 0.45)) / 0.45)) * e, 0];
-  if (id === 'shake') return [13 * Math.sin((2 * Math.PI * t) / 0.5) * e, 0, 0];
-  if (id === 'tilt') return [3 * e, 2 * e, 11 * e];
-  return [9 * e, -12 * e, -4 * e];
+  if (id === 'nod') return { angleY: -(t < 0.45 ? 11 * Math.sin((Math.PI * t) / 0.45) : 6 * Math.sin((Math.PI * Math.min(t - 0.45, 0.45)) / 0.45)) * e };
+  if (id === 'shake') { const x = 13 * Math.sin((2 * Math.PI * t) / 0.5) * e; return { angleX: x, bodyX: x * 0.15 }; }
+  if (id === 'tilt') return { angleZ: 11 * e, angleX: 3 * e, angleY: 2 * e };
+  if (id === 'hop') {
+    return {
+      moveY: t < 0.2 ? -0.025 * Math.sin((Math.PI * t) / 0.2) : t < 0.6 ? 0.04 * Math.sin((Math.PI * (t - 0.2)) / 0.4) : 0,
+      angleY: t > 0.2 && t < 0.6 ? 5 * Math.sin((Math.PI * (t - 0.2)) / 0.4) * e : 0,
+    };
+  }
+  return { angleY: -12 * e, angleX: 9 * e, angleZ: -4 * e, eyeBallX: 0.7 * e, eyeBallY: -0.5 * e };
 }
 
-/** 每一步的转头、点头、歪头，加上 faces.json 里的动作 */
-function headChannels(ticks, m, phrases, acts = []) {
-  const ax = new Array(ticks), ay = new Array(ticks), az = new Array(ticks);
+/**
+ * 说话时头和眉毛怎么动，移植自 LivLiv talk.ts 的 TalkMotion，按每一步的张嘴程度（level，0..1）走：
+ * - 音节起点：比上一个低点高出 0.25、且张过 0.35；回落 0.15 后才认下一个
+ * - 一句的第一个音节（说话程度还低）点一下头、换个朝向，其余音节三成五的概率轻点，两次至少隔 0.35 秒
+ * - 说话时头慢慢漂、朝着这句的方向，停下后慢慢回正；身体跟着转一点
+ * - 音节上偶尔扬一下眉；bounce 时每个音节整个人跳一下（只往下沉再回来，半身角色不露切口）
+ * 结果是加在播放器待机动作上的偏移；说话时眼睛回看镜头、停顿后眨眼由播放器自己按嘴算。amount 0..2 是强度
+ */
+export function talkOffsets(level, seed = 1, { amount = 1, bounce = false } = {}) {
+  const R = rng(seed), n = level.length, dt = 1 / TRACK_FPS;
+  const RISE = 0.25, ONSET = 0.35, FALL = 0.15, QUIET = 0.2;
+  const ph = [R() * 9, R() * 9, R() * 9];
+  const o = { angleX: new Array(n), angleY: new Array(n), angleZ: new Array(n), bodyX: new Array(n), browLY: new Array(n), moveY: new Array(n) };
+  const nods = [];
+  let act = 0, armed = true, valley = 0, peak = 0, quiet = 10, sinceNod = 10, sinceBrow = 10, browAge = 10;
+  const nod = { x: 0, v: 0 }, lift = { x: 0, v: 0 }, dir = { x: 0, y: 0 };
+  let aim = { x: 0, y: 0 };
+  const step = (s, k, c) => { s.v += (-k * s.x - c * s.v) * dt; s.x += s.v * dt; };
+  for (let k = 0; k < n; k++) {
+    const v = level[k], t = (k + 1) * dt;
+    quiet += dt; sinceNod += dt; sinceBrow += dt;
+    if (v > QUIET) quiet = 0;
+    act += ((quiet < 0.35 ? 1 : 0) - act) * Math.min(1, dt * (quiet < 0.35 ? 6 : 1.2));
+    if (!armed) {
+      peak = Math.max(peak, v);
+      if (v < peak - FALL) { armed = true; valley = v; }
+    } else if ((valley = Math.min(valley, v)), v - valley > RISE && v > ONSET) {
+      armed = false; peak = v;
+      const phrase = act < 0.3;
+      if (phrase) aim = { x: (R() * 2 - 1) * 5, y: (R() - 0.3) * 2.5 };
+      if (sinceNod > 0.35 && (phrase || R() < 0.35)) {
+        const kick = phrase ? 70 : 35 + R() * 30;
+        nod.v -= kick * amount; sinceNod = 0; nods.push([r4(k * dt), r2(kick / 70)]);
+      }
+      if (sinceBrow > 1.2 && R() < (phrase ? 0.5 : 0.18)) { browAge = 0; sinceBrow = 0; }
+      if (bounce) lift.v += (0.3 + R() * 0.12) * amount;
+    }
+    step(nod, 150, 15); step(lift, 230, 19);
+    browAge += dt;
+    const a = act * amount, talking = quiet < 0.35, back = Math.min(1, dt * (talking ? 3 : 0.45));
+    dir.x += ((talking ? aim.x : 0) - dir.x) * back;
+    dir.y += ((talking ? aim.y : 0) - dir.y) * back;
+    const driftX = (Math.sin(t * 0.9 + ph[0]) * 0.6 + Math.sin(t * 1.7 + ph[1]) * 0.4) * 3.5 * a;
+    const driftZ = (Math.sin(t * 0.7 + ph[2]) * 0.6 + Math.sin(t * 1.3 + ph[0]) * 0.4) * 2.5 * a;
+    o.angleX[k] = dir.x * amount + driftX;
+    o.angleY[k] = nod.x + dir.y * amount;
+    o.angleZ[k] = driftZ;
+    o.bodyX[k] = o.angleX[k] * 0.15;
+    o.browLY[k] = ss(0, 0.12, browAge) * (1 - ss(0.3, 0.65, browAge)) * 0.55 * amount;
+    const cap = 0.02 * amount;
+    o.moveY[k] = bounce ? Math.min(cap, Math.max(0, lift.x)) - cap : 0;
+  }
+  return { offsets: o, nods };
+}
+
+/** acts（[[开始秒, id]]，按时间排）在每一步加上的量；同一个动作又来一次时前一个 0.15 秒淡出 */
+function actOffsets(ticks, acts) {
+  const out = {};
+  const ends = acts.map(([ta, id], i) => {
+    const again = acts.find(([tb, jd], j) => j > i && jd === id && tb >= ta && tb < ta + ACTS[id]);
+    return again ? again[0] : Infinity;
+  });
   for (let k = 0; k < ticks; k++) {
     const t = k / TRACK_FPS;
-    // 每句的朝向：句首 0.5 秒转过去，句末之后 0.8 秒回正（下一句先到就直接转向下一句的朝向）
-    let fx = 0, fy = 0;
-    for (let i = 0; i < m.turns.length; i++) {
-      const [t0, t1, x, y] = m.turns[i], next = m.turns[i + 1];
-      const end = next ? Math.min(t1 + EASE_OUT, next[0]) : t1 + EASE_OUT;
-      if (t < t0 || t >= end + EASE_IN) continue;
-      let wgt = smooth((t - t0) / EASE_IN);
-      if (!next || next[0] > t1 + EASE_OUT) wgt *= 1 - smooth((t - t1) / EASE_OUT);
-      else if (t >= next[0]) wgt *= 1 - smooth((t - next[0]) / EASE_IN);
-      fx += wgt * x * FACE_X;
-      fy += wgt * y * FACE_Y;
-    }
-    // 点头：先低下再抬回，0.36 秒
-    let nod = 0;
-    for (const [tn, sN] of m.nods) {
-      const tau = t - tn;
-      if (tau >= 0 && tau < NOD_S) nod -= NOD * sN * Math.sin((Math.PI * tau) / NOD_S);
-    }
-    const d = DRIFT.map(([amp, w], i) => amp * Math.sin(w * t + m.phase[i]));
-    const a = [0, 0, 0];
-    for (const [ta, id] of acts) actAt(id, t - ta).forEach((v, i) => { a[i] += v; });
-    ax[k] = r2(d[0] + fx + a[0]);
-    ay[k] = r2(d[1] + fy + nod + a[1]);
-    az[k] = r2(d[2] - TILT * fx + a[2]);
+    acts.forEach(([ta, id], i) => {
+      const f = t < ends[i] ? 1 : 1 - ss(0, 0.15, t - ends[i]);
+      if (f <= 0) return;
+      for (const [ch, v] of Object.entries(actAt(id, t - ta))) {
+        if (!v) continue;
+        (out[ch] ??= new Array(ticks).fill(0))[k] += v * f;
+      }
+    });
   }
-  return { angleX: ax, angleY: ay, angleZ: az };
+  return out;
 }
 
 /** 表情权重：每段前后各 0.25 秒渐变；default 是没有别的表情的时候 */
@@ -596,9 +614,10 @@ function expressionChannels(ticks, fc) {
  * 主体：units（unitsFromTiming / unitsFromWords 的结果，可以是空数组 = 只有声音）+ 音量包络与元音线索 → 动作轨
  * （人偶格式规范 §4）。轨的 0 秒是配音的 0 秒。返回 { track, shapes（每一步的口型字母）, fine, owner, phrases, nods, acts }
  */
-export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, faces = null }) {
+export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, faces = null, motion = 1, bounce = false }) {
   const audioOnly = !units.length;
   if (audioOnly && !env) throw new Error('need --timing, --words or --audio');
+  if (!(motion >= 0 && motion <= 2)) throw new Error('motion must be between 0 and 2');
   const end = dur ?? Math.max(units.length ? units[units.length - 1].t1 + 0.5 : 0, env ? env.length * STEP : 0);
   if (!(end > 0)) throw new Error('the voice has no length');
   const duration = r4(end);
@@ -606,15 +625,20 @@ export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, 
   const { fine, owner } = fineTimeline(units, n, env, cue, audioOnly);
   const shapes = quantize(fine, TRACK_FPS, ticks);
   const phrases = phrasesOf(units, env, end);
-  const m = motion(units, env, phrases, seed);
   const fc = facesOf(faces, units);
-  // 动作进行时不再自动点头
-  m.nods = m.nods.filter(([t]) => !fc.acts.some(([ta, id]) => t > ta - 0.2 && t < ta + ACTS[id]));
-  const params = {
-    mouthOpen: trimTail(shapes.map((s, k) => (env ? openAt(s, envAt(env, k / TRACK_FPS)) : MOUTH[s][0]))),
-    vowel: trimTail(shapes.map(s => MOUTH[s][1])),
-    ...headChannels(ticks, m, phrases, fc.acts),
-  };
+  const mouth = shapes.map((s, k) => (env ? openAt(s, envAt(env, k / TRACK_FPS)) : MOUTH[s][0]));
+  const params = { mouthOpen: trimTail(mouth), vowel: trimTail(shapes.map(s => MOUTH[s][1])) };
+  // 头、身体、眉毛和整个人的上下：说话的动作加上 faces.json 的一次性动作，都是加在待机上的偏移
+  const talk = motion > 0 ? talkOffsets(mouth, seed, { amount: motion, bounce }) : { offsets: {}, nods: [] };
+  const sum = { ...talk.offsets };
+  for (const [ch, a] of Object.entries(actOffsets(ticks, fc.acts))) sum[ch] = sum[ch] ? sum[ch].map((v, k) => v + a[k]) : a;
+  if (sum.browLY) sum.browRY = sum.browLY;
+  const round = ch => (ch === 'moveY' ? r4 : ch.startsWith('eyeBall') || ch.startsWith('brow') ? r3 : r2);
+  const offsets = {};
+  for (const ch of ['angleX', 'angleY', 'angleZ', 'bodyX', 'browLY', 'browRY', 'eyeBallX', 'eyeBallY', 'moveY']) {
+    const a = sum[ch]?.map(round(ch));
+    if (a && a.some(v => v !== 0)) offsets[ch] = trimTail(a);
+  }
   const expressions = expressionChannels(ticks, fc);
   const track = {
     format: 'baocut-puppet-track',
@@ -622,9 +646,10 @@ export function buildTrack({ units = [], env = null, cue = null, dur, seed = 1, 
     fps: TRACK_FPS,
     duration,
     params,
+    ...(Object.keys(offsets).length ? { offsets } : {}),
     ...(Object.keys(expressions).length ? { expressions } : {}),
   };
-  return { track, shapes, fine, owner, phrases, nods: m.nods, acts: fc.acts };
+  return { track, shapes, fine, owner, phrases, nods: talk.nods, acts: fc.acts };
 }
 
 /** 口型核对表：每句的每个字下面写读音、读音给的口型和按视频帧率看到的口型 */
@@ -653,8 +678,10 @@ export function checkTable(units, result, lines, header, fps = 30) {
   return out.join('\n') + '\n';
 }
 
-const USAGE = 'usage: lipsync.mjs (--timing timing.json | --words words.json | --audio voice.wav) [--audio voice.wav] --out voice.track.json [--lang auto] [--dur s] [--faces faces.json] [--readings readings.json] [--seed 1] [--fps 30] [--check file]';
-const FLAGS = ['timing', 'words', 'audio', 'out', 'lang', 'dur', 'faces', 'readings', 'seed', 'fps', 'check'];
+const USAGE = 'usage: lipsync.mjs (--timing timing.json | --words words.json | --audio voice.wav) [--audio voice.wav] --out voice.track.json [--lang auto] [--dur s] [--faces faces.json] [--readings readings.json] [--seed 1] [--motion 1] [--bounce] [--fps 30] [--check file]';
+const FLAGS = ['timing', 'words', 'audio', 'out', 'lang', 'dur', 'faces', 'readings', 'seed', 'motion', 'bounce', 'fps', 'check'];
+/** 不带值的开关 */
+const SWITCHES = ['bounce'];
 
 function parseArgs(argv) {
   const flags = {};
@@ -663,6 +690,7 @@ function parseArgs(argv) {
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}\n${USAGE}`);
     const k = a.slice(2);
     if (!FLAGS.includes(k)) throw new Error(`unknown option --${k}${k === 'offset' ? ' (the track starts with the voice; place it with the sticker\'s motionIn)' : ''}\n${USAGE}`);
+    if (SWITCHES.includes(k)) { flags[k] = true; continue; }
     if (argv[i + 1] == null) throw new Error(`--${k} needs a value\n${USAGE}`);
     flags[k] = argv[i + 1];
     i++;
@@ -699,7 +727,7 @@ function main() {
     if (dur == null) dur = x.length / sr;
   }
   const faces = f.faces ? JSON.parse(fs.readFileSync(f.faces, 'utf8')) : null;
-  const result = buildTrack({ units, env, cue, dur, seed: f.seed ? Number(f.seed) : 1, faces });
+  const result = buildTrack({ units, env, cue, dur, seed: f.seed ? Number(f.seed) : 1, faces, motion: f.motion != null ? Number(f.motion) : 1, bounce: !!f.bounce });
   const src = [f.timing || f.words, f.audio].filter(Boolean).map(p => path.basename(p)).join(' + ');
   fs.mkdirSync(path.dirname(path.resolve(f.out)), { recursive: true });
   fs.writeFileSync(f.out, JSON.stringify(result.track) + '\n');

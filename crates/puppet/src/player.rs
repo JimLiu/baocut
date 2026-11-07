@@ -14,6 +14,8 @@ const PRE_ROLL: f64 = 0.5;
 const FADE_OUT: f64 = 0.5;
 /// 每走多少步存一份快照（10 秒）：往回 seek 最多重放这么多步。
 const CHECKPOINT: u64 = 1200;
+/// `mouthOpen` 在参数里的序号。
+const MOUTH_OPEN: usize = 9;
 
 /// 一个条目上的角色：角色、动作轨与它们跨帧的状态。
 pub struct Player {
@@ -65,12 +67,11 @@ impl Player {
         self.apply_inputs(0);
     }
 
-    /// 第 `k` 步那一刻的参数：动作轨有的取动作轨，没有的取待机；动作轨开始前、结束后渐渐交给待机。
+    /// 第 `k` 步那一刻的参数：`params` 里有的取动作轨，没有的取待机，再加上 `offsets`；动作轨开始前、结束后渐渐
+    /// 交给待机。
     fn apply_inputs(&mut self, k: u64) {
         let clock = k as f64 * TICK;
         let t = self.origin + (clock - PRE_ROLL).max(0.0);
-        let idle = *self.idle.step(clock, TICK);
-        let mut p = Params::default();
         let fade = match &self.track {
             Some(_) if t < 0.0 => 1.0 - smooth(-FADE_OUT, 0.0, t),
             Some(tr) => smooth(tr.duration(), tr.duration() + FADE_OUT, t),
@@ -78,11 +79,18 @@ impl Player {
         };
         // 完全交给待机时不再读动作轨（结果与没有动作轨逐位相同）
         let track = self.track.as_deref().filter(|_| fade < 1.0);
+        // 配音让嘴张多大：待机据此在说话时不开始小动作、眼睛回看镜头、停顿后眨眼
+        let voice = track.and_then(|tr| tr.param(MOUTH_OPEN, t)).map_or(0.0, |v| v * (1.0 - fade));
+        let idle = self.idle.step(clock, TICK, voice);
+        let mut p = Params::default();
         for i in 0..Params::NAMES.len() {
-            let v = match track.and_then(|tr| tr.param(i, t)) {
+            let mut v = match track.and_then(|tr| tr.param(i, t)) {
                 Some(v) => v + (idle.get(i) - v) * fade,
                 None => idle.get(i),
             };
+            if let Some(o) = track.and_then(|tr| tr.offset(i, t)) {
+                v += o * (1.0 - fade);
+            }
             p.set(i, v);
         }
         self.puppet.params = p;
@@ -138,5 +146,13 @@ impl Player {
     pub fn render(&mut self, t: f64, w: u32, h: u32, out: &mut [u8]) {
         self.seek(t);
         self.puppet.render(w, h, out);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn mouth_open_index_matches_the_names() {
+        assert_eq!(crate::rig::Params::index("mouthOpen"), Some(super::MOUTH_OPEN));
     }
 }

@@ -124,7 +124,7 @@ describe('virtual-host lip sync', () => {
     for (const run of runsOf(frameString(fine, 60))) if (run[0] !== 'A') expect(run.length).toBeGreaterThanOrEqual(4);
   });
 
-  type Track = { format: string; version: number; fps: number; duration: number; params: Record<string, number[]>; expressions?: Record<string, number[]> };
+  type Track = { format: string; version: number; fps: number; duration: number; params: Record<string, number[]>; offsets?: Record<string, number[]>; expressions?: Record<string, number[]> };
   type Built = { track: Track; shapes: string[] };
   const at = (a: number[], k: number) => a[Math.min(k, a.length - 1)];
 
@@ -132,8 +132,10 @@ describe('virtual-host lip sync', () => {
     const units = unitsFromWords(words, 'zh-CN');
     const { track, shapes } = buildTrack({ units, dur: 2, seed: 1 }) as Built;
     expect(track).toMatchObject({ format: 'baocut-puppet-track', version: 1, fps: TRACK_FPS, duration: 2 });
-    expect(Object.keys(track.params).sort()).toEqual(['angleX', 'angleY', 'angleZ', 'mouthOpen', 'vowel']);
-    for (const ch of Object.values(track.params)) {
+    // the track sets only the mouth; the head, body and brows are offsets on top of the player's idle motion
+    expect(Object.keys(track.params).sort()).toEqual(['mouthOpen', 'vowel']);
+    expect(Object.keys(track.offsets!).every((k) => ['angleX', 'angleY', 'angleZ', 'bodyX', 'browLY', 'browRY'].includes(k))).toBe(true);
+    for (const ch of [...Object.values(track.params), ...Object.values(track.offsets!)]) {
       expect(ch.length).toBeGreaterThan(0);
       expect(ch.length).toBeLessThanOrEqual(Math.ceil(track.duration * track.fps) + 1);
     }
@@ -145,7 +147,7 @@ describe('virtual-host lip sync', () => {
     }
     expect(shapes.some((s) => s === 'E' || s === 'F')).toBe(true); // 我 wo
     expect(shapes.at(-1)).toBe('X');
-    expect(Math.max(...track.params.angleY.map(Math.abs))).toBeLessThan(30);
+    expect(Math.max(...track.offsets!.angleY.map(Math.abs))).toBeLessThan(30);
   });
 
   it('lets the voice set how far each shape opens, and opens the mouth on a loud syllable the words left out', () => {
@@ -178,7 +180,36 @@ describe('virtual-host lip sync', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
     expect(c.params.mouthOpen).toEqual(a.params.mouthOpen);
     expect(c.params.vowel).toEqual(a.params.vowel);
-    expect(c.params.angleX).not.toEqual(a.params.angleX);
+    expect(c.offsets!.angleX).not.toEqual(a.offsets!.angleX);
+  });
+
+  // a voice of syllables: 0.6–2.2 s, one every 0.25 s, its loudness rising and falling through each
+  const syllables = (from = 0.6, to = 2.2) => Float32Array.from({ length: 401 }, (_, i) => {
+    const t = i * STEP;
+    return t >= from && t < to ? Math.sin((((t - from) % 0.25) / 0.25) * Math.PI) : 0;
+  });
+
+  it('moves the head and brows with the voice the way LivLiv TalkMotion does', () => {
+    const { track, nods } = buildTrack({ units: [], env: syllables(), dur: 4, seed: 3 }) as Built & { nods: [number, number][] };
+    const o = track.offsets!;
+    const span = (ch: string, t0: number, t1: number) => o[ch].slice(Math.round(t0 * TRACK_FPS), Math.round(t1 * TRACK_FPS));
+    // the phrase's first syllable nods (a dip of a few degrees within 0.4 s), later ones only some of the time
+    expect(nods[0][0]).toBeGreaterThan(0.6);
+    expect(nods[0][0]).toBeLessThan(0.75);
+    expect(Math.min(...span('angleY', nods[0][0], nods[0][0] + 0.4))).toBeLessThan(-2);
+    expect(nods.length).toBeGreaterThan(1);
+    expect(nods.length).toBeLessThan(7);
+    // nothing moves before the voice; the body turns with the head by 15 %
+    expect(span('angleX', 0, 0.6).every((v) => v === 0)).toBe(true);
+    for (let k = 0; k < o.bodyX.length; k += 11) expect(Math.abs(o.bodyX[k] - 0.15 * at(o.angleX, k))).toBeLessThan(0.011);
+    // no bounce asked: the picture stays where it is
+    expect(o.moveY).toBeUndefined();
+    const hop = (buildTrack({ units: [], env: syllables(), dur: 4, seed: 3, bounce: true }) as Built).track.offsets!.moveY;
+    expect(Math.max(...hop)).toBeLessThanOrEqual(0);
+    expect(Math.min(...hop)).toBeCloseTo(-0.02, 3);
+    // motion 0: only the mouth
+    expect((buildTrack({ units: [], env: syllables(), dur: 4, seed: 3, motion: 0 }) as Built).track.offsets).toBeUndefined();
+    expect(() => buildTrack({ units: [], env: syllables(), dur: 4, motion: 3 })).toThrow(/motion must be between 0 and 2/);
   });
 
   it('closes the lips for b p m', () => {
@@ -208,33 +239,41 @@ describe('virtual-host lip sync', () => {
     for (const v of smile) expect(v >= 0 && v <= 1).toBe(true);
   });
 
-  it('plays one-shot acts from faces.json on the head, in place of the syllable nods they overlap', () => {
+  it('plays one-shot acts from faces.json on top of the talking motion', () => {
     const units = unitsFromWords(words, 'zh-CN');
     const { list, acts } = facesOf([{ line: 1, act: 'nod' }, { t0: 1.2, t1: 2, face: 'smile', act: 'shake' }], units);
     expect(list).toEqual([[1.2, 2, 'smile']]);
     // a line's act starts on its first word, a span's on t0
     expect(acts).toEqual([[units[0].t0, 'nod'], [1.2, 'shake']]);
-    expect(() => facesOf([{ line: 1, act: 'hop' }], units)).toThrow(/act must be one of nod, shake, tilt, shy/);
+    expect(() => facesOf([{ line: 1, act: 'jump' }], units)).toThrow(/act must be one of nod, shake, tilt, hop, shy/);
     expect(() => facesOf([{ line: 1 }], units)).toThrow(/needs a face .* or an act/);
-    // the curves: shake turns the head ±13°, nod dips it down, tilt leans it; all ease in and out to nothing
-    const peak = (id: string, k: number) => Math.max(...Array.from({ length: 400 }, (_, i) => Math.abs(actAt(id, (i / 400) * ACTS[id as keyof typeof ACTS])[k])));
-    expect(peak('shake', 0)).toBeCloseTo(13, 0);
-    expect(Math.min(...Array.from({ length: 100 }, (_, i) => actAt('nod', i / 100)[1]))).toBeLessThan(-9);
-    expect(peak('tilt', 2)).toBeCloseTo(11, 0);
+    // the curves (LivLiv actions.ts): shake turns the head ±13°, nod dips it, tilt leans it, hop crouches and rises,
+    // shy looks aside; all ease in and out to nothing
+    const curve = (id: string, ch: string) => Array.from({ length: 400 }, (_, i) => (actAt(id, (i / 400) * ACTS[id as keyof typeof ACTS]) as Record<string, number>)[ch] ?? 0);
+    const peak = (id: string, ch: string) => Math.max(...curve(id, ch).map(Math.abs));
+    expect(peak('shake', 'angleX')).toBeCloseTo(13, 0);
+    expect(peak('shake', 'bodyX')).toBeCloseTo(1.95, 1);
+    expect(Math.min(...curve('nod', 'angleY'))).toBeLessThan(-9);
+    expect(peak('tilt', 'angleZ')).toBeCloseTo(11, 0);
+    expect(Math.min(...curve('hop', 'moveY'))).toBeCloseTo(-0.025, 3);
+    expect(Math.max(...curve('hop', 'moveY'))).toBeCloseTo(0.04, 3);
+    expect(peak('shy', 'eyeBallX')).toBeCloseTo(0.7, 1);
     for (const id of Object.keys(ACTS)) {
-      expect(actAt(id, 0).every((v: number) => v === 0)).toBe(true);
-      expect(actAt(id, ACTS[id as keyof typeof ACTS] + 0.01).every((v: number) => v === 0)).toBe(true);
+      expect(Object.values(actAt(id, 0)).every((v) => v === 0)).toBe(true);
+      expect(actAt(id, ACTS[id as keyof typeof ACTS] + 0.01)).toEqual({});
     }
-    // on the track the act adds to the head's own motion and the nods under it are dropped
+    // on the track the act adds to the talking motion, which goes on under it
     const base = buildTrack({ units, dur: 3, seed: 2 }) as Built & { nods: [number, number][] };
     const shook = buildTrack({ units, dur: 3, seed: 2, faces: [{ t0: 0.1, t1: 1.4, act: 'shake' }] }) as Built & { nods: [number, number][]; acts: [number, string][] };
     expect(shook.acts).toEqual([[0.1, 'shake']]);
-    expect(base.nods.some(([t]) => t > -0.1 && t < 1.15)).toBe(true);
-    expect(shook.nods.some(([t]) => t > -0.1 && t < 1.15)).toBe(false);
+    expect(shook.nods).toEqual(base.nods);
     for (let k = 0; k < 3 * TRACK_FPS; k += 7) {
-      const d = at(shook.track.params.angleX, k) - at(base.track.params.angleX, k);
-      expect(Math.abs(d - actAt('shake', k / TRACK_FPS - 0.1)[0])).toBeLessThan(0.02);
+      const d = at(shook.track.offsets!.angleX, k) - at(base.track.offsets!.angleX, k);
+      expect(Math.abs(d - (actAt('shake', k / TRACK_FPS - 0.1).angleX ?? 0))).toBeLessThan(0.02);
     }
+    // the same act again before the first ends: the first fades out over 0.15 s instead of adding up
+    const twice = buildTrack({ units: [], env: syllables(5, 5), dur: 3, motion: 0, faces: [{ t0: 0.5, t1: 1, act: 'tilt' }, { t0: 1.2, t1: 2, act: 'tilt' }] }) as Built;
+    expect(Math.max(...twice.track.offsets!.angleZ)).toBeLessThanOrEqual(11.01);
   });
 
   const lipsync = path.join(skill, 'scripts/lipsync.mjs');
@@ -251,6 +290,10 @@ describe('virtual-host lip sync', () => {
     const bad = spawnSync(process.execPath, [lipsync, '--words', path.join(dir, 'intro.words.json'), '--out', out, '--offset', '2'], { encoding: 'utf8' });
     expect(bad.status).toBe(1);
     expect(bad.stderr).toMatch(/unknown option --offset .*motionIn/);
+    // --bounce is a switch; --motion sets how much the voice moves the head
+    const hop = spawnSync(process.execPath, [lipsync, '--words', path.join(dir, 'intro.words.json'), '--out', out, '--lang', 'zh-CN', '--bounce', '--motion', '1.5'], { encoding: 'utf8' });
+    expect(hop.status).toBe(0);
+    expect(JSON.parse(fs.readFileSync(out, 'utf8')).offsets.moveY.length).toBeGreaterThan(1);
   });
 });
 
