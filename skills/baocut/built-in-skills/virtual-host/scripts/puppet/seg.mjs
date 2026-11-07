@@ -1,6 +1,11 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文
 // Flat-colour segmentation of a cartoon portrait on a solid key background.
 import { distTo, components, compMask, grow, dilate, erode, and, or, minus, not, count, bbox } from './ops.mjs';
+import { smoothFill } from './fill.mjs';
+
+// a band pixel is unmixed against the colour round it only when that colour is this far from the backdrop (an iris
+// or a mint sleeve nearer the key reads no better that way) and the pixel lies within MIX_FIT of their mix
+const MIX_SEP = 80, MIX_FIT = 24, SPILL_TOL = 20;
 
 export const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
@@ -19,12 +24,16 @@ export function borderColor(im) {
  * Character alpha against a saturated key colour, by unmixing: a pixel p = a*fg + (1-a)*key. The key's dominant
  * channel(s) excess over the others measures how much key is in the pixel (spill-free foreground has no such excess
  * beyond what its own colour has). Returns { alpha: Float32Array, fg: RGBA image with key removed, key, bg: Uint8Array,
- * under(p): the backdrop colour behind pixel p (the mean of the background round it) }.
+ * under(p): the backdrop colour behind pixel p (the mean of the background round it), clean: the portrait with the
+ * spill taken out (fg over the backdrop where that changed a pixel; what the layers must give back at rest) }.
  */
 export function keyOut(im, o = {}) {
   const key = o.key ?? borderColor(im), { w, h, d } = im, n = w * h;
   const top = Math.max(...key), hi = [0, 1, 2].filter((i) => key[i] >= top * 0.65), lo = [0, 1, 2].filter((i) => !hi.includes(i));
   const keyEx = Math.min(...hi.map((k) => key[k])) - Math.max(...lo.map((k) => key[k]));
+  // the direction a colour leans towards the key in: its key channels up, the others down
+  const lean = [0, 1, 2].map((k) => (hi.includes(k) ? 1 / hi.length : lo.length ? -1 / lo.length : 0));
+  const spillDir = lean.map((v) => v / Math.hypot(...lean));
   const ex = new Float32Array(n);
   for (let p = 0; p < n; p++) {
     const i = p * 4;
@@ -50,6 +59,13 @@ export function keyOut(im, o = {}) {
   // such pixels unmix too (a character colour near the key, a mint hoodie say, carries less excess and stays solid)
   const near = distTo(bg, w, h);
   const soft = grow(bg, Uint8Array.from(ex, (v) => (v > 0.35 ? 1 : 0)), w, h, 12);
+  const band = Uint8Array.from(near, (v, p) => (!bg[p] && (v <= 3 || soft[p]) ? 1 : 0));
+  // the key's excess reads a colour with none of its own (a line, skin, white) right, but one with less than none
+  // (orange, pink or red hair against green) too solid, and the key left in it turns a thin strand olive. So the band
+  // also sees the drawing's own colour round each pixel: the solid colours just inside it that lean no way towards the
+  // key, spread out over the band (a shaded pocket of backdrop is no colour of the drawing; nor, here, is green hair)
+  const own = { w, h, d: new Uint8ClampedArray(d) };
+  smoothFill(own, band, and(erode(not(or(bg, band)), w, h, 1), Uint8Array.from(ex, (v) => (v <= 0.1 ? 1 : 0))), w, h, { iters: 8 });
   // the key behind a pixel: the mean of the background round it, since a generated backdrop is not one flat colour
   const under = (p) => {
     const x = p % w, y = (p - x) / w, s = [0, 0, 0];
@@ -60,26 +76,40 @@ export function keyOut(im, o = {}) {
     }
     return m ? s.map((v) => v / m) : key;
   };
-  const alpha = new Float32Array(n), fg = { w, h, d: new Uint8ClampedArray(n * 4) };
+  const alpha = new Float32Array(n), fg = { w, h, d: new Uint8ClampedArray(n * 4) }, clean = { w, h, d: new Uint8ClampedArray(d) };
   for (let p = 0; p < n; p++) {
     const i = p * 4;
     if (bg[p]) { alpha[p] = 0; continue; }
     let a = 1, u = key;
-    if (near[p] <= 3 || soft[p]) {
+    if (band[p]) {
       // character colours here (black lines, skin) carry no key excess
       u = under(p);
       const uEx = Math.min(...hi.map((k) => u[k])) - Math.max(...lo.map((k) => u[k]));
       const e = uEx > 0.5 * keyEx ? ex[p] * keyEx / uEx : ex[p];
       a = Math.min(1, Math.max(0, 1 - e));
+      // where the pixel is a mix of the backdrop and the colour round it, that mix gives its alpha (a pixel that is
+      // neither, a line between the hair and the key say, keeps the key's excess)
+      const v = [0, 1, 2].map((k) => own.d[i + k] - u[k]), l2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+      if (l2 >= MIX_SEP * MIX_SEP) {
+        const t = Math.min(1, Math.max(0, ((d[i] - u[0]) * v[0] + (d[i + 1] - u[1]) * v[1] + (d[i + 2] - u[2]) * v[2]) / l2));
+        if (Math.hypot(...[0, 1, 2].map((k) => d[i + k] - u[k] - t * v[k])) <= MIX_FIT) a = t;
+      }
     }
     alpha[p] = a;
-    for (let k = 0; k < 3; k++) {
-      const v = a > 0.02 ? (d[i + k] - (1 - a) * u[k]) / a : 0;
-      fg.d[i + k] = Math.max(0, Math.min(255, v));
+    const c = [0, 1, 2].map((k) => (a > 0.02 ? (d[i + k] - (1 - a) * u[k]) / a : 0));
+    if (band[p] && a > 0.02) {
+      // spill: a band pixel leans no further towards the key than the colour round it does, give or take SPILL_TOL (a
+      // generated strand can be painted in the backdrop's light, a thin glowing line that no mix explains)
+      const s = [0, 1, 2].reduce((t, k) => t + (c[k] - own.d[i + k]) * spillDir[k], 0) - SPILL_TOL;
+      if (s > 0) {
+        for (let k = 0; k < 3; k++) c[k] -= s * spillDir[k];
+        for (let k = 0; k < 3; k++) clean.d[i + k] = Math.max(0, Math.min(255, c[k])) * a + u[k] * (1 - a);
+      }
     }
+    for (let k = 0; k < 3; k++) fg.d[i + k] = Math.max(0, Math.min(255, c[k]));
     fg.d[i + 3] = Math.round(a * 255);
   }
-  return { alpha, fg, key, bg, under };
+  return { alpha, fg, key, bg, under, clean };
 }
 
 /**

@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
 import { readPng, writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
+import { smoothFill, strandFill } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/fill.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
 
@@ -529,6 +530,20 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
   });
 
+  it('takes a brow-coloured blot in the part map below the eyes for the part round it', () => {
+    // two map colours mixing at an edge can make the brow's purple anywhere; a brow is above its eye
+    const cfg = writeCharacter(tmp(), { hair: [230, 190, 90] }, undefined, { partmap: true });
+    const file = path.join(path.dirname(cfg), 'art/partmap.png'), map = readPng(file);
+    for (let y = 284; y < 288; y++) for (let x = 200; x < 204; x++) map.d.set([128, 0, 255, 255], 4 * (y * map.w + x));
+    writePng(file, map);
+    const { status, report } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    const model = JSON.parse(fs.readFileSync(path.join(path.dirname(cfg), 'puppet/package/model.json'), 'utf8'));
+    // the eye whites start at row 223
+    expect(model.anchors.brows[0][3]).toBeLessThan(223);
+  });
+
   it.each([true, false])('draws the brows an expression moved over the bangs (part map %s)', (partmap) => {
     const dir = tmp();
     const cfgFile = writeCharacter(dir, { hair: [230, 190, 90], fringe: true }, undefined, { partmap });
@@ -605,6 +620,7 @@ describe('virtual-host key removal', () => {
       if (x >= 40 && x < 48 && y >= 80 && y < 88) c = [60, 170, 80]; // a green iris
       if (x >= 14 && x < 24 && y >= 20 && y < 28) c = [100, 200, 120]; // green hair
       if (x >= 10 && x < 20 && y >= 95 && y < 110) c = [170, 240, 210]; // a mint sleeve at the edge
+      if (x >= 84 && x < 86 && y >= 40 && y < 80) c = [176, 191, 65]; // a strand painted in the backdrop's light
       const strand = y >= 28 && y < 92 && x >= 60 && x < 74 && (x >= 72 || y < 30 || y >= 90);
       if (strand) c = mix(HAIR, under(y), 0.58);
       else if (y >= 30 && y < 90 && x >= 60 && x < 72) c = mix([0, 0, 0], under(y), 0.82); // the pocket behind it
@@ -625,6 +641,19 @@ describe('virtual-host key removal', () => {
     expect(K.alpha[at(44, 84)]).toBe(1);
   });
 
+  it('unmixes a strand with less key in its colour than none against the colour round it, and takes the spill out', () => {
+    // the faint strand is 42% hair: the key's excess alone reads it as 56% and leaves the key in it, olive
+    const K = keyOut(portrait()), p = at(73, 60);
+    expect(Math.abs(K.alpha[p] - 0.42)).toBeLessThan(0.03);
+    for (let k = 0; k < 3; k++) expect(Math.abs(K.fg.d[4 * p + k] - HAIR[k])).toBeLessThan(6);
+    // a strand no mix explains, lit like the backdrop, keeps no more of its green than the hair round it has
+    const q = 4 * at(84, 60);
+    expect(K.fg.d[q] - K.fg.d[q + 1]).toBeGreaterThan(50);
+    // what the layers must give back at rest is the portrait with that spill out, and the portrait everywhere else
+    expect(K.clean.d[q + 1]).toBeLessThan(170);
+    expect([...K.clean.d.subarray(4 * at(30, 30), 4 * at(30, 30) + 3)]).toEqual(HAIR);
+  });
+
   it('keys out a gap the drawing closes off only where the caller says gaps can be', () => {
     const plain = keyOut(portrait());
     expect(plain.alpha[at(30, 54)]).toBe(1);
@@ -635,5 +664,52 @@ describe('virtual-host key removal', () => {
     // green hair is far from the key colour and stays; the iris is outside the hair and stays
     expect(K.alpha[at(18, 24)]).toBe(1);
     expect(K.alpha[at(44, 84)]).toBe(1);
+  });
+});
+
+describe('virtual-host bangs fill', () => {
+  // a hole across hair (a brow on the bangs), rows 25-34 of a 60 px tall picture, from x0 to x1
+  const fillHole = (fill: typeof strandFill, pic: () => { w: number; h: number; d: Uint8ClampedArray }, x0: number, x1: number) => {
+    const im = pic(), ref = pic(), { w, h } = im, hole = new Uint8Array(w * h);
+    for (let y = 25; y < 35; y++) for (let x = x0; x < x1; x++) hole[y * w + x] = 1;
+    fill(im, hole, Uint8Array.from(hole, (v) => 1 - v), w, h);
+    return { im, ref, w };
+  };
+  const strands = (slope: number) => () => {
+    const w = 80, h = 60, d = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const dark = (((Math.floor((x - slope * y) / 3) % 2) + 2) % 2) === 0;
+      d.set([...(dark ? [90, 50, 30] : [200, 140, 90]), 255], 4 * (y * w + x));
+    }
+    return { w, h, d };
+  };
+
+  it('runs the strands on through the hole, upright or at a slant, where a smooth fill blurs them out', () => {
+    for (const slope of [0, 0.35]) {
+      const err = (fill: typeof strandFill) => {
+        const { im, ref, w } = fillHole(fill, strands(slope), 10, 70);
+        let sum = 0, n = 0;
+        for (let y = 26; y < 34; y++) for (let x = 20; x < 60; x++) { sum += Math.abs(im.d[4 * (y * w + x)] - ref.d[4 * (y * w + x)]); n++; }
+        return sum / n;
+      };
+      expect(err(strandFill)).toBeLessThan(20);
+      expect(err(smoothFill)).toBeGreaterThan(40);
+    }
+  });
+
+  it('fills flat hair smoothly: its faint shading is no strand to carry a line from far along the hole', () => {
+    // shaded a level a pixel from top to bottom, and a dark line just past the hole's right end
+    const shaded = () => {
+      const w = 120, h = 60, d = new Uint8ClampedArray(w * h * 4);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const v = 150 + y;
+        d.set([...(x === 90 || x === 91 ? [v - 100, v - 100, v - 100] : [v + 40, v, v - 30]), 255], 4 * (y * w + x));
+      }
+      return { w, h, d };
+    };
+    const { im, ref, w } = fillHole(strandFill, shaded, 10, 90);
+    let worst = 0;
+    for (let y = 25; y < 35; y++) for (let x = 20; x < 76; x++) worst = Math.max(worst, Math.abs(im.d[4 * (y * w + x) + 1] - ref.d[4 * (y * w + x) + 1]));
+    expect(worst).toBeLessThan(6);
   });
 });

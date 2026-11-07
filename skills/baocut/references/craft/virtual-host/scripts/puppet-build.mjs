@@ -28,7 +28,7 @@ import { segment, boxMask } from './puppet/segment.mjs';
 import { fillHoles, softEdge, fromMask, setPx, rgb, alphaBox, unionBox, cut, bleed, nearestIndex } from './puppet/layers.mjs';
 import { registered, strokes } from './puppet/edits.mjs';
 import { browNear, redrawnBrows, browNoteOf, writeBrowDebug, sideOf } from './puppet/brows.mjs';
-import { smoothFill } from './puppet/fill.mjs';
+import { strandFill } from './puppet/fill.mjs';
 import { zip } from './puppet/zip.mjs';
 
 const args = process.argv.slice(2);
@@ -536,9 +536,9 @@ const expressions = [];
 }
 
 // glasses (frames only), front hair, brows: cut from the portrait, edges unmixed against what's under them. Under brows
-// drawn over the bangs the bangs are filled from the clean hair round them, 2 px past the brow (its outline or halo is
-// the brow's, not the hair's), and the brows layer carries those pixels as drawn: the rest is the portrait, and a
-// redrawn brow leaves plain hair
+// drawn over the bangs the bangs are filled from the clean hair round them, along its strands, 2 px past the brow (its
+// outline or halo is the brow's, not the hair's), and the brows layer carries those pixels as drawn: the rest is the
+// portrait, and a redrawn brow leaves plain hair
 const bangsFill = or(G.browOnHair, and(dilate(G.browOnHair, w, h, 2), G.hair));
 if (G.rims) {
   const L = fromMask(im, null, G.glass, w, h);
@@ -547,7 +547,7 @@ if (G.rims) {
 }
 {
   let fg = K.fg;
-  if (count(bangsFill)) { fg = clone(K.fg); smoothFill(fg, bangsFill, minus(G.hair, bangsFill), w, h); }
+  if (count(bangsFill)) { fg = clone(K.fg); strandFill(fg, bangsFill, minus(G.hair, bangsFill), w, h); }
   const L = fromMask(fg, K.alpha, G.hair, w, h);
   softEdge(L, G.hair, K.fg, rest, K, w, h, { allow: not(or(G.brows, G.glass)) });
   add('front_hair', L, { group: 'hair_front', depth: 0.12 });
@@ -641,12 +641,12 @@ for (const d of defs) {
 }
 const inCanvas = (b) => b[0] >= 0 && b[1] >= 0 && b[2] < w && b[3] < h;
 for (const b of [anchors.face, ...anchors.eyes, ...anchors.brows.filter(Boolean)]) if (!inCanvas(b)) errs.push(`anchor box ${b} outside`);
-// at rest the layers must give back the portrait (outside what the bald repaint changed under the hair)
+// at rest the layers must give back the portrait, spill taken out (outside what the bald repaint changed under the hair)
 let diff = 0, worst = 0; const dimg = blank(w, h), off = new Uint8Array(N);
 for (let p = 0; p < N; p++) {
   const a = rest.d[4 * p + 3] / 255, ka = K.alpha[p];
   const c = [0, 1, 2].map((k) => rest.d[4 * p + k] * a + K.key[k] * (1 - a));
-  const e = Math.max(...[0, 1, 2].map((k) => Math.abs(c[k] - im.d[4 * p + k])));
+  const e = Math.max(...[0, 1, 2].map((k) => Math.abs(c[k] - K.clean.d[4 * p + k])));
   if (e > 24) { diff++; off[p] = 1; }
   worst = Math.max(worst, e);
   const v = Math.min(255, e * 4); dimg.d.set([v, v, v, 255], 4 * p);

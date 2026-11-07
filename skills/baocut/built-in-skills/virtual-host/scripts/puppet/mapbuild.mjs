@@ -12,7 +12,7 @@ import { ellipseCover } from './parts.mjs';
 import { fillHoles, softEdge, setPx, rgb, alphaBox, nearestIndex } from './layers.mjs';
 import { registered } from './edits.mjs';
 import { readLabels, part, PARTS, NAMES } from './partmap.mjs';
-import { smoothFill } from './fill.mjs';
+import { smoothFill, strandFill } from './fill.mjs';
 import { browNear, redrawnBrows, browNoteOf, writeBrowDebug } from './brows.mjs';
 import { writeLayers, writePackages } from './pack.mjs';
 
@@ -131,6 +131,22 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
     e.white = and(e.white, zone); e.iris = and(e.iris, zone); e.lash = and(e.lash, zone);
     e.opening = or(e.white, e.iris);
     e.box = bbox(or(e.opening, e.lash), w, h);
+  }
+  // a brow is above its eye: a brow-coloured blob that starts below the eye's top is two map colours mixing at an edge
+  // (hair over the cheek, say), and takes the part round it, or the brow's box runs down the face
+  {
+    const cc = components(M.brow, w, h), low = cc.comps.filter((c) => c.y0 > eyeParts[c.cx >= midX ? 1 : 0].box[1]).map((c) => c.id);
+    const stray = compMask(cc.lab, low);
+    if (count(stray)) {
+      const ni = nearestIndex(Uint8Array.from(stray, (v, p) => (!v && !M.brow[p] && lab[p] !== 0 ? 1 : 0)), w, h, 60);
+      for (let p = 0; p < N; p++) {
+        if (!stray[p]) continue;
+        M.brow[p] = 0;
+        lab[p] = ni[p] >= 0 ? lab[ni[p]] : 0;
+        if (lab[p]) M[NAMES[lab[p]]][p] = 1;
+      }
+      log('brow pixels below the eyes relabelled', count(stray));
+    }
   }
   if (count(M.mouth) < 15) return fail('mouth', 'the map has no mouth (dark red); redo it');
   const mb = bbox(M.mouth, w, h), mouthC = [(mb[0] + mb[2]) / 2, (mb[1] + mb[3]) / 2], mw = mb[2] - mb[0] + 1;
@@ -538,8 +554,8 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
 
   // side locks, bangs, and the brows over the bangs as drawn, with the strands that cross them: the players draw an
   // expression's brows right after this layer. Under a brow on the bangs the bangs are filled from the clean hair
-  // round it, 2 px past the brow (its outline or halo is the brow's, not the hair's), and the brows layer carries
-  // those pixels as drawn, so the rest is the portrait and a redrawn brow leaves plain hair
+  // round it, along its strands, 2 px past the brow (its outline or halo is the brow's, not the hair's), and the brows
+  // layer carries those pixels as drawn, so the rest is the portrait and a redrawn brow leaves plain hair
   const bangsFill = or(browOnHair, and(dilate(browOnHair, w, h, 2), M.front));
   if (count(M.side)) {
     const L = fromSrc(K.fg, K.alpha, M.side);
@@ -548,7 +564,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   }
   {
     const fg = clone(K.fg);
-    smoothFill(fg, bangsFill, minus(M.front, bangsFill), w, h);
+    strandFill(fg, bangsFill, minus(M.front, bangsFill), w, h);
     const front = or(M.front, browOnHair);
     const L = fromSrc(fg, Float32Array.from(K.alpha, (a, p) => (bangsFill[p] ? 1 : a)), front);
     softEdge(L, front, fg, rest, K, w, h, { allow: not(or(M.side, browVis)) });
@@ -620,7 +636,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
     // what shows through: the portrait's own backdrop there (it is not one flat colour)
     const u = a > 0.999 ? K.key : K.bg[p] ? [im.d[4 * p], im.d[4 * p + 1], im.d[4 * p + 2]] : K.under(p);
     const c = [0, 1, 2].map((k) => rest.d[4 * p + k] * a + u[k] * (1 - a));
-    const e = Math.max(...[0, 1, 2].map((k) => Math.abs(c[k] - im.d[4 * p + k])));
+    const e = Math.max(...[0, 1, 2].map((k) => Math.abs(c[k] - K.clean.d[4 * p + k])));
     if (e > 24) { diff++; off[p] = 1; }
     worst = Math.max(worst, e);
     const v = Math.min(255, e * 4); dimg.d.set([v, v, v, 255], 4 * p);
