@@ -257,6 +257,19 @@ describe.skipIf(!engine || !ffmpeg)('导出工具（真实引擎）', () => {
     expect(basis.sourceBasis).toMatchObject({ speechRef: { id: speechId, revision: read.body.revision }, scopeLineage: [] });
     expect(basis.sentences).toEqual([{ id: 's-w1', fingerprint: expect.any(String), text: 'Hello there.', wordIds: ['w1', 'w2'], start: expect.any(Number), end: expect.any(Number) }]);
     expect(basis.sentences[0].end).toBeGreaterThan(basis.sentences[0].start);
+    // 句子视图：只给句子，不带正文与词 ID，标明覆盖范围（架构设计 §3.7）。
+    const compact = await tool(session, 'documents_read', { video: videoPath, documentId: speechId, view: 'sentences' });
+    expect(compact.isError).toBe(false);
+    expect(compact.body.body).toBeUndefined();
+    expect(compact.body.translationBasis.sourceBasis).toEqual(basis.sourceBasis);
+    expect(compact.body.translationBasis.sentences).toEqual([
+      expect.objectContaining({ id: 's-w1', fingerprint: basis.sentences[0].fingerprint, text: 'Hello there.', start: basis.sentences[0].start }),
+    ]);
+    expect(compact.body.translationBasis.sentences[0]).not.toHaveProperty('wordIds');
+    expect(compact.body.coverage).toMatchObject({ unit: 'sentences', from: 0, to: 1, total: 1, truncated: false });
+    expect(compact.body.nextCursor).toBeUndefined();
+    const foreign = await tool(session, 'documents_read', { video: videoPath, documentId: speechId, cursor: 'page-2' });
+    expect(foreign.body.error.code).toBe('INVALID_ARGUMENTS');
 
     const inspected = await tool(session, 'videos_inspect', { video: videoPath });
     const put = await tool(session, 'edits_apply', {

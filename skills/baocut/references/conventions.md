@@ -101,6 +101,7 @@ Ctrl-C 先取消正在等的任务，第二次直接退出（130）。
 - 结果超过 `--max-bytes`（默认 64 KiB）时，完整结果写到 `cwd` 下的 `.baocut-out/<工具名>-<时间>.json`，stdout 只给 `truncated: true`、`path`、覆盖范围（`coverage`）与接着读的参数（`continueWith`）。
 - `--result-file <文件>`：不管多大都写到指定文件。
 - 被截断的结果不是完整的视频：要么读那个文件，要么照 `continueWith` 调大 `--max-bytes` 再取，要么缩小范围（{{tool:videos_inspect}} 给 {{arg:fromSeconds}} / {{arg:toSeconds}} / {{arg:limit}}）。不要只凭摘要下结论。
+- 转写只要句子时（翻译、写速览、找句界），{{tool:documents_read}} 给 {{arg:view}} `sentences`：只列每句的 id、指纹、文本、说话人与起止秒，比整份正文小得多。
 - `.baocut-out/` 是临时输出，交付给用户的文件要用导出或 {{tool:artifacts_save}} 写到正式位置。
 
 ## 8. 参数怎么写
@@ -115,6 +116,8 @@ Ctrl-C 先取消正在等的任务，第二次直接退出（130）。
 ## 7. 大结果
 
 {{tool:videos_inspect}} 片段多时用 {{arg:fromSeconds}} / {{arg:toSeconds}} 读一段、{{arg:limit}} 限条数，不要一次读整条时间线。要找某段内容时先用 {{tool:space_search_v2}} 或 {{tool:speech_relevant}} 取相关的几段，不先读整篇文稿；它们与 {{tool:space_search}} 都用 {{arg:videoIds}} 缩小范围。
+
+{{tool:documents_read}} 一次结果有上限，长转写、长字幕放不下时只给一页：结果带 `coverage`（这一页是第几到第几项、共几项）与 `nextCursor`。把 `nextCursor` 原样给 {{arg:cursor}} 一页页接着读，读到没有 `nextCursor` 为止；只读到一页时不是整份，不要凭它下结论或跳过后面的内容。转写只要句子时（翻译、写速览、给说话人实名、找句界）给 {{arg:view}} `sentences`，一页放得下的句子多得多；逐词润色才读整份正文。宿主自己截掉了工具结果（输出里提示 truncated、中间少了一段）时同样不是整份：分页或缩小范围重读。
 <!-- /surface -->
 
 ## 9. 时间

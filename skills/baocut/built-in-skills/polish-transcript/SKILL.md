@@ -1,7 +1,7 @@
 ---
 name: polish-transcript
 description: 视频的转写要校对或润色时用：改错字与误听，统一术语与专名，补正标点与分句，写回同一份转写，词的时间不变。做译文之前先做这一步；已经建好的原文字幕层写回时跟着改字。默认不改语法、不删口癖、不精简；去掉口癖与停顿是剪辑，不在这里做。不用于润色与视频无关的文章或纯文本。
-version: 2.3.0
+version: 2.4.0
 ---
 
 # 润色转写
@@ -18,7 +18,7 @@ version: 2.3.0
 
 ## 2. 只能一词对一词地改
 
-用 documents_read 读 kind 为 speech 的转写（有几份时按来源素材对上用户说的那段）。正文的 words 是一串词，每个词有 id、开始与结束时间、说话人和 text；标点贴在词的 text 上：句末标点在一句最后那个词的末尾，开引号、开括号在第一个词的开头。
+用 documents_read 读 kind 为 speech 的转写（有几份时按来源素材对上用户说的那段）。正文的 words 是一串词，每个词有 id、开始与结束时间、说话人和 text；标点贴在词的 text 上：句末标点在一句最后那个词的末尾，开引号、开括号在第一个词的开头。长转写一次读不完：结果带 `nextCursor` 时，每页是连续的几句与它们的词，把 `nextCursor` 给 cursor 一页页接着读，读到没有 `nextCursor` 为止；可以读一页改一页、写回一页，但不要只润色第一页就当做完了。只要看句子（定术语、找说话人的证据）时给 view `sentences`，一页放得下的句子多得多。
 
 写回时只改词的 text：
 
@@ -70,7 +70,7 @@ version: 2.3.0
 - 把改过的词收成 [{id,text}]，用 edits_apply 的 updateWords 写回同一份转写（documentId），一笔事务提交。只上传改过的词，不传 words 全数组或完整正文。expectedRevision 用 videos_inspect 的视频版本；同一笔重试沿用 commandId。
 - 已有从这份转写建的原文字幕层时，回执的 `syncedCaptions` 是跟着改了字的字幕文档数；`keptCaptionCues` 列出文字被手改过、没跟着改的字幕句子（每份字幕文档的 cueIds），告诉用户这几句要自己看。不要为了改字删掉字幕层重建。
 - 版本冲突说明用户刚改过：重新读，在新的正文上重做，不要用旧正文覆盖用户的修改。
-- 写好后再 documents_read 一次，看 translationBasis 里切出的句子：没有整段连成一句，也没有在半句话处断开；不对就再改标点。
+- 写好后再 documents_read 一次（给 view `sentences`），看 translationBasis 里切出的句子：没有整段连成一句，也没有在半句话处断开；不对就再改标点。
 
 ## 7. 说话人实名
 

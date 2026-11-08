@@ -54,6 +54,7 @@ import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
 import { approvalField, bindingConfirmation, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { assetSegments, projectChapters, type ProjectedChapter } from './source-chapters.ts';
 import { fillTranslationAlignments } from './translation-alignment.ts';
+import { DOCUMENT_READ_BUDGET_BYTES, decodeCursor, pageDocument } from './document-pages.ts';
 import { syncSpeechCaptions } from './speech-captions.ts';
 import { syncTranslationCaptions } from './translation-captions.ts';
 import { OperationShapeError, digestVideo, digestReceipt, normalizeOperations } from './video-digest.ts';
@@ -246,6 +247,16 @@ const schemas = {
       .max(35)
       .optional()
       .describe('可选。读转写是为了自己把它译成这门语言（BCP 47，例如 en、zh-CN）时给：BaoCut 显示「正在翻译」，写入这门语言的译文后结束'),
+    view: z
+      .enum(['full', 'sentences'])
+      .optional()
+      .describe('可选。full（默认）读正文；sentences 只用于转写，不带正文，只给说话人与每句的 id、fingerprint、text、speaker、start、end，翻译、写速览、找句界用它'),
+    cursor: z
+      .string()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe('可选。上一次结果的 nextCursor：接着读同一版本、同一视图的下一页（view 可以不给）'),
   }),
   documents_put: z.strictObject({
     video: videoArg,
@@ -548,10 +559,15 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '转写（kind speech）另带 translationBasis：写译文要用的 sourceBasis 与按规则切好的句子（id、fingerprint、text、wordIds，以及 start、end：素材时钟上的秒，首个可见词的起点到末个可见词的终点；父视频从 0 秒原速播放这个素材、没有剪口时就是 videos_derive 的 start、end，否则先按时间线换算）。找句子边界读这里就够，不用读整份正文。要自己翻译时读转写给 translateTo（目标语言）：BaoCut 在视频卡与字幕面板显示「正在翻译」，用 documents_put 写入这门语言的译文时结束（结果的 translationJob 是这条进度记录的 jobId）。自己翻译后用 documents_put 新建译文：kind "translation"、language 为目标语言、sourceDocument 为这份转写的 documentId，body 为 {"schema":"baocut.translation/2","language":目标语言,"sourceBasis":translationBasis.sourceBasis,"units":[每句一个 {"id":"t-<句子 id>","sourceSentenceId":句子 id,"sourceFingerprint":句子 fingerprint,"naturalText":译文,"alignment":{"basis":"natural","correspondence":"sentence","blocks":[],"sourceWordIds":句子 wordIds},"status":"draft"}]}，字段不多不少。',
       'alignment 是这句译文对应的原文词（句级对齐）：导出双语字幕与建字幕层都按它取时间。textHash（"sha256:" 加 naturalText 的 SHA-256）不用自己算，Runtime 写入时补上；写成 null 的，句子与指纹核对得上时 Runtime 同样补成句级对齐（回执的 filledAlignments 是补了几句）。',
       '要把转写或译文显示在画面上，用 captions_create 建字幕层，不要自己写字幕文档。',
+      `会话与 MCP 里一次结果不超过 ${DOCUMENT_READ_BUDGET_BYTES / 1024} KiB：放不下时只给一页，带 coverage（这一页是第几项到第几项、共几项，truncated）与 nextCursor，用 cursor 一页页接着读到没有 nextCursor 为止；只读到一页时不要当成整份。转写按句分页，正文的 words 只给这几句的词。翻译、写速览、给说话人实名、找句界时给 view "sentences"：只给每句的 id、fingerprint、text、speaker 与起止秒，一页能放下的句子多得多；它没有 wordIds，写译文时 alignment 写 null，由 Runtime 补。只有逐词润色才一页页读整份正文。`,
     ].join('\n'),
     annotations: { readOnlyHint: true },
     effect: 'query',
-    examples: [{ title: '读一份转写', args: { video: 'demo', documentId: 'doc_speech_1' } }],
+    examples: [
+      { title: '读一份转写', args: { video: 'demo', documentId: 'doc_speech_1' } },
+      { title: '为了翻译读转写的句子', args: { video: 'demo', documentId: 'doc_speech_1', view: 'sentences', translateTo: 'zh-CN' } },
+      { title: '接着读下一页', args: { video: 'demo', documentId: 'doc_speech_1', cursor: 's.3.180' } },
+    ],
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'video',
   },
@@ -1082,14 +1098,34 @@ export class VideoTools implements ToolSet {
       // i18n-ignore: 给模型的工具说明、错误与下一步
       throw new ToolError('DOCUMENT_NOT_FOUND', `这个视频里没有文档 ${args.documentId}：用 videos_inspect 的文档里的 documentId`);
     }
-    const content = await this.#videos.document(videoId, args.documentId, args.revision);
-    const sequenceId = this.#videos.mirror(videoId)?.video.rootSequenceId ?? opened.snapshot.video.rootSequenceId;
-    const basis = translationBasis(content, sequenceId);
-    if (args.translateTo === undefined) return { videoId, ...content, ...basis };
-    if (content.document.kind !== 'speech') {
-      // i18n-ignore: 给模型的工具说明、错误与下一步
-      throw new ToolError('INVALID_ARGUMENTS', `translateTo 只用于转写（kind speech）；文档 ${args.documentId} 是 ${content.document.kind}`);
+    const cursor = args.cursor === undefined ? null : decodeCursor(args.cursor);
+    // 接着读时视图沿用游标的，不给 view 也行。
+    const view = args.view ?? cursor?.view ?? 'full';
+    if (args.cursor !== undefined) {
+      if (!cursor) throw new ToolError('INVALID_ARGUMENTS', `cursor "${args.cursor}" is not a nextCursor from documents_read`);
+      if (cursor.view !== view) {
+        throw new ToolError('INVALID_ARGUMENTS', `cursor "${args.cursor}" continues view "${cursor.view}"; drop view or pass "${cursor.view}"`);
+      }
+      if (args.revision !== undefined && args.revision !== cursor.revision) {
+        throw new ToolError('INVALID_ARGUMENTS', `cursor reads revision ${cursor.revision}; drop revision or start again without cursor`);
+      }
     }
+    // 游标钉住它读到的版本：接着读的每一页都是同一个版本。
+    const content = await this.#videos.document(videoId, args.documentId, cursor?.revision ?? args.revision);
+    const sequenceId = this.#videos.mirror(videoId)?.video.rootSequenceId ?? opened.snapshot.video.rootSequenceId;
+    const { basis, speakers } = translationBasis(content, sequenceId);
+    if ((args.translateTo !== undefined || view === 'sentences') && content.document.kind !== 'speech') {
+      const arg = args.translateTo !== undefined ? 'translateTo' : 'view "sentences"';
+      throw new ToolError('INVALID_ARGUMENTS', `${arg} only applies to a transcript (kind speech); document ${args.documentId} is ${content.document.kind}`);
+    }
+    if (view === 'sentences' && !basis.translationBasis) {
+      throw new ToolError('TOOL_UNAVAILABLE', `cannot split document ${args.documentId} into sentences; read it with view "full"`);
+    }
+    const full = { videoId, ...content, ...basis };
+    const page =
+      pageDocument({ result: full, view, from: cursor?.from ?? 0, budget: principal.kind === 'local' ? null : DOCUMENT_READ_BUDGET_BYTES, speakers }) ??
+      full;
+    if (args.translateTo === undefined) return page;
     const sentences = (basis.translationBasis?.sentences as unknown[] | undefined)?.length ?? 0;
     const jobId = this.#scope.translationStarted?.(access, {
       videoId,
@@ -1098,7 +1134,7 @@ export class VideoTools implements ToolSet {
       sentences,
       sourceRevision: content.revision,
     });
-    return { videoId, ...content, ...basis, ...(jobId ? { translationJob: jobId } : {}) };
+    return { ...page, ...(jobId ? { translationJob: jobId } : {}) };
   }
 
   async #apply(args: z.infer<(typeof schemas)['edits_apply']>, principal: ToolPrincipal) {
@@ -2446,33 +2482,41 @@ function sourceSeconds(ticks: number, timescale: number): number {
   return Math.round((ticks / timescale) * 1e6) / 1e6;
 }
 
-function translationBasis(content: DocumentContent, sequenceId: Id): { translationBasis?: Record<string, unknown> } {
-  if (content.document.kind !== 'speech') return {};
+/** 转写的 `translationBasis`，以及句子视图要的每句首词的说话人。读不出句子时两者都没有。 */
+function translationBasis(
+  content: DocumentContent,
+  sequenceId: Id,
+): { basis: { translationBasis?: Record<string, unknown> }; speakers?: Map<string, string | undefined> } {
+  if (content.document.kind !== 'speech') return { basis: {} };
   let read: ReturnType<typeof sourceSentences>;
   try {
     read = sourceSentences(content.body);
   } catch (error) {
-    if (error instanceof EditorWasmUnavailable) return {};
+    if (error instanceof EditorWasmUnavailable) return { basis: {} };
     throw error;
   }
-  if ('problem' in read) return {};
+  if ('problem' in read) return { basis: {} };
+  const speakers = new Map(read.sentences.map((s) => [s.id, s.speaker]));
   return {
-    translationBasis: {
-      sourceBasis: {
-        speechRef: { id: content.document.id, revision: content.revision },
-        sequenceId,
-        scopeLineage: [],
-        editViewHash: read.editViewHash,
+    speakers,
+    basis: {
+      translationBasis: {
+        sourceBasis: {
+          speechRef: { id: content.document.id, revision: content.revision },
+          sequenceId,
+          scopeLineage: [],
+          editViewHash: read.editViewHash,
+        },
+        // start、end：素材时钟上的秒（首个可见词的起点到末个可见词的终点），找句界不用再读整份正文。
+        sentences: read.sentences.map((s) => ({
+          id: s.id,
+          fingerprint: s.fingerprint,
+          text: s.text,
+          wordIds: s.wordIds,
+          start: sourceSeconds(s.start, read.timescale),
+          end: sourceSeconds(s.end, read.timescale),
+        })),
       },
-      // start、end：素材时钟上的秒（首个可见词的起点到末个可见词的终点），找句界不用再读整份正文。
-      sentences: read.sentences.map((s) => ({
-        id: s.id,
-        fingerprint: s.fingerprint,
-        text: s.text,
-        wordIds: s.wordIds,
-        start: sourceSeconds(s.start, read.timescale),
-        end: sourceSeconds(s.end, read.timescale),
-      })),
     },
   };
 }

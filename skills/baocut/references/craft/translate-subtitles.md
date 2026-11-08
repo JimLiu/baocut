@@ -19,7 +19,7 @@
 
 ## 2. 通读，定下译法
 
-用 `baocut documents read` 读转写，translateTo 给目标语言：BaoCut 据此在视频卡与字幕面板显示「正在翻译」，写入这门语言的译文时结束。它带的 translationBasis 给出切好的句子。动笔前先通读全文，定下这几件事，翻译时全文照它们。它们不进成品：
+用 `baocut documents read` 读转写，translateTo 给目标语言、view 给 `sentences`：BaoCut 据此在视频卡与字幕面板显示「正在翻译」，写入这门语言的译文时结束。它带的 translationBasis 给出切好的句子（id、fingerprint、text、speaker、起止秒）。长转写一次放不下：结果带 `nextCursor` 时把它给 cursor 接着读（同样给 translateTo），读到没有 `nextCursor` 为止，所有页的句子合起来才是全文；只读到一页时不要当成全文，也不要只译读到的那几句。动笔前先通读全文，定下这几件事，翻译时全文照它们。它们不进成品：
 
 - **内容概要**：一两句话说清这个视频讲什么。听岔的词、含糊的指代，都要靠它判断。
 - **术语**：认出原文里的术语（转写可能把它们拼错，留意同一个术语的几种错写），每个术语全文只用一种译法。
@@ -60,7 +60,7 @@
 
 ## 4. 写回视频
 
-- 照 `baocut documents read` 说明里的写法，用 `baocut documents put` 写入完整的译文：新建时给 kind `translation`、language 为目标语言、sourceDocument 为转写的 documentId；整体重译已有的译文时给 document。只修订已有译文的几句时，用 `baocut edits apply` 的 patchDocument，按 units 的稳定 id 只提交改过的 naturalText、sourceFingerprint、alignment 与 status 等字段（`baocut edits ops` 查格式）；更新依据的 sourceBasis 时也只传变化的字段，不上传全部 units。每句一个单元，sourceBasis 用这次读到的 translationBasis，每个单元的对齐信息（对应原文哪一句、哪些词）也照说明填，不省略、不自己发明字段。一次 `baocut documents put` 写完整份。
+- 照 `baocut documents read` 说明里的写法，用 `baocut documents put` 写入完整的译文：新建时给 kind `translation`、language 为目标语言、sourceDocument 为转写的 documentId；整体重译已有的译文时给 document。只修订已有译文的几句时，用 `baocut edits apply` 的 patchDocument，按 units 的稳定 id 只提交改过的 naturalText、sourceFingerprint、alignment 与 status 等字段（`baocut edits ops` 查格式）；更新依据的 sourceBasis 时也只传变化的字段，不上传全部 units。每句一个单元，sourceBasis 用这次读到的 translationBasis，每个单元的对齐信息照说明填：用 `sentences` 视图读到的句子没有 wordIds，alignment 写 null，Runtime 写入时按句子补上；不省略、不自己发明字段。一次 `baocut documents put` 写完整份，单元数与全文的句数相同。
 - **只重译变了的句子**（转写改过、剪过之后，或用户说译文过期了）：重新 `baocut documents read` 转写（同样给 translateTo）拿最新的 translationBasis，再读已有的译文。句子 id 与 fingerprint 都和已有单元对得上的，原样保留那一单元；对不上的和新出现的重新翻译；转写里已经没有的句子不再写。sourceBasis 换成新的。写回之后从这份译文建过的字幕层由 Runtime 跟着换掉改过的句子，不要再建一层。用户要求整份重译时才全部重来：没变的句子重译一遍，只会让用户已经看过、改过的译文又变样。
 - 写之前转写又被改过（版本冲突或读到的已不是当前版本）时，重新读，按新的句子来。
 
@@ -80,7 +80,7 @@
 
 ## 7. 自查
 
-- 每句都译了，没有合并、拆分、漏译或多出来的句子。
+- 每句都译了，没有合并、拆分、漏译或多出来的句子；单元数等于 translationBasis 的句数（分页读时是所有页加起来的句数）。
 - 术语和专名全文一致；用户点名的译法逐字出现在对应的句子里。
 - 否定、数字、限定和因果转折都在；没有为了短删掉意思。
 - 随便挑几句长的，想象切成两三行：每一行和那时说的话对得上吗？

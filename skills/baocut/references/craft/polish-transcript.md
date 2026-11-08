@@ -16,7 +16,7 @@
 
 ## 2. 只能一词对一词地改
 
-用 `baocut documents read` 读 kind 为 speech 的转写（有几份时按来源素材对上用户说的那段）。正文的 words 是一串词，每个词有 id、开始与结束时间、说话人和 text；标点贴在词的 text 上：句末标点在一句最后那个词的末尾，开引号、开括号在第一个词的开头。
+用 `baocut documents read` 读 kind 为 speech 的转写（有几份时按来源素材对上用户说的那段）。正文的 words 是一串词，每个词有 id、开始与结束时间、说话人和 text；标点贴在词的 text 上：句末标点在一句最后那个词的末尾，开引号、开括号在第一个词的开头。长转写一次读不完：结果带 `nextCursor` 时，每页是连续的几句与它们的词，把 `nextCursor` 给 cursor 一页页接着读，读到没有 `nextCursor` 为止；可以读一页改一页、写回一页，但不要只润色第一页就当做完了。只要看句子（定术语、找说话人的证据）时给 view `sentences`，一页放得下的句子多得多。
 
 写回时只改词的 text：
 
@@ -68,7 +68,7 @@
 - 把改过的词收成 [{id,text}]，用 `baocut edits apply` 的 updateWords 写回同一份转写（documentId），一笔事务提交。只上传改过的词，不传 words 全数组或完整正文。expectedRevision 用 `baocut videos inspect` 的视频版本；同一笔重试沿用 commandId。
 - 已有从这份转写建的原文字幕层时，回执的 `syncedCaptions` 是跟着改了字的字幕文档数；`keptCaptionCues` 列出文字被手改过、没跟着改的字幕句子（每份字幕文档的 cueIds），告诉用户这几句要自己看。不要为了改字删掉字幕层重建。
 - 版本冲突说明用户刚改过：重新读，在新的正文上重做，不要用旧正文覆盖用户的修改。
-- 写好后再 `baocut documents read` 一次，看 translationBasis 里切出的句子：没有整段连成一句，也没有在半句话处断开；不对就再改标点。
+- 写好后再 `baocut documents read` 一次（给 view `sentences`），看 translationBasis 里切出的句子：没有整段连成一句，也没有在半句话处断开；不对就再改标点。
 
 ## 7. 说话人实名
 

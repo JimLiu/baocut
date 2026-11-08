@@ -211,6 +211,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 
 ```text
 documents read --video V --document-id D                    → 转写正文 + translationBasis（sourceBasis 与切好的句子：id、指纹、文本、词、素材时钟上的起止秒）
+documents read --video V --document-id D --view sentences   → 只列句子（id、指纹、文本、说话人、起止秒），翻译、写速览、找句界用它
 （Agent 逐句翻译）
 documents put --video V --kind translation --language zh-CN --source-document D --body @zh.json
 captions create --video V --document-id <新译文 id> --bilingual
@@ -274,7 +275,7 @@ export --video V --kind subtitles --format srt --bilingual
 
 `documents read` 的全文、`videos inspect` 的完整时间线、`space search` 的大量命中可能超过 Agent 愿意读进上下文的量。两个面同一规则：
 
-- 结果超过预算（默认 64 KiB，`--max-bytes` 可改）时，CLI 写到 `cwd` 下的 `.baocut-out/<工具>-<时间>.json`（或 `--result-file <文件>`），stdout 只给摘要、路径与 `truncated: true`；MCP 面沿用架构设计 §3.7 的字节预算与游标。
+- 结果超过预算（默认 64 KiB，`--max-bytes` 可改）时，CLI 写到 `cwd` 下的 `.baocut-out/<工具>-<时间>.json`（或 `--result-file <文件>`），stdout 只给摘要、路径与 `truncated: true`；MCP 面与会话里的工具桥沿用架构设计 §3.7 的字节预算与游标。`documents_read` 已实现（24 KiB 一页，`coverage` 与 `nextCursor`，转写另有只列句子的 `view: 'sentences'`，架构设计 §3.5）；CLI 不设这层预算，`documents read` 照样一次读整份、超过 64 KiB 落盘，`--view sentences` 同样可用。
 - 被截断的结果不能当完整的视频用：摘要里写明覆盖范围与继续读取的参数。
 
 ### 5.6 Runtime 的归属
@@ -624,7 +625,7 @@ SKILL.md 与 `references/` 的正文等 §10 的第 2 阶段（CLI 切到目录�
 未决（实现阶段裁决，默认按括号里的）：
 
 - CLI 自动拉起 Runtime 时用哪个 Node 与哪份 Runtime 入口：打包后是桌面端资源里的，开发时是 `apps/runtime`（按 `BAOCUT_RUNTIME_ENTRY` → 打包资源 → 仓库的顺序找，照随应用分发的数据文件的解析办法）。
-- MCP 面大结果的落盘：对外服务能否把 `documents_read` 的全文写进项目 `exports/`（可以，与导出同一约束；第一版先只做预算与游标）。
+- MCP 面大结果的落盘：对外服务能否把 `documents_read` 的全文写进项目 `exports/`（可以，与导出同一约束；第一版只做预算与游标，2026-11-07 已实现，见架构设计 §3.5）。
 - `videos_frames` 的输出位置与大小上限（`cwd` 下 `.baocut-out/frames/`，单次最多 24 帧、长边 1280）。
 - 模板是否露到 CLI / MCP：把现有的 `templates.list` / `templates.get` 包成 `templates_list` / `templates_show`（query），让外部 Agent 也能从场景模板的简报起步（露出，放进 §4.3 的名词组；第 3 阶段与 skill 一起做）。
 - `template.json` 要不要一个可选的 `skills: [id]` 提示，指向做这类成片该读的 craft（先不加；是模板包规范的改动，等说明书写出来看入口那张表够不够）。

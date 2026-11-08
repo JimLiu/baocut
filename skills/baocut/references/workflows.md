@@ -36,7 +36,7 @@ description: 端到端的做法：链接到双语字幕成片、润色后翻译�
 3. 润色：按 {{skill:polish-transcript}}，{{tool:documents_read}} 读、{{tool:documents_put}} 写回同一份转写。{{tool:videos_inspect}} 里素材的 `source`（标题、发布者、简介）当背景参考：人名、术语的写法只在说话人明显在说它时照改，不往文稿里加东西。已有原文字幕层时它的文字跟着改，回执的 `keptCaptionCues` 是手改过、没跟着改的句子，交付时报告。
 4. 说话人实名：转写的 `speakers[]` 还有占位名时，按 {{skill:polish-transcript}} 第 7 节在素材的 `source` 与每位首次开口前后找证据，有证据的用 {{tool:edits_apply}} 的 `renameSpeakers` 一笔写回，不先问；只有一位说话人时，标题或简介写明是谁讲的也算。不挂在润色上：润色跳过或只改了几处时照样做。
 5. 章节（旁路）：作者有章节时 {{tool:chapters_adopt}} 吸到文稿上，没有时按 {{skill:video-chapters}} 自己分，用户说不要时跳过。不阻塞后面的步骤；失败不致命，最多重试一次，如实报告。
-6. 重新 {{tool:documents_read}} 读润色后的转写（translateTo 给目标语言，BaoCut 显示「正在翻译」），按 {{skill:translate-subtitles}} 逐句翻译，{{tool:documents_put}} 写成译文。
+6. 重新 {{tool:documents_read}} 读润色后的转写（translateTo 给目标语言，BaoCut 显示「正在翻译」；view 给 `sentences`，有 `nextCursor` 时读完所有页），按 {{skill:translate-subtitles}} 逐句翻译，{{tool:documents_put}} 写成译文。
 7. {{tool:captions_create}} 给译文并带双语：原文层与译文层一起建好。只要原文字幕时第 2 步建的那层就是，跳过这步。
 8. 用户要文件：{{tool:export}} 导出双语字幕文件；要成片再 {{tool:export}} 导出 mp4（字幕画进画面）。
 <!-- surface: cli -->
@@ -63,7 +63,7 @@ description: 端到端的做法：链接到双语字幕成片、润色后翻译�
 1. {{tool:videos_inspect}} 找到转写与已有的译文、字幕层。
 2. 按 {{skill:polish-transcript}} 润色，{{tool:documents_put}} 写回同一份转写。
 3. 还有占位名的说话人按 {{skill:polish-transcript}} 第 7 节实名，有证据就直接写回；用户说不要润色时也做。
-4. 重新 {{tool:documents_read}}（translateTo 给目标语言），用这次的句子按 {{skill:translate-subtitles}} 翻译，{{tool:documents_put}} 写入译文。
+4. 重新 {{tool:documents_read}}（translateTo 给目标语言，view 给 `sentences`，读完所有页），用这次的句子按 {{skill:translate-subtitles}} 翻译，{{tool:documents_put}} 写入译文。
 5. {{tool:captions_create}} 建字幕层（先确认这份译文还没有字幕层）。
 6. 用户要文件时 {{tool:export}}。
 

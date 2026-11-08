@@ -61,7 +61,7 @@
 
 ## 7. 翻译
 
-需要译文或双语时，按 `translate-subtitles` 的做法翻译。润色写回之后重新 `baocut documents read` 读转写，用那时的 translationBasis 翻译；已有同一语言的译文时在它上面更新，不新建第二份。
+需要译文或双语时，按 `translate-subtitles` 的做法翻译。润色写回之后重新 `baocut documents read` 读转写（view 给 `sentences`，有 `nextCursor` 时读完所有页），用那时的 translationBasis 翻译；已有同一语言的译文时在它上面更新，不新建第二份。
 
 ## 8. 建字幕层
 
@@ -94,6 +94,7 @@
 - 跨回合时不要从头来：先 `baocut videos inspect` 看做到哪了。
 - 不要因为跳过或只做了一部分润色，就带着能认出的占位名交付。
 - 章节失败不要反复重试，也不要让它卡住后面的步骤。
+- 用户要的翻译或字幕层还没做时不要结束回合；结果读得不全（分页、被截断）就接着读，不是停下的理由。
 
 ## 11. 交付说明
 
