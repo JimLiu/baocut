@@ -78,7 +78,7 @@ New expression: <描述>. Draw it in exactly the same line weight and colors as 
 
 - `half` 与 `open` 必须有，`round`、`wide` 没有时用 `half` 或 `open` 代替（圆唇、咬唇就看不出来）。`open` 要比 `half` 张得开，打包时检查（`mouth ladder`）。
 - 闭眼是放松地闭上：上眼皮落下来的一条往下弯的线。往上弯的「^ ^」是笑眯眼，用来眨眼像在突然发笑。没有 `lids` 时眨眼只把睁着的眼睛压扁。
-- 表情取改图在脸上改了的地方（眼睛、眉毛、脸颊的红晕、嘴），合成一块补丁盖在眼睛和嘴上、刘海下面。只改了嘴的（`smile`）表情里照常眨眼、看向别处；改了眼睛的，那只眼睛整个用表情画的，表情显示时不眨眼。改了眉毛的，中性的眉毛跟着淡出。说话时嘴照样换口型，表情的嘴只在不说话时出现。别的表情（惊讶、为难）照上面的写法换描述，名字自取，`faces.json` 里用同一个名字。
+- 表情取改图在脸上改了的地方（眼睛、眉毛、脸颊的红晕、嘴），合成一块补丁盖在眼睛和嘴上、刘海下面。改了眼睛的，表情画的眼睛切成单独的层，带着表情也照常眨眼（第 5 节 `eyes L R blink`）。改了眉毛的，中性的眉毛跟着淡出。说话时嘴照样换口型，表情的嘴只在不说话时出现。别的表情（惊讶、为难）照上面的写法换描述，名字自取，`faces.json` 里用同一个名字。
 - 实测（GPT Image 2.6 Sunburst，扁平矢量，两个角色各 4 种嘴、闭眼、笑，加光头重绘，共 14 张；再各加害羞、生气、难过 6 张）：全部对齐在原位（位移 0 到 0.25、缩放 1），没有一张要重画。别的模型先试两三张，打包看结果再决定。
 
 ## 4. 打包
@@ -122,7 +122,7 @@ New expression: <描述>. Draw it in exactly the same line weight and colors as 
 | `neck line: … px above the chin (…% of the face)` | 头与脖子相接的那一行（`anchors.neck_y`），转头、歪头绕它转，应在下巴上面一点。高过脸高的 20% 时 `FIX`：脖子没找对，多半是领口、围巾或头发贴着下巴，看一眼正面像，重画让下巴下面露出一段脖子 |
 | `expression <名>: …x… px patch: …` | 表情补丁的大小和里面有什么（`eyes` 或一只眼、`brows`、`blush`、`mouth`）。少了描述里要改的那处（比如生气却没有 `brows`），是改图没画出来：重画。`FIX … changed nothing on the face`：重画 |
 | `expression <名>: …; eyes L R blink` | 表情改了眼睛，它画的眼睛切成单独的层（`expr_eye_L` `expr_eye_R`），带着这个表情也照常眨眼；`.livliv` 包不切，补丁保持完整。`eyes … drawn shut, kept in the patch` 是这只眼睛在改图里是闭着的（眯成一条线、^ ^），没有眼白可眨，留在补丁里，不用处理 |
-| `expression <名>: …; brows L … / R … px, … of them on the bangs` | 改了眉毛的表情，改过的眉毛单独切出（`brow_tex`），和中性眉毛一样画在刘海上面，挪到刘海上也看得见。`brows kept in the patch (none found)` 是眉毛附近没找到眉毛，眉毛留在表情补丁里；眉毛压在刘海上时会被刘海盖住，看一眼成品，眉毛不见了就重画表情 |
+| `expression <名>: …; brows L … / R … px, … of them on the bangs` | 改了眉毛的表情，改过的眉毛单独切出（`brow_tex`），和中性眉毛一样画在刘海上面，也画在眨眼合上的眼皮上面：挪到刘海上也看得见，压到眼睛上的眉头眨眼时也是完整的。`brows kept in the patch (none found)` 是眉毛附近没找到眉毛，眉毛留在表情补丁里；眉毛压在刘海上时会被刘海盖住，看一眼成品，眉毛不见了就重画表情 |
 | `rest matches the portrait: … px off …, … px of them in patches …` | 静止时和正面像差得多的像素。沿着轮廓的一两像素细线是边缘重新抠图的误差，不算；成块的（3 像素以上厚）超过角色的 0.05%，或者全部加起来超过 1% 时 `FIX`：看 `rest-diff.png` 亮在哪里，多半是某张改图或光头重绘没对上，重画那张 |
 | `package: … layers` | 角色包合规。`FIX` 时后面是不合规的地方，是脚本的问题，如实告诉用户 |
 
@@ -172,9 +172,9 @@ The outlines of the drawing belong to the part they surround; draw no lines betw
 | 报告 | 意思与改法 |
 | --- | --- |
 | `part map: shift …, scale …, residual …, …% of the character in no palette colour` | 分区图对齐到正面像的位移、缩放，和有多少像素不像任何一种规定色。位移大、缩放不是 1，或超过 2% 时 `FIX`：重出分区图 |
-| `parts: eyes …, brows …, mouth … px wide, … px of brow under the hair, … on the bangs` | 分区图里找到的眼睛、眉毛、嘴。`FIX part map: no face`、`FIX mouth: the map has no mouth` 是分区图没涂出脸或嘴：重出分区图。`on the bangs` 是压在刘海上的眉毛像素，这些眉毛单独成层、画在刘海上面 |
+| `parts: eyes …, brows …, mouth … px wide, … px of brow under the hair, … over strands the map painted across it, … on the bangs, … px of skin between the strands over the brows` | 分区图里找到的眼睛、眉毛、嘴。`FIX part map: no face`、`FIX mouth: the map has no mouth` 是分区图没涂出脸或嘴：重出分区图。`under the hair` 是分区图涂成眉毛、原图里却是发丝盖在上面的像素，归头发；`over strands the map painted across it` 反过来，是分区图涂成发丝、原图里眉毛画在发丝上面的像素，归眉毛。`on the bangs` 是压在刘海上的眉毛像素，这些眉毛单独成层、画在刘海上面。`skin between the strands over the brows` 是眉毛上方两缕发丝之间露出的额头，被眉毛隔开、不和脸连在一起，仍算脸，不跟着头发动 |
 | `expression <名>: …; eyes L R blink` | 表情改了眼睛，它画的眼睛切成单独的层（`expr_eye_L` `expr_eye_R`），带着这个表情也照常眨眼；`.livliv` 包不切，补丁保持完整。`eyes … drawn shut, kept in the patch` 是这只眼睛在改图里是闭着的（眯成一条线、^ ^），没有眼白可眨，留在补丁里，不用处理 |
-| `expression <名>: …; brows L … / R … px, … of them on the bangs` | 表情改过的眉毛单独切出（`brow_tex`），和中性眉毛一样画在刘海上面。`brows kept in the patch (none found)` 是眉毛附近没找到眉毛，眉毛留在表情补丁里；眉毛压在刘海上时会被刘海盖住，看一眼成品，眉毛不见了就重画表情 |
+| `expression <名>: …; brows L … / R … px, … of them on the bangs` | 表情改过的眉毛单独切出（`brow_tex`），和中性眉毛一样画在刘海上面，也画在眨眼合上的眼皮上面。`brows kept in the patch (none found)` 是眉毛附近没找到眉毛，眉毛留在表情补丁里；眉毛压在刘海上时会被刘海盖住，看一眼成品，眉毛不见了就重画表情 |
 | `bald repaint: …% of the scalp under the hair still looks like hair` | 光头重绘在头发底下还留着头发，超过 8% 时 `FIX`：重画 |
 | `neck line` | 同第 4 节。`FIX …: redo the map` 是分区图的脖子（橙色）从下巴下面一直连到了脸里：重出分区图，橙色只涂下巴以下。和脖子不相连的零星橙点（红刘海和黄脸交界处混出来的）不用管，按旁边的部位算 |
 | `rest matches the portrait` | 同第 4 节 |

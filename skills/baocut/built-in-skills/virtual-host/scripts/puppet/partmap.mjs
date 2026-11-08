@@ -2,7 +2,7 @@
 // The part map: an image edit of the portrait that paints every part in one flat key colour (references/art.md). It is
 // registered to the portrait by the two silhouettes and read back as one label per pixel, so the layers follow the
 // drawing's own boundaries whatever its shading.
-import { blank, components } from './ops.mjs';
+import { blank, components, compMask, dilate } from './ops.mjs';
 import { keyOut } from './seg.mjs';
 import { align, warp } from './align.mjs';
 import { nearestIndex } from './layers.mjs';
@@ -132,3 +132,23 @@ export const part = (lab, ...names) => {
   const s = new Set(names.map((n) => ID[n]));
   return Uint8Array.from(lab, (v) => (s.has(v) ? 1 : 0));
 };
+
+/**
+ * The face in the map (`face`, the yellow): its biggest blob, and the skin between the strands right over a brow
+ * (`brow`), which the brow's band cuts off from it, yellow pieces that touch a brow and lie in the head (their middle
+ * in the face's width, between a little over its top and its chin). Taken for strays, those went to the bangs: the
+ * forehead there moved with the hair, and a brow between two of them counted as one on the bangs, filled under from
+ * that skin, which showed through when an expression redrew the brow. Other yellow pieces are two map colours mixing
+ * at an edge. Returns the mask, the biggest blob (components' record) and how many pixels of skin over the brows it
+ * took back; null for a map with no yellow.
+ */
+export function faceZone(face, brow, w, h) {
+  const cc = components(face, w, h), comps = [...cc.comps].sort((a, b) => b.area - a.area), big = comps[0];
+  if (!big) return null;
+  // 2 px: the map's own edge between the yellow and the purple can be a pixel of a third colour
+  const nearBrow = dilate(brow, w, h, 2), touch = new Set();
+  for (let p = 0; p < w * h; p++) if (cc.lab[p] && nearBrow[p]) touch.add(cc.lab[p]);
+  const top = big.y0 - 0.15 * (big.y1 - big.y0);
+  const pockets = comps.slice(1).filter((c) => touch.has(c.id) && c.cx >= big.x0 && c.cx <= big.x1 && c.cy >= top && c.cy <= big.y1);
+  return { zone: compMask(cc.lab, [big.id, ...pockets.map((c) => c.id)]), big, overBrows: pockets.reduce((a, c) => a + c.area, 0) };
+}

@@ -589,24 +589,36 @@ function actOffsets(ticks, acts) {
   return out;
 }
 
-/** 表情权重：每段前后各 0.25 秒渐变；default 是没有别的表情的时候 */
+/**
+ * 表情权重：每段前后各 0.25 秒渐变；default 是没有别的表情的时候（1 减去别的表情之和）。前后两段相隔不到 0.25 秒时
+ * 不各自渐变，在间隔的正中共用一个 0.25 秒的窗口交接：走的那段是 1 − s，来的那段是 s，任何时刻各表情的权重加起来
+ * 不超过 1。各自渐变时两段都满着重叠过一阵，两张补丁都不透明，前一张露在后一张外面的嘴角、眉毛就是残影
+ */
 function expressionChannels(ticks, fc) {
   const ids = [...new Set([...fc.list.map(f => f[2]), ...(fc.def ? [fc.def] : [])])];
-  const out = {};
-  for (const id of ids) {
-    const a = new Array(ticks).fill(0);
-    for (let k = 0; k < ticks; k++) {
-      const t = k / TRACK_FPS;
-      let v = 0, other = 0;
-      for (const [t0, t1, f] of fc.list) {
-        const w = smooth((t - t0 + FACE_RAMP) / FACE_RAMP) * (1 - smooth((t - t1) / FACE_RAMP));
-        if (f === id) v = Math.max(v, w); else other = Math.max(other, w);
-      }
-      if (id === fc.def) v = Math.max(v, 1 - other);
-      a[k] = r3(v);
-    }
-    out[id] = trimTail(a);
+  // 每段的淡入窗口从 a 开始、淡出窗口从 b 开始，各长 FACE_RAMP
+  const spans = fc.list.filter(f => f[2] !== fc.def).map(([t0, t1, f]) => ({ f, a: t0 - FACE_RAMP, b: t1 }));
+  for (let i = 1; i < spans.length; i++) {
+    const A = spans[i - 1], B = spans[i];
+    const t1 = A.b, t0 = B.a + FACE_RAMP;
+    if (t0 - t1 < FACE_RAMP) A.b = B.a = (t1 + t0) / 2 - FACE_RAMP / 2;
+    // 窗口按时间排好：后一段的淡入不早于前一段的淡出，这样权重之和不超过 1
+    B.a = Math.max(B.a, A.b);
+    B.b = Math.max(B.b, B.a);
   }
+  const out = {};
+  for (const id of ids) out[id] = new Array(ticks).fill(0);
+  for (let k = 0; k < ticks; k++) {
+    const t = k / TRACK_FPS;
+    let sum = 0;
+    for (const s of spans) {
+      const w = smooth((t - s.a) / FACE_RAMP) - smooth((t - s.b) / FACE_RAMP);
+      out[s.f][k] += w;
+      sum += w;
+    }
+    if (fc.def) out[fc.def][k] = 1 - Math.min(1, sum);
+  }
+  for (const id of ids) out[id] = trimTail(out[id].map(v => r3(Math.min(1, Math.max(0, v)))));
   return out;
 }
 

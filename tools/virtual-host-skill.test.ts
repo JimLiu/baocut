@@ -9,6 +9,8 @@ import { readPng, writePng } from '../skills/baocut/built-in-skills/virtual-host
 import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
 import { smoothFill, strandFill } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/fill.mjs';
 import { expressionEyeRegions, cutExpressionEyes } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/expreyes.mjs';
+import { browAcross, redrawnBrows } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/brows.mjs';
+import { faceZone } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/partmap.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
 
@@ -242,6 +244,26 @@ describe('virtual-host lip sync', () => {
     for (const v of smile) expect(v >= 0 && v <= 1).toBe(true);
   });
 
+  it('hands one expression over to the next in one shared window, never both shown at once', () => {
+    // smile, then surprised 0.05 s later, then shy 0.5 s after that, then smile again; calm everywhere else
+    const faces = { default: 'calm', items: [{ t0: 0.5, t1: 1.5, face: 'smile' }, { t0: 1.55, t1: 2.5, face: 'surprised' }, { t0: 3, t1: 3.5, face: 'shy' }, { t0: 3.52, t1: 4.2, face: 'smile' }] };
+    const { track } = buildTrack({ units: unitsFromWords(words, 'zh-CN'), dur: 5, faces }) as Built;
+    const ch = track.expressions!;
+    const alpha = (w: number) => { const x = Math.min(1, Math.max(0, (w - 0.3) / 0.4)); return x * x * (3 - 2 * x); };
+    for (let k = 0; k <= 5 * TRACK_FPS; k++) {
+      const w = Object.values(ch).map(c => at(c, k));
+      // the weights add up to one (calm takes the rest), so the patches' opacities add up to about one too
+      expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 2);
+      const a = w.map(alpha).sort((x, y) => y - x);
+      expect(a[1]).toBeLessThanOrEqual(0.5 + 1e-3);
+    }
+    // the smile → surprised handoff is centred in the 0.05 s gap: both are at half there
+    expect(at(ch.smile, Math.round(1.525 * TRACK_FPS))).toBeCloseTo(0.5, 1);
+    expect(at(ch.surprised, Math.round(1.525 * TRACK_FPS))).toBeCloseTo(0.5, 1);
+    // a gap of 0.25 s or more: each ramps on its own, calm in between
+    expect(at(ch.calm, Math.round(2.75 * TRACK_FPS))).toBe(1);
+  });
+
   it('plays one-shot acts from faces.json on top of the talking motion', () => {
     const units = unitsFromWords(words, 'zh-CN');
     const { list, acts } = facesOf([{ line: 1, act: 'nod' }, { t0: 1.2, t1: 2, face: 'smile', act: 'shake' }], units);
@@ -330,7 +352,7 @@ function render(shapes: Shape[], line: RGB, background: RGB) {
   return { w: SIZE, h: SIZE, d };
 }
 
-function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false } = {}) {
+function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false, rim = false } = {}) {
   const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26], green: RGB = [0, 177, 64];
   // a shaded face: the skin round each eye darker than the cheeks, the closed lid as dark as it
   const shade: RGB = [212, 172, 140], lidSkin = socket ? shade : skin;
@@ -371,8 +393,11 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     broad: [clear, { inside: stroke((x) => 296 + 7 * (1 - ((x - 256) / 44) ** 2), 212, 300, 2.5), fill: line }],
     frown: [clear, { inside: stroke((x) => 300 + 6 * ((x - 256) / 22) ** 2, 234, 278, 2.5), fill: line }],
   };
+  // rim: a light line, lighter than the skin, 2 px wide on the face under the hair's lower edges (the part map leaves
+  // it to the face)
+  const hairRim: Shape[] = rim ? [{ inside: (x, y) => head.inside(x, y) && !hairShape.inside(x, y) && hairShape.inside(x, y - 2), fill: [255, 248, 240] }] : [];
   const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[] } = {}) =>
-    render([neck, body, head, ...sockets, ...(bald ? [] : [hairShape]), ...brows, ...eyes, ...cheeks, ...mouth], line, green);
+    render([neck, body, head, ...sockets, ...(bald ? [] : [hairShape, ...hairRim]), ...brows, ...eyes, ...cheeks, ...mouth], line, green);
   // the part map (references/art.md section 5): the same shapes, each part in its key colour, the eye lines black
   const key = (s: Shape, fill: RGB, outline?: number): Shape => ({ inside: s.inside, fill, outline });
   const eyeMap = (cx: number) => { const [w, i, hl] = eye(cx); return [key(w, [255, 255, 255], 2), key(i, [0, 255, 255]), key(hl, [0, 255, 255])]; };
@@ -590,6 +615,30 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
   });
 
+  it('leaves the light rim under the hair to the hair, over skin on the face', () => {
+    // the cap over the forehead ends at row 168; the rim is rows 168-169, on the face in the part map
+    const cfg = writeCharacter(tmp(), { hair: [230, 190, 90], rim: true }, undefined, { partmap: true });
+    const { status, report, stdout } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    expect(stdout).toMatch(/^ok {3}rest matches the portrait/m);
+    const dir = path.join(path.dirname(cfg), 'puppet/package');
+    type Layer = { id: string; x: number; y: number; texture: string };
+    const layers = (JSON.parse(fs.readFileSync(path.join(dir, 'model.json'), 'utf8')) as { layers: Layer[] }).layers;
+    const px = (id: string, x: number, y: number) => {
+      const l = layers.find((v) => v.id === id)!, im = readPng(path.join(dir, l.texture)), q = 4 * ((y - l.y) * im.w + (x - l.x));
+      return { lum: (im.d[q] + im.d[q + 1] + im.d[q + 2]) / 3, a: im.d[q + 3] };
+    };
+    for (const y of [168, 169]) {
+      // the face there is skin (lum 215): left as the rim, it stayed on the forehead, a pale copy of the hair's edge,
+      // when the hair swayed
+      expect(Math.abs(px('face', 256, y).lum - 215)).toBeLessThan(10);
+      // the bangs carry the rim as drawn, so at rest it is there and it goes with them
+      expect(px('front_hair', 256, y)).toMatchObject({ a: 255 });
+      expect(px('front_hair', 256, y).lum).toBeGreaterThan(240);
+    }
+  });
+
   it('keeps a closed lid as dark as the shaded skin round the eye, not the lighter skin of the whole face', () => {
     const cfg = writeCharacter(tmp(), { hair: [230, 190, 90], socket: true }, undefined, { partmap: true });
     const { status, report } = build(cfg);
@@ -780,21 +829,25 @@ describe('virtual-host expression eye regions', () => {
   // what an edit can draw as light as the skin, or in its shade: a catchlight in the iris, the whites under the lash in
   // its shadow, whites as pink as the skin at the corners
   const pink: RGB = [246, 214, 196], whiteShade: RGB = [220, 188, 165];
-  type Look = { catchlight?: boolean; shadedWhites?: boolean; pinkCorners?: boolean };
+  // iris: its centre x and radius; light: a spot [x, y, r] as light as the skin; lash: how far the lash reaches above
+  // the eye's outline
+  type Look = { catchlight?: boolean; shadedWhites?: boolean; pinkCorners?: boolean; iris?: [number, number]; light?: [number, number, number]; lash?: number };
   const draw = (irisY: number, look: Look = {}) => {
     const d = new Uint8ClampedArray(W * H * 4), drawn = new Uint8Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const p = y * W + x, X = x + 0.5, Y = y + 0.5, t = top(X), wx = cx - rx - X;
       let c = skin, eye = false;
       if (t !== null) {
-        const lt = t - 6;
+        const lt = t - (look.lash ?? 6);
         if (Y >= lt - 9 && Y < lt) c = shade;
         if (Math.abs(Y - (lt - 6)) <= 1 && Math.abs(X - cx) <= 0.95 * rx) c = [185, 120, 105];
         if (Y >= lt && Y <= t + 2) [c, eye] = [line, true];
         else if (inEye(X, Y)) {
-          let e: RGB = Math.hypot(X - cx, Y - irisY) <= 9 ? [60, 90, 150] : Y > cy && !inEye(X, Y + 2) ? line : [255, 255, 255];
+          const [ix, ir] = look.iris ?? [cx, 9];
+          let e: RGB = Y > cy && !inEye(X, Y + 2) ? line : Math.hypot(X - ix, Y - irisY) <= ir ? [60, 90, 150] : [255, 255, 255];
           const white = e[0] === 255;
           if (look.catchlight && Math.hypot(X - (cx + 3), Y - (irisY - 5)) <= 2.5) e = pink;
+          else if (look.light && Math.hypot(X - look.light[0], Y - look.light[1]) <= look.light[2]) e = pink;
           else if (white && look.shadedWhites && Y <= t + 5) e = whiteShade;
           else if (white && look.pinkCorners && Math.abs(X - cx) > 0.75 * rx) e = pink;
           [c, eye] = [e, true];
@@ -849,6 +902,28 @@ describe('virtual-host expression eye regions', () => {
     }
   });
 
+  it('takes in an iris out to the corner under a highlight as light as the skin, and a lash drawn thicker', () => {
+    // the expression looks aside: its iris reaches the outer corner, no whites beyond it, a highlight in it as light as
+    // the skin; its lash is drawn twice as thick as the neutral one
+    const N = draw(cy + 1), E = draw(cy + 2, { iris: [cx + 18, 13], light: [cx + 20, cy + 1, 5], lash: 14 });
+    const changed = new Uint8Array(W * H).map((_, p) => [0, 1, 2].some((k) => N.im.d[4 * p + k] !== E.im.d[4 * p + k]) ? 1 : 0);
+    const patch = { w: W, h: H, d: new Uint8ClampedArray(W * H * 4).fill(255) };
+    const { R, shut } = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes: [{ drawn: N.drawn, hit: true }, null], changed, skin, w: W, h: H });
+    expect(shut).toEqual([]);
+    const at = (x: number, y: number) => R[0]![y * W + x];
+    // the highlight and the iris under it: a walk down the column stopped at the highlight, and the rest of the iris
+    // stayed in the patch over the closing lid
+    expect(at(cx + 20, cy + 1)).toBe(1);
+    for (let y = cy + 4; y <= cy + 7; y++) for (const x of [cx + 19, cx + 20, cx + 21]) expect(at(x, y)).toBe(1);
+    // the lash up to its top, and not the crease above it: cut straight at the neutral lash's thickness, the squashed
+    // eye's top was a straight edge while it closed
+    for (const x of [cx - 16, cx, cx + 10]) {
+      const t = top(x + 0.5)!;
+      expect(at(x, Math.floor(t - 13))).toBe(1);
+      expect(at(x, Math.floor(t - 20))).toBe(0);
+    }
+  });
+
   it('cuts the eye so that, open, it over the cut patch is the patch as drawn, over any face under it', () => {
     const N = draw(cy + 1), E = draw(cy - 3);
     const changed = new Uint8Array(W * H).map((_, p) => [0, 1, 2].some((k) => N.im.d[4 * p + k] !== E.im.d[4 * p + k]) ? 1 : 0);
@@ -882,11 +957,98 @@ describe('virtual-host expression eye regions', () => {
   });
 });
 
+describe('virtual-host redrawn brows', () => {
+  it('takes a brow pressed onto the lash whole, and not the lash the expression redrew under it', () => {
+    // level neutral brows; the expression lowers them toward the middle and opens its eyes 3 px higher. The left brow
+    // runs on over the lash (the eye region takes its end in), the right one ends on the skin above it
+    const W = 200, H = 90, midX = 100, rx = 28, ry = 12, eyeX = [55, 145];
+    const skin: RGB = [252, 212, 180], browCol: RGB = [90, 55, 40], hairCol: RGB = [200, 120, 60], line: RGB = [40, 25, 25];
+    const paint = (eyeY: number, browAt: (X: number, Y: number) => boolean) => {
+      const d = new Uint8ClampedArray(W * H * 4), eyes = new Uint8Array(W * H), brow = new Uint8Array(W * H), lash = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const p = y * W + x, X = x + 0.5, Y = y + 0.5, ex = eyeX[X >= midX ? 1 : 0], u = (X - ex) / rx;
+        const t = Math.abs(u) <= 1 ? eyeY - ry * Math.sqrt(1 - u * u) : null;
+        let c = skin;
+        if (t !== null && Y >= t - 5 && Y < t) [c, eyes[p], lash[p]] = [line, 1, 1];
+        else if (t !== null && Y >= t && Y <= 2 * eyeY - t) [c, eyes[p]] = [Math.hypot(X - ex, Y - eyeY) < 8 ? [60, 90, 150] : [255, 255, 255], 1];
+        if (browAt(X, Y)) [c, brow[p], lash[p]] = [browCol, 1, 0];
+        d.set([...c, 255], 4 * p);
+      }
+      return { im: { w: W, h: H, d }, eyes, brow, lash };
+    };
+    const N = paint(63, (X, Y) => Y >= 24 && Y < 30 && ((X >= 22 && X < 82) || (X >= 118 && X < 178)));
+    const E = paint(60, (X, Y) => (X >= 20 && X < 86 && Math.abs(Y - (26 + (X - 20) / 3)) <= 3) || (X >= 124 && X < 180 && Math.abs(Y - (26 + (180 - X) / 5)) <= 3));
+    const near = new Uint8Array(W * H).map((_, p) => (p < 62 * W ? 1 : 0));
+    const L = { w: W, h: H, d: new Uint8ClampedArray(E.im.d) }, T = { w: W, h: H, d: new Uint8ClampedArray(E.im.d) };
+    const under = { w: W, h: H, d: new Uint8ClampedArray(W * H * 4).map((_, i) => [...skin, 255][i % 4]) };
+    const { bm } = redrawnBrows({ E: E.im, im: N.im, near, eyes: E.eyes, lids: null, full: N.brow, browCol, hairCol, skin, midX, L, T, under, w: W, h: H });
+    let inEye = 0;
+    for (let p = 0; p < W * H; p++) {
+      // the brow's pixels in the eye region (and next to it) too: left out, they went with the eye layer and squashed
+      // away in a blink, and the closed lid's skin showed through the brow's end
+      if (E.brow[p]) expect(bm[p]).toBe(1);
+      if (E.brow[p] && E.eyes[p]) inEye++;
+      // the lash the edit moved changed like a brow and ran on from it: taken in, it was left over the closed lid
+      if (E.lash[p]) expect(bm[p]).toBe(0);
+    }
+    expect(inEye).toBeGreaterThan(0);
+    // the right brow ends where it was drawn, short of the eye
+    expect(bm.reduce((a, v) => a + v, 0)).toBe(E.brow.reduce((a, v) => a + v, 0));
+  });
+});
+
+describe('virtual-host brows across the strands', () => {
+  it('takes back a brow drawn over a strand the part map painted across it, and leaves a strand drawn over the brow', () => {
+    // a brow on rows 18-21 from x 4 to 100 crossed by three strands the map paints across it: x 14-23 under the brow
+    // (the brow drawn over it, 60%), x 34-43 over the brow, with its outline at both edges and a strand line drawn
+    // slantwise across it a pixel a row, and one slanting under the brow, 6 px wide, so that every column it crosses
+    // keeps some brow above or below it
+    const W = 120, H = 40, midX = 110;
+    const skin: RGB = [252, 212, 180], hair: RGB = [200, 120, 60], browCol: RGB = [90, 55, 40], line: RGB = [40, 25, 25];
+    const d = new Uint8ClampedArray(W * H * 4), brow = new Uint8Array(W * H), front = new Uint8Array(W * H), drawnOver = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = y * W + x, onBrow = y >= 18 && y <= 21 && x >= 4 && x <= 100, slant = x - (y - 18);
+      const under = y <= 33 && ((x >= 14 && x <= 23) || (slant >= 66 && slant <= 71)), over = x >= 34 && x <= 43 && y <= 33;
+      let c = skin;
+      if (under) c = onBrow ? browCol.map((v, k) => 0.6 * v + 0.4 * hair[k]) as RGB : hair;
+      else if (over) c = x === 34 || x === 43 || x === 22 + y ? line : hair;
+      else if (onBrow) c = browCol;
+      if (under || over) front[p] = 1;
+      else if (onBrow) brow[p] = 1;
+      if (under && onBrow) drawnOver[p] = 1;
+      d.set([...c, 255], 4 * p);
+    }
+    const out = browAcross({ im: { w: W, h: H, d }, brow, front, browCol, midX, w: W, h: H });
+    // the brow over the strands under it, all of it, and nothing of the strand over it, its lines included
+    for (let p = 0; p < W * H; p++) expect(out[p]).toBe(drawnOver[p]);
+    expect(drawnOver.reduce((a, v) => a + v, 0)).toBe(64);
+  });
+});
+
+describe('virtual-host face zone', () => {
+  it('keeps the skin between the strands over a brow as face, and no other yellow piece apart from the face', () => {
+    // the face from row 30 down, x 20-79, with a brow over it on rows 30-33 (x 25-74) and the bangs above; between two
+    // strands a pocket of forehead over the brow (x 40-49, rows 22-29), a piece of yellow among the strands 4 rows above
+    // the brow (x 60-65, rows 22-25), and beside the head a purple blob with a yellow piece under it (x 2-8)
+    const W = 100, H = 80, face = new Uint8Array(W * H), brow = new Uint8Array(W * H), want = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = y * W + x, onBrow = y >= 30 && y <= 33 && x >= 25 && x <= 74;
+      const inFace = y >= 30 && x >= 20 && x <= 79 && !onBrow, pocket = y >= 22 && y <= 29 && x >= 40 && x <= 49;
+      if (onBrow || (y >= 50 && y <= 53 && x >= 2 && x <= 8)) brow[p] = 1;
+      if (inFace || pocket || (y >= 22 && y <= 25 && x >= 60 && x <= 65) || (y >= 54 && y <= 57 && x >= 2 && x <= 8)) face[p] = 1;
+      if (inFace || pocket) want[p] = 1;
+    }
+    const F = faceZone(face, brow, W, H);
+    for (let p = 0; p < W * H; p++) expect(F!.zone[p]).toBe(want[p]);
+    expect(F!.overBrows).toBe(80);
+  });
+});
+
 describe('virtual-host bangs fill', () => {
-  // a hole across hair (a brow on the bangs), rows 25-34 of a 60 px tall picture, from x0 to x1
-  const fillHole = (fill: typeof strandFill, pic: () => { w: number; h: number; d: Uint8ClampedArray }, x0: number, x1: number) => {
+  // a hole across hair (a brow on the bangs), rows y0 to y1 - 1 (25-34) of a 60 px tall picture, from x0 to x1
+  const fillHole = (fill: typeof strandFill, pic: () => { w: number; h: number; d: Uint8ClampedArray }, x0: number, x1: number, y0 = 25, y1 = 35) => {
     const im = pic(), ref = pic(), { w, h } = im, hole = new Uint8Array(w * h);
-    for (let y = 25; y < 35; y++) for (let x = x0; x < x1; x++) hole[y * w + x] = 1;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) hole[y * w + x] = 1;
     fill(im, hole, Uint8Array.from(hole, (v) => 1 - v), w, h);
     return { im, ref, w };
   };
@@ -910,6 +1072,23 @@ describe('virtual-host bangs fill', () => {
       expect(err(strandFill)).toBeLessThan(20);
       expect(err(smoothFill)).toBeGreaterThan(40);
     }
+  });
+
+  it('runs the strand lines on through the middle of a thick brow too, far from the hair round it', () => {
+    // thin dark lines every 12 px at a slant on light hair; 24 rows of hole, so the middle rows are 12 px from the
+    // hair, past the window the strands' way is first read from (a smooth fill there cut every line, 36 off)
+    const lines = () => {
+      const w = 80, h = 60, d = new Uint8ClampedArray(w * h * 4);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const u = (((x - 0.2 * y) % 12) + 12) % 12;
+        d.set([...(u < 2 ? [90, 50, 30] : [220, 170, 130]), 255], 4 * (y * w + x));
+      }
+      return { w, h, d };
+    };
+    const { im, ref, w } = fillHole(strandFill, lines, 10, 70, 18, 42);
+    let sum = 0, n = 0;
+    for (let y = 26; y < 34; y++) for (let x = 20; x < 60; x++) { sum += Math.abs(im.d[4 * (y * w + x)] - ref.d[4 * (y * w + x)]); n++; }
+    expect(sum / n).toBeLessThan(20);
   });
 
   it('fills flat hair smoothly: its faint shading is no strand to carry a line from far along the hole', () => {

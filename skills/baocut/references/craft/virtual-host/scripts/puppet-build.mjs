@@ -320,6 +320,8 @@ if (cfg.lids) {
   alignCheck('lids', lidEdit.A);
   if (DEBUG) writePng(path.join(DBG, 'lids-warped.png'), lidEdit.im);
 }
+// where the closed lids cover (an expression's brows there go over them)
+const lidCover = new Uint8Array(w * h);
 for (const [i, side] of [[0, 'L'], [1, 'R']]) {
   const E = eyes[i], eb = G.eyes[i].box;
   // lid: the strokes the closed-eyes edit drew in this eye's place (inside the rim, under the brow)
@@ -336,6 +338,7 @@ for (const [i, side] of [[0, 'L'], [1, 'R']]) {
     log(`lid ${side}`, S.comps.map((c) => [c.x0, c.y0, c.x1, c.y1, c.area]), 'skin', S.skin);
     check(S.comps.length > 0, `closed eye ${side}`, S.comps.length ? `${count(S.core)} px` : 'the lids edit drew nothing in this eye; redo it with both eyes closed');
     eyeLayers.push({ id: `eye_${side}_closed`, L: S.L, def: { group: 'head', depth: 0, role: `lid_${side}` }, hidden: true });
+    for (let p = 0; p < w * h; p++) if (S.L.d[4 * p + 3] > 0) lidCover[p] = 1;
   }
   const eyeL = blank(w, h), [bx, by, bw, bh] = E.box;
   over(eyeL, E.tex, bx, by);
@@ -527,9 +530,8 @@ const expressions = [];
     if (browsRedrawn) {
       const Eb = clone(R.im);
       for (let p = 0; p < N; p++) if (area[p]) Eb.d.set(E.d.subarray(4 * p, 4 * p + 3), 4 * p);
-      const browSearch = minus(near, dilate(ER.any, w, h, 1));
-      const B = redrawnBrows({ E: Eb, im, near: browSearch, full: G.brows, browCol, hairCol, skin, midX, L, T, under: faceL, w, h });
-      if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, browSearch, w, h);
+      const B = redrawnBrows({ E: Eb, im, near, eyes: ER.any, lids: lidCover, full: G.brows, browCol, hairCol, skin, midX, L, T, under: faceL, w, h });
+      if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, near, w, h);
       BT = B.BT;
       if (BT) browPx = dilate(B.bm, w, h, 2);
       browNote = BT ? browNoteOf(B.bm, G.hair, midX, w, h) : '; brows kept in the patch (none found)';

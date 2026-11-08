@@ -92,6 +92,12 @@ const SKIN = 0, SHADE = 1, LINE = 2, OTHER = 3;
 const CORNER_MISS = 3;
 /** the widest gap between columns of the eye, as a share of its whites' width, that is the eye going on */
 const GAP_K = 0.1;
+/**
+ * How far past the box a line of the eye can go on, as a share of the whites' height (up and down) and width (the
+ * corners): a lash drawn thicker than the neutral one, a wing flicked further out. A line that ends on the skin within
+ * it is the eye's, taken whole; cut straight at the box, the squashed eye's top was a straight edge while it closed
+ */
+const PAST_H = 0.35, PAST_W = 0.15;
 const luma3 = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
 const toneOf = (skin) => {
   const ls = luma3(skin);
@@ -129,17 +135,19 @@ function envelope(pts, side) {
  * Where each eye the edit `E` drew is, found before its brows: the brows are looked for outside it, so a lash is never
  * taken for a brow, and a brow drawn down to the eye loses at most the tip that touches it. The eye is placed by its
  * whites. The box round them, grown on each side by as thick as the neutral eye's lines are there (a wide-open eye
- * reaches above the neutral one, a narrowed one stays below its brow) and never narrower than the neutral eye, bounds
- * it. Inside the box: over the whites' columns, each column from the whites' outline (a convex arc over their tops, a
- * concave one under their bottoms, so the iris, a catchlight or a shaded white inside it is the eye) out through the
- * eye's lines until the skin, or the skin's shade once past a line, so a crease or a brow drawn above the lid, apart
- * from it by skin or shadow, stays out; past them, a corner: the opening between its lid lines while it narrows, then
- * the wing; then the light the whites run into, and a gap of a few columns the eye goes on over. Whites drawn as pink
- * as the skin and cut off from the rest by the iris are not found: they stay in the patch, close to the skin's colour.
- * `eyes` per side (image left first): { drawn: the neutral eye layer's pixels, hit: whether the edit changed that eye }.
- * `patch`: the expression patch (its pixels with alpha); `changed`: the strokes the edit changed. Returns { R: [mask or
- * null per side], shut: the sides the edit drew shut (no whites, nothing to blink: they stay in the patch), any: both
- * masks together }.
+ * reaches above the neutral one, a narrowed one stays below its brow) and never narrower or shallower than the neutral
+ * eye, bounds it; past the box only a line that ends on the skin a little further out goes on (a lash drawn thicker, a
+ * wing flicked further). Light spots the eye's lines close all round within the neutral eye (a highlight as light as
+ * the skin) count as the eye's lines. Inside the box: over the whites' columns, each column from the whites' outline (a
+ * convex arc over their tops, a concave one under their bottoms, so the iris, a catchlight or a shaded white inside it
+ * is the eye) out through the eye's lines until the skin, or the skin's shade once past a line, so a crease or a brow
+ * drawn above the lid, apart from it by skin or shadow, stays out; past them, a corner: the opening between its lid
+ * lines while it narrows, then the wing; then the light the whites run into, and a gap of a few columns the eye goes on
+ * over. Whites drawn as pink as the skin and cut off from the rest by the iris are not found: they stay in the patch,
+ * close to the skin's colour. `eyes` per side (image left first): { drawn: the neutral eye layer's pixels, hit: whether
+ * the edit changed that eye }. `patch`: the expression patch (its pixels with alpha); `changed`: the strokes the edit
+ * changed. Returns { R: [mask or null per side], shut: the sides the edit drew shut (no whites, nothing to blink: they
+ * stay in the patch), any: both masks together }.
  */
 export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }) {
   const N = w * h, white = whiteOf(skin), R = [null, null], shut = [], any = new Uint8Array(N);
@@ -157,10 +165,41 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
     if (wn.n >= 30 && we.b) {
       const m = lineMargins(im, e.drawn, b, white, w);
       const X0 = Math.max(0, Math.min(b[0], we.b[0] - m[0])), X1 = Math.min(w - 1, Math.max(b[2], we.b[2] + m[2]));
-      const Y0 = Math.max(0, we.b[1] - m[1]), Y1 = Math.min(h - 1, we.b[3] + m[3]);
-      // each column's whites
+      // never shallower than the neutral eye: whites tinted toward the skin under the iris are not found, and the box
+      // cut the iris across its middle
+      const Y0 = Math.max(0, we.b[1] - m[1]), Y1 = Math.min(h - 1, Math.max(b[3], we.b[3] + m[3]));
+      // past the box only a line goes on, and only if it ends within this
+      const py = Math.ceil(PAST_H * (we.b[3] - we.b[1] + 1)), px = Math.ceil(PAST_W * (we.b[2] - we.b[0] + 1));
+      const OX0 = Math.max(0, X0 - px), OX1 = Math.min(w - 1, X1 + px), OY0 = Math.max(0, Y0 - py), OY1 = Math.min(h - 1, Y1 + py);
+      // the eye's light spots its lines close all round, within the neutral eye (a highlight in the iris as light as a
+      // pale skin, whites tinted toward it): taken for the skin, they stopped a walk down the column halfway through the
+      // iris, and the rest of the iris stayed in the patch, over the closing lid. Skin closed in by strands of the bangs
+      // over the lid is outside the neutral eye and stays the skin
+      const pocket = new Uint8Array(N);
+      {
+        const seen = new Uint8Array(N), st = [];
+        for (let y = OY0; y <= OY1; y++) for (let x = OX0; x <= OX1; x++) {
+          const p = y * w + x;
+          if ((y === OY0 || y === OY1 || x === OX0 || x === OX1) && toneAt(p) !== LINE) { seen[p] = 1; st.push(p); }
+        }
+        while (st.length) {
+          const p = st.pop(), x = p % w, y = (p - x) / w;
+          for (const [q, ok] of [[p - 1, x > OX0], [p + 1, x < OX1], [p - w, y > OY0], [p + w, y < OY1]]) {
+            if (ok && !seen[q] && toneAt(q) !== LINE) { seen[q] = 1; st.push(q); }
+          }
+        }
+        for (let y = OY0; y <= OY1; y++) for (let x = OX0; x <= OX1; x++) {
+          const p = y * w + x, t = toneAt(p);
+          if (!seen[p] && (t === SKIN || t === SHADE)) pocket[p] = 1;
+        }
+        const pc = components(pocket, w, h), inEye = new Map();
+        for (let p = 0; p < N; p++) if (pc.lab[p] && e.drawn[p]) inEye.set(pc.lab[p], (inEye.get(pc.lab[p]) ?? 0) + 1);
+        const keep = new Set(pc.comps.filter((c) => (inEye.get(c.id) ?? 0) >= 0.8 * c.area).map((c) => c.id));
+        for (let p = 0; p < N; p++) if (pocket[p] && !keep.has(pc.lab[p])) pocket[p] = 0;
+      }
+      // each column's whites (columns counted from OX0)
       const found = [];
-      for (let x = X0; x <= X1; x++) {
+      for (let x = OX0; x <= OX1; x++) {
         let t = -1, u = -1;
         for (let y = Y0; y <= Y1; y++) if (we.m[y * w + x]) { if (t < 0) t = y; u = y; }
         found.push(t < 0 ? null : [t, u]);
@@ -174,20 +213,25 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
       // how far from the middle of the eye a corner's line can be (a wing flicked up)
       const reach = Math.ceil((we.b[3] - we.b[1]) / 2 + Math.max(m[1], m[3]));
       const col = (i) => {
-        const x = X0 + i, at = (y) => toneAt(y * w + x);
-        // from y on outward (d -1 up, 1 down) through the eye's lines, until the skin, or the shade past a line
+        const x = OX0 + i, at = (y) => (pocket[y * w + x] ? LINE : toneAt(y * w + x)), out = x < X0 || x > X1;
+        // from y on outward (d -1 up, 1 down) through the eye's lines, until the skin, or the shade past a line. Past
+        // the box (or in a column past it) only a line goes on; one still going at the end of the margin is something
+        // else (a brow pressed onto the lid, hair): null, and a column in the box stops at the box as before
+        const edge = (y, d) => (d < 0 ? Math.max(y, Y0) : Math.min(y, Y1));
         const walk = (y, d, crossed) => {
-          for (let q = y + d; q >= Y0 && q <= Y1; y = q, q += d) {
+          for (let q = y + d; ; y = q, q += d) {
+            if (q < OY0 || q > OY1) return out ? null : edge(y, d);
             const t = at(q);
-            if (t === SKIN || (t === SHADE && crossed)) break;
+            if (t === SKIN || (t === SHADE && crossed)) return y;
             if (t === LINE) crossed = true;
+            else if (out || q < Y0 || q > Y1) return out ? null : edge(y, d);
           }
-          return y;
         };
         const lineIn = (a, b) => { for (let y = a; y <= b; y++) if (at(y) === LINE) return true; return false; };
-        const nearest = (y, d) => { for (let q = y; Math.abs(q - y) <= reach && q >= Y0 && q <= Y1; q += d) if (at(q) === LINE) return q; return -1; };
+        const [n0, n1] = out ? [OY0, OY1] : [Y0, Y1];
+        const nearest = (y, d) => { for (let q = y; Math.abs(q - y) <= reach && q >= n0 && q <= n1; q += d) if (at(q) === LINE) return q; return -1; };
         const fill = (lo, hi) => { for (let y = lo; y <= hi; y++) M[y * w + x] = 1; return [lo, hi]; };
-        return { at, walk, lineIn, nearest, fill };
+        return { at, walk, lineIn, nearest, fill, out };
       };
       const F0 = F[0], F1 = F[F.length - 1], spans = [];
       for (let i = F0; i <= F1; i++) {
@@ -207,19 +251,24 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
       // lies between; a faint line missing for a column or two goes on where it was); then, the wing of a flicked eye:
       // from the middle, if it is on the eye (a line, a white, a shade), else the line nearest. The whole column of the
       // box took the skin and the crease above the corner, and a blink squashed them with the eye
+      // Past the box a corner goes on column by column only on lines that end on the skin, and stops at the first
+      // column without one
       for (const [from, d] of [[F0, -1], [F1, 1]]) {
         let y = Math.round((found[from][0] + found[from][1]) / 2), [up0, dn0] = spans[from], open = true, miss = 0;
         for (let i = from + d; i >= 0 && i < found.length; i += d) {
-          const { at, walk, nearest, fill } = col(i);
+          const { at, walk, nearest, fill, out } = col(i);
           let up = nearest(y, -1), dn = nearest(y, 1);
           if (open) {
             miss = up < 0 || dn < 0 ? miss + 1 : 0;
+            if (out && miss) open = false;
             if (up < 0) up = up0;
             if (dn < 0) dn = dn0;
-            open = miss <= CORNER_MISS && dn - up <= dn0 - up0 + 1;
+            open = open && miss <= CORNER_MISS && dn - up <= dn0 - up0 + 1;
           }
           if (open) {
-            fill(walk(up, -1, true), walk(dn, 1, true));
+            const a = walk(up, -1, true), b = walk(dn, 1, true);
+            if (a === null || b === null) break;
+            fill(a, b);
             [up0, dn0] = [up, dn]; y = Math.round((up + dn) / 2);
             continue;
           }
@@ -228,10 +277,12 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
           if (t === SKIN) {
             const a = nearest(y, -1), b = nearest(y, 1);
             q0 = a < 0 ? b : b < 0 || y - a <= b - y ? a : b;
-            if (q0 < 0) continue;
-          }
+            if (q0 < 0) { if (out) break; continue; }
+          } else if (out && t !== LINE) break;
           const crossed = t !== SHADE && t !== OTHER;
-          fill(walk(q0, -1, crossed), walk(q0, 1, crossed));
+          const a = walk(q0, -1, crossed), b = walk(q0, 1, crossed);
+          if (a === null || b === null) { if (out) break; continue; }
+          fill(a, b);
         }
       }
       // and the light of the opening the whites run into: a white too pink or too shaded to be found as one, a highlight
@@ -247,7 +298,7 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
       // to where the columns on both sides reach, and each column's own gap between its lines: left out, it stayed in
       // the patch, a light stripe over the shut lid
       const ext = [];
-      for (let x = X0; x <= X1; x++) {
+      for (let x = OX0; x <= OX1; x++) {
         let t = -1, u = -1;
         for (let y = Y0; y <= Y1; y++) if (M[y * w + x]) { if (t < 0) t = y; u = y; }
         ext.push(t < 0 ? null : [t, u]);
@@ -262,12 +313,12 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
         const a = reachOf(i - gap, i - 1), b = reachOf(i + 1, i + gap);
         let t = e ? e[0] : Infinity, u = e ? e[1] : -Infinity;
         if (a && b) { t = Math.min(t, Math.max(a[0], b[0])); u = Math.max(u, Math.min(a[1], b[1])); }
-        for (let y = t; y <= u; y++) M[y * w + X0 + i] = 1;
+        for (let y = t; y <= u; y++) M[y * w + OX0 + i] = 1;
       });
-      // the soft edge of each line, still inside the box
+      // the soft edge of each line, still inside the box and the margin past it
       const G = dilate(M, w, h, 2);
       M.fill(0);
-      for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) { const p = y * w + x; if (G[p]) M[p] = 1; }
+      for (let y = OY0; y <= OY1; y++) for (let x = OX0; x <= OX1; x++) { const p = y * w + x; if (G[p]) M[p] = 1; }
     } else {
       // no whites to go by (an eye all iris): the neutral eye's place, a little grown
       for (let y = Math.max(0, Math.round(b[1] - 0.15 * bh)); y <= Math.min(h - 1, Math.round(b[3] + 0.15 * bh)); y++) {

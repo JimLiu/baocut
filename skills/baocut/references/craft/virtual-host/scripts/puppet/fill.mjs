@@ -83,14 +83,18 @@ export function smoothFill(im, hole, known, w, h, o = {}) {
   return im;
 }
 
+/** the share of a window round a hole pixel that must be picture (outside the hole) to read its strands' way from */
+const SPREAD_MIN = 0.15;
+
 /**
  * Fill the pixels of `hole` in hair along its strands (a brow drawn across the bangs, say): each hole pixel takes the
  * colours where its strand comes out of the hole on either side, mixed by distance, so the strands' light and dark
  * lines run on through instead of blurring into a soft patch. The strands run the way the picture round the hole does
- * (its structure tensor; the edges where strands meet the skin between them count too). A pixel whose strand leaves
- * the hole on neither side within `reach` onto `known` (it runs off the hair, onto the face), or where the picture has
- * no clear direction, keeps smoothFill's colour. So does flat hair with no strand lines near: its faint shading has a
- * direction too, which can run along the hole to a line far off. Changes `im` in place; alpha in the hole becomes 255.
+ * (its structure tensor; the edges where strands meet the skin between them count too), read from further off in the
+ * middle of a thick hole. A pixel whose strand leaves the hole on neither side within `reach` onto `known` (it runs off
+ * the hair, onto the face), or where the picture has no clear direction, keeps smoothFill's colour. So does flat hair
+ * with no strand lines near: its faint shading has a direction too, which can run along the hole to a line far off.
+ * Changes `im` in place; alpha in the hole becomes 255.
  */
 export function strandFill(im, hole, known, w, h, o = {}) {
   smoothFill(im, hole, known, w, h);
@@ -117,7 +121,9 @@ export function strandFill(im, hole, known, w, h, o = {}) {
     const gy = L(-1, 1) + 2 * L(0, 1) + L(1, 1) - L(-1, -1) - 2 * L(0, -1) - L(1, -1);
     J[0][q] = gx * gx; J[1][q] = gx * gy; J[2][q] = gy * gy; M[q] = 1;
   }
-  const Mb = blur(M, bw, bh, r), Jb = J.map((f) => blur(f, bw, bh, r));
+  // spread at r by the hole's edge, and further (2r, 4r) into the middle of a thick brow, where nothing of the picture
+  // is within r: the fill kept a smooth colour there and cut every strand line across the brow's middle
+  const spread = [r, 2 * r, 4 * r].map((s) => ({ Mb: blur(M, bw, bh, s), Jb: J.map((f) => blur(f, bw, bh, s)) }));
   // bilinear over the known hair pixels round (X, Y); null where they are less than half of it
   const sample = (X, Y) => {
     const ax = Math.floor(X), ay = Math.floor(Y), fx = X - ax, fy = Y - ay, c = [0, 0, 0];
@@ -135,8 +141,10 @@ export function strandFill(im, hole, known, w, h, o = {}) {
     const p = at(x, y);
     if (!hole[p]) continue;
     const q = y * bw + x;
-    if (Mb[q] <= 0) continue;
-    const a = Jb[0][q] / Mb[q], b = Jb[1][q] / Mb[q], c = Jb[2][q] / Mb[q];
+    // the nearest spread with enough of the picture in it (a few rows of a window that is mostly hole)
+    const sp = spread.find((s) => s.Mb[q] >= SPREAD_MIN);
+    if (!sp) continue;
+    const { Mb, Jb } = sp, a = Jb[0][q] / Mb[q], b = Jb[1][q] / Mb[q], c = Jb[2][q] / Mb[q];
     const coh = Math.hypot(a - c, 2 * b) / (a + c + 1e-6);
     // how sure the way is: the gradients agree on it (coherence), and they are lines, not a faint shading (by this
     // measure a 2 px line 40 levels dark in the window gives about 75, a shading of a level a pixel 8)
