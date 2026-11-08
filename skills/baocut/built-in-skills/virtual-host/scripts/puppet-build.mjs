@@ -577,7 +577,8 @@ const expressions = [];
     // face beneath them). Read from the edit as registered where the patch has no colours (the hair): a brow or hair
     // pixel needs no skin matching. Found nothing (a brow the colour of the hair): the brows stay in the patch
     // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
-    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, frame: G.rims ? frameE : null, from: G.rims ? Int32Array.from(fromE, (q, p) => (G.glass[p] ? -1 : q)) : null, skin, w, h });
+    // and never in the mouth the talking copy clears: the eye layers are drawn while it talks too
+    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, mouth: talkFace, frame: G.rims ? frameE : null, from: G.rims ? Int32Array.from(fromE, (q, p) => (G.glass[p] ? -1 : q)) : null, skin, w, h });
     if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h);
     let BT = null, browNote = '', browPx = null;
     if (browsRedrawn) {

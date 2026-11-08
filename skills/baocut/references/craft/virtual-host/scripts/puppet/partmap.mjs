@@ -7,7 +7,10 @@ import { keyOut } from './seg.mjs';
 import { align, warp } from './align.mjs';
 import { nearestIndex } from './layers.mjs';
 
-/** the palette the part-map prompt asks for (references/art.md); bg is the portrait's background key */
+/**
+ * the palette the part-map prompt asks for (references/art.md); bg, the backdrop, is read off the map itself (any green
+ * the map is painted on), and this one only shows it in the debug labels
+ */
 export const PARTS = {
   bg: [0, 177, 64],
   front: [255, 0, 0], // bangs and the hair on top
@@ -31,7 +34,8 @@ const d2 = (r, g, b, c) => (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
 
 /**
  * Labels for every pixel of the portrait. im: the portrait; pm: the part map (same size); K: keyOut(im).
- * Returns { lab (Uint8Array of ID), A (the registration), far (pixels no colour or pair of colours explains), map }.
+ * Returns { lab (Uint8Array of ID), A (the registration), far (pixels of the character, as the portrait keys it, that
+ * no colour or pair of colours explains), map }.
  */
 export function readLabels(im, pm, K, o = {}) {
   const { w, h } = im, N = w * h;
@@ -40,18 +44,21 @@ export function readLabels(im, pm, K, o = {}) {
     for (let p = 0; p < N; p++) { const v = Math.round(255 * KK.alpha[p]); S.d.set([v, v, v, 255], 4 * p); }
     return S;
   };
-  const KP = keyOut(pm, { key: PARTS.bg });
+  // the map's backdrop is measured on its border, like the portrait's: the prompt asks for the portrait's green, and a
+  // map comes on a near one or on the prompt's own #00B140. Taken as #00B140, a map on a bright green had its whole
+  // backdrop in no palette colour (and a portrait's green is not always near enough the map's to key it with)
+  const KP = keyOut(pm);
   const A = align(sil(im, K), sil(pm, KP), { range: o.range ?? 40 });
   const M = warp(pm, A);
   // the model paints each part near its palette colour, not on it (a mouth asked as #800000 may come as #A01000):
   // move every palette colour to the mean of the map's pixels round it
-  const col = COL.map((c) => [...c]);
+  const ref = COL.map((c, k) => (k === ID.bg ? [...KP.key] : c)), col = ref.map((c) => [...c]);
   {
-    const acc = COL.map(() => [0, 0, 0, 0]);
+    const acc = ref.map(() => [0, 0, 0, 0]);
     for (let p = 0; p < N; p++) {
       const r = M.d[4 * p], g = M.d[4 * p + 1], b = M.d[4 * p + 2];
       let best = 0, bd = Infinity;
-      for (let k = 0; k < COL.length; k++) { const d = d2(r, g, b, COL[k]); if (d < bd) { bd = d; best = k; } }
+      for (let k = 0; k < ref.length; k++) { const d = d2(r, g, b, ref[k]); if (d < bd) { bd = d; best = k; } }
       if (bd < 70 * 70) { const A = acc[best]; A[0] += r; A[1] += g; A[2] += b; A[3]++; }
     }
     acc.forEach((A, k) => { if (A[3] > 50) col[k] = [A[0] / A[3], A[1] / A[3], A[2] / A[3]]; });
@@ -65,14 +72,16 @@ export function readLabels(im, pm, K, o = {}) {
     if (bd <= 28 * 28) sure[p] = 1;
   }
   // an antialiased edge mixes two colours (red and yellow make the neck's orange): fit the pixel as a mix of two of the
-  // parts that are really there round it, and take the stronger side
+  // parts that are really there round it, and take the stronger side. Only the character counts as far: the portrait's
+  // backdrop is background whatever the map has there
+  const fg = Uint8Array.from(K.alpha, (a) => (a > 0.5 ? 1 : 0));
   let far = 0;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const p = y * w + x;
     if (sure[p]) continue;
     const near = new Set();
     for (let j = Math.max(0, y - 3); j <= Math.min(h - 1, y + 3); j++) for (let i = Math.max(0, x - 3); i <= Math.min(w - 1, x + 3); i++) if (sure[j * w + i]) near.add(lab[j * w + i]);
-    if (!near.size) { if (err[p] > 40 * 40) far++; continue; }
+    if (!near.size) { if (fg[p] && err[p] > 40 * 40) far++; continue; }
     const r = M.d[4 * p], g = M.d[4 * p + 1], b = M.d[4 * p + 2], ks = [...near];
     let bd = Infinity, bk = lab[p];
     for (const k of ks) { const d = d2(r, g, b, col[k]); if (d < bd) { bd = d; bk = k; } }
@@ -84,12 +93,11 @@ export function readLabels(im, pm, K, o = {}) {
       const d = d2(r, g, b, [c[0] + t * e[0], c[1] + t * e[1], c[2] + t * e[2]]);
       if (d < bd) { bd = d; bk = t >= 0.5 ? ks[u] : ks[v]; }
     }
-    if (bd > 40 * 40) far++;
+    if (fg[p] && bd > 40 * 40) far++;
     lab[p] = bk;
   }
   // the portrait's own background decides what is background; character pixels the map left as background take the
   // nearest part
-  const fg = Uint8Array.from(K.alpha, (a) => (a > 0.5 ? 1 : 0));
   for (let p = 0; p < N; p++) if (!fg[p]) lab[p] = ID.bg;
   const isPart = Uint8Array.from(lab, (v, p) => (v !== ID.bg ? 1 : 0));
   const ni = nearestIndex(isPart, w, h, 40);

@@ -164,16 +164,18 @@ function envelope(pts, side) {
  * over. Whites drawn as pink as the skin and cut off from the rest by the iris are not found: they stay in the patch,
  * close to the skin's colour. `eyes` per side (image left first): { drawn: the neutral eye layer's pixels, hit: whether
  * the edit changed that eye, lash: the neutral eye's lash thickness (neutralLash) }. `patch`: the expression patch (its
- * pixels with alpha); `changed`: the strokes the edit changed; `frame`: the glasses grown a little, or null (a rim is
- * not one of the eye's lines: a region that went on over it took in the skin past it, a piece of the frame squashed
- * with the blink, and was too wide to follow the lash across); `from`: per pixel next to the frame (under `frame`, off
- * the frame itself) the nearest pixel past it, else -1, or null: one whose nearest pixel is an eye's goes with that eye
- * (a lid's line drawn up to the frame, or the patch's copy of it there, stayed over the shut eye). Returns { R: [mask
- * or null per side], shut: the sides the edit drew shut (no whites, nothing to blink: they stay in the patch), any:
- * both masks together, open: [the opening (openingOf) or null per side, null on both sides when either side's is not
- * found] }.
+ * pixels with alpha); `changed`: the strokes the edit changed; `mouth`: the edit's mouth as the talking copy clears it,
+ * or null: no white there is an eye's (a laughing mouth's upper teeth, just under the eye, were taken for its whites,
+ * and the eye layer, always drawn, carried a piece of the laugh beside the talking mouth); `frame`: the glasses grown a
+ * little, or null (a rim is not one of the eye's lines: a region that went on over it took in the skin past it, a piece
+ * of the frame squashed with the blink, and was too wide to follow the lash across); `from`: per pixel next to the
+ * frame (under `frame`, off the frame itself) the nearest pixel past it, else -1, or null: one whose nearest pixel is
+ * an eye's goes with that eye (a lid's line drawn up to the frame, or the patch's copy of it there, stayed over the
+ * shut eye). Returns { R: [mask or null per side], shut: the sides the edit drew shut (no whites, nothing to blink:
+ * they stay in the patch), any: both masks together, open: [the opening (openingOf) or null per side, null on both
+ * sides when either side's is not found] }.
  */
-export function expressionEyeRegions({ E, im, patch, eyes, changed, frame = null, from = null, skin, w, h }) {
+export function expressionEyeRegions({ E, im, patch, eyes, changed, mouth = null, frame = null, from = null, skin, w, h }) {
   const N = w * h, white = whiteOf(skin), R = [null, null], shut = [], any = new Uint8Array(N), lash = [0, 0];
   const toneAt = ((t) => (p) => t(rgb(E, p)))(toneOf(skin));
   eyes.forEach((e, s) => {
@@ -182,7 +184,7 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, frame = null
     if (!b) return;
     const bw = b[2] - b[0] + 1, bh = b[3] - b[1] + 1, inPatch = (p) => patch.d[4 * p + 3] > 0;
     lash[s] = e.lash ?? 0;
-    const ok = (p) => inPatch(p) && (e.drawn[p] || changed[p]);
+    const ok = (p) => inPatch(p) && !mouth?.[p] && (e.drawn[p] || changed[p]);
     const wn = whites(im, b, (p) => e.drawn[p], white, w, h);
     const we = whites(E, [b[0] - 0.15 * bw, b[1] - 0.6 * bh, b[2] + 0.15 * bw, b[3] + 0.4 * bh], ok, white, w, h);
     if (wn.n >= 30 && we.n < 0.2 * wn.n) { shut.push(s ? 'R' : 'L'); return; }

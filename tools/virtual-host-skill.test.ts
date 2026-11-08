@@ -358,8 +358,9 @@ function render(shapes: Shape[], line: RGB, background: RGB) {
   return { w: SIZE, h: SIZE, d };
 }
 
-function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false, rim = false, glasses = false, chinShade = false, lowFrames = false, lensLight = false, faceLight = false, hingeOnHair = false, nose = false } = {}) {
-  const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26], green: RGB = [0, 177, 64];
+// green: the backdrop of the portrait and the edits; mapGreen: the part map's (the portrait's unless given)
+function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false, rim = false, glasses = false, chinShade = false, lowFrames = false, lensLight = false, faceLight = false, hingeOnHair = false, nose = false, buzz = false, green = [0, 177, 64] as RGB, mapGreen = null as RGB | null } = {}) {
+  const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26];
   // a shaded face: the skin round each eye darker than the cheeks, the closed lid as dark as it
   const shade: RGB = [212, 172, 140], lidSkin = socket ? shade : skin;
   const sockets: Shape[] = socket ? [ell(214, 238, 34, 26), ell(298, 238, 34, 26)].map((inside) => ({ inside, fill: shade })) : [];
@@ -369,7 +370,11 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   // a bob: a cap over the forehead and locks down both sides of the face; with a fringe the bangs come down past the
   // brows, which are drawn over them
   const inFringe = (x: number, y: number) => fringe && y < 218 && Math.abs(x - 256) < 80;
-  const hairShape = { inside: (x: number, y: number) => ell(256, 214, 120, 126)(x, y) && y < 290 && (y < 168 || inFringe(x, y) || !ell(256, 228, 93, 111)(x, y)), fill: hair, outline: 6 };
+  // buzz: a buzz cut instead, a band of hair close round the top of the skull, 28 px thick on top and thinner down the
+  // sides to the temples
+  const hairShape = buzz
+    ? { inside: (x: number, y: number) => ell(256, 222, 106, 124)(x, y) && !ell(256, 238, 96, 112)(x, y) && y < 190, fill: hair, outline: 6 }
+    : { inside: (x: number, y: number) => ell(256, 214, 120, 126)(x, y) && y < 290 && (y < 168 || inFringe(x, y) || !ell(256, 228, 93, 111)(x, y)), fill: hair, outline: 6 };
   const eye = (cx: number): Shape[] => [
     { inside: ell(cx, 238, 21, 15), fill: white, outline: 2 },
     { inside: ell(cx, 239, 9, 10), fill: iris ?? line, outline: 2 },
@@ -378,6 +383,11 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   const lid = (cx: number): Shape[] => [
     { inside: ell(cx, 238, 22, 16), fill: lidSkin },
     { inside: stroke((x) => 238 + 6 * (1 - ((x - cx) / 21) ** 2), cx - 21, cx + 21, 1.8), fill: line },
+  ];
+  // laughing eyes: open, the lower lids pushed up into an arch over the bottom of the whites
+  const smiling = (cx: number): Shape[] => [
+    { inside: (x, y) => ell(cx, 238, 22, 16)(x, y) && y > 246 - 4 * (1 - ((x - cx) / 21) ** 2), fill: lidSkin },
+    { inside: stroke((x) => 246 - 4 * (1 - ((x - cx) / 21) ** 2), cx - 21, cx + 21, 1.5), fill: line },
   ];
   // glasses: square frames with round corners (well past any ellipse round the eye), a light rivet on each hinge and
   // one on each frame's front beside it, closed round by the frame;
@@ -425,6 +435,13 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     // a smile much wider than the portrait's mouth, its ends past the mouth's own area
     broad: [clear, { inside: stroke((x) => 296 + 7 * (1 - ((x - 256) / 44) ** 2), 212, 300, 2.5), fill: line }],
     frown: [clear, { inside: stroke((x) => 300 + 6 * ((x - 256) / 22) ** 2, 234, 278, 2.5), fill: line }],
+    // a big laughing mouth wide open up to just under the eyes, its flat top a row of upper teeth that reaches in under
+    // both eyes
+    laugh: [
+      { inside: (x, y) => y >= 260 && ell(256, 260, 46, 58)(x, y), fill: dark, outline: 2 },
+      { inside: (x, y) => y >= 262 && y <= 270 && ell(256, 260, 43, 55)(x, y), fill: white },
+      { inside: ell(256, 304, 22, 10), fill: [220, 90, 100] },
+    ],
   };
   // rim: a light line, lighter than the skin, 2 px wide on the face under the hair's lower edges (the part map leaves
   // it to the face)
@@ -439,7 +456,7 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     { inside: (x, y) => hairShape.inside(x, y) && (y < 200 || inFringe(x, y)), fill: [255, 0, 0] },
     { inside: (x, y) => hairShape.inside(x, y) && y >= 200 && !inFringe(x, y), fill: [255, 0, 255] },
     key(brow(214), [128, 0, 255]), key(brow(298), [128, 0, 255]), ...eyeMap(214), ...eyeMap(298), key(mouths.rest[0], [128, 0, 0]),
-  ], [0, 0, 0], green);
+  ], [0, 0, 0], mapGreen ?? green);
   return {
     portrait: draw(),
     partmap,
@@ -456,6 +473,8 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     angry: draw({ brows: [vBrow(214), vBrow(298)], eyes: [...eye(214), ...eye(298), ...narrowed(214), ...narrowed(298)], mouth: mouths.frown, cheeks: [blush(198), blush(314), ...creases], drop: lowFrames ? 7 : 0 }),
     // laughing with the eyes shut
     happy: draw({ eyes: [...lid(214), ...lid(298)], mouth: mouths.broad }),
+    // laughing with the eyes open
+    laugh: draw({ eyes: [...eye(214), ...eye(298), ...smiling(214), ...smiling(298)], mouth: mouths.laugh }),
   };
 }
 
@@ -613,6 +632,28 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     }
   });
 
+  it('keeps a laughing mouth\'s upper teeth just under the eyes out of the eye layers, which stay on while it talks', () => {
+    // the teeth are as white as the eyes' whites and lie in the box they are looked for in: taken for them, they drew
+    // each eye layer down into the laugh, and a piece of it stayed on beside the talking mouth
+    for (const partmap of [false, true]) {
+      const dir = tmp();
+      const cfgFile = writeCharacter(dir, partmap ? { hair: [230, 190, 90] } : {}, undefined, { partmap });
+      const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
+      fs.writeFileSync(cfgFile, JSON.stringify({ ...cfg, expressions: { laugh: 'art/laugh.png' } }));
+      const { status, report } = build(cfgFile);
+      expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+      expect(status).toBe(0);
+      expect(report.checks.find((c) => c.item === 'expression laugh')!.note).toMatch(/px patch: eyes, .*; eyes L R blink \(lid\)$/);
+      type Layer = { id: string; y: number; h: number };
+      const layers = (JSON.parse(fs.readFileSync(path.join(dir, 'puppet/package/model.json'), 'utf8')) as { layers: Layer[] }).layers;
+      // the eyes end at row 255 (their outline), the teeth start at row 262
+      for (const s of ['L', 'R']) {
+        const e = layers.find((l) => l.id === `expr_laugh_eye_${s}`)!;
+        expect(e.y + e.h, `${partmap ? 'map' : 'flat'} ${s}`).toBeLessThanOrEqual(260);
+      }
+    }
+  });
+
   it('keeps the face round the mouth in the talking patch: a nose in the mouth\'s area is not cleared to bare skin', () => {
     // the talking patch clears the edited mouth so the mouth layer can talk over it; the nostrils in the top rows of
     // the mouth's area, under the angry patch (it reaches round the creases), stay as the face draws them
@@ -674,6 +715,32 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(lv.rig).toEqual(model.rig);
     expect(lv.anchors.neck_y).toBe(model.anchors.neck_y);
     expect(zipNames(fs.readFileSync(path.join(dir, 'synth.livliv')))).toContain('cover.png');
+  });
+
+  it.each([{ map: [6, 247, 13] as RGB }, { map: [0, 177, 64] as RGB }])('reads a part map on $map behind a portrait on a brighter green', ({ map }) => {
+    // the prompt asks for the portrait's green and a map comes on a near one (a model's drift) or on the prompt's own
+    // #00B140: its backdrop is the background either way, none of it a part's colour gone wrong
+    const cfg = writeCharacter(tmp(), { hair: [230, 190, 90], green: [6, 247, 31], mapGreen: map }, undefined, { partmap: true });
+    const { status, report } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    const far = Number(report.checks.find((c) => c.item === 'part map')!.note.match(/, ([\d.]+)% of the character in no palette colour$/)![1]);
+    expect(far).toBeLessThan(0.5);
+  });
+
+  it('leaves the bald repaint\'s own skull line out of the hair it left, under a buzz cut too', () => {
+    // the repaint draws the skull's outline (art.md section 2), as dark as dark hair, along its keyed edge: under a thin
+    // band of hair, counted as hair left it alone came to more of the scalp than the check allows
+    const cfg = writeCharacter(tmp(), { buzz: true }, undefined, { partmap: true });
+    const { status, report } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    expect(Number(report.checks.find((c) => c.item === 'bald repaint')!.note.match(/^([\d.]+)%/)![1])).toBeLessThan(2);
+    // a repaint that left the hair on is still sent back
+    fs.writeFileSync(cfg, JSON.stringify({ ...JSON.parse(fs.readFileSync(cfg, 'utf8')), bald: 'art/portrait.png' }));
+    const again = build(cfg);
+    expect(again.status).toBe(1);
+    expect(again.stdout).toMatch(/^FIX {2}bald repaint: [\d.]+% of the scalp under the hair still looks like hair; redo the repaint/m);
   });
 
   it('leaves the light rim under the hair to the hair, over skin on the face', () => {

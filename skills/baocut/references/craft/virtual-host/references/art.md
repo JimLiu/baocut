@@ -163,7 +163,7 @@ Paint each part in one flat solid colour, with no shading, no gradients, no outl
 The outlines of the drawing belong to the part they surround; draw no lines between parts.
 ```
 
-- 背景色照正面像的底色改。颜色画得不准（暗红画成偏橙）没关系，脚本按图里实际的颜色找最近的那种。
+- 背景色照正面像的底色改。画成别的绿（比如照抄 `#00B140`）也行：脚本从分区图四边量它自己的底色，什么是背景只看正面像。部位颜色画得不准（暗红画成偏橙）没关系，脚本按图里实际的颜色找最近的那种。
 - 有了 `partmap` 再跑 `puppet-mask.mjs`：头发的选区按分区图的红、品红、蓝三块取。光头重绘的提示词把第 2 节的 `cartoon … flat skin colour … no shading` 换成 `the same character's head … in the same drawing style … the same skin colour and the same soft shading as the face`，并加一句头发盖住的肩膀、衣服照原样画出来。
 - 嘴、闭眼、表情照第 3 节，`KEEP` 里加 `soft shading`；表情照第 3 节的整脸模板（`smile` 也用整脸），另可加 `surprised`（惊讶）。
 - 实测（GPT Image 2.6 Sunburst，柔和阴影的动漫半身像，正面像、分区图、光头重绘、嘴 4、闭眼、表情 5，共 13 张）：一遍全部 `ok`。
@@ -172,11 +172,11 @@ The outlines of the drawing belong to the part they surround; draw no lines betw
 
 | 报告 | 意思与改法 |
 | --- | --- |
-| `part map: shift …, scale …, residual …, …% of the character in no palette colour` | 分区图对齐到正面像的位移、缩放，和有多少像素不像任何一种规定色。位移大、缩放不是 1，或超过 2% 时 `FIX`：重出分区图 |
+| `part map: shift …, scale …, residual …, …% of the character in no palette colour` | 分区图对齐到正面像的位移、缩放，和角色身上（正面像抠出的范围，底色不算）有多少像素不像任何一种规定色。位移大、缩放不是 1，或超过 2% 时 `FIX`：重出分区图 |
 | `parts: eyes …, brows …, mouth … px wide, … px of brow under the hair, … over strands the map painted across it, … on the bangs, … px of skin between the strands over the brows` | 分区图里找到的眼睛、眉毛、嘴。`FIX part map: no face`、`FIX mouth: the map has no mouth` 是分区图没涂出脸或嘴：重出分区图。`under the hair` 是分区图涂成眉毛、原图里却是发丝盖在上面的像素，归头发；`over strands the map painted across it` 反过来，是分区图涂成发丝、原图里眉毛画在发丝上面的像素，归眉毛。`on the bangs` 是压在刘海上的眉毛像素，这些眉毛单独成层、画在刘海上面。`skin between the strands over the brows` 是眉毛上方两缕发丝之间露出的额头，被眉毛隔开、不和脸连在一起，仍算脸，不跟着头发动 |
 | `expression <名>: …; eyes L R blink (lid)` | 表情改了眼睛，它画的眼睛切成单独的层（`expr_eye_L` `expr_eye_R`），带着这个表情也照常眨眼，像中性的眼睛一样上睫毛往下滑；`(… squashed: no opening found)` 是有一只眼找不到开口（上睫毛与下眼线之间），两只眼都退回整只压扁，不用处理；`.livliv` 包不切，补丁保持完整。`eyes … drawn shut, kept in the patch` 是这只眼睛在改图里是闭着的（眯成一条线、^ ^），没有眼白可眨，留在补丁里，不用处理 |
 | `expression <名>: …; brows L … / R … px, … of them on the bangs` | 表情改过的眉毛单独切出（`brow_tex`），和中性眉毛一样画在刘海上面，也画在眨眼合上的眼皮上面。`brows kept in the patch (none found)` 是眉毛附近没找到眉毛，眉毛留在表情补丁里；眉毛压在刘海上时会被刘海盖住，看一眼成品，眉毛不见了就重画表情 |
-| `bald repaint: …% of the scalp under the hair still looks like hair` | 光头重绘在头发底下还留着头发，超过 8% 时 `FIX`：重画 |
+| `bald repaint: …% of the scalp under the hair still looks like hair` | 光头重绘在头发底下还留着头发，超过 8% 时 `FIX`：重画。沿光头外缘往里约一条描边宽（按正面像的描边量）是第 2 节要的头骨轮廓线，不算头发，所以寸头这种薄薄一层头发也不会误报 |
 | `neck line` | 同第 4 节。`FIX …: redo the map` 是分区图的脖子（橙色）从下巴下面一直连到了脸里：重出分区图，橙色只涂下巴以下。和脖子不相连的零星橙点（红刘海和黄脸交界处混出来的）不用管，按旁边的部位算 |
 | `rest matches the portrait` | 同第 4 节 |
 

@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readImage, writePng } from './png.mjs';
 import { blank, clone, dilate, erode, distTo, not, and, or, minus, count, bbox, medianColor, over, blur, components, compMask } from './ops.mjs';
-import { keyOut, luma, unmix } from './seg.mjs';
+import { keyOut, luma, unmix, lineWidth } from './seg.mjs';
 import { ellipseCover } from './parts.mjs';
 import { fillHoles, softEdge, setPx, rgb, alphaBox, nearestIndex } from './layers.mjs';
 import { registered } from './edits.mjs';
@@ -243,11 +243,19 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
   }
   const BKey = { alpha: BA, fg: BF };
   {
-    // where the repaint left hair: dark hair-coloured strokes under the hair inside the head
+    // where the repaint left hair: dark hair-coloured strokes under the hair inside the head. Not the repaint's own
+    // outline along its keyed edge (section 2 asks for a skull line as heavy as the face's, as dark as dark hair): about
+    // one line of the portrait's (its dark run in from the backdrop) in from there is left out. Under a buzz cut, a thin
+    // band of hair, that line alone came to 15% of the scalp
     const hairCol = medianColor(im, erode(M.front, w, h, 3)), skinCol = medianColor(im, erode(M.face, w, h, 4));
+    const lineL = luma(...lineCol), darkL = lineL + 0.3 * (luma(...skinCol) - lineL);
+    const lw = lineWidth(Uint8Array.from({ length: N }, (_, p) => (luma(...rgb(K.fg, p)) < darkL ? 1 : 0)), K.bg, w, h);
+    const fromBg = distTo(not(baldFg), w, h);
+    const scalp = Uint8Array.from(faceUnder, (v, p) => (v && fromBg[p] > lw + 1 ? 1 : 0));
     let left = 0;
-    for (let p = 0; p < N; p++) if (faceUnder[p] && dist3(rgb(bald, p), hairCol) < 0.5 * dist3(skinCol, hairCol)) left++;
-    const share = left / Math.max(1, count(faceUnder));
+    for (let p = 0; p < N; p++) if (scalp[p] && dist3(rgb(bald, p), hairCol) < 0.5 * dist3(skinCol, hairCol)) left++;
+    const share = left / Math.max(1, count(scalp));
+    log('bald repaint: outline', lw, 'px; scalp', count(scalp), 'of', count(faceUnder), 'px under the hair; hair left', left);
     check(share < 0.08, 'bald repaint', `${(100 * share).toFixed(1)}% of the scalp under the hair still looks like hair${share < 0.08 ? '' : '; redo the repaint (references/art.md section 2)'}`);
   }
 
@@ -580,7 +588,8 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
       // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them, the bare
       // face beneath them). Found nothing (a brow the colour of the hair): the brows stay in the patch
       // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
-      const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, skin, w, h });
+      // and never in the mouth the talking copy clears: the eye layers are drawn while it talks too
+      const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, mouth: talkFace, skin, w, h });
       if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h, L);
       let BT = null, browNote = '', browPx = null;
       if (browsRedrawn) {
