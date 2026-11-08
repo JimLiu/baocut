@@ -1,6 +1,6 @@
 # CLI 独立使用与发布：不开桌面端也能用，以及独立 CLI 包
 
-> 方案稿，2026-11-08，未实现。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；之后再评估把 CLI 单独发布。
+> 方案稿，2026-11-08，未实现。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
 >
 > 本文延伸 [Agent 面设计](agent-surface-design.md) 的 §5.6（Runtime 的归属）与 §8.2（放哪里），CLI 拉起 Runtime 的机制以[架构设计 §2.2](../../architecture/architecture-design.md#22-启动所有权与退出) 为准，这里只写要改的部分。制作流程的产品化（生产脚本编排、旁白片段剪裁、字幕断条等）不在本文。
 
@@ -18,7 +18,7 @@
 10. [参考：ChatGPT 与 Claude Desktop](#10-参考chatgpt-与-claude-desktop)
 11. [要修订的规范条目](#11-要修订的规范条目)
 12. [实施顺序与验收](#12-实施顺序与验收)
-13. [待评审事项](#13-待评审事项)
+13. [待实测事项](#13-待实测事项)
 
 ---
 
@@ -46,7 +46,7 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 - 同一个 Home 上，CLI 拉起与桌面端拉起的 Runtime 用同样的项目目录、主机文件夹、系统语言与凭据。
 - 两份不同版本的安装共用一个 Home 时，有确定的复用与替换规则，报错说清哪一边要更新。
 - 开发者在隔离 Home 上跑源码 Runtime 时，可以只读地用默认 Home 里配好的账号，不碰真实数据。
-- 之后可以把 CLI 与 Runtime 打成不带 Electron 的独立包，与 App 同版本发布（§9，是否做见 §13）。
+- 把 CLI 与 Runtime 打成不带 Electron 的独立包，第一版 macOS 与 Windows，与 App 同一次构建、同一个版本号发布（§9）。
 
 ### 1.3 不做
 
@@ -56,13 +56,20 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 
 ## 2. 已定事项
 
-2026-11-08 由用户拍板：
+2026-11-08 由用户拍板。第 4–10 条是方案稿评审时用户同意按建议定下的：
 
 | # | 决定 | 落在 |
 | --- | --- | --- |
 | 1 | 放宽 Agent 面设计 §5.6：源码 Runtime 在隔离 Home 上可以用钥匙串里已有的密钥 | §7.1 |
 | 2 | App 可以写 `~/.local/bin/baocut`，取代 §8.2「不替用户往系统 PATH 写文件」 | §3.2 |
 | 3 | 退出规则不变：桌面端拉起的 Runtime 随桌面端退出（有活时照架构设计 §2.2 的退出对话框）；CLI 拉起的不停 | 现有代码已如此：`RuntimeSupervisor.stop` 只停自己的子进程 |
+| 4 | 做独立 CLI 包，第一版 macOS 与 Windows，与 App 同一次构建、同一个版本号同时发布 | §9 |
+| 5 | Windows 的 PATH：在 `%LOCALAPPDATA%\BaoCut\bin\` 放转发用的 `baocut.cmd`，把这个目录加进用户 PATH | §3.2 |
+| 6 | Homebrew cask 放 BaoCut 自己的 tap | §3.3 |
+| 7 | 桌面端碰到忙着的旧版 CLI Runtime 只等它做完，不给「现在停止它」 | §4.2 |
+| 8 | 第一版不做开机常驻 | §6.2 |
+| 9 | 项目目录改规则，不迁移已有的视频 | §5.1 |
+| 10 | 钥匙串先用同一签名标识的助手，实测不行再换访问组外壳 | §9.6 |
 
 第 3 条之下可以加一句提示：桌面端退出、停下自己的 Runtime 时，如果还有 CLI 连接，退出对话框说明这些连接会断开、下一条命令会在后台重新拉起 Runtime。
 
@@ -79,14 +86,14 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 - **PATH 检查**：装完以用户的登录交互 shell 检查（`$SHELL -ilc 'command -v baocut'`，限时几秒）。`~/.local/bin` 不在 PATH 上时给出要加进 shell 配置的那一行，不替用户改 shell 配置文件。
 - **状态**：`none`、`current`（指向本 App 的入口）、`stale`（指向另一份 BaoCut 入口，例如移动前的 App）、`broken`（指向的位置不在了）、`foreign`。App 每次启动检查自己装过的链接，`stale` 或 `broken` 时改指向自己；`foreign` 永不改动。
 - **入口**：规则放在 Runtime 里，App 与 CLI 共用，Web 只看状态（写用户主目录只在桌面界面与 CLI 里做），与 `agentSkill.*` 的分工相同。协议方法 `cliEntry.status|install|remove`（命令与协议规范 §4.1），CLI 是管理桶的 `baocut cli install|status|remove`；App 在 Skills 页「在终端或其他应用的 Agent 里使用 BaoCut」卡片里加「安装命令行工具」。Runtime 经已有的 `BAOCUT_CLI_ENTRY` 知道 App 入口的位置。
-- **Windows**：做法待评审（§13 第 2 项）。
+- **Windows**：在 `%LOCALAPPDATA%\BaoCut\bin\` 放一个 `baocut.cmd`，转发到 App 安装目录里的 `baocut.cmd`（装了独立包时转发到它的当前版本，§9.3），再把这个目录加进用户 PATH（`HKCU\Environment` 的 `Path`，改完广播 `WM_SETTINGCHANGE`），不要管理员权限。这个目录只放这一个文件；状态与 macOS 相同，`foreign` 指那里的 `baocut.cmd` 不是 BaoCut 写的转发脚本。改过的 PATH 只对新开的终端生效，装完提示这一点。
 
 ### 3.3 Homebrew cask
 
 - 一个 cask `baocut`，下载与 App 自动更新相同的 GitHub Releases 归档，`binary "#{appdir}/BaoCut.app/Contents/MacOS/baocut-cli", target: "baocut"` 把入口链接进 Homebrew 的 `bin`。
 - 带 `auto_updates true`：App 自己更新（架构设计 §2.6），`brew upgrade` 不与它抢。
 - cask 与 `~/.local/bin/baocut` 可以同时存在，两者指向同一个 App。
-- tap 放在哪待评审（§13 第 3 项）。
+- cask 放在 BaoCut 自己的 tap（GitHub 上的 `homebrew-tap` 仓库），每次发布随 appcast 一起更新版本号与校验和；cask 文件的源放在本仓库，tap 仓库由维护者建。
 
 ## 4. 同一个 Home 上的两份安装
 
@@ -114,7 +121,7 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 3. **版本不同，对方忙着或不是 CLI 拉起的**：
    - CLI：接口版本不同时照现有版本门以退出码 3 拒绝；报错里加上对方是谁拉起的、手上有几个任务，以及「它空闲后再运行会自动替换」。
    - 桌面端，协议版本相同：先连上用，界面标出后台 Runtime 的版本与拉起者，与应用版本不同；等它没有任务、也没有别的连接时请它停下，换成自己的。这时 `runtime.stop` 不把发起替换的那条桌面端连接算作在用，其余拒绝条件（`RUNTIME_IN_USE`）不变。
-   - 桌面端，协议版本不同：不连；界面说明后台有一个由命令行拉起的旧版 Runtime 正在做 N 个任务，等它做完后自动替换。要不要另给「现在停止它」见 §13 第 4 项。
+   - 桌面端，协议版本不同：不连；界面说明后台有一个由命令行拉起的旧版 Runtime 正在做 N 个任务，等它做完后自动替换。不给「现在停止它」：`runtime.stop` 在有任务时照旧拒绝。
 
 ### 4.3 更新时
 
@@ -126,7 +133,7 @@ App 的「重启并更新」在安装前除了自己的 Runtime，还要处理�
 
 `resolveRuntimeHome` 按「环境里有没有 `BAOCUT_HOME`」决定默认项目目录：有就用 `<home>/projects`，没有用 `~/BaoCut`。CLI 拉起 Runtime 时总会传 `BAOCUT_HOME`，桌面端则显式传 `BAOCUT_PROJECTS_DIR`，所以默认 Home 上两边落到不同的目录。
 
-规则改成按 Home 本身判断：Home 是默认的 `~/.baocut` 时项目目录是 `~/BaoCut`，其他 Home 是 `<home>/projects`；`BAOCUT_PROJECTS_DIR` 仍然优先。改在 `resolveRuntimeHome` 一处，桌面端与 CLI 都不用再各自传。`~/.baocut/projects` 里已有的视频怎么处理见 §13 第 6 项。
+规则改成按 Home 本身判断：Home 是默认的 `~/.baocut` 时项目目录是 `~/BaoCut`，其他 Home 是 `<home>/projects`；`BAOCUT_PROJECTS_DIR` 仍然优先。改在 `resolveRuntimeHome` 一处，桌面端与 CLI 都不用再各自传。已有的视频不迁移：CLI 新建的视频放在 `<项目目录>/CLI`，这个目录登记成项目、按绝对路径记在 `store/projects.json`，视频列表读的是 Space 里登记的项目（`LocalScope.listVideos`），所以 `~/.baocut/projects/CLI` 里的视频改规则后照常可见，新视频进 `~/BaoCut/CLI`。
 
 ### 5.2 主机文件夹与系统语言
 
@@ -158,11 +165,12 @@ CLI 拉起的 Runtime 在有在用的连接、任务或开着的对外服务（W
 - 转发期间算一条在用的 CLI 连接，Runtime 不空闲退出。Runtime 中途退出时重新找或拉起一次，正在进行的请求以错误返回，不重放。
 - `baocut mcp install` 默认写 stdio 形式（命令加参数）。命令写 `~/.local/bin/baocut`（装了的话），否则写入口的完整路径；宿主不支持 stdio 时才写 HTTP 地址与令牌。
 
-### 6.2 开机常驻（可选）
+### 6.2 开机常驻（第一版不做）
+
+第一版不做：有了 §6.1，MCP 宿主自己会拉起 Runtime；审片链接在 Web 服务开着时一直可用，重启电脑后跑一次 `baocut web review` 就恢复。以后要做时按下面的做法：
 
 - `baocut runtime ensure --keep-alive`：拉起的 Runtime 不空闲退出，直到 `runtime stop`；已有 CLI 拉起的 Runtime 在跑时把它改成常驻。
 - macOS 可选装一个 launchd 用户代理，登录时运行 `baocut runtime ensure --keep-alive`；Windows 用当前用户的登录启动项。这是持久配置，只在用户在 CLI 或设置里明确开启时装，`--keep-alive` 关掉时一并移除。
-- 有了 §6.1 之后还需不需要见 §13 第 5 项。
 
 ## 7. 源码 Runtime 与隔离 Home
 
@@ -223,7 +231,7 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 
 ## 9. 独立 CLI 包
 
-第二步，等 §4、§6.1 做完再做；做不做待评审（§13 第 1 项）。
+已定要做（§2 第 4 条），排在 §4 与 §6.1 之后：不然只装独立包的用户会碰到 MCP 宿主拉不起 Runtime，与 App 版本不同时也没有确定的规则。第一版 macOS 与 Windows，与 App 同一次构建、同一个版本号同时发布。
 
 ### 9.1 内容
 
@@ -264,13 +272,13 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 ### 9.6 签名与钥匙串
 
 - macOS 包里的 Node 与全部原生程序用 Developer ID 签名，整包公证。
-- 钥匙串条目的访问控制按程序的签名认人。独立包里的 `credential-helper` 用同一个 Developer ID 与同一个签名标识，推测能直接读 App 存的条目、不弹窗，要实测（§13 第 7 项）。
-- 更稳的做法照 ChatGPT：把 `credential-helper` 包进带描述文件的小 `.app`，用钥匙串访问组，App 与独立包放同一个签好的外壳。访问组属于数据保护钥匙串，现在的 `crates/credential-helper/src/keychain.rs` 用的是传统钥匙串的通用密码条目，换过去要迁移已有条目（§13 第 8 项）。
+- 钥匙串条目的访问控制按程序的签名认人。独立包里的 `credential-helper` 用同一个 Developer ID 与同一个签名标识，推测能直接读 App 存的条目、不弹窗。先按这个做，并实测（§13）。
+- 实测不行时改用 ChatGPT 的做法：把 `credential-helper` 包进带描述文件的小 `.app`，用钥匙串访问组，App 与独立包放同一个签好的外壳。访问组属于数据保护钥匙串，现在的 `crates/credential-helper/src/keychain.rs` 用的是传统钥匙串的通用密码条目，换过去要迁移已有条目：先读传统条目、写进数据保护钥匙串，写成功再删旧条目，与[架构设计 §6.8](../../architecture/architecture-design.md#68-模型服务配置) 现有迁移的先写后删相同。
 - Windows 的 Credential Manager 不按程序区分。
 
 ### 9.7 只有桌面端做过的事
 
-- **完全磁盘访问**：系统按负责进程判定授权（架构设计 §12.11）。从终端拉起时负责进程是终端或 Agent 宿主，用户给 BaoCut 的授权不生效。可以照 Claude Desktop 的 `disclaimer`：CLI 拉起 Runtime 时设置 disclaim 属性，让 Runtime 自己成为负责进程。对 App 里的 Runtime，授权就落在 BaoCut.app；独立包要给 Runtime 一个带身份的 `.app` 外壳，才能在系统设置里以 BaoCut 出现。都要实测（§13 第 7 项）。
+- **完全磁盘访问**：系统按负责进程判定授权（架构设计 §12.11）。从终端拉起时负责进程是终端或 Agent 宿主，用户给 BaoCut 的授权不生效。可以照 Claude Desktop 的 `disclaimer`：CLI 拉起 Runtime 时设置 disclaim 属性，让 Runtime 自己成为负责进程。对 App 里的 Runtime，授权就落在 BaoCut.app；独立包要给 Runtime 一个带身份的 `.app` 外壳，才能在系统设置里以 BaoCut 出现。都要实测（§13）。
 - **常驻与审片链接**：靠 §6。
 - **按需组件**（之后）：照 Claude Desktop 下载 Claude Code 的办法，放进 `<home>/components/<名字>/<版本>-<sha256 前 12 位>/`，校验后写 `.verified`，保留新旧两版；组件版本跟包版本走，仍是「一个版本一套二进制」（架构设计 §2.6）。`findBundledBinary` 加这个查找位置。
 
@@ -303,11 +311,11 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 | [Agent 面设计 §8.2](agent-surface-design.md#82-放哪里) 的「入口」 | 删掉「不替用户往系统 PATH 写文件」与 `/usr/local/bin` 命令，改成 `~/.local/bin` 链接与 `cliEntry.*` | §3.2 |
 | Agent 面设计 §6 | 加 stdio 形式；`mcp install` 默认写 stdio | §6.1 |
 | [架构设计 §2.2](../../architecture/architecture-design.md#22-启动所有权与退出) | 发现信息加 `interfaceVersion`、`build`、`entry`；「CLI 只按开机时间判断」改成两边一样；「桌面端……照常复用它」改成按 §4.2；CLI 拉起时的项目目录与主机文件夹；入口顺序 | §4、§5 |
-| [架构设计 §2.6](../../architecture/architecture-design.md#26-应用更新) | 安装前屏障覆盖本包拉起的 CLI Runtime；独立包定下来后改「只有一个分发渠道」 | §4.3、§9.5 |
+| [架构设计 §2.6](../../architecture/architecture-design.md#26-应用更新) | 安装前屏障覆盖本包拉起的 CLI Runtime；「只有一个分发渠道」改成 GitHub Releases 是唯一的归档来源，App 与独立包都从这里取；「一个版本一套二进制」写明独立包与 App 同一次构建、用同一套原生程序 | §4.3、§9.5 |
 | [架构设计 §6.8](../../architecture/architecture-design.md#68-模型服务配置) 的凭据存储 | 「后端由构建类型决定」之外加链接账号的只读层与 `ACCOUNT_LINKED` | §7.1 |
 | [架构设计 §12.11](../../architecture/architecture-design.md#1211-系统访问权限macos-完全磁盘访问权限) | CLI 拉起时的权限归属（disclaim 实测后） | §9.7 |
 | [命令与协议规范 §4.1](../../spec/command-protocol-spec.md#41-方法) | `cliEntry.*`、链接账号、`runtime.stop` 的替换条件、把 CLI 拉起的 Runtime 改成常驻的方法 | §3.2、§4.2、§6.2、§7.1 |
-| [桌面端 README「外部 Agent 与 CLI」](../../../apps/desktop/README.md#外部-agent-与-cli) | PATH 安装与 cask；删掉「不自动向系统 PATH 写文件」 | §3 |
+| [桌面端 README「外部 Agent 与 CLI」](../../../apps/desktop/README.md#外部-agent-与-cli) | PATH 安装（macOS 与 Windows）与 cask；删掉「不自动向系统 PATH 写文件」 | §3 |
 | `skills/baocut/references/start.md` | 第 1 节加 `~/.local/bin/baocut` 与独立包位置；第 4 节「桌面端开着时直接用桌面端的那个」改成按版本规则；第 5 节先跑 `doctor` | §3、§4、§8 |
 
 ## 12. 实施顺序与验收
@@ -320,22 +328,17 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 
 - 验收：§4.2 的组合（版本同或不同、空闲或忙、拉起者）各有单测；App 更新时有一个 CLI Runtime 在跑，macOS 与 Windows 各实测一次；链接账号能读、改密钥被拒、移除只解除链接，钥匙串条目还在（用 `security find-generic-password` 只查条目在不在，不读密钥）；Claude Code 与 Codex 各以 stdio 形式接上 MCP，Runtime 不在时能自己拉起。
 
-**第三批（评审通过后）**：§9 独立包，§6.2 常驻，按需组件。
+**第三批**：§9 独立包；之后再做按需组件（§9.7）。
 
 - 验收：在没装过 App 的机器上装独立包，读到 App 存过的密钥不弹窗，完全磁盘访问的归属与 §9.7 一致，更新与回滚各走一遍。
 
-## 13. 待评审事项
+## 13. 待实测事项
 
-1. 做不做独立 CLI 包（§9）；做的话第一版是否只做 macOS。
-2. Windows 的 PATH：安装器把安装目录加进用户 PATH（可选、默认勾选），还是照 Codex 复制一个转发脚本到 `%LOCALAPPDATA%\BaoCut\bin` 再加进 PATH（§3.2）。
-3. Homebrew cask 放自己的 tap，还是提交到官方 `homebrew/cask`（§3.3）。
-4. 桌面端碰到忙着的旧版 CLI Runtime 时，要不要给「现在停止它」：要给就得让 `runtime.stop` 在有任务时也能由桌面端发起，后果说明照退出对话框（§4.2）。
-5. 有了 MCP stdio 之后，开机常驻还要不要做（§6.2）。
-6. 项目目录改规则前，`~/.baocut/projects` 里已有的视频还能不能照常打开，要不要迁到 `~/BaoCut`（§5.1）。
-7. 要实测的推测：
-   - 无窗口拉起的 Runtime 读钥匙串不弹窗：先退出 App，再运行 `/Applications/BaoCut.app/Contents/MacOS/baocut-cli models capabilities --capability synthesizeSpeech --json`，结果应有 `runtime.started: true` 且在线语音服务可用。
-   - 不同的二进制用同一签名标识，能否不弹窗读 App 存的条目（§9.6）。
-   - disclaim 拉起后，完全磁盘访问是否算在 BaoCut.app（§9.7）。
-   - SSH 会话里钥匙串是否报 `denied`（§8.1）。
-   - macOS 上 App 更新后，旧 Runtime 起的 Worker 读的是哪份文件（§4）。
-8. 钥匙串改用访问组时，已有条目怎么迁移（§9.6）。
+下面几项是推测，实现到对应部分时实测，结果写回对应小节：
+
+- 无窗口拉起的 Runtime 读钥匙串不弹窗：先退出 App，再运行 `/Applications/BaoCut.app/Contents/MacOS/baocut-cli models capabilities --capability synthesizeSpeech --json`，结果应有 `runtime.started: true` 且在线语音服务可用（§1.1）。
+- 不同的二进制用同一签名标识，能否不弹窗读 App 存的条目（§9.6）。
+- disclaim 拉起后，完全磁盘访问是否算在 BaoCut.app（§9.7）。
+- SSH 会话里钥匙串是否报 `denied`（§8.1）。
+- macOS 上 App 更新后，旧 Runtime 起的 Worker 读的是哪份文件（§4）。
+- §5.2 的 Windows 已知文件夹与语言列表的读法，在重定向到 OneDrive 的机器上核对。
