@@ -139,8 +139,8 @@
         <p className="t-detail semset__lead">按意思找讲话内容：Space 搜索、写作按主题选材、术语候选、翻译记忆与重录候选都用它。模型与索引都在这台电脑上，不上传。</p>
         {unsupported ? (
           <R.InlineAlert variant="notice" UNSAFE_className="semset__alert">
-            <R.Heading>这台电脑暂不支持本机语义模型</R.Heading>
-            <R.Content>自检没有通过（处理器或系统不满足运行要求）。精确文字搜索、写作的整篇与章节范围、术语表的精确匹配照常可用。</R.Content>
+            <R.Heading>当前版本暂不支持此平台的本机语义模型</R.Heading>
+            <R.Content>当前版本没有适用于 Runtime 所在电脑的系统与架构的语义模型运行库。精确文字搜索、写作的整篇与章节范围、术语表的精确匹配照常可用。</R.Content>
           </R.InlineAlert>
         ) : null}
         <section className="setpage__group" aria-label="模型">

@@ -138,6 +138,8 @@ WorkerHello     += embeddingCapabilities（按协商版本可选）
 
 **首版实际（2026-10-13）：** 只有 macOS Apple Silicon 登记了 `litertlm-runtime` 库包（CPU）。上游 0.18.0 没有 Windows、Linux 的 C 库；macOS Intel 的 Model Worker 构建暂不带 `backend-litert`，所以这些平台的文本嵌入模型包显示 `unsupported`，语义检索退回字面。GPU 见 §4.4（2026-10-14 起 macOS 上文字编码默认用 GPU）。发布构建启用 hardened runtime 时，`dlopen` 别家签名的库要给 Model Worker 关掉库验证（`com.apple.security.cs.disable-library-validation`），这是发布前待定的签名事项。
 
+设置页把这种 `unsupported` 写明为当前版本不支持 Runtime 所在电脑的系统与架构、缺少对应的语义模型运行库；不写成硬件性能不足或模型自检失败，不承诺后续支持时间。Web 看的是连接的 Runtime 的平台，不是浏览器所在电脑。
+
 官方提供跨平台 LiteRT 能力不等于 BaoCut 的这些构建已验证。[S4] 发布前固定 SDK tag/commit、模型 revision、每个文件的 SHA-256、许可证、目标架构、系统最低要求和 GPU delegate 文件。不把开发机上的自动选择行为当作发布合同。
 
 ### 4.4 GPU 回退与兼容性
