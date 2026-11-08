@@ -133,9 +133,17 @@ export async function openProviders(models: string, tools: string, work: string,
   const { ModelCatalog, LITERTLM_VERSION } = await import('@baocut/models');
   const { LocalEmbeddingProvider, LocalTranscribeProvider } = await import('@baocut/jobs');
   const { resolveModelWorkerCommand } = await import('../../packages/runtime-core/src/models/model-worker.ts');
+  const { findBundledToolDir } = await import('../../packages/process-host/src/bundled-binary.ts');
   const worker = resolveModelWorkerCommand();
   if (!worker) throw new Error('model-worker not found (set BAOCUT_MODEL_WORKER or build it)');
-  const catalog = new ModelCatalog({ root: path.resolve(models), toolsDir: path.resolve(tools), workerAvailable: () => true, engineCacheDir: work });
+  // 随应用分发 C 库的平台（Windows x64）用开发时放好的那份（`npm run build:litertlm-runtime`，或 `BAOCUT_BIN_DIR` 下的），不在 `--tools` 里。
+  const catalog = new ModelCatalog({
+    root: path.resolve(models),
+    toolsDir: path.resolve(tools),
+    workerAvailable: () => true,
+    engineCacheDir: work,
+    bundledToolDir: (name) => findBundledToolDir(name, HERE),
+  });
   const transcribe = new LocalTranscribeProvider({ catalog, command: () => worker, env: async () => process.env, idleMs: 60_000 });
   const statuses = await Promise.all(
     catalog
@@ -207,7 +215,8 @@ async function main(argv: readonly string[]): Promise<void> {
   if (failed) process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// 按路径比（Windows 上 `file://` 加 argv 拼不出 `import.meta.url`）。
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main(process.argv.slice(2)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

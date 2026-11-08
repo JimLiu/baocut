@@ -4,6 +4,8 @@ export const vi: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0: dùng miễn phí, kể cả thương mại; khi phân phối lại phải giữ thông báo bản quyền và giấy phép',
   runtimeNoBuild: (p: { platform: string }) => `LiteRT-LM chưa có bản dựng cho máy này (${p.platform}), nên tại đây chưa dùng được tìm kiếm ngữ nghĩa cục bộ`,
   runtimeNotInstalled: (p: { version: string }) => `Chưa cài LiteRT-LM ${p.version}`,
+  runtimeNotBundled: (p: { platform: string }) => `Bản BaoCut này không kèm thư viện thời gian chạy LiteRT-LM cho máy này (${p.platform}) nên không dùng được tìm kiếm ngữ nghĩa cục bộ. Cài lại BaoCut`,
+  runtimeBundledDamaged: 'Thư viện thời gian chạy LiteRT-LM đi kèm BaoCut bị hỏng. Cài lại BaoCut',
   countMismatch: (p: { expected: number; actual: number }) => `Cần ${p.expected} vectơ nhưng nhận được ${p.actual}`,
   wrongDims: (p: { expected: number; actual: number }) => `Có vectơ ${p.actual} chiều thay vì ${p.expected} chiều`,
   notFinite: 'Có vectơ chứa giá trị không phải số hữu hạn',

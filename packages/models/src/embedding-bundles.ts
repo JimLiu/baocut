@@ -7,13 +7,18 @@ import type { BundleComponentSource, BundleDefinition, ComponentRelease } from '
  * `<模型>@litert-lm`。两个包给人选：「文字搜索」（`embeddinggemma2-text`，只有文字编码器）与「多模态搜索」
  * （`embeddinggemma2-multimodal`，完整的 740M 包，另有图像编码器，用来按描述找画面）。装了多模态包就不必再装文字包。
  *
- * 权重是 litert-community 发布的 `.litertlm` 单文件，由 Model Worker 的 `litert-lm` 后端经 LiteRT-LM 的 C API 加载。C 库不随应用
- * 分发，是两个模型包共用的发布页组件 `litertlm-runtime`（`workerLibrary`）：随模型包下载、核对，解开到 `tools/litertlm-runtime/<版本>/`，
- * 交给 Worker 在加载时 `dlopen`。上游只为 macOS 发布了 C 库（一个 arm64 + x86_64 的通用 dylib，在 xcframework 的子目录里），
- * Windows 与 Linux 没有压缩包，模型包在那里报告为 `unsupported`。
+ * 权重是 litert-community 发布的 `.litertlm` 单文件，由 Model Worker 的 `litert-lm` 后端经 LiteRT-LM 的 C API 加载。C 库是两个模型包
+ * 共用的发布页组件 `litertlm-runtime`（`workerLibrary`），交给 Worker 在加载时 `dlopen`：
+ * - macOS（Apple Silicon）：上游发布的通用 dylib（arm64 + x86_64，在 xcframework 的子目录里）不随应用分发，随模型包下载、核对，解开到
+ *   `tools/litertlm-runtime/<版本>/`。
+ * - Windows x64：上游没有发布 C 库。BaoCut 按上游 CI 的方式从 v0.18.0 源码构建 `litert-lm.dll`（Bazel + MSVC，见
+ *   `packages/models/vendor/litertlm-runtime/README.md`），压缩包提交在仓库里，打包时解开到安装包的 `<resources>/bin/litertlm-runtime/`
+ *   （`bundled`），不下载。
+ * - Linux 与 Intel Mac：没有 C 库（Intel Mac 的 Model Worker 构建也不带 `backend-litert`），模型包报告为 `unsupported`。
  *
- * 大小与 sha256：C 库压缩包取自上游 v0.18.0 Releases，下载后重新算过；模型文件取自 Hugging Face 的 LFS 指针，下载后重新算过。
- * 许可：两个模型与 LiteRT-LM 都是 Apache-2.0。
+ * 大小与 sha256：macOS 的压缩包取自上游 v0.18.0 Releases，下载后重新算过；Windows 的是仓库里那份构建产物的；模型文件取自 Hugging Face 的
+ * LFS 指针，下载后重新算过。许可：两个模型与 LiteRT-LM 都是 Apache-2.0；Windows 的 C 库静态链接的第三方组件见
+ * `packages/models/licenses/litert-lm.txt`。
  */
 
 const MiB = 1024 * 1024;
@@ -40,13 +45,27 @@ const MAC_ASSET = {
   executable: 'libCLiteRTLM_mac.dylib',
 };
 
+/**
+ * Windows x64 的 C 库：BaoCut 从上游 v0.18.0 源码构建的 `litert-lm.dll`（只依赖系统 DLL 与 MSVC 运行库），与上游 `LICENSE` 放在一个 zip
+ * 的根目录（静态链接组件的许可在 `packages/models/licenses/litert-lm.txt`）。压缩包在 `packages/models/vendor/litertlm-runtime/`，打包脚本
+ * 核对大小与 sha256 后解开。
+ */
+const WINDOWS_ASSET = {
+  fileName: `litertlm-runtime-${LITERTLM_VERSION}-win32-x64.zip`,
+  size: 8216413,
+  sha256: '1ad5268a52946467f1a8e419a7af801d666a8ac166c23753e2e296fe4c9b8aa3',
+  archive: { format: 'zip' as const, skip: [] },
+  executable: 'litert-lm.dll',
+};
+
 export const LITERTLM_RUNTIME_RELEASE: ComponentRelease = {
   name: LITERTLM_RUNTIME_TOOL,
   version: LITERTLM_VERSION,
   urlTemplate: 'https://github.com/google-ai-edge/LiteRT-LM/releases/download/v{version}/{file}',
-  // 只有 Apple Silicon：Intel Mac 的 Model Worker 构建不带 `backend-litert`，登记了会下载 200 多 MB 再在加载时失败；没有库包的
-  // 平台显示 `unsupported`（v0.1 §4.3）。
+  // 下载的只有 Apple Silicon：Intel Mac 的 Model Worker 构建不带 `backend-litert`，登记了会下载 200 多 MB 再在加载时失败；
+  // Windows x64 随应用分发；别的平台显示 `unsupported`（v0.1 §4.3）。
   assets: { 'darwin-arm64': MAC_ASSET },
+  bundled: { 'win32-x64': WINDOWS_ASSET },
   workerLibrary: true,
 };
 

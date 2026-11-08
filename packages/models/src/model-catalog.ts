@@ -30,7 +30,7 @@ import { readInstallRecord } from './install-record.ts';
 import { ModelLocations } from './model-locations.ts';
 import { stagedBytes } from './model-staging.ts';
 import { modelDetail, type ModelText } from './model-text.ts';
-import { hostPlatformKey, releaseAsset, releaseDir, releaseStagedBytes } from './release-component.ts';
+import { bundledReleaseAsset, hostPlatformKey, releaseAsset, releaseDir, releaseStagedBytes } from './release-component.ts';
 import { REPO_MANIFESTS, repoManifestFor, weightBytes, type RepoManifestSpec } from './repo-manifests.ts';
 import type { AddedBundle } from './audio-cpp-catalog.ts';
 import type { BundleComponent, ModelBundle, ModelFiles } from './worker-contract.ts';
@@ -50,7 +50,8 @@ import type { BundleComponent, ModelBundle, ModelFiles } from './worker-contract
  * 没下完的部分时带 `install.state: 'paused'`。这些状态的变化经 `onChange` 通知（`models` 主题的 `bundle.updated`）。
  *
  * 来自 GitHub 发布页的组件（`release`，embedding 模型包的 LiteRT-LM C 库）是平台专属的：按 `platformKey` 取压缩包，装在
- * `<toolsDir>/<名字>/<版本>/`（同样带清单）。这台主机没有它的压缩包时模型包是 `error` / `unsupported`。
+ * `<toolsDir>/<名字>/<版本>/`（同样带清单）。随应用分发的平台（`ComponentRelease.bundled`，Windows x64 的 LiteRT-LM）不下载：组件目录
+ * 是 `bundledToolDir` 给的应用目录，按打包时写的清单判断。这台主机既没有压缩包、应用里也没有时模型包是 `error` / `unsupported`。
  *
  * audio.cpp 模型包（`backend: 'audio-cpp'`，本地语音合成与音乐）不经 Model Worker，由随应用分发的 audio.cpp 引擎执行：找不到引擎
  * （`engineAvailable` 为 false：这个平台没有内置引擎，或开发时还没下载）时已安装的模型包是 `error` / `unsupported`。
@@ -89,6 +90,11 @@ export interface ModelCatalogOptions {
   workerAvailable?: () => boolean;
   /** 有没有内置的 audio.cpp 引擎。没有时 audio.cpp 模型包显示为 `error` / `unsupported`。不给时算有。 */
   engineAvailable?: () => boolean;
+  /**
+   * 随应用分发的发布页组件的目录（`<resources>/bin/<name>/`，开发时 cargo 产物目录里的 `<name>/`）；应用里没有时 null。只对
+   * `ComponentRelease.bundled` 里有这个平台的组件问。不给时都没有。
+   */
+  bundledToolDir?: (name: string) => string | null;
   /**
    * Runtime Home 的 `tools/`：发布页组件（LiteRT-LM 的 C 库）装在 `<toolsDir>/<名字>/<版本>/`。不给时是 `<root>/.bcut-tools`（测试用；
    * Runtime 总是给）。
@@ -189,6 +195,7 @@ export class ModelCatalog {
   readonly #arch: string;
   readonly #workerAvailable: () => boolean;
   readonly #engineAvailable: () => boolean;
+  readonly #bundledToolDir: (name: string) => string | null;
   readonly #toolsDir: string | null;
   readonly #platformKey: string;
   readonly #threads: number;
@@ -213,6 +220,7 @@ export class ModelCatalog {
     this.#bundles = new Map((options.bundles ?? platformBundles(this.#platform, this.#arch)).map((b) => [b.bundleId, b]));
     this.#workerAvailable = options.workerAvailable ?? (() => true);
     this.#engineAvailable = options.engineAvailable ?? (() => true);
+    this.#bundledToolDir = options.bundledToolDir ?? (() => null);
     this.#toolsDir = options.toolsDir ?? null;
     this.#platformKey = options.platformKey ?? hostPlatformKey(this.#platform, this.#arch);
     this.#threads = options.threads ?? Math.max(1, Math.min(8, os.availableParallelism() - 2));
@@ -280,15 +288,24 @@ export class ModelCatalog {
     return this.#addedInfo.get(bundleId) ?? null;
   }
 
-  /** 发布页组件在这台主机上的压缩包；不是发布页组件、或这个平台没有压缩包时 null。 */
+  /** 发布页组件在这台主机上要下载的压缩包；不是发布页组件、随应用分发或这个平台没有压缩包时 null。 */
   releaseAsset(source: Pick<BundleComponentSource, 'release'>): ComponentReleaseAsset | null {
     return source.release ? releaseAsset(source.release, this.#platformKey) : null;
   }
 
-  /** 组件的目录：模型仓库是 `<root>/<owner>/<repo>/`，发布页组件是 `<toolsDir>/<名字>/<版本>/`。 */
+  /** 这个发布页组件在这台主机上随应用分发（`ComponentRelease.bundled`）：不下载、不删除，应用里没有就是不支持。 */
+  isBundled(source: Pick<BundleComponentSource, 'release'>): boolean {
+    return source.release ? bundledReleaseAsset(source.release, this.#platformKey) !== null : false;
+  }
+
+  /**
+   * 组件的目录：模型仓库是 `<root>/<owner>/<repo>/`，发布页组件是 `<toolsDir>/<名字>/<版本>/`，随应用分发的是应用里的目录（应用里没有
+   * 时仍给 `<toolsDir>/<名字>/<版本>/`，那里不会有清单）。
+   */
   componentDir(source: Pick<BundleComponentSource, 'repo' | 'release' | 'local'>): string {
     if (source.local) return path.dirname(source.local.path);
-    return source.release ? releaseDir(this.toolsDir, source.release) : this.repoDir(source.repo);
+    if (!source.release) return this.repoDir(source.repo);
+    return (this.isBundled(source) ? this.#bundledToolDir(source.release.name) : null) ?? releaseDir(this.toolsDir, source.release);
   }
 
   /** 一个仓库放在模型目录以外时，存放它的文件夹（其下是 `<owner>/<repo>/`）；在模型目录里时 null。 */
@@ -764,11 +781,14 @@ export class ModelCatalog {
       if (stat.size !== source.local.size) return { ok: false, reason: 'size-mismatch', detail: M.localFileChanged({ file }) };
       return { ok: true, bytes: stat.size };
     }
-    if (source.release && !this.releaseAsset(source)) {
+    const bundled = this.isBundled(source);
+    if (source.release && !bundled && !this.releaseAsset(source)) {
       return { ok: false, reason: 'unsupported', detail: E.runtimeNoBuild({ platform: this.#platformKey }) };
     }
     const dir = this.componentDir(source);
     const manifest = await readManifest(dir);
+    // 随应用分发的组件不在应用里（开发时没放进去，或不是带它的安装包）：装不上，不是「没安装」。
+    if (!manifest && bundled) return { ok: false, reason: 'unsupported', detail: E.runtimeNotBundled({ platform: this.#platformKey }) };
     if (!manifest && source.release) {
       return { ok: false, reason: 'missing-file', detail: E.runtimeNotInstalled({ version: source.release.version }) };
     }
@@ -798,7 +818,7 @@ export class ModelCatalog {
     let received = 0;
     let total: number | null = 0;
     for (const source of sources) {
-      if (source.local) continue;
+      if (source.local || this.isBundled(source)) continue;
       if (source.release) {
         const asset = this.releaseAsset(source);
         if (asset) received += await releaseStagedBytes(this.toolsDir, source.release, asset);

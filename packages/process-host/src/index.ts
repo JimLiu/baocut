@@ -1,4 +1,4 @@
-export { BIN_DIR_ENV, RESOURCES_BIN_DIR, executableName, findBundledBinary, findBundledTool } from './bundled-binary.ts';
+export { BIN_DIR_ENV, RESOURCES_BIN_DIR, executableName, findBundledBinary, findBundledTool, findBundledToolDir } from './bundled-binary.ts';
 export { cargoTargetDirs, findCargoBinary } from './cargo-target.ts';
 export { AUDIO_SEEK_MARGIN_SEC, audioWindow, type AudioWindow } from './ffmpeg-audio-window.ts';
 export { FFMPEG_DOWNLOAD_URL, ffmpegInstallHint, ffmpegMissingRemedy, ffmpegMissingRemedyMessage } from './install-hint.ts';

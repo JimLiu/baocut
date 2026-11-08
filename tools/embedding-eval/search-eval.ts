@@ -465,6 +465,7 @@ async function main(argv: readonly string[]): Promise<void> {
   const { ModelCatalog } = await import('@baocut/models');
   const { LocalEmbeddingProvider, LocalTranscribeProvider } = await import('@baocut/jobs');
   const { resolveModelWorkerCommand } = await import('../../packages/runtime-core/src/models/model-worker.ts');
+  const { findBundledToolDir } = await import('../../packages/process-host/src/bundled-binary.ts');
   const worker = resolveModelWorkerCommand();
   if (!worker) throw new Error('model-worker not found (set BAOCUT_MODEL_WORKER or build it)');
   const imageRoot = path.join(work, 'frames');
@@ -474,6 +475,8 @@ async function main(argv: readonly string[]): Promise<void> {
     toolsDir: path.resolve(tools),
     workerAvailable: () => true,
     engineCacheDir: path.join(work, 'litertlm'),
+    // 随应用分发 C 库的平台（Windows x64）用开发时放好的那份（`npm run build:litertlm-runtime`），不在 `--tools` 里。
+    bundledToolDir: (name) => findBundledToolDir(name, path.dirname(fileURLToPath(import.meta.url))),
   });
   const transcribe = new LocalTranscribeProvider({ catalog, command: () => worker, env: async () => process.env, idleMs: 60_000 });
   const provider = new LocalEmbeddingProvider({ catalog, worker: transcribe, imageRoots: [imageRoot] });

@@ -830,6 +830,82 @@ describe('ModelInstaller 发布页组件', () => {
     expect(await catalog.status('embed-b@litert-lm')).toMatchObject({ state: 'not-installed' });
   });
 
+  it('随应用分发的平台：库在应用目录里，不下载、坏了不重下、删除不动；应用里没有时不支持', async () => {
+    const bundledDir = path.join(work, 'resources', 'bin', 'testlib');
+    const rel: ComponentRelease = {
+      name: 'testlib',
+      version: '0.9.1',
+      urlTemplate: `${base}/download/v{version}/{file}`,
+      assets: {},
+      bundled: {
+        'win32-x64': { fileName: 'testlib-win32-x64.zip', size: 1, sha256: '0'.repeat(64), archive: { format: 'zip', skip: [] }, executable: 'test.dll' },
+      },
+      workerLibrary: true,
+    };
+    const runtime = { family: 'litertlm-runtime' as const, repo: 'google-ai-edge/LiteRT-LM', revision: 'v0.9.1', release: rel };
+    const id = 'embed-a@litert-lm';
+    const bundles: BundleDefinition[] = [{
+      bundleId: id,
+      capability: 'embed',
+      backend: 'litert-lm',
+      device: 'cpu',
+      label: id,
+      components: { embedding: { family: 'embeddinggemma2-litert', repo: asrA.repo, revision: asrA.revision }, 'litertlm-runtime': runtime },
+    }];
+    const manifests = [syntheticManifest(asrA, { sizes: true, estimatedBytes: 1_000_000 })];
+    let shipped = false;
+    const catalog = new ModelCatalog({
+      root,
+      platform: 'win32',
+      arch: 'x64',
+      bundles,
+      manifests,
+      bundledToolDir: (name) => (shipped && name === 'testlib' ? bundledDir : null),
+    });
+    const installer = new ModelInstaller({ catalog, endpoint: () => source.endpoint, manifests, freeBytes: async () => 10 * 1024 ** 3, backoffMs: () => 5, retries: 0 });
+
+    // 应用里没带：不支持（不是「没安装」），计划拒绝。
+    expect(await catalog.status(id)).toMatchObject({
+      state: 'error',
+      reason: 'unsupported',
+      detailRef: { key: 'modelsEmbedding.runtimeNotBundled', params: { platform: 'win32-x64' } },
+    });
+    await expect(installer.plan(id)).rejects.toMatchObject({ code: 'MODEL_DOWNLOAD_SOURCE' });
+
+    // 打包时解开的库与清单。
+    const sha = (text: string) => crypto.createHash('sha256').update(text).digest('hex');
+    await fs.mkdir(bundledDir, { recursive: true });
+    await fs.writeFile(path.join(bundledDir, 'test.dll'), 'dll');
+    await fs.writeFile(
+      path.join(bundledDir, '.bcut-manifest.json'),
+      JSON.stringify({ format_version: 1, repo: runtime.repo, revision: runtime.revision, files: [{ path: 'test.dll', size: 3, sha256: sha('dll') }] }),
+    );
+    shipped = true;
+    catalog.changed(id);
+    const detail = await installer.plan(id);
+    expect(detail.plan.components.map((c) => [c.component, c.action])).toEqual([
+      ['embedding', 'download'],
+      ['litertlm-runtime', 'keep'],
+    ]);
+    expect(detail.plan.downloadBytes).toBe(bytesOf(asrA));
+    await installer.install(detail, { signal: new AbortController().signal });
+    expect(requests).toEqual([]);
+    expect(await catalog.status(id)).toMatchObject({ state: 'installed' });
+    expect((await catalog.bundleFor(id)).components['litertlm-runtime']).toMatchObject({
+      dir: bundledDir,
+      files: [{ path: 'test.dll', byteLength: 3 }],
+    });
+
+    // 修复：完好的不动；坏了没有来源可重下，要重新安装 BaoCut。
+    expect((await installer.plan(id, { repair: true })).plan.components[1]!.action).toBe('keep');
+    await fs.writeFile(path.join(bundledDir, 'test.dll'), 'bad');
+    await expect(installer.plan(id, { repair: true })).rejects.toMatchObject({ code: 'MODEL_DOWNLOAD_INTEGRITY' });
+
+    // 删除模型包只删权重，应用目录里的库原样留着。
+    expect((await installer.remove(id)).removed).toEqual([asrA.repo]);
+    expect(await fs.readFile(path.join(bundledDir, 'test.dll'), 'utf8')).toBe('bad');
+  });
+
   it('添加的 GGUF：从上游仓库按添加时的提交下载，放在自己的目录里；原地引用的文件不下载、删除也不碰', async () => {
     const voice: SyntheticRepo = { repo: 'me/voices', revision: 'e'.repeat(40), files: { 'q/v-q8.gguf': syntheticBytes(30_000, 9) } };
     serveRepo(source, voice);

@@ -318,8 +318,9 @@ export class ModelInstaller {
     const removed: string[] = [];
     const kept: Array<{ repo: string; usedBy: string[] }> = [];
     for (const [, source] of componentsOf(def)) {
-      // 原地引用的本机文件不是 BaoCut 下载的，删除模型包从不动它（只从列表移除，见 `models.unlist`）。
-      if (source.local) continue;
+      // 原地引用的本机文件不是 BaoCut 下载的，删除模型包从不动它（只从列表移除，见 `models.unlist`）；随应用分发的组件在应用目录里，
+      // 同样不动。
+      if (source.local || this.#catalog.isBundled(source)) continue;
       const holders = await this.#holders(bundleId, source, record.bundles);
       if (holders.length > 0) {
         kept.push({ repo: source.repo, usedBy: holders });
@@ -384,6 +385,7 @@ export class ModelInstaller {
   /**
    * 发布页组件的计划：装好的不动；修复时有清单就按清单核对 sha256，好的不动，没有清单的重新下载。
    * 要下载的只有这台主机的压缩包，大小取登记的（不发 HEAD）；暂存区里已有的部分续传。这个平台没有压缩包时拒绝。
+   * 随应用分发的组件（`ComponentRelease.bundled`）没有可下载的来源：完好时不动，缺了或坏了时拒绝，要重新安装 BaoCut。
    */
   async #planRelease(component: string, source: BundleComponentSource, repair: boolean, toolsEndpoint: string | null): Promise<PlannedComponent> {
     const release = source.release!;
@@ -398,6 +400,20 @@ export class ModelInstaller {
       bytes: 0,
       estimatedBytes: 0,
     });
+    if (this.#catalog.isBundled(source)) {
+      const platform = this.#catalog.platformKey;
+      if (!(await this.#catalog.componentInstalled(source))) {
+        throw new DownloadError('MODEL_DOWNLOAD_SOURCE', ME.runtimeNotBundled({ platform }), { repo: source.repo, platform });
+      }
+      if (repair) {
+        const dir = this.#catalog.componentDir(source);
+        const manifest = await readManifest(dir);
+        if (!manifest || !(await intact(dir, manifest))) {
+          throw new DownloadError('MODEL_DOWNLOAD_INTEGRITY', ME.runtimeBundledDamaged(), { repo: source.repo, platform });
+        }
+      }
+      return keep();
+    }
     const asset = this.#catalog.releaseAsset(source);
     if (!asset) {
       const platform = this.#catalog.platformKey;

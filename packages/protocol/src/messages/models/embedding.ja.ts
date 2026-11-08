@@ -4,6 +4,8 @@ export const ja: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0：商用を含めて無料で利用できます。再配布する場合は著作権表示とライセンス表示を残してください',
   runtimeNoBuild: (p: { platform: string }) => `LiteRT-LM にはこのマシン（${p.platform}）向けのビルドがないため、ここではまだローカルのセマンティック検索を使えません`,
   runtimeNotInstalled: (p: { version: string }) => `LiteRT-LM ${p.version} がインストールされていません`,
+  runtimeNotBundled: (p: { platform: string }) => `この BaoCut にはこのマシン（${p.platform}）向けの LiteRT-LM ランタイムライブラリが含まれていないため、ローカルのセマンティック検索を使えません。BaoCut を再インストールしてください`,
+  runtimeBundledDamaged: 'BaoCut に付属の LiteRT-LM ランタイムライブラリが壊れています。BaoCut を再インストールしてください',
   countMismatch: (p: { expected: number; actual: number }) => `ベクトルは ${p.expected} 個のはずが、${p.actual} 個でした`,
   wrongDims: (p: { expected: number; actual: number }) => `次元数が ${p.expected} ではなく ${p.actual} のベクトルがあります`,
   notFinite: '有限でない値を含むベクトルがあります',

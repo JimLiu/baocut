@@ -80,6 +80,8 @@ npm run package:win:cuda     # CUDA 版：candle 与 Whisper 都走 CUDA（NVIDI
 npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍在 CPU 上），要 Vulkan SDK；尚未实测
 ```
 
+三个版本的 Model Worker 都带 `backend-litert`（本机语义检索，LiteRT-LM 在 CPU 上）。上游没有 Windows 的 LiteRT-LM C 库，打包脚本把仓库里 BaoCut 自己构建的那份（`packages/models/vendor/litertlm-runtime/`，来源与重建步骤见那里的 README）核对 sha256 后解开到 `resources/bin/litertlm-runtime/` 并写组件清单；开发时 `npm run build:litertlm-runtime`（`npm run setup` 包含）把它放进 cargo 产物目录。
+
 三个版本按用户的显卡选：NVIDIA（Ampere / RTX 30 起）用 CUDA 版；AMD、Intel 显卡（以及不支持 CUDA 13 的旧 NVIDIA 显卡）用 Vulkan 版；都没有用标准版。一个包在运行期自己选 CUDA 或 Vulkan 现在做不到（[架构设计 §14](../../docs/architecture/architecture-design.md#14-待评审事项)「单一 GPU 安装包在运行期自选后端」）。
 
 都要在 MSVC 开发环境里运行（whisper.cpp 用 CMake 编）。CUDA 版开 Model Worker 的 `cuda`（candle）与 `whisper-ggml-cuda`（whisper.cpp 的 ggml-cuda）两个 feature：要设好 `CUDA_PATH`，打包脚本另设 `CUDA_COMPUTE_CAP=80`、nvcc 的 `/MD` 与 `CMAKE_CUDA_ARCHITECTURES`（缺省 `80-virtual;86-real;89-real;120-real`，外部设了就用外部的；没有 GPU 的构建机必须显式给，否则 ggml 按本机 GPU 探测架构会失败）；ggml-cuda 要编很多内核，构建比原来明显慢。CUDA 版随带的 NVIDIA 运行库已经覆盖 ggml-cuda 用到的 cudart、cublas 与 cublasLt。Vulkan 版的用户只需要显卡驱动自带的 `vulkan-1.dll`，包里不带。
@@ -139,7 +141,7 @@ gh workflow run desktop-windows-publish.yml --ref main \
 
 构建来源固定在现有 Mac Release 的同一完整 commit；版本与 build 相同。构建环境修复可在 main 上执行工作流并传 `source_ref=<Mac 源 commit>`，报告分别记录产品与工作流 SHA。Windows Cargo 输出使用短路径 `D:\bt`，CMake 使用 Ninja，避免 Vulkan 着色器生成器触发 MSBuild 的长路径限制；`include_cpu=false` 可只重试 GPU 变体。发布工作流仅授予发布 job `contents: write` 和读取候选产物所需的 `actions: read`，不使用 Mac 证书或私钥。它核对候选工作流、仓库、来源 SHA、各选中变体的原生 job 结果、文件大小与 SHA-256、App 自己的更新清单解析结果，再把安装器、ZIP、校验文件、补充发布报告与清单追加到已有 Release。已存在的同名不同字节不覆盖；Mac 资产保留，发布过程中保持原来的 Latest，完成后按发布 skill 标记最新稳定桌面版本。公开下载读回验证后，才提交与推送 Windows 各变体的更新清单。
 
-Windows 安装包尚无 Authenticode 签名。当前 Worker 链接 `MSVCP140.dll`、`VCRUNTIME140.dll` 与 `VCRUNTIME140_1.dll`，安装器和 ZIP 尚未随附这些运行库；用户需先安装 [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/)。Hosted runner 已装运行库，因此其自检不能证明全新系统无需此依赖。流水线中的启动、安装、同版覆盖升级、卸载与 ZIP 自检不替代真实 CUDA / Vulkan 硬件上的推理；没有通过 native job 的变体不得发布。验证发布门本身可运行 `node --test apps/desktop/tools/windows-release.test.mjs` 和 `actionlint .github/workflows/desktop-windows-publish.yml`。
+Windows 安装包尚无 Authenticode 签名。当前 Worker 链接 `MSVCP140.dll`、`VCRUNTIME140.dll` 与 `VCRUNTIME140_1.dll`，LiteRT-LM 的 `litert-lm.dll` 另要 `VCRUNTIME140_THREADS.dll`（同属当前的 VC++ v14 运行库），安装器和 ZIP 尚未随附这些运行库；用户需先安装 [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/)。Hosted runner 已装运行库，因此其自检不能证明全新系统无需此依赖。流水线中的启动、安装、同版覆盖升级、卸载与 ZIP 自检不替代真实 CUDA / Vulkan 硬件上的推理；没有通过 native job 的变体不得发布。验证发布门本身可运行 `node --test apps/desktop/tools/windows-release.test.mjs` 和 `actionlint .github/workflows/desktop-windows-publish.yml`。
 
 **没有 Windows 机器时**：在 GitHub Actions 手动触发 `desktop-windows` 工作流（`.github/workflows/desktop-windows.yml`），它出各变体的包，对解开的包、zip 与静默安装后的目录各跑一遍自检，核对安装目录里有 `Uninstall BaoCut.exe`、按更新的参数（`/S --updated`）在装好的上面再装一遍，再上传安装包、zip 与发布报告。macOS 上可以交叉编译 Worker（`cargo build --release --target x86_64-pc-windows-gnu ...`，要 mingw-w64），再用 `node apps/desktop/tools/package-desktop.mjs --target x86_64-pc-windows-gnu --bin-dir <产物目录> --targets zip --out <仓库外的目录>` 出 zip 核对结构；NSIS 的 `makensis` 是 x86_64 程序，Apple 芯片上要 Rosetta。这样出的包不能代替 Windows 上的自检。
 

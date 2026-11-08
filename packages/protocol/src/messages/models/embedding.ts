@@ -22,6 +22,8 @@ const en = {
   apacheLicense: 'Apache-2.0: free to use, including commercially; keep the copyright and license notices when redistributing',
   runtimeNoBuild: (p: { platform: string }) => `LiteRT-LM has no build for this machine (${p.platform}), so local semantic search is not available here yet`,
   runtimeNotInstalled: (p: { version: string }) => `LiteRT-LM ${p.version} is not installed`,
+  runtimeNotBundled: (p: { platform: string }) => `This copy of BaoCut does not include the LiteRT-LM runtime library for this machine (${p.platform}), so local semantic search is not available. Reinstall BaoCut`,
+  runtimeBundledDamaged: 'The LiteRT-LM runtime library that comes with BaoCut is damaged. Reinstall BaoCut',
   countMismatch: (p: { expected: number; actual: number }) => `Expected ${p.expected} vectors but got ${p.actual}`,
   wrongDims: (p: { expected: number; actual: number }) => `A vector has ${p.actual} dimensions instead of ${p.expected}`,
   notFinite: 'A vector contains a value that is not a finite number',

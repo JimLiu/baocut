@@ -202,8 +202,9 @@ Windows Command Prompt 中，先执行 `set "BAOCUT_HOME=.dev/baocut-home"`，�
 | `npm run package:win` / `npm run package:win:cuda` / `npm run package:win:vulkan` | Windows x64 的 NSIS 安装包（按用户安装）与 zip，不签名；分别使用 CPU、CUDA（NVIDIA）或 Vulkan（Whisper 使用 GPU，candle 仍使用 CPU）配置。见[桌面端 README](apps/desktop/README.md#windows-打包)。 |
 | `npm run runtime` | 单独启动 Runtime，默认主目录为 `~/.baocut`。 |
 | `npm run cli -- --help` | 查看 `baocut` 命令一览。工具命令从 Runtime 的工具目录派生，与 MCP 共用；`baocut help <command>` 查看参数，`baocut spec` 输出机器可读目录。没有 Runtime 时自动在后台启动，空闲后退出；可用 `baocut runtime status\|ensure\|stop` 管理。退出码：0 成功、1 失败、2 需要用户处理、3 Runtime 不可用、4 参数错误。见 [Agent 面设计 §5](docs/design/agent-surface/agent-surface-design.md#5-cli-约定)。 |
-| `npm run build:engine` | 构建视频引擎 `engine-host`、成片渲染器 `export-worker`、`speech-worker`、人脸检测 `face-detect`、抠像 `matte` 与本地推理进程 `model-worker`。Apple Silicon 使用 MLX 与 Core ML，其他平台使用 candle 与 whisper.cpp；额外参数原样交给 cargo，例如 `npm run build:engine -- --release`。 |
+| `npm run build:engine` | 构建视频引擎 `engine-host`、成片渲染器 `export-worker`、`speech-worker`、人脸检测 `face-detect`、抠像 `matte` 与本地推理进程 `model-worker`。Apple Silicon 使用 MLX 与 Core ML，其他平台使用 candle 与 whisper.cpp；文本嵌入在各平台都用 LiteRT-LM；额外参数原样交给 cargo，例如 `npm run build:engine -- --release`。 |
 | `npm run build:audiocpp` | 按登记的固定版本下载这台机器的 audio.cpp 引擎（本地语音合成与音乐用）到 cargo 产物目录的 `audiocpp/`，核对大小与 sha256；`-- --variant cpu` 在 Windows / Linux 取 CPU 构建；给了 `BAOCUT_TOOLS_ENDPOINT` 时从镜像下载。打包时内置同一个版本。 |
+| `npm run build:litertlm-runtime` | 在 Windows x64 上把 BaoCut 为本机语义检索构建的 LiteRT-LM C 库（`packages/models/vendor/litertlm-runtime/`）核对大小与 sha256 后解开到 cargo 产物目录的 `litertlm-runtime/`；其他平台什么都不做（macOS 随模型包下载）。打包时内置同一份。 |
 | `npm test` | 单元测试与使用假 Driver 的 Runtime 端到端测试，无需 Codex。 |
 | `npm run check:file-fonts` | 构建桌面应用，在 Electron 隐藏窗口中通过 `file://` 检查预览渲染器加载全部字体。 |
 | `npm run typecheck` | 类型检查。 |

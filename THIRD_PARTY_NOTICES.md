@@ -355,6 +355,31 @@ Windows 的引擎包旁附 Microsoft Visual C++ 运行库（`msvcp140*.dll`、`v
 
 桌面安装包在 `resources/packages/models/licenses/audio.cpp.txt` 保留这份许可原文的可直接读取的副本。
 
+## LiteRT-LM（Windows 版 C 库）
+
+- 来源：[LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM)，版本 0.18.0（标签 `v0.18.0`，提交 `b2f686e`）
+- 版权：Copyright The ODML Authors（Google LLC）
+- 许可：Apache License, Version 2.0；[LiteRT-LM 与第三方组件的许可原文](packages/models/licenses/litert-lm.txt)收录上游 `LICENSE` 与下列组件的完整许可条款。
+
+本机语义检索的 EmbeddingGemma 2 模型包经 LiteRT-LM 的 C API 编码。上游没有发布 Windows 的 C 库：BaoCut 从上游未修改的 v0.18.0 源码按上游的 Bazel 配置构建 `litert-lm.dll`（来源与重建步骤见 [`packages/models/vendor/litertlm-runtime/README.md`](packages/models/vendor/litertlm-runtime/README.md)），Windows 安装包把它放在 `resources/bin/litertlm-runtime/`，旁边附上游 `LICENSE`。Model Worker 在运行期打开它，不在构建时链接。macOS 的 C 库不随应用分发，由用户安装模型包时从上游发布页下载。这份 DLL 静态链接了下列第三方组件，许可原文均收在上面的副本里：
+
+| 组件 | 许可 |
+| --- | --- |
+| TensorFlow Lite / LiteRT、XLA、TSL、Abseil、SentencePiece、FlatBuffers、ruy、gemmlowp、tokenizers-cpp | Apache-2.0 |
+| XNNPACK、Protocol Buffers、RE2、kissfft | BSD 3-Clause |
+| cpuinfo、pthreadpool | BSD 2-Clause |
+| FP16、FXdiv、farmhash、nlohmann/json | MIT |
+| Eigen | MPL-2.0（个别文件另有许可，原文一并收录） |
+| NEON_2_SSE（Intel） | Intel 的 BSD 式许可 |
+| Ooura FFT（fft2d） | Ooura 的许可：可为任何目的使用、复制、修改 |
+| stb、miniaudio | MIT 或公有领域，二选一 |
+| zlib、minizip | zlib |
+| llguidance、Hugging Face tokenizers、Oniguruma（onig）与它们依赖的约 80 个 Rust crate，及 Rust 标准库 | MIT、Apache-2.0、BSD 2-Clause 等（各 crate 的原文见副本） |
+
+DLL 依赖 Windows 系统组件与 Microsoft Visual C++ v14 运行库，后者不随包，与 BaoCut 的 Windows 版对运行库的要求相同。模型权重不随应用分发，用户按需下载，许可（Apache-2.0）在下载前列出。
+
+桌面安装包在 `resources/packages/models/licenses/litert-lm.txt` 保留这份许可原文的可直接读取的副本。
+
 ## lobe-icons
 
 - 来源：lobe-icons（https://github.com/lobehub/lobe-icons）

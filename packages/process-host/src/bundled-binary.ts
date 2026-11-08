@@ -69,6 +69,36 @@ export function findBundledTool(
   return null;
 }
 
+/**
+ * 找随 BaoCut 分发的第三方组件目录（`<子目录>/`，如 Windows 上的 LiteRT-LM C 库 `litertlm-runtime/`），没有时 null。次序同
+ * `findBundledTool`：`BAOCUT_BIN_DIR/<子目录>/`（给了就只在那里找）、打包后的 `<resources>/bin/<子目录>/`、开发时 cargo 产物目录里的
+ * `<子目录>/`。只看目录在不在，里面齐不齐由调用方按清单判断。
+ */
+export function findBundledToolDir(subdir: string, startDir: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  if (env[BIN_DIR_ENV]) {
+    const candidate = path.join(env[BIN_DIR_ENV], subdir);
+    return isDirectory(candidate) ? candidate : null;
+  }
+  const resources = (process as { resourcesPath?: string }).resourcesPath;
+  if (resources) {
+    const bundled = path.join(resources, RESOURCES_BIN_DIR, subdir);
+    if (isDirectory(bundled)) return bundled;
+  }
+  for (const dir of cargoTargetDirs(startDir, env)) {
+    const candidate = path.join(dir, subdir);
+    if (isDirectory(candidate)) return candidate;
+  }
+  return null;
+}
+
+function isDirectory(dir: string): boolean {
+  try {
+    return fs.statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function isFile(file: string): boolean {
   try {
     return fs.statSync(file).isFile();

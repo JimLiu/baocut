@@ -2,10 +2,19 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 import { CodeBundleError, CompositionHost, resolveElectronBinary } from '@baocut/code-runtime';
 import { editorSemantics, locateEditorWasm } from '@baocut/editor-wasm';
 import { resolveSpeechWorkerCommand } from '@baocut/jobs';
-import { WORKER_CONTRACT_VERSION, audioCppServerOf, resolveModelAssetsDir } from '@baocut/models';
+import {
+  LITERTLM_RUNTIME_RELEASE,
+  WORKER_CONTRACT_VERSION,
+  audioCppServerOf,
+  bundledReleaseAsset,
+  hostPlatformKey,
+  resolveModelAssetsDir,
+} from '@baocut/models';
+import { findBundledToolDir } from '@baocut/process-host';
 import { resolveCredentialHelperCommand } from './credentials.ts';
 import { resolveExportWorkerCommand } from './exports/video-export.ts';
 import { resolveAudioCppCli } from './models/model-jobs.ts';
@@ -18,7 +27,8 @@ import { resolveEngineHostCommand } from './videos/engine-host.ts';
 
 /**
  * Runtime 的自检（`runtime --self-check [--probe]`）：不启动 Runtime，只用它找东西的同一批解析函数，报告随应用分发的原生程序
- * （Worker、凭据助手、内置的 audio.cpp 引擎）、内置模板与 skill、模型数据、Web 客户端与 `editor.wasm` 解析到哪里、在不在。给了 `probe` 时再把每个原生程序
+ * （Worker、凭据助手、内置的 audio.cpp 引擎）、内置模板与 skill、模型数据、Web 客户端、`editor.wasm` 与随应用分发的 LiteRT-LM C 库
+ * （Windows x64）解析到哪里、在不在。给了 `probe` 时再把每个原生程序
  * 起一次、走一遍它的握手，证明在这台机器上能启动（缺 DLL、架构不对都在这里暴露）；代码包的 Electron 离屏宿主也起一次、等到 ready 再关掉
  * （`probeCompositionHost`），打包后走的是主进程入口的 `--composition-host` 分支。
  *
@@ -147,6 +157,9 @@ export async function runtimeSelfCheck(options: { probe?: boolean; env?: NodeJS.
     modelAssets: resolveModelAssetsDir(env),
     web: resolveWebDist(env),
   };
+  // 随应用分发的 LiteRT-LM C 库（本机语义检索，Windows x64）：与模型目录同一个解析（`model-jobs.ts`），库与清单都要在。
+  const litert = bundledReleaseAsset(LITERTLM_RUNTIME_RELEASE, hostPlatformKey());
+  if (litert) dirs[LITERTLM_RUNTIME_RELEASE.name] = findBundledToolDir(LITERTLM_RUNTIME_RELEASE.name, path.dirname(fileURLToPath(import.meta.url)), env);
   const editorWasm = locateEditorWasm();
 
   const problems: string[] = [];
@@ -157,6 +170,12 @@ export async function runtimeSelfCheck(options: { probe?: boolean; env?: NodeJS.
     if (!dir || !isDirectory(dir)) problems.push(`${name}: did not resolve to an existing directory (${dir ?? 'null'})`);
   }
   if (dirs.web && !isFile(path.join(dirs.web, 'index.html'))) problems.push(`web: no index.html in the directory (${dirs.web})`);
+  const litertDir = dirs[LITERTLM_RUNTIME_RELEASE.name];
+  if (litert && litertDir) {
+    for (const file of [litert.executable, '.bcut-manifest.json']) {
+      if (!isFile(path.join(litertDir, file))) problems.push(`${LITERTLM_RUNTIME_RELEASE.name}: no ${file} in the directory (${litertDir})`);
+    }
+  }
   try {
     editorSemantics();
   } catch (error) {

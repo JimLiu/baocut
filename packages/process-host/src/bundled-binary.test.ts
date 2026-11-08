@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { executableName, findBundledBinary, findBundledTool } from './bundled-binary.ts';
+import { executableName, findBundledBinary, findBundledTool, findBundledToolDir } from './bundled-binary.ts';
 
 const roots: string[] = [];
 function tmp(): string {
@@ -80,5 +80,23 @@ describe('findBundledTool', () => {
       path.join(repo, 'target/audiocpp/audiocpp_cli'),
     );
     expect(findBundledTool('audiocpp', 'audiocpp_cli', tmp(), {}, 'darwin')).toBeNull();
+  });
+});
+
+describe('findBundledToolDir', () => {
+  it('looks in BAOCUT_BIN_DIR only when it is given', () => {
+    const bin = tmp();
+    const repo = tmp();
+    touch(path.join(bin, 'litertlm-runtime/litert-lm.dll'));
+    touch(path.join(repo, 'target/litertlm-runtime/litert-lm.dll'));
+    expect(findBundledToolDir('litertlm-runtime', repo, { BAOCUT_BIN_DIR: bin })).toBe(path.join(bin, 'litertlm-runtime'));
+    expect(findBundledToolDir('audiocpp', repo, { BAOCUT_BIN_DIR: bin })).toBeNull();
+  });
+
+  it('falls back to the cargo target directory in development', () => {
+    const repo = tmp();
+    touch(path.join(repo, 'target/litertlm-runtime/litert-lm.dll'));
+    expect(findBundledToolDir('litertlm-runtime', path.join(repo, 'packages/x/src'), {})).toBe(path.join(repo, 'target/litertlm-runtime'));
+    expect(findBundledToolDir('litertlm-runtime', tmp(), {})).toBeNull();
   });
 });

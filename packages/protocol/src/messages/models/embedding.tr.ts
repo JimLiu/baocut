@@ -4,6 +4,8 @@ export const tr: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0: ticari kullanım dahil ücretsiz; yeniden dağıtırken telif hakkı ve lisans bildirimlerini koruyun',
   runtimeNoBuild: (p: { platform: string }) => `LiteRT-LM’in bu makine (${p.platform}) için bir derlemesi yok; bu yüzden yerel anlamsal arama burada henüz kullanılamıyor`,
   runtimeNotInstalled: (p: { version: string }) => `LiteRT-LM ${p.version} yüklü değil`,
+  runtimeNotBundled: (p: { platform: string }) => `Bu BaoCut kopyası bu makine (${p.platform}) için LiteRT-LM çalışma zamanı kitaplığını içermiyor; bu yüzden yerel anlamsal arama kullanılamıyor. BaoCut uygulamasını yeniden yükleyin`,
+  runtimeBundledDamaged: 'BaoCut ile gelen LiteRT-LM çalışma zamanı kitaplığı bozuk. BaoCut uygulamasını yeniden yükleyin',
   countMismatch: (p: { expected: number; actual: number }) => `${p.expected} vektör bekleniyordu, ${p.actual} geldi`,
   wrongDims: (p: { expected: number; actual: number }) => `Bir vektör ${p.expected} yerine ${p.actual} boyutlu`,
   notFinite: 'Bir vektörde sonlu sayı olmayan bir değer var',

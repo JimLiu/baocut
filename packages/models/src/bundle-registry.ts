@@ -85,8 +85,14 @@ export interface ComponentRelease {
   version: string;
   /** 官方下载地址的模板：`{version}`、`{file}` 换成版本与文件名。 */
   urlTemplate: string;
-  /** 平台键（`darwin-arm64`、`darwin-x64`、`linux-x64`、`win32-x64`……）→ 压缩包；没有的平台不支持。 */
+  /** 平台键（`darwin-arm64`、`darwin-x64`、`linux-x64`、`win32-x64`……）→ 压缩包；没有的平台（也不在 `bundled` 里）不支持。 */
   assets: Readonly<Partial<Record<string, ComponentReleaseAsset>>>;
+  /**
+   * 随应用分发的平台：上游没有这个平台的压缩包，由 BaoCut 自己构建、打包时解开到 `<resources>/bin/<name>/`（LiteRT-LM 的 Windows x64
+   * C 库）。平台键 → 打包用的压缩包（大小与 sha256 钉住那一次构建）。这些平台不下载、删除模型包时也不动它：组件目录是应用里的
+   * 那个，装没装好照旧按打包时写的 `.bcut-manifest.json` 判断；应用里没有（开发时没放进去）时模型包不支持。
+   */
+  bundled?: Readonly<Partial<Record<string, ComponentReleaseAsset>>>;
   /**
    * 交给 Model Worker 的动态库（LiteRT-LM 的 C 库），不是 Runtime 直接执行的程序：安装后不执行，交给 Worker 时与模型仓库的组件
    * 一样带上文件清单。audio.cpp 引擎随应用内置（`audio-cpp-engine.ts`），不是发布页组件。

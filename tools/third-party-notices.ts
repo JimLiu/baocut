@@ -8,6 +8,7 @@ export const DISTRIBUTED_NOTICES = [
   { source: 'THIRD_PARTY_NOTICES.md', fileName: 'THIRD_PARTY_NOTICES.md' },
   { source: 'crates/model-runtime/licenses/speech-swift.txt', fileName: 'crates/model-runtime/licenses/speech-swift.txt' },
   { source: 'packages/models/licenses/audio.cpp.txt', fileName: 'packages/models/licenses/audio.cpp.txt' },
+  { source: 'packages/models/licenses/litert-lm.txt', fileName: 'packages/models/licenses/litert-lm.txt' },
 ] as const;
 
 /** 声明缺失时让构建失败，避免只分发可执行代码。 */
