@@ -1,6 +1,7 @@
 //! 把一个角色包按一组固定姿势画成一张拼图，开发时看角色包能不能用：静止、左右转头、抬头低头、歪头、闭眼、
-//! 看左看右、各帧嘴（半张、张开、圆嘴、扁嘴）、表情（缺省 `smile`）、带着表情快闭上眼与闭眼、挑眉。每格先按姿势的
-//! 参数走 1.2 秒物理，弹簧停稳再画。
+//! 看左看右、各帧嘴（半张、张开、圆嘴、扁嘴）、表情（缺省 `smile`）、带着表情快闭上眼与闭眼、挑眉、转头说话，
+//! 最后是带着表情转头与转头说话（表情补丁、重画的眉毛和眼镜错开时露出的缝在这两格看）。每格先按姿势的参数走 1.2 秒
+//! 物理，弹簧停稳再画。
 //!
 //!   cargo run -p puppet --release --example pose-sheet -- <角色包 .bcpuppet / .mavatar 或解开的目录> <out.png> [格子高度] [表情]
 //!
@@ -35,6 +36,8 @@ const POSES: &[(&str, &[(&str, f64)])] = &[
     ("expr-blink", &[(EXPR, 1.0), ("eyeLOpen", 0.0), ("eyeROpen", 0.0)]),
     ("brows-up", &[("browLY", 1.0), ("browRY", 1.0)]),
     ("turn-talk", &[("angleX", 20.0), ("angleY", -10.0), ("mouthOpen", 0.9), ("bodyX", 6.0)]),
+    ("expr-turn-left", &[(EXPR, 1.0), ("angleX", -25.0)]),
+    ("expr-turn-talk", &[(EXPR, 1.0), ("angleX", 20.0), ("angleY", -10.0), ("mouthOpen", 0.9), ("bodyX", 6.0)]),
 ];
 
 fn load(path: &Path) -> CharacterPackage {
