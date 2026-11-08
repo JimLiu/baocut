@@ -16,6 +16,18 @@ export const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
 function median(a) { const s = Array.from(a).sort((x, y) => x - y); return s[s.length >> 1] ?? 0; }
 function quantile(a, t) { const s = Array.from(a).sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(t * s.length))] ?? 0; }
+// P as a shade of O over U, P = s*O + b*U: the backdrop U shows through at b, behind a drawing s/(1-b) times O. It is
+// such a mix when 0 < b < 1, s >= 0, it fits within MIX_FIT, and that drawing is a colour (within MIX_FIT: a white
+// highlight at the edge of pink hair fits half pink, half backdrop only behind a drawing twice as light as white).
+// Returns the drawing's shade s/(1-b) and alpha 1-b, or null
+function shadeMix(P, O, U) {
+  const dot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2], oo = dot(O, O), ou = dot(O, U), uu = dot(U, U), det = oo * uu - ou * ou;
+  if (det <= 1e-6 * oo * uu) return null;
+  const s = (uu * dot(O, P) - ou * dot(U, P)) / det, b = (oo * dot(U, P) - ou * dot(O, P)) / det;
+  if (!(b > 0 && b < 1 && s >= 0)) return null;
+  const fit = Math.hypot(...[0, 1, 2].map((k) => P[k] - s * O[k] - b * U[k])), shade = s / (1 - b);
+  return fit <= MIX_FIT && shade * Math.max(...O) <= 255 + MIX_FIT ? { shade, alpha: 1 - b } : null;
+}
 
 /** the key colour: median of the border */
 export function borderColor(im) {
@@ -100,10 +112,12 @@ export function keyOut(im, o = {}) {
   // - the backdrop behind it and a lighter or darker shade of the hair's colour right by it explain it.
   // A green streak in the hair is no such mix and stays solid.
   const deepA = new Float32Array(n);
+  let hairMix = false;
   if (o.holes) {
     const core = erode(and(o.holes, not(or(bg, band))), w, h, 4), hx = [], fx = [];
     for (let p = 0; p < n; p++) if (core[p]) { hx.push(ex[p]); if (near[p] > DEEP) fx.push(ex[p]); }
-    if (hx.length && median(hx) <= 0) {
+    hairMix = hx.length > 0 && median(hx) <= 0;
+    if (hairMix) {
       const lim = Math.min(LEAN_FREE, fx.length ? quantile(fx, 0.99) : LEAN_FREE);
       const known = Uint8Array.from(ex, (v, p) => (!bg[p] && !band[p] && v <= lim ? 1 : 0)), byKnown = distTo(known, w, h);
       const reach = grow(bg, Uint8Array.from(ex, (v, p) => (bg[p] || (o.holes[p] && v > lim && near[p] <= DEEP) ? 1 : 0)), w, h);
@@ -112,16 +126,8 @@ export function keyOut(im, o = {}) {
       let found = 0;
       for (let p = 0; p < n; p++) {
         if (!deep[p]) continue;
-        // p = s*own + b*under: the backdrop shows through at b, behind a drawing s/(1-b) times the colour round it
-        const i = 4 * p, u = under(p), O = [own.d[i], own.d[i + 1], own.d[i + 2]], P = [d[i], d[i + 1], d[i + 2]];
-        const dot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2], oo = dot(O, O), ou = dot(O, u), uu = dot(u, u), det = oo * uu - ou * ou;
-        if (det <= 1e-6 * oo * uu) continue;
-        const s = (uu * dot(O, P) - ou * dot(u, P)) / det, b = (oo * dot(u, P) - ou * dot(O, P)) / det;
-        const fit = Math.hypot(...[0, 1, 2].map((k) => P[k] - s * O[k] - b * u[k]));
-        // and the drawing it leaves, s/(1-b) times that colour, is a colour (within MIX_FIT): a white highlight at the
-        // edge of pink hair fits half pink, half backdrop only behind a drawing twice as light as white
-        const drawn = (s / (1 - b)) * Math.max(...O);
-        if (b > 0 && b < 1 && s >= 0 && fit <= MIX_FIT && drawn <= 255 + MIX_FIT) { deepA[p] = 1 - b; found++; }
+        const i = 4 * p, m = shadeMix([d[i], d[i + 1], d[i + 2]], [own.d[i], own.d[i + 1], own.d[i + 2]], under(p));
+        if (m) { deepA[p] = m.alpha; found++; }
       }
       // nor is such a mix a colour of the drawing for the band: read from it, the band's own colour turns olive and so
       // keeps a thin strand olive. In the hair the band takes the colour round it again without them
@@ -150,6 +156,15 @@ export function keyOut(im, o = {}) {
       if (l2 >= MIX_SEP * MIX_SEP) {
         const t = Math.min(1, Math.max(0, ((d[i] - u[0]) * v[0] + (d[i + 1] - u[1]) * v[1] + (d[i + 2] - u[2]) * v[2]) / l2));
         if (Math.hypot(...[0, 1, 2].map((k) => d[i + k] - u[k] - t * v[k])) <= MIX_FIT) a = t;
+      }
+      // that mix takes the strand for the colour round it, right for a strand of that colour. Painted hair's outer
+      // strands are often lighter (a sunlit gold over brown): read so, such a strand comes out too solid with the
+      // backdrop left in it, olive. In the hair (where the deep mixes are read) a pixel that is a lighter shade of the
+      // colour round it over the backdrop takes that mix's alpha. A darker one is most often where the outline meets
+      // the backdrop; read as a shade of the hair the line thins and pales, so it keeps the reading above
+      if (hairMix && o.holes[p]) {
+        const m = shadeMix([d[i], d[i + 1], d[i + 2]], [own.d[i], own.d[i + 1], own.d[i + 2]], u);
+        if (m && m.shade >= 1) a = m.alpha;
       }
     }
     alpha[p] = a;

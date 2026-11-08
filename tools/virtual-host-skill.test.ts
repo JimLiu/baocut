@@ -937,6 +937,37 @@ describe('virtual-host key removal', () => {
     expect(K.alpha[at(40, 60)]).toBe(1);
   });
 
+  // brown hair whose outermost 2 px are something else over the backdrop
+  const BROWN: RGB = [120, 60, 30];
+  const edged = (edge: (y: number) => RGB) => {
+    const d = new Uint8ClampedArray(W * H * 4), hair = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      if (x >= 10 && x < 110 && y >= 10 && y < 110) { c = x < 12 && y >= 30 && y < 90 ? edge(y) : BROWN; hair[at(x, y)] = 1; }
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    return keyOut({ w: W, h: H, d }, { holes: hair });
+  };
+
+  it('unmixes a strand lighter than the hair against a shade of the hair, not as the olive it makes with the backdrop', () => {
+    // a sunlit gold strand, 1.5 times the hair's colour, 55% over the backdrop: taken for the hair's own colour it
+    // reads 77% solid and olive
+    const GOLD: RGB = [180, 90, 45];
+    const K = edged((y) => mix(GOLD, under(y), 0.45));
+    for (const x of [10, 11]) {
+      const p = at(x, 60);
+      expect(Math.abs(K.alpha[p] - 0.55)).toBeLessThan(0.03);
+      for (let k = 0; k < 3; k++) expect(Math.abs(K.fg.d[4 * p + k] - GOLD[k])).toBeLessThan(6);
+    }
+  });
+
+  it('keeps the outline at the hair\'s edge as solid as the key reads it, though a darker shade of the hair could mix to it', () => {
+    // half hair, 30% a dark line, 20% backdrop: as a darker shade of the hair over the backdrop it would thin to 79%
+    const LINE: RGB = [40, 20, 30];
+    const K = edged((y) => [0, 1, 2].map((k) => Math.round(0.5 * BROWN[k] + 0.3 * LINE[k] + 0.2 * under(y)[k])) as RGB);
+    for (const x of [10, 11]) expect(K.alpha[at(x, 60)]).toBe(1);
+  });
+
   it('keeps a highlight the backdrop does not reach solid, though the hair and the backdrop could mix to it', () => {
     // pink cartoon hair with white highlights: one deep in the hair, one 6 px from the backdrop behind the hair's edge
     // and a touch greener, as near to the key as a third of the backdrop under a lighter pink would be
