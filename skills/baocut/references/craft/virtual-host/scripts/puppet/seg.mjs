@@ -6,12 +6,16 @@ import { smoothFill } from './fill.mjs';
 // a band pixel is unmixed against the colour round it only when that colour is this far from the backdrop (an iris
 // or a mint sleeve nearer the key reads no better that way) and the pixel lies within MIX_FIT of their mix
 const MIX_SEP = 80, MIX_FIT = 24, SPILL_TOL = 20;
-// a mix deeper in the hair than the band: within DEEP px of the backdrop, and a colour of the drawing within DEEP_OWN px
-const DEEP = 24, DEEP_OWN = 10;
+// a colour of the drawing leans at most LEAN_FREE towards the key (key excess over the key's own excess)
+const LEAN_FREE = 0.1;
+// a mix deeper in the hair than the band: within DEEP px of the backdrop, a colour of the hair within DEEP_OWN px, and
+// joined to the backdrop through such mixes or leaning GAP_LEAN further towards the key than the hair ever does
+const DEEP = 24, DEEP_OWN = 16, GAP_LEAN = 0.1;
 
 export const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
 function median(a) { const s = Array.from(a).sort((x, y) => x - y); return s[s.length >> 1] ?? 0; }
+function quantile(a, t) { const s = Array.from(a).sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(t * s.length))] ?? 0; }
 
 /** the key colour: median of the border */
 export function borderColor(im) {
@@ -67,22 +71,8 @@ export function keyOut(im, o = {}) {
   // also sees the drawing's own colour round each pixel: the solid colours just inside it that lean no way towards the
   // key, spread out over the band (a shaded pocket of backdrop is no colour of the drawing; nor, here, is green hair)
   const own = { w, h, d: new Uint8ClampedArray(d) };
-  smoothFill(own, band, and(erode(not(or(bg, band)), w, h, 1), Uint8Array.from(ex, (v) => (v <= 0.1 ? 1 : 0))), w, h, { iters: 8 });
-  // painted hair shows the backdrop between its outer locks further in than the band, darkened by the locks (an olive
-  // between brown locks) and too little keyed to join it. Where the caller says gaps can be (o.holes) and the hair's
-  // own colour has no key excess (the median of its core: dark green or olive hair would read as such a mix), a pixel
-  // within DEEP of the backdrop that leans towards the key is a mix when the backdrop behind it and a lighter or darker
-  // shade of the drawing's colour right by it explain it; a green streak in the hair is no such mix and stays solid
-  const deep = new Uint8Array(n);
-  if (o.holes) {
-    const core = erode(and(o.holes, not(or(bg, band))), w, h, 4), hx = [];
-    for (let p = 0; p < n; p++) if (core[p]) hx.push(ex[p]);
-    if (hx.length && median(hx) <= 0) {
-      const known = Uint8Array.from(ex, (v, p) => (!bg[p] && !band[p] && v <= 0.1 ? 1 : 0)), byKnown = distTo(known, w, h);
-      for (let p = 0; p < n; p++) if (o.holes[p] && !bg[p] && !band[p] && ex[p] > 0.1 && near[p] <= DEEP && byKnown[p] <= DEEP_OWN) deep[p] = 1;
-      smoothFill(own, deep, known, w, h, { iters: 8 });
-    }
-  }
+  const ownFrom = and(erode(not(or(bg, band)), w, h, 1), Uint8Array.from(ex, (v) => (v <= LEAN_FREE ? 1 : 0)));
+  smoothFill(own, band, ownFrom, w, h, { iters: 8 });
   // the key behind a pixel: the mean of the background round it, since a generated backdrop is not one flat colour
   // (8 px round it, or as far as the nearest background when that is further)
   const under = (p) => {
@@ -99,23 +89,52 @@ export function keyOut(im, o = {}) {
     }
     return key;
   };
+  // painted hair shows the backdrop between its outer locks further in than the band, darkened by the locks (an olive
+  // between brown locks) and too little keyed to join it. Where the caller says gaps can be (o.holes) and the hair's
+  // own colour has no key excess (the median of its core: dark green or olive hair would read as such a mix), a pixel
+  // within DEEP of the backdrop is such a gap when
+  // - it leans further towards the key than the hair does away from the backdrop (lim: the 99th percentile of the core
+  //   beyond DEEP, at most LEAN_FREE; brown hair leans well short of 0.1, its olive mixes past it), and joins the
+  //   backdrop through such pixels or leans GAP_LEAN further still (a highlight inside the line round a cartoon's hair
+  //   does neither), and
+  // - the backdrop behind it and a lighter or darker shade of the hair's colour right by it explain it.
+  // A green streak in the hair is no such mix and stays solid.
+  const deepA = new Float32Array(n);
+  if (o.holes) {
+    const core = erode(and(o.holes, not(or(bg, band))), w, h, 4), hx = [], fx = [];
+    for (let p = 0; p < n; p++) if (core[p]) { hx.push(ex[p]); if (near[p] > DEEP) fx.push(ex[p]); }
+    if (hx.length && median(hx) <= 0) {
+      const lim = Math.min(LEAN_FREE, fx.length ? quantile(fx, 0.99) : LEAN_FREE);
+      const known = Uint8Array.from(ex, (v, p) => (!bg[p] && !band[p] && v <= lim ? 1 : 0)), byKnown = distTo(known, w, h);
+      const reach = grow(bg, Uint8Array.from(ex, (v, p) => (bg[p] || (o.holes[p] && v > lim && near[p] <= DEEP) ? 1 : 0)), w, h);
+      const deep = Uint8Array.from(reach, (v, p) => ((v || (o.holes[p] && ex[p] > lim + GAP_LEAN && near[p] <= DEEP)) && !bg[p] && !band[p] && byKnown[p] <= DEEP_OWN ? 1 : 0));
+      smoothFill(own, deep, known, w, h, { iters: 8 });
+      let found = 0;
+      for (let p = 0; p < n; p++) {
+        if (!deep[p]) continue;
+        // p = s*own + b*under: the backdrop shows through at b, behind a drawing s/(1-b) times the colour round it
+        const i = 4 * p, u = under(p), O = [own.d[i], own.d[i + 1], own.d[i + 2]], P = [d[i], d[i + 1], d[i + 2]];
+        const dot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2], oo = dot(O, O), ou = dot(O, u), uu = dot(u, u), det = oo * uu - ou * ou;
+        if (det <= 1e-6 * oo * uu) continue;
+        const s = (uu * dot(O, P) - ou * dot(u, P)) / det, b = (oo * dot(u, P) - ou * dot(O, P)) / det;
+        const fit = Math.hypot(...[0, 1, 2].map((k) => P[k] - s * O[k] - b * u[k]));
+        if (b > 0 && b < 1 && s >= 0 && fit <= MIX_FIT) { deepA[p] = 1 - b; found++; }
+      }
+      // nor is such a mix a colour of the drawing for the band: read from it, the band's own colour turns olive and so
+      // keeps a thin strand olive. In the hair the band takes the colour round it again without them
+      if (found) {
+        const again = { w, h, d: new Uint8ClampedArray(d) };
+        smoothFill(again, band, and(ownFrom, Uint8Array.from(deepA, (v) => (v > 0 ? 0 : 1))), w, h, { iters: 8 });
+        for (let p = 0; p < n; p++) if (band[p] && o.holes[p]) for (let k = 0; k < 3; k++) own.d[4 * p + k] = again.d[4 * p + k];
+      }
+    }
+  }
   const alpha = new Float32Array(n), fg = { w, h, d: new Uint8ClampedArray(n * 4) }, clean = { w, h, d: new Uint8ClampedArray(d) };
   for (let p = 0; p < n; p++) {
     const i = p * 4;
     if (bg[p]) { alpha[p] = 0; continue; }
     let a = 1, u = key, mixed = band[p];
-    if (deep[p]) {
-      // p = s*own + b*under: the backdrop shows through at b, behind a drawing s/(1-b) times the colour round it
-      u = under(p);
-      const O = [own.d[i], own.d[i + 1], own.d[i + 2]], P = [d[i], d[i + 1], d[i + 2]];
-      const dot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2], oo = dot(O, O), ou = dot(O, u), uu = dot(u, u), det = oo * uu - ou * ou;
-      if (det > 1e-6 * oo * uu) {
-        const s = (uu * dot(O, P) - ou * dot(u, P)) / det, b = (oo * dot(u, P) - ou * dot(O, P)) / det;
-        const fit = Math.hypot(...[0, 1, 2].map((k) => P[k] - s * O[k] - b * u[k]));
-        if (b > 0 && b < 1 && s >= 0 && fit <= MIX_FIT) { a = 1 - b; mixed = true; }
-      }
-      if (!mixed) u = key;
-    }
+    if (deepA[p] > 0) { u = under(p); a = deepA[p]; mixed = true; }
     if (band[p]) {
       // character colours here (black lines, skin) carry no key excess
       u = under(p);

@@ -859,6 +859,42 @@ describe('virtual-host key removal', () => {
     expect(K.alpha[at(15, 60)]).toBe(1);
     expect(K.alpha[at(15, 30)]).toBe(1);
   });
+
+  it('unmixes thin outer strands against the hair, not against the olive they make with the backdrop', () => {
+    // brown hair whose outer 15 px are thin strands: 30% backdrop all through, an olive leaning barely towards the key,
+    // with no pixel of the hair's own colour nearer than 13 px to the edge band
+    const BROWN: RGB = [120, 60, 30];
+    const d = new Uint8ClampedArray(W * H * 4), hair = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      if (x >= 10 && x < 70 && y >= 10 && y < 110) { c = x < 25 ? mix(BROWN, under(y), 0.3) : BROWN; hair[at(x, y)] = 1; }
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    const K = keyOut({ w: W, h: H, d }, { holes: hair });
+    // in the strands and in the edge band beside the backdrop alike
+    for (const p of [at(18, 60), at(11, 60)]) {
+      expect(Math.abs(K.alpha[p] - 0.7)).toBeLessThan(0.05);
+      for (let k = 0; k < 3; k++) expect(Math.abs(K.fg.d[4 * p + k] - BROWN[k])).toBeLessThan(8);
+    }
+    expect(K.alpha[at(40, 60)]).toBe(1);
+  });
+
+  it('keeps a highlight the backdrop does not reach solid, though the hair and the backdrop could mix to it', () => {
+    // pink cartoon hair with white highlights: one deep in the hair, one 6 px from the backdrop behind the hair's edge
+    // and a touch greener, as near to the key as a third of the backdrop under a lighter pink would be
+    const PINK: RGB = [200, 120, 160];
+    const d = new Uint8ClampedArray(W * H * 4), hair = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      if (x >= 10 && x < 110 && y >= 10 && y < 110) { c = PINK; hair[at(x, y)] = 1; }
+      if (y >= 30 && y < 90 && x >= 58 && x < 62) c = [250, 232, 245];
+      if (y >= 30 && y < 90 && x >= 16 && x < 20) c = [248, 238, 245];
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    const K = keyOut({ w: W, h: H, d }, { holes: hair });
+    expect(K.alpha[at(17, 60)]).toBe(1);
+    expect(K.alpha[at(60, 60)]).toBe(1);
+  });
 });
 
 describe('virtual-host expression eye regions', () => {
