@@ -4,6 +4,21 @@ import { defaultSessionsDir, legacySessionsDir, resolveRuntimeHome } from './hom
 
 const user = path.resolve('/Users/me');
 
+describe('默认项目目录', () => {
+  it('默认 Home 是 ~/BaoCut，不论有没有显式给出 BAOCUT_HOME（CLI 拉起时总会给）', () => {
+    expect(resolveRuntimeHome({}, 'darwin', user).projectsDir).toBe(path.join(user, 'BaoCut'));
+    expect(resolveRuntimeHome({ BAOCUT_HOME: path.join(user, '.baocut') }, 'darwin', user).projectsDir).toBe(path.join(user, 'BaoCut'));
+  });
+
+  it('别的 Home 放到 <home>/projects；BAOCUT_PROJECTS_DIR 优先', () => {
+    const dev = path.join(user, 'repo', '.dev', 'baocut-home');
+    expect(resolveRuntimeHome({ BAOCUT_HOME: dev }, 'darwin', user).projectsDir).toBe(path.join(dev, 'projects'));
+    const custom = path.join(user, 'Videos', 'Projects');
+    expect(resolveRuntimeHome({ BAOCUT_PROJECTS_DIR: custom }, 'darwin', user).projectsDir).toBe(custom);
+    expect(resolveRuntimeHome({ BAOCUT_HOME: dev, BAOCUT_PROJECTS_DIR: custom }, 'darwin', user).projectsDir).toBe(custom);
+  });
+});
+
 describe('无项目会话的工作目录（架构设计 §3.10）', () => {
   it('默认 Home 用影片文件夹；不论有没有显式给出 BAOCUT_HOME（桌面端拉起时总会给）都一样', () => {
     const implicit = resolveRuntimeHome({}, 'darwin', user);

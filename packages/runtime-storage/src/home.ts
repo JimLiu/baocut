@@ -44,8 +44,9 @@ import path from 'node:path';
  *   logs/runtime.log
  * ```
  *
- * 「新建项目」的目录不在 Home 里，而在 `projectsDir`：默认 `~/BaoCut`，
- * 指定了 `BAOCUT_HOME`（开发、测试）时跟着放到 `<home>/projects`，`BAOCUT_PROJECTS_DIR` 可以覆盖。
+ * 「新建项目」的目录不在 Home 里，而在 `projectsDir`：默认 Home `~/.baocut` 是 `~/BaoCut`，
+ * 别的 Home（开发、测试）跟着放到 `<home>/projects`，`BAOCUT_PROJECTS_DIR` 可以覆盖。与 `scratchDir` 一样按 Home 的位置决定：
+ * CLI 拉起 Runtime 时总会给出 `BAOCUT_HOME`，按有没有给它决定的话，默认 Home 上 CLI 与桌面端会落到不同的目录。
  *
  * 无项目会话的工作目录（`scratchDir`，一个会话一个子目录，视频可以一直留在里面）放在用户的影片文件夹里（`defaultSessionsDir`）：
  * 里面是视频与媒体，要让用户在文件管理器里看得见、自己清理，不放进系统给应用的数据目录。
@@ -122,13 +123,13 @@ export function resolveRuntimeHome(
 ): RuntimeHome {
   const defaultRoot = path.join(userHome, '.baocut');
   const root = path.resolve(env.BAOCUT_HOME || defaultRoot);
+  const isDefaultRoot = platform === 'win32' ? root.toLowerCase() === defaultRoot.toLowerCase() : root === defaultRoot;
   const projectsDir = env.BAOCUT_PROJECTS_DIR
     ? path.resolve(env.BAOCUT_PROJECTS_DIR)
-    : env.BAOCUT_HOME
-      ? path.join(root, 'projects')
-      : path.join(userHome, 'BaoCut');
+    : isDefaultRoot
+      ? path.join(userHome, 'BaoCut')
+      : path.join(root, 'projects');
   const homeScratch = path.join(root, 'scratch');
-  const isDefaultRoot = platform === 'win32' ? root.toLowerCase() === defaultRoot.toLowerCase() : root === defaultRoot;
   const scratchDir = env.BAOCUT_SESSIONS_DIR
     ? path.resolve(env.BAOCUT_SESSIONS_DIR)
     : isDefaultRoot
