@@ -1087,6 +1087,42 @@ describe('virtual-host key removal', () => {
     for (const x of [10, 11]) expect(K.alpha[at(x, 60)]).toBe(1);
   });
 
+  // brown hair with pale highlights deep in it, as painted hair has: they lean further towards the key than a quarter of
+  // the backdrop under a sunlit strand does, so such a strand passes for a colour of the hair
+  const GOLD: RGB = [180, 90, 45], PALE: RGB = [230, 220, 120];
+  const fringed = (edge: (x: number, y: number) => RGB | null) => {
+    const d = new Uint8ClampedArray(W * H * 4), hair = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      if (x >= 10 && x < 110 && y >= 10 && y < 110) {
+        c = (y >= 30 && y < 90 && edge(x, y)) || (x >= 60 && x < 62 && y >= 20 && y < 100 ? PALE : BROWN);
+        hair[at(x, y)] = 1;
+      }
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    return keyOut({ w: W, h: H, d }, { holes: hair });
+  };
+
+  it('unmixes a strand right by a gap the backdrop shows through, though it leans towards the key no more than the hair\'s highlights', () => {
+    // the outer 5 px are a sunlit strand 45% over the backdrop (the edge band and a gap past it), the next pixel the
+    // strand a quarter over the backdrop: olive, but no further towards the key than the pale highlights
+    const K = fringed((x, y) => (x < 15 ? mix(GOLD, under(y), 0.45) : x === 15 ? mix(GOLD, under(y), 0.25) : null));
+    const p = at(15, 60);
+    expect(Math.abs(K.alpha[p] - 0.75)).toBeLessThan(0.03);
+    for (let k = 0; k < 3; k++) expect(Math.abs(K.fg.d[4 * p + k] - GOLD[k])).toBeLessThan(6);
+    // the gap beside it reads its colour from the hair, not from that strand
+    const q = at(13, 60);
+    expect(Math.abs(K.alpha[q] - 0.55)).toBeLessThan(0.03);
+    for (let k = 0; k < 3; k++) expect(Math.abs(K.fg.d[4 * q + k] - GOLD[k])).toBeLessThan(6);
+    expect(K.alpha[at(60, 60)]).toBe(1);
+  });
+
+  it('keeps a light rim inside the line round the hair solid, though it is as olive as a strand by a gap', () => {
+    const LINE: RGB = [40, 20, 30];
+    const K = fringed((x, y) => (x < 13 ? LINE : x < 16 ? mix(GOLD, under(y), 0.25) : null));
+    for (const x of [13, 14, 15]) expect(K.alpha[at(x, 60)]).toBe(1);
+  });
+
   it('keeps a highlight the backdrop does not reach solid, though the hair and the backdrop could mix to it', () => {
     // pink cartoon hair with white highlights: one deep in the hair, one 6 px from the backdrop behind the hair's edge
     // and a touch greener, as near to the key as a third of the backdrop under a lighter pink would be

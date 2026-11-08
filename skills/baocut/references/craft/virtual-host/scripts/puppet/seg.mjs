@@ -11,6 +11,9 @@ const LEAN_FREE = 0.1;
 // a mix deeper in the hair than the band: within DEEP px of the backdrop, a colour of the hair within DEEP_OWN px, and
 // joined to the backdrop through such mixes or leaning GAP_LEAN further towards the key than the hair ever does
 const DEEP = 24, DEEP_OWN = 16, GAP_LEAN = 0.1;
+// a pixel right by such a mix is one too when at least BY_GAP of it is the backdrop (with less, a shade painted beside
+// the gap could explain it as well)
+const BY_GAP = 0.1;
 
 export const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
@@ -128,6 +131,37 @@ export function keyOut(im, o = {}) {
         if (!deep[p]) continue;
         const i = 4 * p, m = shadeMix([d[i], d[i + 1], d[i + 2]], [own.d[i], own.d[i + 1], own.d[i + 2]], under(p));
         if (m) { deepA[p] = m.alpha; found++; }
+      }
+      // a strand right by such a gap is partly the gap: the backdrop shows through it less, too little to lean past lim,
+      // olive all the same (a sunlit strand a quarter backdrop). Under lim it counted as a colour of the hair, so the gap
+      // beside it took it for the hair's own colour too. A pixel by a gap (one of its 8 neighbours a mix above) is such
+      // a mix where the backdrop and a shade of the hair explain it with at least BY_GAP of backdrop: a shade of the
+      // core's colour (the half of the core leaning least towards the key, itself no mix; the colour round it is these
+      // strands). A light rim inside the line round a cartoon's hair has no gap by it and stays the drawing. The gaps
+      // then read their colour again without these strands
+      const hm = median(hx), pure = Uint8Array.from(ex, (v, p) => (core[p] && v <= hm ? 1 : 0)), byGap = new Uint8Array(n);
+      for (let p = 0; p < n; p++) {
+        if (!known[p] || pure[p] || !o.holes[p] || near[p] > DEEP) continue;
+        const x = p % w, y = (p - x) / w;
+        for (let j = Math.max(0, y - 1); j <= Math.min(h - 1, y + 1); j++) for (let i = Math.max(0, x - 1); i <= Math.min(w - 1, x + 1); i++) if (deepA[j * w + i] > 0) byGap[p] = 1;
+      }
+      if (count(byGap)) {
+        const ref = { w, h, d: new Uint8ClampedArray(d) }, strand = new Uint8Array(n);
+        smoothFill(ref, byGap, pure, w, h, { iters: 8 });
+        for (let p = 0; p < n; p++) {
+          if (!byGap[p]) continue;
+          const i = 4 * p, O = [ref.d[i], ref.d[i + 1], ref.d[i + 2]], m = shadeMix([d[i], d[i + 1], d[i + 2]], O, under(p));
+          if (m && m.alpha <= 1 - BY_GAP) { deepA[p] = m.alpha; strand[p] = 1; for (let k = 0; k < 3; k++) own.d[i + k] = O[k]; }
+        }
+        if (count(strand)) {
+          const again = { w, h, d: new Uint8ClampedArray(d) };
+          smoothFill(again, deep, and(known, not(strand)), w, h, { iters: 8 });
+          for (let p = 0; p < n; p++) {
+            if (!deep[p]) continue;
+            const i = 4 * p, O = [again.d[i], again.d[i + 1], again.d[i + 2]], m = shadeMix([d[i], d[i + 1], d[i + 2]], O, under(p));
+            if (m) { if (!(deepA[p] > 0)) found++; deepA[p] = m.alpha; for (let k = 0; k < 3; k++) own.d[i + k] = O[k]; }
+          }
+        }
       }
       // nor is such a mix a colour of the drawing for the band: read from it, the band's own colour turns olive and so
       // keeps a thin strand olive. In the hair the band takes the colour round it again without them
