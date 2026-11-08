@@ -409,8 +409,10 @@ mod tests {
 
     #[test]
     fn images_are_an_alternative_to_texts() {
+        // 图像路径必须是本机的绝对路径：Windows 上 `/a.jpg` 不算。
+        let absolute = if cfg!(windows) { r"C:\a.jpg" } else { "/a.jpg" };
         let both = crate::protocol::parse_params::<EmbedRunParams>(json!({
-            "requestId": "q", "texts": ["a"], "images": ["/a.jpg"], "outputSize": 768, "insertSpecialTokens": true,
+            "requestId": "q", "texts": ["a"], "images": [absolute], "outputSize": 768, "insertSpecialTokens": true,
         }))
         .unwrap();
         assert_eq!(both.validate().unwrap_err().code, codes::INVALID_PARAMS);
@@ -418,12 +420,12 @@ mod tests {
             images: paths.iter().map(|path| (*path).to_owned()).collect(),
             ..params(&[], 768)
         };
-        assert!(images(&["/a.jpg"]).validate().is_ok());
+        assert!(images(&[absolute]).validate().is_ok());
         assert_eq!(
-            images(&["/a.jpg"; MAX_IMAGE_BATCH + 1]).validate().unwrap_err().code,
+            images(&[absolute; MAX_IMAGE_BATCH + 1]).validate().unwrap_err().code,
             codes::INVALID_PARAMS
         );
-        assert_eq!(images(&["/a.jpg", "b.jpg"]).validate().unwrap_err().details.unwrap()["index"], 1);
+        assert_eq!(images(&[absolute, "b.jpg"]).validate().unwrap_err().details.unwrap()["index"], 1);
 
         // 文字引擎（默认实现）不接图像。
         let dir = tempfile::tempdir().unwrap();

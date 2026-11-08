@@ -1,5 +1,5 @@
 import type { ComponentRelease } from './bundle-registry.ts';
-import { hostPlatformKey, releaseAsset } from './release-component.ts';
+import { bundledReleaseAsset, hostPlatformKey, releaseAsset } from './release-component.ts';
 
 /**
  * 内置的仓库清单（架构设计 §6.3；Model Worker 协议规范 §4）：每个登记的组件（上游仓库的一个固定版本）要下载哪些文件，
@@ -653,7 +653,8 @@ export function repoManifestFor(
 /**
  * 一组组件（仓库与版本）的权重总字节数：按内置清单的文件大小加起来，大小未知的仓库用 `estimatedBytes`。有组件没有登记清单时
  * null（不知道多大）。用来估计 Model Worker 加载它们要多少内存，也是下载前显示的大小。来自发布页的组件（`release`，audio.cpp 引擎）
- * 按 `platformKey` 这个平台的压缩包大小算，这个平台没有压缩包时 null。
+ * 按 `platformKey` 这个平台的压缩包大小算（随应用分发的平台按打包用的压缩包；它总是装好的，界面不把它算进要下载的大小），这个平台
+ * 两者都没有时 null。
  */
 export function weightBytes(
   sources: ReadonlyArray<{ repo: string; revision: string; release?: ComponentRelease; local?: { size: number } }>,
@@ -668,7 +669,7 @@ export function weightBytes(
       continue;
     }
     if (source.release) {
-      const asset = releaseAsset(source.release, platformKey);
+      const asset = releaseAsset(source.release, platformKey) ?? bundledReleaseAsset(source.release, platformKey);
       if (!asset) return null;
       total += asset.size;
       continue;

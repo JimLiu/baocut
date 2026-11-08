@@ -1,6 +1,7 @@
 // 构建原生进程：视频引擎（engine-host）、Render Worker（export-worker）、speech-worker、人脸检测（face-detect）、抠像（matte）与本地推理进程（model-worker）。
-// model-worker 的推理后端随平台（架构设计 §6.5）：Apple Silicon 的 macOS 用默认 feature（MLX + Core ML）；
-// 别的平台关掉默认 feature、开 candle 与 whisper.cpp 的 Whisper（`whisper-ggml`，构建要 CMake 与 C++ 编译器）。
+// model-worker 的推理后端随平台（架构设计 §6.5）：Apple Silicon 的 macOS 用默认 feature（MLX + Core ML + LiteRT-LM）；
+// 别的平台关掉默认 feature、开 candle、whisper.cpp 的 Whisper（`whisper-ggml`，构建要 CMake 与 C++ 编译器）与 LiteRT-LM 的文本嵌入
+// （`backend-litert`，运行期才打开 C 库，构建不要额外的工具链；Windows 的 C 库由 `npm run build:litertlm-runtime` 放好）。
 // BAOCUT_WORKER_FEATURES（逗号分隔）再追加 feature，例如 NVIDIA 显卡上设 `cuda,whisper-ggml-cuda`（candle 与 Whisper 都走 CUDA，
 // 要 CUDA Toolkit；没有 GPU 的构建机另设 CMAKE_CUDA_ARCHITECTURES），AMD / Intel 显卡上设 `whisper-ggml-vulkan`（要 Vulkan SDK）。
 // 其余参数原样交给两次 cargo build（例如 `npm run build:engine -- --release`）。
@@ -14,14 +15,14 @@ import { ensureCargo } from './cargo-path.mjs';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const extra = process.argv.slice(2);
 
-/** model-worker 的 feature 参数：Apple Silicon 的 macOS 保留默认，其余平台换成 candle 与 whisper-ggml；再加上环境变量里的。 */
+/** model-worker 的 feature 参数：Apple Silicon 的 macOS 保留默认，其余平台换成 candle、whisper-ggml 与 backend-litert；再加上环境变量里的。 */
 function modelWorkerFeatureArgs(platform, arch, workerFeatures) {
   const added = (workerFeatures ?? '')
     .split(',')
     .map((feature) => feature.trim())
     .filter(Boolean);
   if (platform === 'darwin' && arch === 'arm64') return added.length ? ['--features', added.join(',')] : [];
-  const base = ['backend-candle', 'whisper-ggml'];
+  const base = ['backend-candle', 'whisper-ggml', 'backend-litert'];
   return ['--no-default-features', '--features', [...base, ...added.filter((f) => !base.includes(f))].join(',')];
 }
 

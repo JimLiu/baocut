@@ -4,6 +4,8 @@ export const ptBR: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0: uso gratuito, inclusive comercial; ao redistribuir, mantenha os avisos de direitos autorais e de licença',
   runtimeNoBuild: (p: { platform: string }) => `O LiteRT-LM não tem uma compilação para esta máquina (${p.platform}), então a busca semântica local ainda não está disponível aqui`,
   runtimeNotInstalled: (p: { version: string }) => `O LiteRT-LM ${p.version} não está instalado`,
+  runtimeNotBundled: (p: { platform: string }) => `Esta cópia do BaoCut não inclui a biblioteca de execução do LiteRT-LM para esta máquina (${p.platform}), então a busca semântica local não está disponível. Reinstale o BaoCut`,
+  runtimeBundledDamaged: 'A biblioteca de execução do LiteRT-LM que acompanha o BaoCut está danificada. Reinstale o BaoCut',
   countMismatch: (p: { expected: number; actual: number }) => `Eram esperados ${p.expected} vetores, mas vieram ${p.actual}`,
   wrongDims: (p: { expected: number; actual: number }) => `Um vetor tem ${p.actual} dimensões em vez de ${p.expected}`,
   notFinite: 'Um vetor contém um valor que não é um número finito',

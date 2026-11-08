@@ -101,7 +101,7 @@ Space / 编辑器 / CLI / AI 智能体
 
 **产品主后端：** LiteRT-LM，优先使用分发的量化包。在现有 Rust Model Worker 中增加 `litert-lm` 后端，C++ shim 通过窄 C ABI 提供创建/销毁/批量编码/能力探测。不要重写 Gemma 4 网络，也不因为 BaoCut 已有 Candle/MLX 就假定它们已支持这个模型。
 
-**实现（2026-10-13 修订）：** 不写 C++ shim。LiteRT-LM 0.18.0 发布页自带 C API（`CLiteRTLM_mac.xcframework`，`litert_lm_embedding_engine_*`），Model Worker 的 `litert-lm` 后端在运行期 `dlopen` 它（libloading），构建时不链接；库是共享组件 `litertlm-runtime`，随模型包从发布页下载、校验 SHA-256（[Model Worker 协议 §4.5](../../spec/model-worker-protocol-spec.md)）。C API 自己捕获 C++ 异常、返回空指针与线程局部的错误文字，所有权按 G0 记录的调用顺序（`tools/embedding-eval/README.md`）。G0 已验证 C API 与 Python 轮子逐向量相同。
+**实现（2026-10-13 修订）：** 不写 C++ shim。LiteRT-LM 0.18.0 发布页自带 C API（`CLiteRTLM_mac.xcframework`，`litert_lm_embedding_engine_*`），Model Worker 的 `litert-lm` 后端在运行期 `dlopen` 它（libloading），构建时不链接；库是共享组件 `litertlm-runtime`，随模型包从发布页下载、校验 SHA-256（[Model Worker 协议 §4.5](../../spec/model-worker-protocol-spec.md)）；上游没有发布的 Windows x64 由 BaoCut 从同一版本的源码构建、随安装包分发（§4.3）。C API 自己捕获 C++ 异常、返回空指针与线程局部的错误文字，所有权按 G0 记录的调用顺序（`tools/embedding-eval/README.md`）。G0 已验证 C API 与 Python 轮子逐向量相同。
 
 LiteRT-LM 的实际 C++ `EmbeddingEngine` 提供 `ComputeEmbedding`、`ComputeEmbeddingBatch`，返回 embedding、input_length、truncated_length 和 num_chunks；配置提供输出维度、归一化和输入溢出处理。[S5][R11]
 
@@ -138,7 +138,9 @@ WorkerHello     += embeddingCapabilities（按协商版本可选）
 
 **首版实际（2026-10-13）：** 只有 macOS Apple Silicon 登记了 `litertlm-runtime` 库包（CPU）。上游 0.18.0 没有 Windows、Linux 的 C 库；macOS Intel 的 Model Worker 构建暂不带 `backend-litert`，所以这些平台的文本嵌入模型包显示 `unsupported`，语义检索退回字面。GPU 见 §4.4（2026-10-14 起 macOS 上文字编码默认用 GPU）。发布构建启用 hardened runtime 时，`dlopen` 别家签名的库要给 Model Worker 关掉库验证（`com.apple.security.cs.disable-library-validation`），这是发布前待定的签名事项。
 
-设置页把这种 `unsupported` 写明为当前版本不支持 Runtime 所在电脑的系统与架构、缺少对应的语义模型运行库；不写成硬件性能不足或模型自检失败，不承诺后续支持时间。Web 看的是连接的 Runtime 的平台，不是浏览器所在电脑。
+**Windows x64（2026-11-08）：** 上游 0.18.0 仍没有 Windows 的 C 库，BaoCut 按上游 CI 的方式从未修改的 v0.18.0 源码构建 `litert-lm.dll`（Bazel + MSVC，上游的 `windows` 配置，含 `/arch:AVX2`；另加上游开关 `LITERT_LM_FST_CONSTRAINTS_DISABLED`，不链接嵌入用不到的预编译约束解码库），压缩包提交在 `packages/models/vendor/litertlm-runtime/`（来源、重建步骤与核对记录见那里的 README），打包时解开到安装包的 `<resources>/bin/litertlm-runtime/` 并写组件清单。这个组件在 Windows 上不下载（`ComponentRelease.bundled`）：模型目录把应用里的目录当作已装好的组件，安装模型包只下载权重，删除模型包不动它；应用里没有时（开发时没放、不是带它的安装包）模型包是 `unsupported`，说明要重新安装 BaoCut。三个 Windows 变体的 Model Worker 都带 `backend-litert`，只用 CPU（不带 GPU 委托）；DLL 只依赖系统组件与 VC++ v14 运行库，与 Windows 版的既有要求相同。实测（i7-12700F / Windows 11 x64，CPU）：两个模型包按上面的方式安装、校验通过；文字向量与 `darwin-arm64/cpu` 的参考逐条余弦 0.99948–1.0，参考帧 0.99476；文字检索评测（`search-eval.ts`）的语义与混合两路 R@1 0.815、R@5 1、MRR 0.901，与 macOS 基线相同。语义索引在 Runtime 所在电脑的缓存目录里，不跨电脑共用，所以不同平台的细微数值差不进向量身份；参考向量照 §5.3 按平台存（`win32-x64/cpu`），Windows 上换实现时与它比。
+
+设置页把其余平台（Linux、Intel Mac）的 `unsupported` 写明为当前版本不支持 Runtime 所在电脑的系统与架构、缺少对应的语义模型运行库；不写成硬件性能不足或模型自检失败，不承诺后续支持时间。Web 看的是连接的 Runtime 的平台，不是浏览器所在电脑。
 
 官方提供跨平台 LiteRT 能力不等于 BaoCut 的这些构建已验证。[S4] 发布前固定 SDK tag/commit、模型 revision、每个文件的 SHA-256、许可证、目标架构、系统最低要求和 GPU delegate 文件。不把开发机上的自动选择行为当作发布合同。
 
@@ -645,7 +647,7 @@ P0 原型不是只打印一条向量。必须给出：锁定依赖的运行脚�
 
 相同后端/profile 的结果应满足数值有限、范数正确和重复输入稳定性。跨后端以实际检索指标为首要门槛；可先设 Recall@10 下降不超过 2 个百分点作为候选标准，由数据决定，不以“余弦接近 1”单独证明可混用。
 
-**G0 执行情况（2026-10-12，`tools/embedding-eval/`）：** 已完成锁定依赖的脚本、参考与 LiteRT 两路 Top-K、两套前缀比较、CPU/GPU 一致性、C API 与轮子逐向量比较（完全相同）、内存与 dylib 大小。参考权重与 LiteRT 包不同空间（同输入余弦最低 0.963）；LiteRT CPU 与 GPU 在 FP32 激活下可作为同空间候选（最低 0.997），GPU 默认激活要单独的 `encoderProfileId`。小夹具上 Recall@10 已饱和，2 个百分点的门槛无法判定，要等 §18.1 的标注集。未做：多帧顺序与采样、Windows 与 Intel Mac。所有阈值仍未校准。
+**G0 执行情况（2026-10-12，`tools/embedding-eval/`）：** 已完成锁定依赖的脚本、参考与 LiteRT 两路 Top-K、两套前缀比较、CPU/GPU 一致性、C API 与轮子逐向量比较（完全相同）、内存与 dylib 大小。参考权重与 LiteRT 包不同空间（同输入余弦最低 0.963）；LiteRT CPU 与 GPU 在 FP32 激活下可作为同空间候选（最低 0.997），GPU 默认激活要单独的 `encoderProfileId`。小夹具上 Recall@10 已饱和，2 个百分点的门槛无法判定，要等 §18.1 的标注集。未做：多帧顺序与采样、Intel Mac（Windows x64 的 CPU 于 2026-11-08 补做，见 §4.3）。所有阈值仍未校准。
 
 **多模态 G0（2026-10-13，[报告](../../../tools/embedding-eval/reports/g0-multimodal-2026-10-13.md)）：** 740m 包在本机素材库 14 部视频、170 帧、72 条查询上测文字找图（代理看帧标注，未经人工核对）。按画面描述全库 R@1 41/41（中英文都是），屏幕上的大字与烧录字幕也能检到；不描述画面的口播句 R@1 0.778，前缀仍以 `modelcard-v1` 最好，图片不加前缀。视觉塔 CPU 与 GPU 不同空间：FP32 激活下帧向量余弦最低 0.977，检索也多错一条，画面索引只用 CPU 建或 GPU 帧向量单独记 `encoderProfileId`。`vision_tokens_per_image` 默认等于 140（280、560 建引擎失败），70 帧耗时降到约 40% 但口播句变差、向量不同（余弦最低 0.914），用默认值并写进指纹。文字对画面的正例与无答案分数重叠（视觉正例最低 0.670，无答案最高 0.685），0.70 只作未校准的弱命中起点，不沿用文字对文字的阈值。未做：音频塔、多帧 / clip 输入、按镜头切点采样的对比、小字。
 
@@ -675,7 +677,7 @@ PR 3 和 PR 4 期间不改旧索引表结构。PR 5 之前不把 API 原型宣�
 
 ## 21. 开发前必须落实、但不阻塞本文设计的事项
 
-**前缀与后端兼容性：** G0 已验证（§5.2、§18.3），锁定模型卡配对。**SDK 锁定：** macOS Apple Silicon 已用 LiteRT-LM 0.18.0 的 C API 完成集成（§4.1、§4.3）；其他平台等上游的 C 库，Intel Mac 要另出带 `backend-litert` 的构建；发布签名的库验证待定。**视频接口：** 原生 clip 输入或逐帧降级需由适配器测试决定。**性能：** 文中延迟/内存是验收设定，不是 BaoCut 实测。**时间映射：** 所有复杂编辑必须通过当前引擎能力或明确返回不支持。
+**前缀与后端兼容性：** G0 已验证（§5.2、§18.3），锁定模型卡配对。**SDK 锁定：** macOS Apple Silicon 已用 LiteRT-LM 0.18.0 的 C API 完成集成（§4.1、§4.3）；Windows x64 用 BaoCut 从同一版本源码构建、随安装包分发的 C 库（§4.3）；Linux 等上游的 C 库，Intel Mac 要另出带 `backend-litert` 的构建；发布签名的库验证待定。**视频接口：** 原生 clip 输入或逐帧降级需由适配器测试决定。**性能：** 文中延迟/内存是验收设定，不是 BaoCut 实测。**时间映射：** 所有复杂编辑必须通过当前引擎能力或明确返回不支持。
 
 这些是开发验收事项，不是要求用户重新选择架构的前置问题。
 

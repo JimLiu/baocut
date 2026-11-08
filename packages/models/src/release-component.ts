@@ -12,6 +12,8 @@ import { removeEmptyParents } from './model-staging.ts';
  *   `<文件名>.part`）与解开中的 `unpacked/`。
  * - 下载地址：给了工具下载镜像（设置 `tools.downloadEndpoint` 或 `BAOCUT_TOOLS_ENDPOINT`）时是 `<基址>/<name>/<version>/<文件名>`，
  *   否则是登记的官方地址模板（与受管外部工具的规则相同）。
+ * - 随应用分发的平台（`ComponentRelease.bundled`）没有下载地址与暂存区：组件目录是 `<resources>/bin/<name>/`（开发时 cargo 产物目录里
+ *   的 `<name>/`），由 Runtime 经 `ModelCatalogOptions.bundledToolDir` 告诉模型目录。
  */
 
 export const TOOLS_STAGING_DIR = '.bcut-staging';
@@ -23,9 +25,14 @@ export function hostPlatformKey(platform: string = process.platform, arch: strin
   return `${platform}-${arch}`;
 }
 
-/** 这个平台的压缩包；没有时 null（这个平台不支持）。 */
+/** 这个平台要下载的压缩包；没有时 null（随应用分发，或这个平台不支持）。 */
 export function releaseAsset(release: ComponentRelease, platformKey: string): ComponentReleaseAsset | null {
   return release.assets[platformKey] ?? null;
+}
+
+/** 这个平台随应用分发时打包用的压缩包（`ComponentRelease.bundled`）；要下载或不支持时 null。 */
+export function bundledReleaseAsset(release: ComponentRelease, platformKey: string): ComponentReleaseAsset | null {
+  return release.bundled?.[platformKey] ?? null;
 }
 
 /** 组件目录：`<toolsDir>/<name>/<version>/`。 */

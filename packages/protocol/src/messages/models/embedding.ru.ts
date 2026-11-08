@@ -4,6 +4,8 @@ export const ru: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0: можно использовать бесплатно, в том числе в коммерческих целях; при распространении сохраняйте уведомления об авторских правах и лицензии',
   runtimeNoBuild: (p: { platform: string }) => `Для этого компьютера (${p.platform}) нет сборки LiteRT-LM, поэтому локальный семантический поиск здесь пока недоступен`,
   runtimeNotInstalled: (p: { version: string }) => `LiteRT-LM ${p.version} не установлен`,
+  runtimeNotBundled: (p: { platform: string }) => `В этой копии BaoCut нет библиотеки среды выполнения LiteRT-LM для этого компьютера (${p.platform}), поэтому локальный семантический поиск недоступен. Переустановите BaoCut`,
+  runtimeBundledDamaged: 'Библиотека среды выполнения LiteRT-LM, поставляемая с BaoCut, повреждена. Переустановите BaoCut',
   countMismatch: (p: { expected: number; actual: number }) => `Ожидалось векторов: ${p.expected}, получено: ${p.actual}`,
   wrongDims: (p: { expected: number; actual: number }) => `У вектора ${p.actual} измерений вместо ${p.expected}`,
   notFinite: 'Вектор содержит значение, которое не является конечным числом',

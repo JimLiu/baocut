@@ -4,6 +4,8 @@ export const ko: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0: 상업적 용도를 포함해 무료로 사용할 수 있습니다. 재배포할 때는 저작권 및 라이선스 고지를 유지하세요',
   runtimeNoBuild: (p: { platform: string }) => `LiteRT-LM에 이 컴퓨터(${p.platform})용 빌드가 없어 여기서는 아직 로컬 의미 검색을 사용할 수 없습니다`,
   runtimeNotInstalled: (p: { version: string }) => `LiteRT-LM ${p.version}이(가) 설치되어 있지 않습니다`,
+  runtimeNotBundled: (p: { platform: string }) => `이 BaoCut에는 이 컴퓨터(${p.platform})용 LiteRT-LM 런타임 라이브러리가 포함되어 있지 않아 로컬 의미 검색을 사용할 수 없습니다. BaoCut을 다시 설치하세요`,
+  runtimeBundledDamaged: 'BaoCut에 포함된 LiteRT-LM 런타임 라이브러리가 손상되었습니다. BaoCut을 다시 설치하세요',
   countMismatch: (p: { expected: number; actual: number }) => `벡터 ${p.expected}개가 나와야 하는데 ${p.actual}개가 나왔습니다`,
   wrongDims: (p: { expected: number; actual: number }) => `차원이 ${p.expected}이(가) 아니라 ${p.actual}인 벡터가 있습니다`,
   notFinite: '유한하지 않은 값이 들어 있는 벡터가 있습니다',

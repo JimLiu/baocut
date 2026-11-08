@@ -63,6 +63,7 @@ export {
   parseAudioCppVersion,
 } from './audio-cpp-engine.ts';
 export {
+  bundledReleaseAsset,
   hostPlatformKey,
   releaseAsset,
   releaseDir,

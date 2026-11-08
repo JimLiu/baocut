@@ -4,6 +4,8 @@ export const de: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0: frei nutzbar, auch kommerziell; bei Weitergabe Urheberrechts- und Lizenzhinweise beibehalten',
   runtimeNoBuild: (p: { platform: string }) => `Für diesen Rechner (${p.platform}) gibt es keinen LiteRT-LM-Build, daher ist die lokale semantische Suche hier noch nicht verfügbar`,
   runtimeNotInstalled: (p: { version: string }) => `LiteRT-LM ${p.version} ist nicht installiert`,
+  runtimeNotBundled: (p: { platform: string }) => `Diese BaoCut-Installation enthält keine LiteRT-LM-Laufzeitbibliothek für diesen Rechner (${p.platform}), daher ist die lokale semantische Suche nicht verfügbar. BaoCut erneut installieren`,
+  runtimeBundledDamaged: 'Die mit BaoCut gelieferte LiteRT-LM-Laufzeitbibliothek ist beschädigt. BaoCut erneut installieren',
   countMismatch: (p: { expected: number; actual: number }) => `${p.expected} Vektoren erwartet, aber ${p.actual} erhalten`,
   wrongDims: (p: { expected: number; actual: number }) => `Ein Vektor hat ${p.actual} statt ${p.expected} Dimensionen`,
   notFinite: 'Ein Vektor enthält einen Wert, der keine endliche Zahl ist',

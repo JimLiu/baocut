@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BUNDLES } from './bundle-registry.ts';
 import {
@@ -53,9 +54,15 @@ describe('embedding 模型包的登记', () => {
     expect(EMBEDDING_TEXT_PREFERRED).toBe(MULTIMODAL.bundleId);
   });
 
-  it('LiteRT-LM 只有 macOS 的通用 dylib：在 xcframework 的子目录里，是交给 Worker 的动态库', () => {
+  it('LiteRT-LM 在 macOS 下载上游的通用 dylib（xcframework 的子目录里），在 Windows x64 随应用分发自己构建的 DLL', () => {
     expect(LITERTLM_RUNTIME_RELEASE).toMatchObject({ name: 'litertlm-runtime', version: '0.18.0', workerLibrary: true });
     expect(Object.keys(LITERTLM_RUNTIME_RELEASE.assets).sort()).toEqual(['darwin-arm64']);
+    expect(Object.keys(LITERTLM_RUNTIME_RELEASE.bundled ?? {}).sort()).toEqual(['win32-x64']);
+    expect(LITERTLM_RUNTIME_RELEASE.bundled!['win32-x64']).toMatchObject({
+      fileName: 'litertlm-runtime-0.18.0-win32-x64.zip',
+      archive: { format: 'zip', skip: [] },
+      executable: 'litert-lm.dll',
+    });
     const asset = LITERTLM_RUNTIME_RELEASE.assets['darwin-arm64']!;
     expect(asset).toMatchObject({
       fileName: 'CLiteRTLM_mac.xcframework.zip',
@@ -65,6 +72,14 @@ describe('embedding 模型包的登记', () => {
       executable: 'libCLiteRTLM_mac.dylib',
     });
     expect(LITERTLM_RUNTIME_COMPONENT).toMatchObject({ family: 'litertlm-runtime', repo: 'google-ai-edge/LiteRT-LM', revision: 'v0.18.0' });
+  });
+
+  it('仓库里的 Windows 压缩包与登记的大小、sha256 一致（打包按登记核对）', async () => {
+    const asset = LITERTLM_RUNTIME_RELEASE.bundled!['win32-x64']!;
+    const file = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'vendor', 'litertlm-runtime', asset.fileName);
+    const bytes = await fs.readFile(file);
+    expect(bytes.length).toBe(asset.size);
+    expect(crypto.createHash('sha256').update(bytes).digest('hex')).toBe(asset.sha256);
   });
 });
 
@@ -116,10 +131,10 @@ describe('embedding 模型包在目录里', () => {
     expect(footprint).toEqual({ pool: 'memory', bytes: 164626432 + 45143303 + EMBEDDING_WORKER_OVERHEAD_BYTES });
   });
 
-  it('Windows 与 Linux 没有动态库：error / unsupported，说明是 LiteRT-LM 没有这个平台的版本，不是 audio.cpp 引擎', async () => {
+  it('Linux 与 Intel Mac 没有动态库：error / unsupported，说明是 LiteRT-LM 没有这个平台的版本，不是 audio.cpp 引擎', async () => {
     for (const [platform, arch] of [
-      ['win32', 'x64'],
       ['linux', 'x64'],
+      ['darwin', 'x64'],
     ] as const) {
       const catalog = new ModelCatalog({ root: dir, platform, arch });
       const status = await catalog.status(TEXT.bundleId);
@@ -127,6 +142,36 @@ describe('embedding 模型包在目录里', () => {
       expect(status!.detailRef).toEqual({ key: 'modelsEmbedding.runtimeNoBuild', params: { platform: `${platform}-${arch}` } });
       expect(status!.detail).toContain('LiteRT-LM');
     }
+  });
+
+  it('Windows x64 用应用自带的 DLL：应用里有就只缺权重，交给 Worker 应用里的目录；应用里没有时 unsupported', async () => {
+    const bundledDir = path.join(dir, 'resources', 'bin', 'litertlm-runtime');
+    const without = new ModelCatalog({ root: dir, platform: 'win32', arch: 'x64' });
+    const missing = await without.status(TEXT.bundleId);
+    expect(missing).toMatchObject({ state: 'error', reason: 'unsupported' });
+    expect(missing!.detailRef).toEqual({ key: 'modelsEmbedding.runtimeNotBundled', params: { platform: 'win32-x64' } });
+
+    await writeComponent(bundledDir, LITERTLM_RUNTIME_COMPONENT, { 'litert-lm.dll': 'dll' });
+    const catalog = new ModelCatalog({
+      root: dir,
+      platform: 'win32',
+      arch: 'x64',
+      bundledToolDir: (name) => (name === 'litertlm-runtime' ? bundledDir : null),
+    });
+    const weightsOnly = await catalog.status(TEXT.bundleId);
+    expect(weightsOnly).toMatchObject({ state: 'not-installed' });
+    expect(weightsOnly!.components!.map((c) => [c.component, c.state])).toEqual([
+      ['embedding', 'missing'],
+      ['litertlm-runtime', 'installed'],
+    ]);
+    await writeModel();
+    catalog.changed(TEXT.bundleId);
+    expect(await catalog.status(TEXT.bundleId)).toMatchObject({ state: 'installed' });
+    const bundle = await catalog.bundleFor(TEXT.bundleId);
+    expect(bundle.components['litertlm-runtime']).toMatchObject({ dir: bundledDir, files: [{ path: 'litert-lm.dll', byteLength: 3 }] });
+    // 内存：模型文件 + 打包用的压缩包 + 余量，与 macOS 同一个算法。
+    const asset = LITERTLM_RUNTIME_RELEASE.bundled!['win32-x64']!;
+    expect(await catalog.workerFootprint(TEXT.bundleId)).toEqual({ pool: 'memory', bytes: 164626432 + asset.size + EMBEDDING_WORKER_OVERHEAD_BYTES });
   });
 });
 

@@ -54,6 +54,8 @@ import { BUNDLE_ID, PRODUCT_NAME, feedFileName, feedTarget, parseManifest, relea
 import { BUNDLED_EXECUTABLES, RESOURCE_DIRS } from '../src/main/packaged-resources.ts';
 import { ensureCargo } from '../../../tools/cargo-path.mjs';
 import { devTargetDir, fetchAudioCpp } from '../../../tools/fetch-audiocpp.ts';
+import { fetchLiteRtLmRuntime } from '../../../tools/fetch-litertlm-runtime.ts';
+import { LITERTLM_RUNTIME_TOOL } from '../../../packages/models/src/embedding-bundles.ts';
 import { AUDIO_CPP_COMMAND, AUDIO_CPP_SERVER, AUDIO_CPP_TOOL } from '../../../packages/models/src/audio-cpp-engine.ts';
 import { DISTRIBUTED_NOTICES } from '../../../tools/third-party-notices.ts';
 import { distributeMac, runMac, signingPreflight } from './macos-distribution.mjs';
@@ -81,12 +83,13 @@ let FEED_TARGET;
  * - Vulkan 版：Whisper 用 Vulkan GPU（AMD / Intel，以及不支持 CUDA 13 的 NVIDIA 显卡），candle 仍在 CPU 上（同 v2 的 Vulkan 版）。
  *   要构建机装 Vulkan SDK；运行时只要显卡驱动自带的 vulkan-1.dll，不随包。
  * 单一安装包在运行期自选 CUDA / Vulkan 现在做不到（架构设计 §14「单一 GPU 安装包在运行期自选后端」）。CUDA 版的 Whisper 与 Vulkan 版
- * 都未实测。不带 macOS 缺省的 MLX / CoreML。其余 Worker 用缺省 feature。
+ * 都未实测。不带 macOS 缺省的 MLX / CoreML。三档都带本机语义检索的 `backend-litert`（LiteRT-LM 在 CPU 上，C 库随包放在
+ * `bin/litertlm-runtime/`，运行期才打开）。其余 Worker 用缺省 feature。
  */
 const VARIANTS = {
-  cpu: { suffix: '', modelWorkerFeatures: ['backend-candle', 'whisper-ggml'] },
-  cuda: { suffix: '-cuda', modelWorkerFeatures: ['backend-candle', 'cuda', 'whisper-ggml-cuda'] },
-  vulkan: { suffix: '-vulkan', modelWorkerFeatures: ['backend-candle', 'whisper-ggml-vulkan'] },
+  cpu: { suffix: '', modelWorkerFeatures: ['backend-candle', 'whisper-ggml', 'backend-litert'] },
+  cuda: { suffix: '-cuda', modelWorkerFeatures: ['backend-candle', 'cuda', 'whisper-ggml-cuda', 'backend-litert'] },
+  vulkan: { suffix: '-vulkan', modelWorkerFeatures: ['backend-candle', 'whisper-ggml-vulkan', 'backend-litert'] },
 };
 
 /**
@@ -371,6 +374,15 @@ try {
     fail(`取 audio.cpp 引擎失败：${error.message}`);
   }
   if (isMac) for (const file of AUDIO_CPP_EXECUTABLES) runMac('lipo', [path.join(bin, file), '-verify_arch', macPlan.intel ? 'x86_64' : 'arm64']);
+  // Windows 的 LiteRT-LM C 库（本机语义检索）：上游没有发布，用仓库里核对过 sha256 的那份构建，解开到 bin/litertlm-runtime/ 并写清单。
+  // macOS 的库随模型包下载，不进安装包。
+  if (!isMac) {
+    try {
+      await fetchLiteRtLmRuntime({ platform: 'win32', arch: 'x64', dest: path.join(bin, LITERTLM_RUNTIME_TOOL) });
+    } catch (error) {
+      fail(`Cannot place the LiteRT-LM C library: ${error.message}`);
+    }
+  }
   if (options.variant === 'cuda') {
     const cudaPath = process.env.CUDA_PATH;
     const redist =
@@ -654,6 +666,14 @@ function verifyUnpacked(dir, variantName) {
   }
   if (variantName === 'cuda') {
     for (const dll of CUDA_REDIST_DLLS) if (!existsSync(path.join(resources, RESOURCE_DIRS.bin, dll))) problems.push(`没有 ${dll}`);
+  }
+  // Windows 的 LiteRT-LM C 库：库、上游许可与 Runtime 据以认它装好的清单。
+  if (!isMac) {
+    for (const file of ['litert-lm.dll', 'LICENSE', '.bcut-manifest.json']) {
+      if (!existsSync(path.join(resources, RESOURCE_DIRS.bin, LITERTLM_RUNTIME_TOOL, file))) {
+        problems.push(`Missing resources/${RESOURCE_DIRS.bin}/${LITERTLM_RUNTIME_TOOL}/${file}`);
+      }
+    }
   }
   for (const sub of Object.values(RESOURCE_DIRS)) if (!existsSync(path.join(resources, sub))) problems.push(`没有 resources/${sub}`);
   if (!existsSync(path.join(resources, RESOURCE_DIRS.web, 'index.html'))) problems.push('没有 resources/web/index.html');

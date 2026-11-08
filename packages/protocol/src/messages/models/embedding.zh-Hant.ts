@@ -4,6 +4,8 @@ export const zhHant: ModelsEmbeddingMessages = {
   apacheLicense: 'Apache-2.0：可免費使用，包括商業用途；再散布時保留版權與授權聲明',
   runtimeNoBuild: (p: { platform: string }) => `LiteRT-LM 沒有這台機器（${p.platform}）的版本，這裡暫時不能使用本機語意檢索`,
   runtimeNotInstalled: (p: { version: string }) => `LiteRT-LM ${p.version} 沒有安裝`,
+  runtimeNotBundled: (p: { platform: string }) => `這份 BaoCut 沒有附帶這台機器（${p.platform}）的 LiteRT-LM 執行庫，無法使用本機語意檢索。請重新安裝 BaoCut`,
+  runtimeBundledDamaged: 'BaoCut 隨附的 LiteRT-LM 執行庫已損壞。請重新安裝 BaoCut',
   countMismatch: (p: { expected: number; actual: number }) => `應得到 ${p.expected} 個向量，實際是 ${p.actual} 個`,
   wrongDims: (p: { expected: number; actual: number }) => `有向量是 ${p.actual} 維，應是 ${p.expected} 維`,
   notFinite: '有向量含非有限數值',

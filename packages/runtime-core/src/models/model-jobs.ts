@@ -2,7 +2,7 @@ import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TopicLog, type Logger } from '@baocut/harness';
-import { findBundledTool } from '@baocut/process-host';
+import { findBundledTool, findBundledToolDir } from '@baocut/process-host';
 import {
   JobManager,
   LocalAudioCppSeparator,
@@ -247,12 +247,14 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
   const { bundles: testBundles, ...modelInstall } = options.modelInstall ?? {};
   // 本地语音合成与音乐共用随应用内置的 audio.cpp 引擎（§6.3）：每次用时重新找，不用重启就能认出开发时新下载的引擎。
   const audioCppEngine = () => resolveAudioCppCli(toolOverrides);
-  // 发布页组件（LiteRT-LM 的 C 库）装在 Runtime Home 的 `tools/` 下，不随模型目录移动。
+  // 发布页组件（LiteRT-LM 的 C 库）装在 Runtime Home 的 `tools/` 下，不随模型目录移动；随应用分发的（Windows x64 的 LiteRT-LM）在
+  // `<resources>/bin/<名字>/`，开发时在 cargo 产物目录里，同样每次用时重新找。
   const catalog = new ModelCatalog({
     root: envModelsDir ?? (configuredDir ? path.resolve(configuredDir) : defaultModelsDir),
     toolsDir: path.join(home.root, 'tools'),
     workerAvailable: () => options.worker() !== null,
     engineAvailable: () => audioCppEngine() !== null,
+    bundledToolDir: (name) => findBundledToolDir(name, path.dirname(fileURLToPath(import.meta.url)), toolOverrides),
     // LiteRT-LM 的引擎缓存（embedding 模型包）：在缓存目录里，删了下次加载重建。
     engineCacheDir: path.join(home.cacheDir, 'litertlm'),
     // 下载时放到模型目录以外的仓库记在 Runtime Home 里，不随模型目录移动。
