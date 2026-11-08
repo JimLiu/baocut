@@ -91,8 +91,9 @@ export function localeOverride(): Locale | null {
 }
 
 /**
- * 非界面进程（Runtime、CLI）眼里的系统语言，按优先顺序：桌面端拉起 Runtime 时传的 `BAOCUT_SYSTEM_LANGUAGES`（逗号分隔，
- * 取自操作系统的首选语言）、POSIX 的 `LC_ALL` / `LC_MESSAGES` / `LANG`，最后是 `Intl` 的缺省语言。
+ * 非界面进程（Runtime、CLI）眼里的系统语言，按优先顺序：`BAOCUT_SYSTEM_LANGUAGES`（逗号分隔，取自操作系统的首选语言；
+ * 桌面端拉起 Runtime 时传入，别的方式拉起时 Runtime 入口自己解析）、POSIX 的 `LC_ALL` / `LC_MESSAGES` / `LANG`，最后是
+ * `Intl` 的缺省语言。
  */
 export function processLanguageTags(): string[] {
   const env = typeof process === 'undefined' ? {} : (process.env ?? {});

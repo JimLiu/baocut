@@ -147,7 +147,7 @@ App 的「重启并更新」在安装前除了自己的 Runtime，还要处理�
 | Windows | 当前用户的已知文件夹（注册表 `User Shell Folders`，展开环境变量） | 用户的语言列表 |
 | Linux | `xdg-user-dir DOWNLOAD` / `DOCUMENTS`，没有时退回主目录下的同名文件夹 | `LANGUAGE`、`LC_ALL`、`LANG` |
 
-解析失败时退回现在的默认值，不阻断启动。按[开发流程 §4.1](../../development-workflow.md#41-跨平台系统集成)在 Windows 与 macOS 上实机核对：同一台机器上 Runtime 自己解析的结果与桌面端传入的一致。
+解析在 Runtime 入口做（`apps/runtime/src/host-environment.ts`），结果补进环境，读这些变量的地方不变；解析失败或解析出的文件夹不存在时退回现在的默认值，不阻断启动。按[开发流程 §4.1](../../development-workflow.md#41-跨平台系统集成)在 Windows 与 macOS 上实机核对：同一台机器上 Runtime 自己解析的结果与桌面端传入的一致。
 
 开发态的桌面端还传 `BAOCUT_ALLOWED_ORIGINS`（Vite 的地址）。开发态桌面端复用的 Runtime 不接受自己的 origin 时，按 §4.2 的「版本不同」处理。
 

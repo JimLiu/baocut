@@ -6,7 +6,8 @@ import path from 'node:path';
  * 都放在这里。设置 `downloads.directory` 优先；没有设置时是主机的下载文件夹。
  *
  * `BAOCUT_DOWNLOADS_DIR` 是主机的下载文件夹：桌面应用经它传入系统的下载文件夹（Windows 的已知文件夹、Linux 的 XDG 目录），
- * 测试用它指到临时目录、不往真实的下载文件夹里写；别的方式启动的 Runtime（CLI）没有它，用主目录下的 Downloads。
+ * 别的方式启动的 Runtime（CLI）在入口自己解析后补进环境（`apps/runtime/src/host-environment.ts`）；测试用它指到临时目录、
+ * 不往真实的下载文件夹里写。都没有时用主目录下的 Downloads。
  */
 export function resolveDownloadsDirectory(configured: string | null): string {
   if (configured) return configured;

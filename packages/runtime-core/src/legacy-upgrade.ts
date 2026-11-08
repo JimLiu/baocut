@@ -114,8 +114,8 @@ function recordTranscriptionPreferences(state: SourceState, config: LegacyObject
 }
 
 /**
- * 导入询问的默认目录：系统「文稿 / 文档」文件夹下的 `BaoCut`。桌面端经 `BAOCUT_DOCUMENTS_DIR` 给出主机的已知文件夹
- * （Windows 可能被 OneDrive 之类重定向，不硬拼 `%USERPROFILE%\Documents`）；没有时是主目录下的 `Documents`。
+ * 导入询问的默认目录：系统「文稿 / 文档」文件夹下的 `BaoCut`。`BAOCUT_DOCUMENTS_DIR` 是主机的已知文件夹（Windows 可能被
+ * OneDrive 之类重定向，不硬拼 `%USERPROFILE%\Documents`），桌面端传入，别的方式启动时 Runtime 入口自己解析；没有时是主目录下的 `Documents`。
  */
 export function defaultLegacyImportDirectory(env: NodeJS.ProcessEnv = process.env, userHome = os.homedir()): string {
   return path.join(env.BAOCUT_DOCUMENTS_DIR || path.join(userHome, 'Documents'), 'BaoCut');

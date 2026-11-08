@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
 import { RuntimeAlreadyRunningError, runtimeSelfCheck, startRuntime } from '@baocut/runtime-core';
+import { hostEnvironment } from './host-environment.ts';
 import { createParentChannel } from './parent-channel.ts';
 
 /**
@@ -53,6 +54,9 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify(report)}\n`);
     return;
   }
+
+  // 不是桌面端拉起的（CLI、Agent 宿主）没有主机的下载、文稿文件夹与系统语言：自己按平台解析，补进环境。
+  Object.assign(process.env, await hostEnvironment());
 
   const allowedOrigins = [
     ...(values['allow-origin'] ?? []),
