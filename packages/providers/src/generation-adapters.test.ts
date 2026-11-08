@@ -306,7 +306,54 @@ describe('ElevenLabs 语音', () => {
     await new ElevenLabsAdapter().validateCredential(config(`${server.origin}/v1`, ELEVENLABS_KEY), new AbortController().signal, http);
     expect(server.requests[0]).toMatchObject({ method: 'GET', path: '/v1/models' });
   });
+
+  it('验证密钥：限定了权限的密钥（没有 models_read）算通过；不对的密钥仍是认证失败', async () => {
+    server = await startFakeProviderServer(() => ({ status: 401, json: missingPermission('models_read') }));
+    const cfg = config(`${server.origin}/v1`, ELEVENLABS_KEY);
+    await new ElevenLabsAdapter().validateCredential(cfg, new AbortController().signal, http);
+    expect(server.requests).toHaveLength(1);
+
+    await server.close();
+    server = await startFakeProviderServer(() => ({
+      status: 401,
+      json: { detail: { type: 'authentication_error', code: 'unauthorized', message: 'Invalid API key', status: 'invalid_api_key' } },
+    }));
+    const error = await failure(new ElevenLabsAdapter().validateCredential(config(`${server.origin}/v1`, ELEVENLABS_KEY), new AbortController().signal, http));
+    expect(error.details.code).toBe('PROVIDER_AUTH_FAILED');
+
+    // 格式不对的密钥答 400 而不是 401，错误体同样是 invalid_api_key。
+    await server.close();
+    server = await startFakeProviderServer(() => ({
+      status: 400,
+      json: { detail: { type: 'authentication_error', code: 'invalid_api_key', message: 'API key is invalid.', status: 'invalid_api_key' } },
+    }));
+    const malformed = await failure(
+      new ElevenLabsAdapter().validateCredential(config(`${server.origin}/v1`, ELEVENLABS_KEY), new AbortController().signal, http),
+    );
+    expect(malformed.details.code).toBe('PROVIDER_AUTH_FAILED');
+  });
+
+  it('合成时密钥缺权限（text_to_speech）是请求被拒绝，不当作密钥无效', async () => {
+    server = await startFakeProviderServer(() => ({ status: 401, json: missingPermission('text_to_speech') }));
+    const error = await failure(
+      synthesize(new ElevenLabsAdapter(), config(`${server.origin}/v1`, ELEVENLABS_KEY), 'eleven_v3', speech({ voice: 'v' })),
+    );
+    expect(error.details).toMatchObject({ code: 'PROVIDER_REJECTED', reason: 'missing-permissions', status: 401 });
+    expect(error.message).toContain('text_to_speech');
+  });
 });
+
+/** ElevenLabs 对缺权限的密钥的回答（2026-11-08 实测的错误体）。 */
+function missingPermission(permission: string) {
+  return {
+    detail: {
+      type: 'authentication_error',
+      code: 'unauthorized',
+      message: `The API key you used is missing the permission ${permission} to execute this operation.`,
+      status: 'missing_permissions',
+    },
+  };
+}
 
 describe('Google 语音', () => {
   it('Interactions：文本逐字念，风格放进 speech_metadata.style，音色在 speech_config；取 model_output 的 WAV', async () => {

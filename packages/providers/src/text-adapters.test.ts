@@ -459,6 +459,26 @@ describe('列模型（models.refreshProvider 用）', () => {
     });
     expect(server.requests.every((r) => r.headers['xi-api-key'] === ELEVENLABS_KEY)).toBe(true);
   });
+
+  it('ElevenLabs：密钥缺哪项读取权限就不给哪份列表，另一份照取', async () => {
+    const missing = (permission: string) => ({
+      status: 401,
+      json: { detail: { message: `The API key you used is missing the permission ${permission}.`, status: 'missing_permissions' } },
+    });
+    server = await startFakeProviderServer((request) =>
+      request.path.endsWith('/voices') ? { status: 200, json: { voices: [{ voice_id: 'v1', name: 'Rachel' }] } } : missing('models_read'),
+    );
+    const cfg = () => config(`${server!.origin}/v1`, ELEVENLABS_KEY);
+    expect(await new ElevenLabsAdapter().listModels(cfg(), new AbortController().signal, http)).toEqual({
+      voices: [{ voiceId: 'v1', label: 'Rachel' }],
+    });
+
+    await server.close();
+    server = await startFakeProviderServer((request) =>
+      request.path.endsWith('/voices') ? missing('voices_read') : { status: 200, json: [{ model_id: 'eleven_v3' }] },
+    );
+    expect(await new ElevenLabsAdapter().listModels(cfg(), new AbortController().signal, http)).toEqual({ models: ['eleven_v3'] });
+  });
 });
 
 describe('TextRunner 与在线 Provider', () => {

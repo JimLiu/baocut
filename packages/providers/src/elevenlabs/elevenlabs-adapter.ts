@@ -136,43 +136,60 @@ export class ElevenLabsAdapter implements SpeechAdapter, ModelLister {
     return { bytes: response.bytes };
   }
 
-  async validateCredential(config: AdapterConfig, signal: AbortSignal, http: AdapterHttp): Promise<void> {
-    await providerFetch(httpOptions(config, { ...http, attempts: 1 }), {
-      method: 'GET',
-      url: `${config.baseUrl}/models`,
-      auth: authOf(config),
-      timeoutMs: http.timeoutMs ?? 15_000,
-      signal,
-      classify: classifyElevenLabs,
-    });
-  }
-
   /**
-   * `GET {base}/models`（`[{ model_id }]`）与 `GET {base}/voices`（`{ voices: [{ voice_id, name }] }`）：音色属于账号，
-   * 取到的补进模型的预置音色（仍然没有默认音色，必须指定）。
+   * `GET {base}/models`。密钥可以限定权限：没有 `models_read` 时供应商答 401、错误体 `status` 是 `missing_permissions`，
+   * 这说明它认得这个密钥（不对的密钥答 `invalid_api_key`），算通过。
    */
-  async listModels(config: AdapterConfig, signal: AbortSignal, http: AdapterHttp): Promise<ProviderListing> {
-    const get = (resource: string) =>
+  async validateCredential(config: AdapterConfig, signal: AbortSignal, http: AdapterHttp): Promise<void> {
+    await readable(
       providerFetch(httpOptions(config, { ...http, attempts: 1 }), {
         method: 'GET',
-        url: `${config.baseUrl}/${resource}`,
+        url: `${config.baseUrl}/models`,
         auth: authOf(config),
         timeoutMs: http.timeoutMs ?? 15_000,
         signal,
         classify: classifyElevenLabs,
-      });
-    const models = (await get('models')).json<unknown>();
-    if (!Array.isArray(models)) throw new ProviderFailure('protocol', PH.listNotArray({ label: LABEL }).text);
-    const voices = (await get('voices')).json<{ voices?: unknown }>();
-    if (!voices || !Array.isArray(voices.voices)) throw new ProviderFailure('protocol', PH.voicesShape({ label: LABEL }).text);
-    return {
-      models: [...new Set(models.flatMap((m) => (isRecord(m) && typeof m.model_id === 'string' && m.model_id ? [m.model_id] : [])))].sort(),
-      voices: voices.voices.flatMap((v) =>
+      }),
+    );
+  }
+
+  /**
+   * `GET {base}/models`（`[{ model_id }]`）与 `GET {base}/voices`（`{ voices: [{ voice_id, name }] }`）：音色属于账号，
+   * 取到的补进模型的预置音色（仍然没有默认音色，必须指定）。密钥缺哪项读取权限（`models_read`、`voices_read`）就不给
+   * 哪份列表，另一份照取。
+   */
+  async listModels(config: AdapterConfig, signal: AbortSignal, http: AdapterHttp): Promise<ProviderListing> {
+    const get = (resource: string) =>
+      readable(
+        providerFetch(httpOptions(config, { ...http, attempts: 1 }), {
+          method: 'GET',
+          url: `${config.baseUrl}/${resource}`,
+          auth: authOf(config),
+          timeoutMs: http.timeoutMs ?? 15_000,
+          signal,
+          classify: classifyElevenLabs,
+        }),
+      );
+    const listing: ProviderListing = {};
+    const modelsResponse = await get('models');
+    if (modelsResponse) {
+      const models = modelsResponse.json<unknown>();
+      if (!Array.isArray(models)) throw new ProviderFailure('protocol', PH.listNotArray({ label: LABEL }).text);
+      listing.models = [
+        ...new Set(models.flatMap((m) => (isRecord(m) && typeof m.model_id === 'string' && m.model_id ? [m.model_id] : []))),
+      ].sort();
+    }
+    const voicesResponse = await get('voices');
+    if (voicesResponse) {
+      const voices = voicesResponse.json<{ voices?: unknown }>();
+      if (!voices || !Array.isArray(voices.voices)) throw new ProviderFailure('protocol', PH.voicesShape({ label: LABEL }).text);
+      listing.voices = voices.voices.flatMap((v) =>
         isRecord(v) && typeof v.voice_id === 'string' && v.voice_id
           ? [{ voiceId: v.voice_id, label: typeof v.name === 'string' && v.name ? v.name : v.voice_id }]
           : [],
-      ),
-    };
+      );
+    }
+    return listing;
   }
 }
 
@@ -180,9 +197,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** 错误体里是 `quota_exceeded`：额度用尽（不论 4xx 的具体状态码）。 */
-export function classifyElevenLabs(status: number, body: string): RejectionCode | null {
+/** 密钥缺这项权限时返回 null（供应商认得这个密钥）；别的失败照抛。 */
+async function readable<T>(request: Promise<T>): Promise<T | null> {
+  try {
+    return await request;
+  } catch (error) {
+    if (error instanceof ProviderFailure && error.details.reason === MISSING_PERMISSIONS) return null;
+    throw error;
+  }
+}
+
+const MISSING_PERMISSIONS = 'missing-permissions';
+
+/**
+ * 错误体里是 `quota_exceeded`：额度用尽（不论 4xx 的具体状态码）。是 `invalid_api_key`：认证失败（格式不对的密钥答 400，
+ * 不是 401）。是 `missing_permissions`：密钥是对的，只是没有这项权限（例如合成要 `text_to_speech`），按请求被拒绝而不是
+ * 认证失败，不把账号标成密钥无效。
+ */
+export function classifyElevenLabs(status: number, body: string): RejectionCode | { code: RejectionCode; reason: string } | null {
   if (status >= 400 && status < 500 && /quota_exceeded/i.test(body)) return 'PROVIDER_QUOTA_EXCEEDED';
+  if (status >= 400 && status < 500 && /invalid_api_key/i.test(body)) return 'PROVIDER_AUTH_FAILED';
+  if ((status === 401 || status === 403) && /missing_permissions/i.test(body)) return { code: 'PROVIDER_REJECTED', reason: MISSING_PERMISSIONS };
   return null;
 }
 
