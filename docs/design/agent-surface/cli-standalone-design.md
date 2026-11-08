@@ -196,7 +196,7 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 
 ### 7.3 源码 Runtime 的 Node
 
-`resolveRuntimeLaunch` 用当前进程的 Node 直接跑 `apps/runtime/src/main.ts`。当前 Node 不默认去掉类型标注时（`process.features.typescript` 为假）补 `--experimental-strip-types`；Node 版本低于 Runtime 的要求（`node:sqlite`）时报出要哪个版本，不留一行 `ERR_UNKNOWN_FILE_EXTENSION` 在 `cli-runtime.log` 里。
+`resolveRuntimeLaunch` 用当前进程的 Node 直接跑 `apps/runtime/src/main.ts`。当前 Node 不带旗标时不去掉类型标注（`process.features.typescript` 为假，或它为真只是因为 CLI 自己带了 `--experimental-strip-types`）时补这个旗标；Node 版本不在仓库 `package.json` 的 `engines.node` 范围里时不拉起，以 `RUNTIME_START_FAILED` 报出要哪个版本（`checkRuntimeNode`），不留一行 `ERR_UNKNOWN_FILE_EXTENSION` 在 `cli-runtime.log` 里。
 
 ### 7.4 构建是否过期
 

@@ -89,6 +89,7 @@ export const ru: CliMessages = {
     "Runtime BaoCut не запущен и не запускается: установите приложение, запустите из репозитория или задайте точку входа в BAOCUT_RUNTIME_ENTRY.",
   runtimeStartFailed: (reason, log) => `Не удалось запустить Runtime BaoCut (${reason}). См. ${log}.`,
   runtimeStartTimeout: (seconds, log) => `Runtime BaoCut не был готов за ${seconds} с. См. ${log}.`,
+  runtimeNodeUnsupported: (current, required) => `Runtime BaoCut в этом репозитории требует Node ${required}, а эта CLI запущена на Node ${current}. Переключитесь на поддерживаемую версию Node и повторите попытку.`,
   exitedWith: (code) => `завершился с кодом ${code ?? 'unknown'}`,
   runtimeConnectFailed: (reason) => `Не удалось подключиться к Runtime BaoCut: ${reason}`,
   runtimeLost: (reason) => `Потеряно соединение с Runtime BaoCut: ${reason}`,

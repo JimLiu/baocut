@@ -120,6 +120,7 @@ const en = {
     'No BaoCut Runtime is running and none could be started: install the BaoCut app, run from the repository, or set BAOCUT_RUNTIME_ENTRY to the Runtime entry.',
   runtimeStartFailed: (reason: string, log: string) => `Could not start the BaoCut Runtime (${reason}). See ${log}.`,
   runtimeStartTimeout: (seconds: number, log: string) => `The BaoCut Runtime did not become ready within ${seconds} s. See ${log}.`,
+  runtimeNodeUnsupported: (current: string, required: string) => `The BaoCut Runtime in this repository needs Node ${required}; this CLI runs on Node ${current}. Switch to a supported Node version and try again.`,
   exitedWith: (code: number | null) => `it exited with code ${code ?? 'unknown'}`,
   runtimeConnectFailed: (reason: string) => `Could not connect to the BaoCut Runtime: ${reason}`,
   runtimeLost: (reason: string) => `Lost the connection to the BaoCut Runtime: ${reason}`,

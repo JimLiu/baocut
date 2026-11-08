@@ -92,6 +92,7 @@ export const zhHans: CliMessages = {
     '没有正在运行的 BaoCut Runtime，也找不到能启动的：装上 BaoCut 应用、在仓库里运行，或把 BAOCUT_RUNTIME_ENTRY 设为 Runtime 的入口。',
   runtimeStartFailed: (reason, log) => `BaoCut Runtime 没有启动起来（${reason}），见 ${log}。`,
   runtimeStartTimeout: (seconds, log) => `BaoCut Runtime 在 ${seconds} 秒内没有就绪，见 ${log}。`,
+  runtimeNodeUnsupported: (current, required) => `这个仓库里的 BaoCut Runtime 要 Node ${required}，现在的 CLI 跑在 Node ${current} 上。换成支持的 Node 版本再试。`,
   exitedWith: (code) => `退出码 ${code ?? '未知'}`,
   runtimeConnectFailed: (reason) => `连不上 BaoCut Runtime：${reason}`,
   runtimeLost: (reason) => `与 BaoCut Runtime 的连接断了：${reason}`,

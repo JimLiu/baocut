@@ -98,6 +98,7 @@ export const ja: CliMessages = {
     '実行中の BaoCut Runtime がなく、起動もできませんでした：BaoCut アプリをインストールするか、リポジトリから実行するか、BAOCUT_RUNTIME_ENTRY に Runtime のエントリを設定してください。',
   runtimeStartFailed: (reason, log) => `BaoCut Runtime を起動できませんでした（${reason}）。${log} を参照してください。`,
   runtimeStartTimeout: (seconds, log) => `BaoCut Runtime が ${seconds} 秒以内に準備完了になりませんでした。${log} を参照してください。`,
+  runtimeNodeUnsupported: (current, required) => `このリポジトリの BaoCut Runtime には Node ${required} が必要ですが、この CLI は Node ${current} で動いています。対応する Node のバージョンに切り替えてから再試行してください。`,
   exitedWith: (code) => `終了コード ${code ?? '不明'} で終了しました`,
   runtimeConnectFailed: (reason) => `BaoCut Runtime に接続できませんでした：${reason}`,
   runtimeLost: (reason) => `BaoCut Runtime との接続が切れました：${reason}`,

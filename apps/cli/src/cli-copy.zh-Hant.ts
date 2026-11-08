@@ -95,6 +95,7 @@ export const zhHant: CliMessages = {
     '沒有正在執行的 BaoCut Runtime，也無法啟動：請安裝 BaoCut 應用程式、從儲存庫執行，或將 BAOCUT_RUNTIME_ENTRY 設為 Runtime 的進入點。',
   runtimeStartFailed: (reason, log) => `無法啟動 BaoCut Runtime（${reason}）。請見 ${log}。`,
   runtimeStartTimeout: (seconds, log) => `BaoCut Runtime 未在 ${seconds} 秒內就緒。請見 ${log}。`,
+  runtimeNodeUnsupported: (current, required) => `這個儲存庫裡的 BaoCut Runtime 需要 Node ${required}，目前的 CLI 執行於 Node ${current}。請換成支援的 Node 版本再試一次。`,
   exitedWith: (code) => `結束代碼 ${code ?? '未知'}`,
   runtimeConnectFailed: (reason) => `無法連線到 BaoCut Runtime：${reason}`,
   runtimeLost: (reason) => `與 BaoCut Runtime 的連線中斷：${reason}`,

@@ -136,6 +136,59 @@ export interface LaunchSpec {
   args: string[];
   env: Record<string, string>;
   source: 'env' | 'packaged' | 'repo';
+  /** 从仓库运行时，仓库 `package.json` 的 `engines.node`：当前的 Node 不在其中时不拉起（`checkRuntimeNode`）。 */
+  nodeRange?: string;
+}
+
+/** 用来跑源码 Runtime 的 Node：版本，以及不带旗标时会不会去掉类型标注。 */
+export interface NodeInfo {
+  version: string;
+  stripsTypes: boolean;
+}
+
+/**
+ * 当前的 Node 不带旗标时会不会去掉类型标注。`process.features.typescript` 也反映了这个进程自己的旗标：CLI 是以
+ * `--experimental-strip-types` 跑起来的话，子进程不带它仍然不认 `.ts`。
+ */
+function currentNode(): NodeInfo {
+  const flagged = [...process.execArgv, ...(process.env.NODE_OPTIONS ?? '').split(/\s+/)].some((arg) =>
+    /^--experimental-(strip|transform)-types$/.test(arg),
+  );
+  return { version: process.versions.node, stripsTypes: Boolean(process.features.typescript) && !flagged };
+}
+
+/** 用当前的 Node 跑一个源码入口：不默认去掉类型标注时补 `--experimental-strip-types`。 */
+function nodeArgs(entry: string, node: NodeInfo): string[] {
+  return /\.(ts|mts)$/.test(entry) && !node.stripsTypes ? ['--experimental-strip-types', entry] : [entry];
+}
+
+/**
+ * Node 版本在不在 `engines.node` 的范围里。只认 `^X.Y.Z` 与 `>=X.Y.Z` 用 `||` 连起来的写法；认不出的范围不拦。
+ */
+export function nodeSatisfies(version: string, range: string): boolean {
+  const parse = (text: string) => text.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const compare = (a: number[], b: number[]) => (a[0]! - b[0]!) || (a[1]! - b[1]!) || (a[2]! - b[2]!);
+  const current = parse(version.replace(/^v/, ''));
+  const alternatives = range.split('||').map((part) => part.trim());
+  let understood = false;
+  for (const alternative of alternatives) {
+    const match = /^(\^|>=)\s*(\d+(?:\.\d+){0,2})$/.exec(alternative);
+    if (!match) continue;
+    understood = true;
+    const floor = parse(match[2]!);
+    if (compare(current, floor) >= 0 && (match[1] === '>=' || current[0] === floor[0])) return true;
+  }
+  return !understood;
+}
+
+/** 从仓库拉起之前看 Node 的版本：不合要求时报出要哪个版本，不留一行难懂的错误在 `cli-runtime.log` 里。 */
+export function checkRuntimeNode(spec: LaunchSpec, version: string = process.versions.node): void {
+  if (spec.nodeRange && !nodeSatisfies(version, spec.nodeRange)) {
+    throw new CliError('RUNTIME_START_FAILED', M.runtimeNodeUnsupported(version, spec.nodeRange), {
+      node: version,
+      required: spec.nodeRange,
+    });
+  }
 }
 
 /**
@@ -148,18 +201,22 @@ export function resolveRuntimeLaunch(
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
   from: string = path.dirname(fileURLToPath(import.meta.url)),
+  node: NodeInfo = currentNode(),
 ): LaunchSpec | null {
   const explicit = env.BAOCUT_RUNTIME_ENTRY;
   if (explicit) {
     const entry = path.resolve(explicit);
     return /\.(ts|mts|js|mjs|cjs)$/.test(entry)
-      ? { command: process.execPath, args: [entry], env: {}, source: 'env' }
+      ? { command: process.execPath, args: nodeArgs(entry, node), env: {}, source: 'env' }
       : { command: entry, args: [], env: {}, source: 'env' };
   }
   // 桌面包可能就放在仓库的打包输出目录里：包内的 CLI 不算从仓库运行。
   const root = path.basename(path.resolve(from, '..', '..')) === 'app.asar' ? null : repoRoot(from);
   const entry = root && path.join(root, 'apps', 'runtime', 'src', 'main.ts');
-  const repo: LaunchSpec | null = entry && fs.existsSync(entry) ? { command: process.execPath, args: [entry], env: {}, source: 'repo' } : null;
+  const repo: LaunchSpec | null =
+    root && entry && fs.existsSync(entry)
+      ? { command: process.execPath, args: nodeArgs(entry, node), env: {}, source: 'repo', ...repoNodeRange(root) }
+      : null;
   if (repo && runtimeHome(env) !== path.resolve(defaultHome())) return repo;
   for (const app of packagedApps(env, platform, from)) {
     if (fs.existsSync(app.executable) && fs.existsSync(path.join(app.resources, 'app.asar'))) {
@@ -234,6 +291,15 @@ export function packagedResourceEnv(resources: string, platform: NodeJS.Platform
 }
 
 /** 往上找仓库根（`package.json` 的 name 是 `baocut`）。 */
+function repoNodeRange(root: string): { nodeRange?: string } {
+  try {
+    const range = (JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { engines?: { node?: unknown } }).engines?.node;
+    return typeof range === 'string' ? { nodeRange: range } : {};
+  } catch {
+    return {};
+  }
+}
+
 function repoRoot(from: string): string | null {
   for (let dir = from; ; dir = path.dirname(dir)) {
     try {
@@ -329,6 +395,7 @@ export async function ensureRuntime(home: string, options: EnsureOptions): Promi
   if (!options.start) throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeNotRunning(home), { home, next: 'baocut runtime ensure' });
   const spec = resolveRuntimeLaunch(options.env);
   if (!spec) throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeNoEntry, { home });
+  checkRuntimeNode(spec);
   return launchRuntime(home, spec);
 }
 

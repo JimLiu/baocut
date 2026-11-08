@@ -8,10 +8,12 @@ import { isDiscoveryLive, isEndpointRefused as storageEndpointRefused } from '..
 import { CliError, EXIT, exitCodeFor } from '../envelope.ts';
 import {
   checkInterfaceVersion,
+  checkRuntimeNode,
   ensureRuntime,
   findRuntime,
   isEndpointRefused,
   lockHolderAlive,
+  nodeSatisfies,
   packagedApps,
   packagedResourceEnv,
   resolveRuntimeLaunch,
@@ -40,6 +42,39 @@ describe('Runtime 的入口与版本门', () => {
     expect(repo?.source).toBe('repo');
     expect(repo?.args[0]).toMatch(/apps[/\\]runtime[/\\]src[/\\]main\.ts$/);
     expect(fs.existsSync(repo!.args[0]!)).toBe(true);
+  });
+
+  it('源码入口：Node 不默认去掉类型标注时补 --experimental-strip-types；仓库的入口带上 engines.node', () => {
+    const old = { version: '22.5.0', stripsTypes: false };
+    const current = { version: '24.22.1', stripsTypes: true };
+    const repo = resolveRuntimeLaunch({}, 'linux', undefined, old);
+    expect(repo?.args).toEqual(['--experimental-strip-types', expect.stringMatching(/main\.ts$/)]);
+    expect(repo?.nodeRange).toBe(JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', '..', '..', '..', 'package.json'), 'utf8')).engines.node);
+    expect(resolveRuntimeLaunch({}, 'linux', undefined, current)?.args).toEqual([expect.stringMatching(/main\.ts$/)]);
+    expect(resolveRuntimeLaunch({ BAOCUT_RUNTIME_ENTRY: '/x/runtime.ts' }, 'linux', undefined, old)?.args).toEqual([
+      '--experimental-strip-types',
+      path.resolve('/x/runtime.ts'),
+    ]);
+    expect(resolveRuntimeLaunch({ BAOCUT_RUNTIME_ENTRY: '/x/runtime.js' }, 'linux', undefined, old)?.args).toEqual([path.resolve('/x/runtime.js')]);
+  });
+
+  it('Node 版本不在 engines.node 里时不拉起，报出要哪个版本', () => {
+    const range = '^22.23.4 || ^24.22.1 || ^26.12.1';
+    expect(nodeSatisfies('22.23.4', range)).toBe(true);
+    expect(nodeSatisfies('v24.30.0', range)).toBe(true);
+    expect(nodeSatisfies('22.18.0', range)).toBe(false);
+    expect(nodeSatisfies('23.11.0', range)).toBe(false);
+    expect(nodeSatisfies('20.19.0', range)).toBe(false);
+    expect(nodeSatisfies('27.0.0', range)).toBe(false);
+    expect(nodeSatisfies('27.0.0', '>=22')).toBe(true);
+    expect(nodeSatisfies('18.0.0', 'lts/*')).toBe(true);
+    const spec = { command: process.execPath, args: ['main.ts'], env: {}, source: 'repo' as const, nodeRange: range };
+    const error = catchError(() => checkRuntimeNode(spec, '20.19.0'));
+    expect(error.code).toBe('RUNTIME_START_FAILED');
+    expect(error.message).toContain(range);
+    expect(error.message).toContain('20.19.0');
+    expect(() => checkRuntimeNode(spec, '24.22.1')).not.toThrow();
+    expect(() => checkRuntimeNode({ ...spec, nodeRange: undefined }, '20.19.0')).not.toThrow();
   });
 
   it('装好的应用：Windows 按用户安装的位置，macOS 的 Applications', () => {

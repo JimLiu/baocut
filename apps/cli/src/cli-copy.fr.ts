@@ -98,6 +98,7 @@ export const fr: CliMessages = {
     "Aucun Runtime BaoCut actif et démarrage impossible : installez l’application BaoCut, exécutez depuis le dépôt ou définissez BAOCUT_RUNTIME_ENTRY sur le point d’entrée du Runtime.",
   runtimeStartFailed: (reason: string, log: string) => `Impossible de démarrer le Runtime BaoCut (${reason}). Voir ${log}.`,
   runtimeStartTimeout: (seconds: number, log: string) => `Le Runtime BaoCut n’est pas devenu prêt dans les ${seconds} s. Voir ${log}.`,
+  runtimeNodeUnsupported: (current, required) => `Le Runtime BaoCut de ce dépôt nécessite Node ${required}, mais cette CLI tourne sous Node ${current}. Passez à une version de Node prise en charge, puis réessayez.`,
   exitedWith: (code: number | null) => `il s’est arrêté avec le code ${code ?? "inconnu"}`,
   runtimeConnectFailed: (reason: string) => `Impossible de se connecter au Runtime BaoCut : ${reason}`,
   runtimeLost: (reason: string) => `Connexion au Runtime BaoCut perdue : ${reason}`,

@@ -96,6 +96,7 @@ export const ko: CliMessages = {
     '실행 중인 BaoCut Runtime이 없고 시작할 수도 없습니다: BaoCut 앱을 설치하거나, 저장소에서 실행하거나, BAOCUT_RUNTIME_ENTRY를 Runtime 진입점으로 설정하세요.',
   runtimeStartFailed: (reason, log) => `BaoCut Runtime을 시작하지 못했습니다(${reason}). ${log} 파일을 확인하세요.`,
   runtimeStartTimeout: (seconds, log) => `BaoCut Runtime이 ${seconds}초 안에 준비되지 않았습니다. ${log} 파일을 확인하세요.`,
+  runtimeNodeUnsupported: (current, required) => `이 저장소의 BaoCut Runtime에는 Node ${required}이(가) 필요하지만 이 CLI는 Node ${current}에서 실행 중입니다. 지원되는 Node 버전으로 바꾼 뒤 다시 시도하세요.`,
   exitedWith: (code) => `종료됨(종료 코드 ${code ?? '알 수 없음'})`,
   runtimeConnectFailed: (reason) => `BaoCut Runtime에 연결하지 못했습니다: ${reason}`,
   runtimeLost: (reason) => `BaoCut Runtime과의 연결이 끊어졌습니다: ${reason}`,
