@@ -34,6 +34,20 @@ fn at(px: &[u8], x: usize, y: usize) -> [u8; 4] {
     [px[k], px[k + 1], px[k + 2], px[k + 3]]
 }
 
+// Frame parity serializes this synthetic track alongside pixel digests. Keep the input
+// on a fixed decimal grid: Linux/macOS sin differ in their last bits at these samples.
+#[test]
+fn talking_track_has_portable_decimal_angles() {
+    let bytes = puppet::testing::talking_track(3.0);
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let angles = value["params"]["angleX"].as_array().unwrap();
+    assert_eq!(angles.len(), 91);
+    assert_eq!(angles[23], serde_json::json!(14.914104));
+    assert_eq!(angles[40], serde_json::json!(-15.136050));
+    assert_eq!(value["params"]["mouthOpen"][6], serde_json::json!(0.9));
+    assert_eq!(value["params"]["mouthOpen"][12], serde_json::json!(0.0));
+}
+
 #[test]
 fn draws_the_layers() {
     let pkg = package();

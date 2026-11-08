@@ -162,7 +162,11 @@ pub fn package_zip() -> Vec<u8> {
 pub fn talking_track(duration: f64) -> Vec<u8> {
     let n = (duration * 30.0).ceil() as usize + 1;
     let mouth: Vec<f64> = (0..n).map(|i| if (i / 6) % 2 == 1 { 0.9 } else { 0.0 }).collect();
-    let turn: Vec<f64> = (0..n).map(|i| 20.0 * (i as f64 / 10.0).sin()).collect();
+    // libm's sin can differ in the last bits between platforms. The parity fixture
+    // compares serialized input bytes too, so use microdegrees for this test track.
+    let turn: Vec<f64> = (0..n)
+        .map(|i| (20.0 * (i as f64 / 10.0).sin() * 1_000_000.0).round() / 1_000_000.0)
+        .collect();
     serde_json::to_vec(&serde_json::json!({
         "format": "baocut-puppet-track", "version": 1, "fps": 30, "duration": duration,
         "params": { "mouthOpen": mouth, "angleX": turn }
