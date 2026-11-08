@@ -13,6 +13,9 @@ const boxMask = (w, h, x0, y0, x1, y1) => {
 };
 export { boxMask };
 
+// a brow spans at least this much of its eye's width, side to side
+const BROW_OVER_EYE = 0.25;
+
 /** the skin colour: the commonest light warm colour in the middle of the character */
 export function estimateSkin(K, w, h) {
   const hist = new Map();
@@ -91,7 +94,26 @@ export function segment(im, cfg = {}) {
     const cc = components(cand, w, h), touch = dilate(ring, w, h, 2), ids = new Set();
     for (let p = 0; p < n; p++) if (cc.lab[p] && touch[p]) ids.add(cc.lab[p]);
     glass = or(ring, compMask(cc.lab, [...ids]));
-    log('glasses', count(glass), 'rim width', rimW);
+    // a rivet or a glint on the frame: a small spot, not skin, on the frame and closed round by it, the line art past
+    // the rims and the hair over a hinge. Left to the face it was painted out in skin and showed as a hole at rest. A
+    // catchlight in an eye that reaches the frame stays with the eye: on the glasses it would hang there when the eye shut
+    const wall = or(or(glass, hair), C.dark), nearFrame = dilate(glass, w, h, 1);
+    const eyeZone = or(...eyes.map(({ box: b }) => boxMask(w, h, b[0] - 1, b[1] - 1, b[2] + 1, b[3] + 1)));
+    const shut = components(minus(fillHoles(wall, w, h), wall), w, h), spots = [];
+    for (const c of shut.comps) {
+      if (c.area > 2 * rimW * rimW) continue;
+      let onFrame = 0, onSkin = 0, onEye = 0;
+      for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) {
+        const q = y * w + x;
+        if (shut.lab[q] !== c.id) continue;
+        if (nearFrame[q]) onFrame++;
+        if (C.skin[q]) onSkin++;
+        if (eyeZone[q]) onEye++;
+      }
+      if (onFrame && !onEye && onSkin < c.area / 2) spots.push(c.id);
+    }
+    glass = or(glass, compMask(shut.lab, spots));
+    log('glasses', count(glass), 'rim width', rimW, 'spots on the frame', spots.length);
   }
 
   // brows: the big strokes above the eyes, in the line colour or a colour of their own (brown brows are a fill)
@@ -99,9 +121,15 @@ export function segment(im, cfg = {}) {
   const eyeH = eyeBot - eyeTop;
   const notHair = minus(minus(C.dark, hair), glass);
   const dc = components(notHair, w, h);
-  const bc = components(minus(minus(or(C.dark, C.fill), hair), glass), w, h);
+  // the frame's own dark line art joined to the rims (corners and hinges past the fitted ellipses) is not brow: a brow
+  // resting on the frame took a corner of it along. A brow in a colour of its own stays whole; one in the line colour
+  // loses the rows that touch the frame, and one with a gap above the frame is not reached
+  const frame = rims ? grow(glass, minus(C.dark, hair), w, h, rimW) : glass;
+  const bc = components(minus(minus(or(C.dark, C.fill), hair), frame), w, h);
   const midX = (eyes[0].box[2] + eyes[1].box[0]) / 2;
-  const browLike = (c, s) => c.area > 150 && c.cy < eyeTop && c.cy > eyeTop - 2.5 * eyeH && (s ? c.cx > midX : c.cx < midX) && c.x1 - c.x0 < 0.6 * (eyes[1].box[2] - eyes[0].box[0]);
+  // a brow lies over its own eye: a dark piece of the hair or the temple beside the eye, however big, is not one
+  const overEye = (c, s) => { const e = eyes[s].box; return Math.min(c.x1, e[2]) - Math.max(c.x0, e[0]) >= BROW_OVER_EYE * (e[2] - e[0]); };
+  const browLike = (c, s) => c.area > 150 && c.cy < eyeTop && c.cy > eyeTop - 2.5 * eyeH && (s ? c.cx > midX : c.cx < midX) && c.x1 - c.x0 < 0.6 * (eyes[1].box[2] - eyes[0].box[0]) && overEye(c, s);
   const offHair = [0, 1].map((s) => bc.comps.filter((c) => browLike(c, s)).sort((p, q) => q.area - p.area)[0]);
   const browComps = [...offHair];
   // brows drawn over the bangs: a side with none off the hair takes a dark stroke inside the hair (when the hair has a

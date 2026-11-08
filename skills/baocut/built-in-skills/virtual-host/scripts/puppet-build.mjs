@@ -299,7 +299,16 @@ if (G.rims) {
   // the face's own lines next to a feature stay (the outline where a rim or the hair touches it)
   const edge = minus(faceM, erode(faceM, w, h, G.lw + 3));
   const blankM = and(and(or(dilate(featCore, w, h, 3), dilate(rimBlank, w, h, 2)), faceM), not(edge));
-  for (let p = 0; p < N; p++) if (blankM[p]) setPx(L, p, skin, 1);
+  // beside the glasses (and a rim the repaint redrew) only what has the frame's colour in it goes: a pixel with no
+  // frame mixed into it keeps the face's own colour (the dark shading inside an ear next to a rim was painted flat skin)
+  const keep = new Uint8Array(N);
+  {
+    const besideGlass = minus(minus(or(dilate(G.glass, w, h, 3), dilate(rimBlank, w, h, 2)), G.glass), dilate(or(or(eyeRegion, G.brows), G.mouth), w, h, 3));
+    const clean = and(minus(faceM, or(dilate(featCore, w, h, 3), G.hair)), not(edge));
+    const nOut = nearestIndex(clean, w, h, 6), glassCol = medianColor(im, G.glass);
+    for (let p = 0; p < N; p++) if (blankM[p] && besideGlass[p] && nOut[p] >= 0 && unmix(rgb(faceSrc, p), glassCol, rgb(faceSrc, nOut[p])) < 0.12) keep[p] = 1;
+  }
+  for (let p = 0; p < N; p++) if (blankM[p] && !keep[p]) setPx(L, p, skin, 1);
   softEdge(L, faceM, faceSrc, rest, faceKey, w, h, { allow: not(G.hair) });
   add('face', L, { group: 'head', depth: 0 });
   faceL = L;
@@ -380,9 +389,12 @@ for (const e of eyeLayers) add(e.id, e.L, e.def, e);
     const S = strokes(R.im, mz, w, h, { skin, minArea: 25, keep: (c) => c.cy > mc.y0 - 0.25 * mw });
     log(`mouth ${v}`, f, R.A, S.comps.map((c) => [c.x0, c.y0, c.x1, c.y1, c.area]));
     alignCheck(`mouth ${v}`, R.A);
-    const b = bbox(S.core, w, h);
+    // its size from the pieces on the closed mouth's spot: shading lower on the chin or along the jaw falls in the zone
+    // too, alike in every edit, and made every mouth as tall as the shading reached
+    const own = S.comps.filter((c) => c.x0 <= mc.x1 + 2 && c.x1 >= mc.x0 - 2 && c.y0 <= mc.y1 + 2 && c.y1 >= mc.y0 - 2);
+    const b = own.length ? [Math.min(...own.map((c) => c.x0)), Math.min(...own.map((c) => c.y0)), Math.max(...own.map((c) => c.x1)), Math.max(...own.map((c) => c.y1))] : null;
     mouthSize[v] = b ? { w: b[2] - b[0] + 1, h: b[3] - b[1] + 1 } : null;
-    check(!!b, `mouth ${v}`, b ? `${mouthSize[v].w}x${mouthSize[v].h} px` : 'the edit drew no mouth inside the mouth area; redo it');
+    check(!!b, `mouth ${v}`, b ? `${mouthSize[v].w}x${mouthSize[v].h} px` : S.comps.length ? 'the edit drew the mouth away from the closed mouth\'s spot; redo it' : 'the edit drew no mouth inside the mouth area; redo it');
     frames[v] = S.L;
     if (DEBUG) writePng(path.join(DBG, `mouth-${v}-warped.png`), R.im);
   }
@@ -525,7 +537,7 @@ const expressions = [];
     // face beneath them). Read from the edit as registered where the patch has no colours (the hair): a brow or hair
     // pixel needs no skin matching. Found nothing (a brow the colour of the hair): the brows stay in the patch
     // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
-    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, skin, w, h });
+    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, frame: G.rims ? glassD : null, skin, w, h });
     if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h);
     let BT = null, browNote = '', browPx = null;
     if (browsRedrawn) {

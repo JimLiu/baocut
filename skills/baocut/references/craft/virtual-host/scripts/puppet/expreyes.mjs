@@ -164,11 +164,13 @@ function envelope(pts, side) {
  * over. Whites drawn as pink as the skin and cut off from the rest by the iris are not found: they stay in the patch,
  * close to the skin's colour. `eyes` per side (image left first): { drawn: the neutral eye layer's pixels, hit: whether
  * the edit changed that eye, lash: the neutral eye's lash thickness (neutralLash) }. `patch`: the expression patch (its
- * pixels with alpha); `changed`: the strokes the edit changed. Returns { R: [mask or null per side], shut: the sides
+ * pixels with alpha); `changed`: the strokes the edit changed; `frame`: the glasses grown a little, or null (a rim is
+ * not one of the eye's lines: a region that went on over it took in the skin past it, a piece of the frame squashed
+ * with the blink, and was too wide to follow the lash across). Returns { R: [mask or null per side], shut: the sides
  * the edit drew shut (no whites, nothing to blink: they stay in the patch), any: both masks together, open: [the
  * opening (openingOf) or null per side, null on both sides when either side's is not found] }.
  */
-export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }) {
+export function expressionEyeRegions({ E, im, patch, eyes, changed, frame = null, skin, w, h }) {
   const N = w * h, white = whiteOf(skin), R = [null, null], shut = [], any = new Uint8Array(N), lash = [0, 0];
   const toneAt = ((t) => (p) => t(rgb(E, p)))(toneOf(skin));
   eyes.forEach((e, s) => {
@@ -345,7 +347,7 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
         for (let x = Math.max(0, Math.round(b[0] - 0.1 * bw)); x <= Math.min(w - 1, Math.round(b[2] + 0.1 * bw)); x++) M[y * w + x] = 1;
       }
     }
-    for (let p = 0; p < N; p++) if (M[p] && !inPatch(p)) M[p] = 0; else if (M[p]) any[p] = 1;
+    for (let p = 0; p < N; p++) if (M[p] && (!inPatch(p) || frame?.[p])) M[p] = 0; else if (M[p]) any[p] = 1;
     R[s] = M;
   });
   // both eyes blink alike: where one side's opening is not found, neither is cut by its opening (both squash)

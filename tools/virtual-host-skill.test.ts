@@ -330,6 +330,10 @@ const SIZE = 512;
 const ell = (cx: number, cy: number, rx: number, ry: number) => (x: number, y: number) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
 const rect = (x0: number, y0: number, x1: number, y1: number) => (x: number, y: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
 const stroke = (f: (x: number) => number, x0: number, x1: number, t: number) => (x: number, y: number) => x >= x0 && x <= x1 && Math.abs(y - f(x)) <= t;
+const rrect = (x0: number, y0: number, x1: number, y1: number, r: number) => (x: number, y: number) => {
+  const cx = Math.min(Math.max(x, x0 + r), x1 - r), cy = Math.min(Math.max(y, y0 + r), y1 - r);
+  return x >= x0 && x <= x1 && y >= y0 && y <= y1 && (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
+};
 
 function render(shapes: Shape[], line: RGB, background: RGB) {
   const n = SIZE * SIZE, d = new Uint8ClampedArray(n * 4), m = new Uint8Array(n);
@@ -352,7 +356,7 @@ function render(shapes: Shape[], line: RGB, background: RGB) {
   return { w: SIZE, h: SIZE, d };
 }
 
-function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false, rim = false } = {}) {
+function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false, rim = false, glasses = false, chinShade = false } = {}) {
   const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26], green: RGB = [0, 177, 64];
   // a shaded face: the skin round each eye darker than the cheeks, the closed lid as dark as it
   const shade: RGB = [212, 172, 140], lidSkin = socket ? shade : skin;
@@ -373,9 +377,25 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     { inside: ell(cx, 238, 22, 16), fill: lidSkin },
     { inside: stroke((x) => 238 + 6 * (1 - ((x - cx) / 21) ** 2), cx - 21, cx + 21, 1.8), fill: line },
   ];
-  const brow = (cx: number, up = 0): Shape => ({ inside: stroke((x) => 206 - up - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: line });
+  // glasses: square frames with round corners (well past any ellipse round the eye), a light rivet on each hinge and
+  // one on each frame's front beside it, closed round by the frame;
+  // brown brows rest on the frames, a curl of hair hangs at the left temple apart from the hair, bigger than a brow,
+  // and a dark shade lies on the face against the left frame's outer side
+  const frameCol: RGB = [32, 42, 50];
+  const frames: Shape[] = glasses ? [
+    ...[214, 298].map((cx) => ({ inside: (x: number, y: number) => rrect(cx - 31, 211, cx + 31, 267, 6)(x, y) && !rrect(cx - 26, 216, cx + 26, 262, 3)(x, y), fill: frameCol })),
+    { inside: rect(245, 225, 267, 230), fill: frameCol },
+    { inside: rect(170, 219, 184, 229), fill: frameCol }, { inside: rect(328, 219, 342, 229), fill: frameCol },
+    { inside: ell(179, 224, 3, 1.6), fill: [150, 160, 172] }, { inside: ell(333, 224, 3, 1.6), fill: [150, 160, 172] },
+    { inside: ell(185, 224, 1.2, 2), fill: [150, 160, 172] }, { inside: ell(327, 224, 1.2, 2), fill: [150, 160, 172] },
+  ] : [];
+  const temple: Shape[] = glasses ? [{ inside: ell(184, 194, 7, 13), fill: hair, outline: 2 }, { inside: rect(174, 240, 182, 262), fill: [190, 100, 70] }] : [];
+  const browCol: RGB = glasses ? [96, 58, 40] : line;
+  const brow = (cx: number, up = 0): Shape => ({ inside: stroke((x) => 206 - up + (glasses ? 4 : 0) - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: browCol });
+  // shading on the chin either side of the mouth, alike in every picture: none of it is the mouth
+  const chin: Shape[] = chinShade ? [{ inside: ell(226, 308, 3, 20), fill: [212, 172, 140] }, { inside: ell(286, 308, 3, 20), fill: [212, 172, 140] }] : [];
   // angry: brows pulled down toward the nose, the upper lids lowered flat over the irises, a blush on the cheeks
-  const vBrow = (cx: number): Shape => ({ inside: stroke((x) => 198 + 10 * (cx < 256 ? x - (cx - 22) : cx + 22 - x) / 44, cx - 22, cx + 22, 3), fill: line });
+  const vBrow = (cx: number): Shape => ({ inside: stroke((x) => 198 + 10 * (cx < 256 ? x - (cx - 22) : cx + 22 - x) / 44, cx - 22, cx + 22, 3), fill: browCol });
   const narrowed = (cx: number): Shape[] => [
     { inside: (x, y) => ell(cx, 238, 22, 16)(x, y) && y < 233, fill: lidSkin },
     { inside: stroke(() => 233, cx - 20, cx + 20, 1.8), fill: line },
@@ -397,7 +417,7 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   // it to the face)
   const hairRim: Shape[] = rim ? [{ inside: (x, y) => head.inside(x, y) && !hairShape.inside(x, y) && hairShape.inside(x, y - 2), fill: [255, 248, 240] }] : [];
   const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[] } = {}) =>
-    render([neck, body, head, ...sockets, ...(bald ? [] : [hairShape, ...hairRim]), ...brows, ...eyes, ...cheeks, ...mouth], line, green);
+    render([neck, body, head, ...sockets, ...temple, ...(bald ? [] : [hairShape, ...hairRim]), ...brows, ...eyes, ...frames, ...cheeks, ...mouth, ...chin], line, green);
   // the part map (references/art.md section 5): the same shapes, each part in its key colour, the eye lines black
   const key = (s: Shape, fill: RGB, outline?: number): Shape => ({ inside: s.inside, fill, outline });
   const eyeMap = (cx: number) => { const [w, i, hl] = eye(cx); return [key(w, [255, 255, 255], 2), key(i, [0, 255, 255]), key(hl, [0, 255, 255])]; };
@@ -759,6 +779,44 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(status).toBe(1);
     expect(stdout).toMatch(/^FIX {2}brows: brow L and R not found; redraw the portrait with both eyebrows clearly visible/m);
   });
+
+  it('sizes each mouth by what it drew on the mouth\'s spot, not the shading on the chin beside it', () => {
+    const { status, report } = build(writeCharacter(tmp(), { chinShade: true }));
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    // the shading runs rows 288-328 beside every mouth: counted in, the half and the open mouth came out alike tall
+    const note = (v: string) => report.checks.find((c) => c.item === `mouth ${v}`)!.note;
+    expect(note('half')).toBe('44x12 px');
+    expect(note('open')).toBe('44x28 px');
+  });
+
+  it('takes brown brows resting on glasses without the frame, and no curl of hair beside an eye', () => {
+    const cfg = writeCharacter(tmp(), { glasses: true });
+    const { status, report } = build(cfg);
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+    expect(report.checks.find((c) => c.item === 'portrait')!.note).toMatch(/, glasses$/);
+    // each brow is its stroke alone: the curl at the left temple is bigger, and the frames' top edges touch the strokes
+    expect(report.checks.find((c) => c.item === 'brows')!.note).toBe('L 252 / R 252 px, 0 on the bangs');
+    const dir = path.dirname(cfg), pkg = path.join(dir, 'puppet/package');
+    const layers = (JSON.parse(fs.readFileSync(path.join(pkg, 'model.json'), 'utf8')) as { layers: { id: string; x: number; y: number; w: number; h: number; texture: string }[] }).layers;
+    const brows = layers.find((l) => l.id === 'brows')!, bt = readPng(path.join(pkg, brows.texture));
+    let low = 0;
+    for (let y = 0; y < bt.h; y++) for (let x = 0; x < bt.w; x++) if (bt.d[4 * (y * bt.w + x) + 3] > 128 && brows.y + y >= 213) low++;
+    expect(low).toBe(0);
+    expect(brows.x).toBeGreaterThanOrEqual(186);
+    expect(brows.x + brows.w).toBeLessThanOrEqual(326);
+    // the expression's brows are found from these, and its eyes are cut without the frames round them
+    expect(report.checks.find((c) => c.item === 'expression angry')!.note).toMatch(/; brows L \d+ \/ R \d+ px, 0 of them on the bangs; eyes L R blink \(lid\)$/);
+    // at rest the rivets and the shade against the left frame are as drawn: a spot on the frame goes with the glasses,
+    // and the face keeps its colour beside the frame (both were painted out in skin)
+    const portrait = readPng(path.join(dir, 'art/portrait.png')), rest = readPng(path.join(dir, 'puppet/rest.png'));
+    for (const [x, y] of [[179, 224], [333, 224], [185, 224], [327, 224], [180, 250], [182, 256]]) {
+      const q = 4 * (y * SIZE + x);
+      expect(Math.max(...[0, 1, 2].map((k) => Math.abs(rest.d[q + k] - portrait.d[q + k]))), `${x},${y}`).toBeLessThanOrEqual(24);
+    }
+    expect(layers.findIndex((l) => l.id === 'glasses')).toBeGreaterThan(-1);
+  });
 });
 
 describe('virtual-host key removal', () => {
@@ -1094,6 +1152,32 @@ describe('virtual-host expression eye regions', () => {
     const both = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes: [eyes[0], { drawn: plain, hit: true, lash: 8 }], changed, skin, w: W, h: H });
     expect(both.R[1]).not.toBeNull();
     expect(both.open).toEqual([null, null]);
+  });
+
+  it('leaves out a glasses rim drawn tight round the eye, over its wing', () => {
+    // the rim 3 px thick, alike in both pictures and not in the neutral eye; `frame` is it grown by 2 px
+    const N = draw(cy + 1), E = draw(cy - 3), rim = new Uint8Array(W * H), frame = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = y * W + x, v = Math.hypot((x + 0.5 - cx) / 34, (y + 0.5 - cy) / 22);
+      if (v < 1 || v > 1 + 3 / 34) continue;
+      rim[p] = 1;
+      N.drawn[p] = 0;
+      for (const I of [N.im, E.im]) I.d.set([32, 42, 50, 255], 4 * p);
+    }
+    for (let p = 0; p < W * H; p++) if (rim[p]) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const x = (p % W) + dx, y = Math.floor(p / W) + dy;
+      if (x >= 0 && x < W && y >= 0 && y < H) frame[y * W + x] = 1;
+    }
+    const changed = new Uint8Array(W * H).map((_, p) => [0, 1, 2].some((k) => N.im.d[4 * p + k] !== E.im.d[4 * p + k]) ? 1 : 0);
+    const patch = { w: W, h: H, d: new Uint8ClampedArray(W * H * 4).fill(255) };
+    const { R, open } = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes: [{ drawn: N.drawn, hit: true, lash: 8 }, null], changed, frame, skin, w: W, h: H });
+    const M = R[0]!;
+    expect(M[cy * W + cx]).toBe(1);
+    expect(M[(cy - ry - 3) * W + cx]).toBe(1);
+    // the rim is not one of the eye's lines: taken in, the region ran on over it to the skin past it, and that piece of
+    // the frame was squashed with the blink
+    expect(M.filter((v, p) => v && frame[p]).length).toBe(0);
+    expect(open[0]).not.toBeNull();
   });
 });
 

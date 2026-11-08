@@ -111,11 +111,11 @@ New expression: <描述>. Draw it in exactly the same line weight and colors as 
 | --- | --- |
 | `portrait: 1024x1024, key …, skin …, line …, hair …, glasses` | 量到的底色、皮肤、描边、头发颜色，有没有眼镜。没戴眼镜却写着 `glasses`：`character.json` 写 `"glasses": false` |
 | `FIX portrait: …` | 正面像不在能拆的范围，后面写着缺什么（皮肤色、头发、睁开的眼睛、闭着的嘴）：照第 1 节重画，或给 `skin`、`line`、`hair` |
-| `brows: L … / R … px, … on the bangs` | 两边眉毛各多少像素，`on the bangs` 是画在刘海上的（头发是自己的颜色时，刘海里和发丝线条不相连的深色笔画）。这些眉毛单独成层、画在刘海上面，底下的刘海用旁边的头发补上。`FIX brows: brow … not found` 是这边的眉毛找不到（被刘海盖住，或和刘海一个颜色），表情动不了它：照第 1 节重画，让眉毛露在刘海下面，或者加 `partmap`（第 5 节） |
+| `brows: L … / R … px, … on the bangs` | 两边眉毛各多少像素（只算眼睛上方的笔画，镜框和眼旁垂下的发绺不算），`on the bangs` 是画在刘海上的（头发是自己的颜色时，刘海里和发丝线条不相连的深色笔画）。这些眉毛单独成层、画在刘海上面，底下的刘海用旁边的头发补上。`FIX brows: brow … not found` 是这边的眉毛找不到（被刘海盖住，或和刘海一个颜色），表情动不了它：照第 1 节重画，让眉毛露在刘海下面，或者加 `partmap`（第 5 节） |
 | `bald repaint: …% of the character changed away from the hair` | 重绘改了头发以外的地方，超过 1% 时 `FIX`：用 `hair-mask.json` 做选区重画 |
 | `<名> lines up: residual …, shift …, scale …` | 改图对齐到正面像后，要改的那块之外还差多少（0–255 的平均灰度差，6 以内算对上）。`FIX` 是模型把别处也重画了：重画那一张 |
 | `closed eye L/R: … px` | 闭眼的改图在这只眼睛的位置画了多少。`FIX` 是这只眼睛没闭上：重画 `lids` |
-| `mouth <名>: …x… px` | 这张嘴的宽和高。`FIX … drew no mouth` 是嘴的位置什么也没画：重画 |
+| `mouth <名>: …x… px` | 这张嘴的宽和高，只量盖在原来闭着的嘴上的笔画（嘴两边下巴的阴影不算）。`FIX … drew no mouth` 是嘴的位置什么也没画，`FIX … drew the mouth away from the closed mouth's spot` 是嘴画到了别处、没盖住原来的嘴：都重画 |
 | `mouth ladder` | `open` 要比 `half` 高，否则说话时看不出开合：重画开得不够的那张 |
 | `neck line: … px above the chin (…% of the face)` | 头与脖子相接的那一行（`anchors.neck_y`），转头、歪头绕它转，应在下巴上面一点。高过脸高的 20% 时 `FIX`：脖子没找对，多半是领口、围巾或头发贴着下巴，看一眼正面像，重画让下巴下面露出一段脖子 |
 | `expression <名>: …x… px patch: …` | 表情补丁的大小和里面有什么（`eyes` 或一只眼、`brows`、`blush`、`mouth`）。少了描述里要改的那处（比如生气却没有 `brows`），是改图没画出来：重画。`FIX … changed nothing on the face`：重画 |
