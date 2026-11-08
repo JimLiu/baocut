@@ -6,6 +6,8 @@ import { smoothFill } from './fill.mjs';
 // a band pixel is unmixed against the colour round it only when that colour is this far from the backdrop (an iris
 // or a mint sleeve nearer the key reads no better that way) and the pixel lies within MIX_FIT of their mix
 const MIX_SEP = 80, MIX_FIT = 24, SPILL_TOL = 20;
+// a mix deeper in the hair than the band: within DEEP px of the backdrop, and a colour of the drawing within DEEP_OWN px
+const DEEP = 24, DEEP_OWN = 10;
 
 export const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
@@ -66,21 +68,54 @@ export function keyOut(im, o = {}) {
   // key, spread out over the band (a shaded pocket of backdrop is no colour of the drawing; nor, here, is green hair)
   const own = { w, h, d: new Uint8ClampedArray(d) };
   smoothFill(own, band, and(erode(not(or(bg, band)), w, h, 1), Uint8Array.from(ex, (v) => (v <= 0.1 ? 1 : 0))), w, h, { iters: 8 });
-  // the key behind a pixel: the mean of the background round it, since a generated backdrop is not one flat colour
-  const under = (p) => {
-    const x = p % w, y = (p - x) / w, s = [0, 0, 0];
-    let m = 0;
-    for (let j = Math.max(0, y - 8); j <= Math.min(h - 1, y + 8); j++) for (let i = Math.max(0, x - 8); i <= Math.min(w - 1, x + 8); i++) {
-      const q = j * w + i;
-      if (bg[q]) { m++; s[0] += d[4 * q]; s[1] += d[4 * q + 1]; s[2] += d[4 * q + 2]; }
+  // painted hair shows the backdrop between its outer locks further in than the band, darkened by the locks (an olive
+  // between brown locks) and too little keyed to join it. Where the caller says gaps can be (o.holes) and the hair's
+  // own colour has no key excess (the median of its core: dark green or olive hair would read as such a mix), a pixel
+  // within DEEP of the backdrop that leans towards the key is a mix when the backdrop behind it and a lighter or darker
+  // shade of the drawing's colour right by it explain it; a green streak in the hair is no such mix and stays solid
+  const deep = new Uint8Array(n);
+  if (o.holes) {
+    const core = erode(and(o.holes, not(or(bg, band))), w, h, 4), hx = [];
+    for (let p = 0; p < n; p++) if (core[p]) hx.push(ex[p]);
+    if (hx.length && median(hx) <= 0) {
+      const known = Uint8Array.from(ex, (v, p) => (!bg[p] && !band[p] && v <= 0.1 ? 1 : 0)), byKnown = distTo(known, w, h);
+      for (let p = 0; p < n; p++) if (o.holes[p] && !bg[p] && !band[p] && ex[p] > 0.1 && near[p] <= DEEP && byKnown[p] <= DEEP_OWN) deep[p] = 1;
+      smoothFill(own, deep, known, w, h, { iters: 8 });
     }
-    return m ? s.map((v) => v / m) : key;
+  }
+  // the key behind a pixel: the mean of the background round it, since a generated backdrop is not one flat colour
+  // (8 px round it, or as far as the nearest background when that is further)
+  const under = (p) => {
+    const x = p % w, y = (p - x) / w;
+    for (const r of [8, Math.ceil(near[p]) + 2]) {
+      const s = [0, 0, 0];
+      let m = 0;
+      for (let j = Math.max(0, y - r); j <= Math.min(h - 1, y + r); j++) for (let i = Math.max(0, x - r); i <= Math.min(w - 1, x + r); i++) {
+        const q = j * w + i;
+        if (bg[q]) { m++; s[0] += d[4 * q]; s[1] += d[4 * q + 1]; s[2] += d[4 * q + 2]; }
+      }
+      if (m) return s.map((v) => v / m);
+      if (r > 8 || near[p] <= 8) break;
+    }
+    return key;
   };
   const alpha = new Float32Array(n), fg = { w, h, d: new Uint8ClampedArray(n * 4) }, clean = { w, h, d: new Uint8ClampedArray(d) };
   for (let p = 0; p < n; p++) {
     const i = p * 4;
     if (bg[p]) { alpha[p] = 0; continue; }
-    let a = 1, u = key;
+    let a = 1, u = key, mixed = band[p];
+    if (deep[p]) {
+      // p = s*own + b*under: the backdrop shows through at b, behind a drawing s/(1-b) times the colour round it
+      u = under(p);
+      const O = [own.d[i], own.d[i + 1], own.d[i + 2]], P = [d[i], d[i + 1], d[i + 2]];
+      const dot = (A, B) => A[0] * B[0] + A[1] * B[1] + A[2] * B[2], oo = dot(O, O), ou = dot(O, u), uu = dot(u, u), det = oo * uu - ou * ou;
+      if (det > 1e-6 * oo * uu) {
+        const s = (uu * dot(O, P) - ou * dot(u, P)) / det, b = (oo * dot(u, P) - ou * dot(O, P)) / det;
+        const fit = Math.hypot(...[0, 1, 2].map((k) => P[k] - s * O[k] - b * u[k]));
+        if (b > 0 && b < 1 && s >= 0 && fit <= MIX_FIT) { a = 1 - b; mixed = true; }
+      }
+      if (!mixed) u = key;
+    }
     if (band[p]) {
       // character colours here (black lines, skin) carry no key excess
       u = under(p);
@@ -97,8 +132,8 @@ export function keyOut(im, o = {}) {
     }
     alpha[p] = a;
     const c = [0, 1, 2].map((k) => (a > 0.02 ? (d[i + k] - (1 - a) * u[k]) / a : 0));
-    if (band[p] && a > 0.02) {
-      // spill: a band pixel leans no further towards the key than the colour round it does, give or take SPILL_TOL (a
+    if (mixed && a > 0.02) {
+      // spill: a mixed pixel leans no further towards the key than the colour round it does, give or take SPILL_TOL (a
       // generated strand can be painted in the backdrop's light, a thin glowing line that no mix explains)
       const s = [0, 1, 2].reduce((t, k) => t + (c[k] - own.d[i + k]) * spillDir[k], 0) - SPILL_TOL;
       if (s > 0) {

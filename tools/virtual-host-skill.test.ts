@@ -823,6 +823,42 @@ describe('virtual-host key removal', () => {
     expect(K.alpha[at(18, 24)]).toBe(1);
     expect(K.alpha[at(44, 84)]).toBe(1);
   });
+
+  // painted hair: behind its outer lock the backdrop shows through 40% under a lock in the hair's shade, 7–12 px from
+  // the backdrop and walled off from it by the lock; a sweater of the same colour sits in the hair further right
+  const SHADE: RGB = [100, 45, 20];
+  const locks = (hair: RGB, line = false) => {
+    const d = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      if (x >= 10 && x < 70 && y >= 10 && y < 110) c = line && (x === 20 || x === 21) ? [20, 20, 20] : hair;
+      if (((x >= 16 && x < 22) || (x >= 60 && x < 66)) && y >= 50 && y < 70) c = mix(under(y), SHADE, 0.6);
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    return { w: W, h: H, d };
+  };
+  const hairBox = () => {
+    const m = new Uint8Array(W * H);
+    for (let y = 10; y < 110; y++) for (let x = 10; x < 40; x++) m[at(x, y)] = 1;
+    return m;
+  };
+
+  it('unmixes backdrop the locks darken deeper than the edge band, only in the hair', () => {
+    const K = keyOut(locks(HAIR), { holes: hairBox() }), p = at(18, 60);
+    expect(Math.abs(K.alpha[p] - 0.6)).toBeLessThan(0.05);
+    for (let k = 0; k < 3; k++) expect(Math.abs(K.fg.d[4 * p + k] - SHADE[k])).toBeLessThan(6);
+    // the same colour outside where gaps can be is the drawing, and so is everything when the caller names no hair
+    expect(K.alpha[at(62, 60)]).toBe(1);
+    expect(keyOut(locks(HAIR)).alpha[p]).toBe(1);
+  });
+
+  it('leaves hair that leans towards the key solid, though its lines and the backdrop could mix to it', () => {
+    // olive hair: 3 times the dark line colour with a quarter of the backdrop in it
+    const olive = [0, 1, 2].map((k) => Math.round(3 * 20 + 0.25 * under(60)[k])) as RGB;
+    const K = keyOut(locks(olive, true), { holes: hairBox() });
+    expect(K.alpha[at(15, 60)]).toBe(1);
+    expect(K.alpha[at(15, 30)]).toBe(1);
+  });
 });
 
 describe('virtual-host expression eye regions', () => {
