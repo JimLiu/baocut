@@ -895,6 +895,37 @@ describe('virtual-host key removal', () => {
     expect(K.alpha[at(17, 60)]).toBe(1);
     expect(K.alpha[at(60, 60)]).toBe(1);
   });
+
+  it('keeps a highlight on the backdrop solid, though the hair and the backdrop could mix to it', () => {
+    // the same hair with its greener highlight right at the edge: nothing of the hair parts it from the backdrop, but
+    // as a mix it would be the backdrop behind a drawing lighter than white
+    const PINK: RGB = [200, 120, 160];
+    const d = new Uint8ClampedArray(W * H * 4), hair = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      if (x >= 10 && x < 110 && y >= 10 && y < 110) { c = PINK; hair[at(x, y)] = 1; }
+      if (y >= 30 && y < 90 && x >= 58 && x < 62) c = [250, 232, 245];
+      if (y >= 30 && y < 90 && x >= 10 && x < 20) c = [248, 238, 245];
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    const K = keyOut({ w: W, h: H, d }, { holes: hair });
+    for (const x of [15, 18]) expect(K.alpha[at(x, 60)]).toBe(1);
+  });
+
+  it('keeps a shade the backdrop does not reach solid, though it is a touch greener than the hair', () => {
+    // pink hair with a band of a colour of the drawing 6 px in: as light as the hair and leaning a little towards the
+    // key, just as 3% of the backdrop under the hair would. Nothing joins it to the backdrop, so it is the drawing
+    const PINK: RGB = [200, 120, 160];
+    const d = new Uint8ClampedArray(W * H * 4), hair = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let c = under(y);
+      if (x >= 10 && x < 110 && y >= 10 && y < 110) { c = PINK; hair[at(x, y)] = 1; }
+      if (y >= 30 && y < 90 && x >= 16 && x < 20) c = mix(PINK, under(y), 0.03);
+      d.set([...c, 255], 4 * (y * W + x));
+    }
+    const K = keyOut({ w: W, h: H, d }, { holes: hair });
+    expect(K.alpha[at(17, 60)]).toBe(1);
+  });
 });
 
 describe('virtual-host expression eye regions', () => {

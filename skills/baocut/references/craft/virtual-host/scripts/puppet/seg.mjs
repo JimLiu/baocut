@@ -118,7 +118,10 @@ export function keyOut(im, o = {}) {
         if (det <= 1e-6 * oo * uu) continue;
         const s = (uu * dot(O, P) - ou * dot(u, P)) / det, b = (oo * dot(u, P) - ou * dot(O, P)) / det;
         const fit = Math.hypot(...[0, 1, 2].map((k) => P[k] - s * O[k] - b * u[k]));
-        if (b > 0 && b < 1 && s >= 0 && fit <= MIX_FIT) { deepA[p] = 1 - b; found++; }
+        // and the drawing it leaves, s/(1-b) times that colour, is a colour (within MIX_FIT): a white highlight at the
+        // edge of pink hair fits half pink, half backdrop only behind a drawing twice as light as white
+        const drawn = (s / (1 - b)) * Math.max(...O);
+        if (b > 0 && b < 1 && s >= 0 && fit <= MIX_FIT && drawn <= 255 + MIX_FIT) { deepA[p] = 1 - b; found++; }
       }
       // nor is such a mix a colour of the drawing for the band: read from it, the band's own colour turns olive and so
       // keeps a thin strand olive. In the hair the band takes the colour round it again without them
