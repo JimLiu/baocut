@@ -26,7 +26,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | [`design/export/gpu-compositing.md`](design/export/gpu-compositing.md) | **导出合成上 GPU（方案稿）**：现有的 wgpu 部件、帧级合成目标的接缝、回读与硬件编码衔接的三级、像素一致性的容差、回落与报告、上线门槛与分期 |
 | [`design/brand/app-icon.md`](design/brand/app-icon.md) | **App 图标设计**：图形组成、三色配色与备选变体、外形模板、否决过的方向；绘制源码在 `tools/app-icon/` |
 | [`design/timeline/`](design/timeline/README.md) | **时间线语义与元素模型（移植自 v2）**：v2 元素模型与 v3 视频格式的逐项对照（接线各批的输入），以及剪辑域、剪口播、元素几何、`timeline.json` 的设计记录；实现在 `crates/timeline`，文中的数据模型名指 v2 |
-| [`design/agent-surface/`](design/agent-surface/README.md) | **面向外部 Agent 的能力面（方案稿）**：CLI、MCP 服务与 BaoCut skill 共用工具目录的设计，Agent 面的命令目录、CLI 与 MCP 约定、skill 的结构与实施顺序 |
+| [`design/agent-surface/`](design/agent-surface/README.md) | **面向外部 Agent 的能力面（方案稿）**：CLI、MCP 服务与 BaoCut skill 共用工具目录的设计，Agent 面的命令目录、CLI 与 MCP 约定、skill 的结构与实施顺序；不开桌面端只用 CLI 与 CLI 独立发布的方案 |
 | [`design/slides/`](design/slides/README.md) | **会话里的幻灯片（实施中）**：智能体在会话里做 deck、功能区的 Slides 编辑器、标注作为附件发回会话；宿主能力的重新实现、Runtime 路由、标注协议与分阶段实施 |
 | [`design/canvas/`](design/canvas/README.md) | **会话里的设计稿**：智能体在会话里做设计稿（画板）与设计系统、功能区的编辑器、标注作为附件发回会话；目录页指向这些行为在产品、架构、协议文档与运行时包里的位置 |
 | [`design/docs/`](design/docs/README.md) | **会话里的协作文档**：智能体用 `docs_*` 工具写文档、功能区的文档编辑器（标签页、富文本、表格、评论）、评论与请求发回会话；存储与 door 协议、Runtime 路由、skill 与工具、标注协议 |
@@ -57,6 +57,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | 实现局域网能力共享 | 架构设计 §6.7、§12.7；节点协议规范 |
 | 实现对外服务（MCP 服务、模型接口、Web） | 架构设计 §4.8、§12.8 |
 | 实现 CLI、MCP 工具或 BaoCut skill（给外部 Agent 的能力面） | [`design/agent-surface/`](design/agent-surface/README.md)；架构设计 §3.5、§4.8 |
+| 让 CLI 不开桌面端也能用：PATH 入口、两份安装的版本规则、CLI 拉起的 Runtime 的环境、MCP stdio、CLI 独立发布 | [`design/agent-surface/cli-standalone-design.md`](design/agent-surface/cli-standalone-design.md)；架构设计 §2.2、§2.6 |
 | 实现用户库、偏好设置与跨视频检索 | 架构设计 §5.9–§5.11 |
 | 实现视频的版本记录（快照、版本回滚、可选的 git） | 视频格式规范 §9；架构设计 §5.12；[`design/version-history/`](design/version-history/README.md) |
 | 接入本机语义模型、语义检索与写作选材 | [`design/embedding/`](design/embedding/README.md)；架构设计 §5.11、§6.3 |

@@ -287,6 +287,7 @@ export --video V --kind subtitles --format srt --bilingual
 - CLI 拉起的 Runtime 空闲（没有在用的连接、没有任务）满设置 `runtime.idleExitMinutes`（默认 10）自动退出，Agent 忘了停也不留后台进程。`baocut runtime status` 只查状态，不算在用：查询不推迟退出，报出的 `idleSince` 是查询之前的值。
 - 版本门：CLI 与 Runtime 的接口版本不同时以退出码 3 拒绝并说明哪一边要更新；不默默按旧参数解释。接口版本相同、但连上的 Runtime 没有 CLI 目录快照里的命令时，以退出码 3 报 `RUNTIME_OUTDATED`，不说成没有这个命令。
 - 从仓库运行的 CLI：主目录不是默认的 `~/.baocut`（如 `BAOCUT_HOME=.dev/baocut-home`）时拉起仓库里的 Runtime，与 CLI 是同一份代码，还没发布的工具才调得到。默认主目录是用户的真实数据与钥匙串，开发中的代码不碰它，仍用装好的应用。
+- 不开桌面端只用 CLI 的后续方案（两份安装的版本规则、CLI 拉起的 Runtime 与桌面端一致、隔离 Home 只读链接账号、独立 CLI 包）见 [CLI 独立使用与发布](cli-standalone-design.md)，方案稿，实现时改写本节。
 
 ### 5.7 帮助的形态
 
@@ -405,7 +406,7 @@ skill 是给外部 Agent 的说明书：何时用 BaoCut、怎么启动、每类
 - **位置**：两个宿主目录下的 `baocut/`。`.agents/skills` 给 Codex 等遵循 Agent Skills 约定的 Agent，`.claude/skills` 给 Claude Code。**全局**在用户主目录下（`~/.agents/skills/baocut`、`~/.claude/skills/baocut`），默认两处都装；**按目录**装在任意一个文件夹下（`<文件夹>/.agents/skills/baocut` 等），不限于 BaoCut 的项目——外部 Agent 在哪个目录里工作就装到哪。装过的文件夹记在 `<Runtime Home>/agent-skill-dirs.json`，两处都没有 BaoCut 的说明书了就不再列。文件夹不能是文件系统根、用户主目录本身（那是全局），也不能在某个 `.agents` / `.claude` 目录里（`AGENT_SKILL_BAD_ROOT`）。
 - **装法**：默认放软链接，指向 App 里渲染好的那份（Windows 用目录联接，不要管理员权限），App 更新它就跟着更新，装过的不用重装；可选复制一份（不跟着 App 更新，过期了要再装）。开发时没有随包的那份，Runtime 按 CLI 面渲染进 `<Runtime Home>/agent-skills/baocut/`、内容变了才重写，软链接指向它。macOS 上 App 不在「应用程序」文件夹里运行时界面提醒：之后移动或删除 App，软链接会失效。
 - **状态**：每处是 `none`（没有）、`current`（软链接指向 App 的那份，或副本与它逐字相同）、`stale`（副本与它不同，或软链接指向另一份 BaoCut 说明书，例如旧版装进 Runtime Home 的那份）、`broken`（软链接指向的位置不在了）、`foreign`（那里有不是 BaoCut 说明书的东西：文件，或 `SKILL.md` 的 `name` 不是 `baocut`）。按内容判断过期，不按 `version`：版本号不一定随每次改动更新。`stale` 与 `broken` 装一次就修好；`foreign` 永不覆盖或删除，安装与移除都整批拒绝（`AGENT_SKILL_LOCATION_TAKEN`），请用户自己移走。
-- **入口**：`agentSkill.status|install|remove`（命令与协议规范 §4.1），位置、状态与装法都在 Runtime 里，CLI 与 App 同一份规则。CLI 是管理桶的 `baocut skill install [--dir <文件夹>]… [--agent agents|claude] [--copy]`、`skill status`、`skill remove`（删副本要 `--yes`）；App 在 Skills 页的「在终端或其他应用的 Agent 里使用 BaoCut」卡片里，Web 只看状态（装与移除往用户主目录或任意文件夹写，只在桌面界面与 CLI 里做）。状态里还有 App 自带的命令行入口（macOS `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 安装目录里的 `baocut.cmd`）与终端里实际的 `baocut`：BaoCut 不替用户往系统 PATH 写文件，不在 PATH 上时给出可复制的命令（macOS 在 `/usr/local/bin` 放软链接，Windows 把安装目录加进用户 PATH）。
+- **入口**：`agentSkill.status|install|remove`（命令与协议规范 §4.1），位置、状态与装法都在 Runtime 里，CLI 与 App 同一份规则。CLI 是管理桶的 `baocut skill install [--dir <文件夹>]… [--agent agents|claude] [--copy]`、`skill status`、`skill remove`（删副本要 `--yes`）；App 在 Skills 页的「在终端或其他应用的 Agent 里使用 BaoCut」卡片里，Web 只看状态（装与移除往用户主目录或任意文件夹写，只在桌面界面与 CLI 里做）。状态里还有 App 自带的命令行入口（macOS `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 安装目录里的 `baocut.cmd`）与终端里实际的 `baocut`：BaoCut 不替用户往系统 PATH 写文件，不在 PATH 上时给出可复制的命令（macOS 在 `/usr/local/bin` 放软链接，Windows 把安装目录加进用户 PATH）。2026-11-08 起已定 App 可以在 `~/.local/bin` 放链接，做法见 [CLI 独立使用与发布 §3](cli-standalone-design.md#3-命令行入口与-path)，实现时改写这一条。
 
 ### 8.3 内容结构
 

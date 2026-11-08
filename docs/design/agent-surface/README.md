@@ -5,5 +5,6 @@ BaoCut 向其他 Agent 开放能力的三样东西的设计：命令行 `baocut`
 | 文件 | 内容与状态 |
 | --- | --- |
 | [`agent-surface-design.md`](agent-surface-design.md) | **方案稿（2026-10-06，未实现）**：CLI 成为工具目录的第三个消费者；`LocalPrincipal` 与三种主体的权限对照；一级动词 + 名词组 + 元命令的 Agent 面目录与 MCP `a_b` ↔ CLI `a b` 的映射规则；CLI 的信封、退出码、`--wait`、大结果落盘与 Runtime 归属；MCP 的开放清单与 `jobs_wait`；现有 CLI 命令的去向；说明书 `skills/baocut/` 的结构与 SKILL.md 大纲；要修订的规范条目与分阶段实施顺序 |
+| [`cli-standalone-design.md`](cli-standalone-design.md) | **方案稿（2026-11-08，未实现）**：不开桌面端只用 CLI：`~/.local/bin` 入口与 Homebrew cask；同一 Home 上两份安装的复用与替换规则（发现信息加 `interfaceVersion`、`build`、`entry`）；CLI 拉起的 Runtime 与桌面端一致的项目目录、主机文件夹、系统语言与存活判断；MCP stdio 与可选常驻；隔离 Home 只读链接账号；`baocut doctor` 与文案；独立 CLI 包的内容、布局、更新、签名与待评审事项 |
 
 v2 的对应设计（`bcut` CLI 与 skill）在 baocut-app 仓库的 `docs/design/cli/` 与 `skills/baocut/`，只作参考，不兼容。
