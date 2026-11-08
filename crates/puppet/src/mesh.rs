@@ -57,6 +57,8 @@ pub(crate) struct Mesh {
     /// 眼白与眼珠（lidCurve）：每个顶点那一列压向的高度，以及眼珠中心那一列的高度。
     pub piv_y: Option<Vec<f32>>,
     pub piv_c: Option<f64>,
+    /// 有遮罩的眼白（`eye_L` `eye_R`）：眨眼时往下合的上眼皮（见 [`upper_lid`]）。
+    pub lid: Option<UpperLid>,
     pub skin: Option<Skin>,
     pub alt_skin: Option<Skin>,
 }
@@ -400,6 +402,58 @@ pub(crate) fn nasal_room(iris: &Texture, i: &LayerDef, mask: &Texture, e: &Layer
     })
 }
 
+/// 合上时睫毛薄多少（Mesh Avatar Studio 的上睫毛也薄三成）。
+const LASH_THIN: f64 = 0.3;
+
+/// 眼白一层的上眼皮：每个顶点那一列眼白的上沿（模型 y）、合上时那一列睫毛剩下的厚度（静止厚度的倍数），以及合上
+/// 时睫毛厚度的一半（模型像素）。
+#[derive(Clone, Debug)]
+pub(crate) struct UpperLid {
+    pub top: Vec<f32>,
+    pub thin: Vec<f32>,
+    pub lash: f64,
+}
+
+/// 眼白 `e`（贴图 `img`）的上眼皮：遮罩每一列 alpha ≥ 128 的第一行的上边是眼白的上沿，贴图在它上面连着不透明的
+/// 行数是那一列睫毛的厚度。合上时睫毛薄 [`LASH_THIN`]，眼角那几列（弧线陡的地方，一列里睫毛很高）再压到和中间
+/// 一样厚：整列平移时它们会在眼角立成一块。顶点所在的列没有眼白时（眼角外的睫毛尾巴）取最近的有眼白的列，整条
+/// 睫毛一起动；遮罩里没有眼白时没有。
+pub(crate) fn upper_lid(mask: &Texture, img: &Texture, e: &LayerDef, rest: &[f32]) -> Option<UpperLid> {
+    let (mw, mh) = (i64::from(mask.width()), i64::from(mask.height()));
+    let (iw, ih) = (f64::from(img.width()), f64::from(img.height()));
+    // 每一列：眼白的上沿与它上面睫毛的厚度（模型 y、模型像素）
+    let cols: Vec<Option<(f64, f64)>> = (0..mw)
+        .map(|u| {
+            let v = (0..mh).find(|&v| mask.alpha(u, v) >= 128)?;
+            let t = e.y + v as f64 * e.h / mh as f64;
+            let x = (((u as f64 + 0.5) / mw as f64) * iw).floor() as i64;
+            let top = ((t - e.y) / e.h * ih).round() as i64;
+            let n = (1..=top).take_while(|&k| img.alpha(x, top - k) >= 128).count();
+            Some((t, n as f64 * e.h / ih))
+        })
+        .collect();
+    let lo = cols.iter().position(Option::is_some)? as i64;
+    let hi = cols.iter().rposition(Option::is_some)? as i64;
+    let mut runs: Vec<f64> = cols.iter().flatten().map(|c| c.1).filter(|&r| r > 0.0).collect();
+    runs.sort_by(f64::total_cmp);
+    let med = runs.get(runs.len() / 2).copied().unwrap_or(0.0);
+    let at = |u: i64| -> (f64, f64) {
+        let u = u.clamp(lo, hi);
+        (0..=hi - lo).find_map(|d| cols[(u - d).max(lo) as usize].or(cols[(u + d).min(hi) as usize])).unwrap_or_default()
+    };
+    let (mut top, mut thin) = (Vec::with_capacity(rest.len() / 2), Vec::with_capacity(rest.len() / 2));
+    for p in rest.chunks_exact(2) {
+        let (t, run) = at(((f64::from(p[0]) - e.x) / e.w * mw as f64).floor() as i64);
+        top.push(t as f32);
+        thin.push(((1.0 - LASH_THIN) * if run > med { med / run } else { 1.0 }) as f32);
+    }
+    Some(UpperLid {
+        top,
+        thin,
+        lash: (1.0 - LASH_THIN) * med / 2.0,
+    })
+}
+
 /// 睫毛线能用的模型：正面的日漫半身与厚涂角色，不戴眼镜（LivLiv 的 `lidCurveFits`）。
 pub(crate) fn lid_curve_fits(m: &Model) -> bool {
     let Some(p) = &m.profile else { return false };
@@ -731,6 +785,7 @@ pub(crate) fn build(ctx: &Ctx, l: &LayerDef, img: &Texture, frames: &[&Texture],
         alt,
         piv_y: None,
         piv_c: None,
+        lid: None,
         skin,
         alt_skin,
     }

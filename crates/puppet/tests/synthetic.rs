@@ -320,6 +320,87 @@ fn a_nearly_shut_eye_is_a_thin_opaque_eye_not_a_grey_band() {
     assert_eq!(rows(0.0).0, 0);
 }
 
+/// 眨眼时上眼皮往下合：眼白上沿以上的睫毛整条往下平移、只薄一点，眼珠不压扁、由合拢的眼白裁；快合上时睫毛的中线
+/// 落在眼睛合向的那一行，和闭眼层的睫毛对齐。
+#[test]
+fn a_blinking_eye_slides_its_lash_down_and_cuts_the_iris() {
+    use puppet::testing::{model, png};
+    // 左眼（模型的 95..123 × 110..126，层框四边多两格透明）上面 4 行是深色睫毛、下面是眼白，遮罩只有眼白；眼珠
+    // （102..116 × 109..127）第 118–122 行是一条红带。都合向第 120 行
+    let mut m = model();
+    for l in m["layers"].as_array_mut().unwrap().iter_mut() {
+        if l["id"] == "eye_L" || l["id"] == "iris_L" {
+            l["pivot"] = serde_json::json!([109, 120]);
+        }
+        if l["id"] == "eye_L" {
+            l["texture"] = "textures/lashed_eye.png".into();
+            l["mask"] = "textures/whites.png".into();
+            (l["x"], l["y"], l["w"], l["h"]) = (93.into(), 108.into(), 32.into(), 20.into());
+        }
+        if l["id"] == "iris_L" {
+            l["texture"] = "textures/banded_iris.png".into();
+        }
+    }
+    let mut fs = files("");
+    fs[0].1 = serde_json::to_vec(&m).unwrap();
+    let inside = |x: f64, y: f64| (2.0..30.0).contains(&x) && (2.0..18.0).contains(&y);
+    fs.push((
+        "textures/lashed_eye.png".into(),
+        png(32, 20, move |x, y| match (inside(x, y), y < 6.0) {
+            (false, _) => [0, 0, 0, 0],
+            (true, true) => [20, 15, 15, 255],
+            (true, false) => [255, 255, 255, 255],
+        }),
+    ));
+    fs.push(("textures/whites.png".into(), png(32, 20, move |x, y| [255, 255, 255, if inside(x, y) && y >= 6.0 { 255 } else { 0 }])));
+    fs.push((
+        "textures/banded_iris.png".into(),
+        png(14, 18, |x, y| {
+            if ((x - 7.0) / 7.0).powi(2) + ((y - 9.0) / 9.0).powi(2) >= 1.0 {
+                [0, 0, 0, 0]
+            } else if (9.0..13.0).contains(&y) {
+                [200, 30, 30, 255]
+            } else {
+                [40, 60, 120, 255]
+            }
+        }),
+    ));
+    let pkg = Package::from_zip(&zip(&fs)).unwrap();
+    let mut p = Puppet::new(&pkg).unwrap();
+    // 画面是画布的 4 倍：眼珠外的一列（x 394）里睫毛占的行（首行、行数），眼珠中线那一列（x 436）里红带的行数
+    let mut look = |open: f64| {
+        p.params.eye_l_open = open;
+        p.update(0.0, true);
+        let mut px = vec![0u8; 1024 * 1536 * 4];
+        p.render(1024, 1536, &mut px);
+        let col = |x: usize| -> Vec<(usize, [u8; 3])> {
+            (400..560)
+                .map(|y| {
+                    let k = 4 * (y * 1024 + x);
+                    (y, [px[k], px[k + 1], px[k + 2]])
+                })
+                .collect()
+        };
+        let lash: Vec<usize> = col(394)
+            .into_iter()
+            .filter(|(_, c)| 0.3 * f64::from(c[0]) + 0.59 * f64::from(c[1]) + 0.11 * f64::from(c[2]) < 100.0)
+            .map(|(y, _)| y)
+            .collect();
+        let band = col(436).iter().filter(|(_, c)| c[0] > 150 && c[2] < 100).count();
+        (lash.first().copied().unwrap_or(0), lash.len(), band)
+    };
+    let rest = look(1.0);
+    assert!(rest.0.abs_diff(440) <= 1 && rest.1.abs_diff(16) <= 2 && rest.2 >= 12, "rest {rest:?}");
+    // 合上一半：睫毛往下滑了 4 个模型像素以上、只薄一点（照旧压扁会剩六成），红带不压扁
+    let half = look(1.0 - 0.5 * 0.92);
+    assert!(half.0 >= rest.0 + 16 && half.1 * 4 >= rest.1 * 3, "half {half:?}, rest {rest:?}");
+    assert!(half.2.abs_diff(rest.2) <= 1, "half {half:?}, rest {rest:?}");
+    // 快合上：睫毛的中线在第 120 行（画面第 480 行）
+    let near = look(0.085);
+    let mid = near.0 as f64 + near.1 as f64 / 2.0;
+    assert!((mid - 480.0).abs() <= 2.0 && near.1 >= 8, "near {near:?}");
+}
+
 /// 表情自己的眼睛（`expr_eye_L`）和中性的眼睛一样眨：朝 `pivot` 那一行压扁，睁开不到 0.08 就不画；它底下先画这一边的
 /// 闭眼层，盖在表情补丁上。表情关着时既不画它，也不在补丁上多画闭眼层。
 #[test]

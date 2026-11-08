@@ -21,7 +21,7 @@ const VOWEL_OUT: f64 = 0.35;
 const TALK_LATCH: f64 = 0.4;
 /// 头这一高度的头发从刘海的弹簧换到侧发弹簧的位置（离头中线多少个头半宽）。
 const SIDE_AT: [f64; 2] = [0.5, 0.85];
-/// 半闭的眼睛：眼珠的中心跟着压扁下移多少。
+/// 半闭的眼睛：眼珠的中心往眼睛合向的那一行下移多少（乘上合上的程度）。
 const IRIS_DROP: f64 = 0.3;
 /// 往鼻子那边看时眼珠最多变窄到多少。
 const IRIS_NASAL_NARROW: f64 = 0.7;
@@ -387,6 +387,17 @@ const FRONT: usize = 0;
 const BACK: usize = 1;
 const SIDE: usize = 2;
 
+/// 眨眼时眼白这一层的一点（静止 y）：眼白上沿 `t` 以下（眼白与下睫毛）压向 `c`，以上的睫毛跟着上沿整条往下平移，
+/// 同时朝它的下边变薄，合上时剩 `thin` 倍；`k` 是合上了多少（0 睁开不动，1 全压到 `c`）。`c` 是闭眼线往下半个
+/// （变薄后的）睫毛厚：合上时睫毛的中线落在闭眼线上，和闭眼层的睫毛对齐。
+fn lid_slide(y: f64, t: f64, thin: f64, c: f64, k: f64) -> f64 {
+    if y <= t {
+        t + k * (c - t) - (t - y) * (1.0 - k * (1.0 - thin))
+    } else {
+        c + (y - c) * (1.0 - k)
+    }
+}
+
 fn side_of(role: &str) -> Option<usize> {
     if role.ends_with("_L") {
         Some(0)
@@ -522,24 +533,35 @@ impl Puppet {
                 nasal[side] = mesh::nasal_room(&l.tex, &l.def, mask, &p.def, sign);
             }
         }
-        if mesh::lid_curve_fits(&model) {
-            for s in ["L", "R"] {
-                let lid = format!("lid_{s}");
-                let Some(li) = layers.iter().position(|l| l.def.role() == lid) else {
+        // 有遮罩的眼白：每个顶点那一列眼白的上沿。眨眼时它以上的睫毛整条往下平移，眼珠不压扁、由合拢的眼白裁
+        for l in layers.iter_mut() {
+            if !matches!(l.def.role(), "eye_L" | "eye_R") || l.def.pivot.is_none() {
+                continue;
+            }
+            l.mesh.lid = l.mask.as_deref().and_then(|mask| mesh::upper_lid(mask, &l.tex, &l.def, &l.mesh.rest));
+        }
+        // 闭眼层睫毛的弧线：能用的模型眼睛几层都压向它；别的模型只有往下合的眼白和被它裁的眼珠、高光用它（睫毛滑到
+        // 的地方要对上闭眼层的睫毛，压向 pivot 那一行的平线时，两头会和弯的睫毛错开）
+        let fits = mesh::lid_curve_fits(&model);
+        for s in ["L", "R"] {
+            let lid = format!("lid_{s}");
+            let Some(li) = layers.iter().position(|l| l.def.role() == lid) else {
+                continue;
+            };
+            let Some(line) = mesh::closed_lash_line(&layers[li].tex, &layers[li].def) else {
+                continue;
+            };
+            let eye = format!("eye_{s}");
+            let cut = layers.iter().any(|l| l.def.role() == eye && l.mesh.lid.is_some());
+            for l in layers.iter_mut() {
+                let r = l.def.role();
+                let sliding = r == eye || r == format!("iris_{s}") || r == format!("shine_{s}");
+                if !(sliding && (fits || cut)) && !(fits && r == format!("expr_eye_{s}")) {
                     continue;
-                };
-                let Some(line) = mesh::closed_lash_line(&layers[li].tex, &layers[li].def) else {
-                    continue;
-                };
-                for l in layers.iter_mut() {
-                    let r = l.def.role();
-                    if r != format!("eye_{s}") && r != format!("iris_{s}") && r != format!("shine_{s}") && r != format!("expr_eye_{s}") {
-                        continue;
-                    }
-                    let n = l.mesh.len();
-                    l.mesh.piv_y = Some((0..n).map(|k| line.at(f64::from(l.mesh.rest[2 * k])) as f32).collect());
-                    l.mesh.piv_c = Some(line.at(l.def.x + l.def.w / 2.0));
                 }
+                let n = l.mesh.len();
+                l.mesh.piv_y = Some((0..n).map(|k| line.at(f64::from(l.mesh.rest[2 * k])) as f32).collect());
+                l.mesh.piv_c = Some(line.at(l.def.x + l.def.w / 2.0));
             }
         }
         let mouth_w = (0..frame_kind.len()).map(|i| if i == 0 { 1.0 } else { 0.0 }).collect();
@@ -1305,6 +1327,19 @@ impl Puppet {
         let chained = !self.chains.is_empty();
         let time = self.time;
         let mut layers = std::mem::take(&mut self.layers);
+        // 每一边：眼白量出了上沿（眼珠、高光由它裁），眼珠的中心高度（高光跟眼珠一起下移）
+        let mut cut = [false; 2];
+        let mut iris_mid = [None; 2];
+        for l in &layers {
+            let role = l.def.role();
+            let Some(s) = side_of(role) else { continue };
+            if role.starts_with("eye_") && l.mesh.lid.is_some() {
+                cut[s] = true;
+            }
+            if role.starts_with("iris_") {
+                iris_mid[s] = Some(l.def.y + l.def.h / 2.0);
+            }
+        }
         for l in &mut layers {
             l.shown = self.shown(&l.def);
             if !l.shown {
@@ -1320,6 +1355,10 @@ impl Puppet {
             let open = self.eye_open(side);
             let squash = 0.12 + 0.88 * open;
             let iris = role.starts_with("iris_");
+            // 眼白量出了上沿：眼珠、高光不压扁，由合拢的眼白裁（眼白的上沿就是往下合的眼皮）。眼白在睁开 EYE_SHUT
+            // 时正好合成一条线，接着换成闭眼层
+            let lid_cut = (iris || role.starts_with("shine_")) && side.is_some_and(|s| cut[s]);
+            let shut = ((1.0 - open) / (1.0 - EYE_SHUT)).clamp(0.0, 1.0);
             let (mut ix, mut iy) = (0.0, 0.0);
             if let Some(rg) = d.range
                 && (iris || (chained && role.starts_with("shine_")))
@@ -1340,12 +1379,25 @@ impl Puppet {
             }
             // 有视线行程的眼珠：随压扁下移一点，只有它眼白压向的那条线以下压扁；以上被合上的眼皮盖住
             let lid_iris = iris && d.pivot.is_some() && d.range.is_some_and(|rg| rg[0] > 0.0 || rg[1] > 0.0);
-            if lid_iris {
+            if lid_cut && d.pivot.is_some() {
+                let py = m.piv_c.unwrap_or_else(|| d.pivot.map_or(0.0, |p| p[1]));
+                let mid = side.and_then(|s| iris_mid[s]).unwrap_or(d.y + d.h / 2.0);
+                iy += IRIS_DROP * shut * (py - mid);
+            } else if lid_iris {
                 let py = m.piv_c.unwrap_or_else(|| d.pivot.map_or(0.0, |p| p[1]));
                 iy += IRIS_DROP * (1.0 - squash) * (py - (d.y + d.h / 2.0));
             }
+            let lid_soft = if lid_cut {
+                shut * d.h / 2.0
+            } else if lid_iris {
+                (1.0 - squash) * d.h / 2.0
+            } else {
+                0.0
+            };
             if iris {
-                l.soft = (ix.hypot(iy) + if lid_iris { (1.0 - squash) * d.h / 2.0 } else { 0.0 }).min(1.0);
+                l.soft = (ix.hypot(iy) + lid_soft).min(1.0);
+            } else if lid_cut {
+                l.soft = lid_soft.min(1.0);
             }
             let tw = if chained && role.starts_with("shine_") {
                 twinkle(time + if side == Some(1) { 1.3 } else { 0.0 })
@@ -1370,7 +1422,9 @@ impl Puppet {
                     let py = m.piv_y.as_ref().map_or(pv[1], |v| f64::from(v[i]));
                     x += nx + nk * f64::from(r[2 * i]);
                     y += iy;
-                    if !lid_iris || y > py {
+                    if let Some(lid) = &m.lid {
+                        y = lid_slide(y, f64::from(lid.top[i]), f64::from(lid.thin[i]), py + lid.lash, shut);
+                    } else if !lid_cut && (!lid_iris || y > py) {
                         y = py + (y - py) * squash;
                     }
                 }
