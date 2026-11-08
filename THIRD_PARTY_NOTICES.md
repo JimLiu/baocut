@@ -516,6 +516,39 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+## mesh-avatar-studio
+
+虚拟主播的运行时与制作工具来自 [mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（提交 `3619620`，Yuki Shindo，MIT）：
+
+- `crates/mesh-avatar-core`、`crates/mesh-avatar-wgpu`：拷贝自上游 `native/crates/`，改动见 `crates/mesh-avatar-core/README.md`。
+- `crates/mesh-avatar-build`：分层、sprite 与变体请求的算法按上游 `tools/build-layers.py`、`tools/build-sprites.py`、`tools/variant-requests.py` 移植成 Rust，差别见该目录的 `README.md`。
+
+上游 `samples/` 里的示例角色不许单独再分发，没有拷进来；测试夹具是自己生成的角色。原始许可如下：
+
+```text
+MIT License
+
+Copyright (c) 2026 Yuki Shindo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## YuNet 人脸检测模型
 
 `packages/models/assets/face-detection/yunet-2023mar.onnx` 是 OpenCV Zoo 的 YuNet 模型（`face_detection_yunet_2023mar.onnx`，内容未改动，只改了文件名），随应用分发，`videos_frames` 用它标出每帧的人脸框。来源（固定到提交）、SHA-256 与许可原文见同目录的 `COPYING.txt`。

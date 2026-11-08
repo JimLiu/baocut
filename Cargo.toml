@@ -42,6 +42,8 @@ timeline-render = { path = "crates/timeline-render" }
 # 缺省关掉 `host`（项目 I/O、媒体解码、系统字体，经 `render-raster/media`）：与 `render-raster` 同理，
 # 进 WASM 的一方用 `features = ["wasm-safe"]`，要宿主能力的一方自己加 `features = ["host"]`。
 subtitle-render = { path = "crates/subtitle-render", default-features = false }
+mesh-avatar-core = { path = "crates/mesh-avatar-core" }
+mesh-avatar-wgpu = { path = "crates/mesh-avatar-wgpu" }
 
 # 预览的 WASM：体积优先，只给 `--profile wasm` 用，不影响原生的 engine-host。
 [profile.wasm]

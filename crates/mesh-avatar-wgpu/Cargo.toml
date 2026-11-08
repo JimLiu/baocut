@@ -1,0 +1,19 @@
+[package]
+name = "mesh-avatar-wgpu"
+description = "Offscreen wgpu renderer for mesh avatars, vendored from mesh-avatar-studio (MIT); see ../mesh-avatar-core/README.md"
+version = "0.1.0"
+# Vendored source keeps its upstream edition so it can be diffed against mesh-avatar-studio.
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+
+[dependencies]
+mesh-avatar-core = { path = "../mesh-avatar-core" }
+wgpu = "30"
+pollster = "1"
+bytemuck = { version = "1", features = ["derive"] }
+png = "0.17"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }

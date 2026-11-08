@@ -1,0 +1,16 @@
+[package]
+name = "mesh-avatar-core"
+description = "Mesh avatar loading, rig deformation, motion and physics on the CPU, vendored from mesh-avatar-studio (MIT); see README.md"
+version = "0.1.0"
+# Vendored source keeps its upstream edition so it can be diffed against mesh-avatar-studio.
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+png = "0.17"
+zip = { version = "8", default-features = false }

@@ -2353,6 +2353,46 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5449c8c750f1a07ea702bbd212bd999fceece9b3d1508b17023b3e174583124b"
 
 [[package]]
+name = "mesh-avatar-build"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "hound",
+ "image",
+ "mesh-avatar-core",
+ "mesh-avatar-wgpu",
+ "pollster",
+ "rayon",
+ "serde_json",
+ "sha2 0.11.0",
+]
+
+[[package]]
+name = "mesh-avatar-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "png 0.17.16",
+ "serde",
+ "serde_json",
+ "zip",
+]
+
+[[package]]
+name = "mesh-avatar-wgpu"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "mesh-avatar-core",
+ "png 0.17.16",
+ "pollster",
+ "serde",
+ "serde_json",
+ "wgpu",
+]
+
+[[package]]
 name = "message-ref"
 version = "0.4.0"
 dependencies = [
@@ -5438,6 +5478,7 @@ dependencies = [
  "smallvec",
  "thiserror 2.0.21",
  "wgpu-core-deps-apple",
+ "wgpu-core-deps-emscripten",
  "wgpu-core-deps-wasm",
  "wgpu-core-deps-windows-linux-android",
  "wgpu-hal",
@@ -5450,6 +5491,15 @@ name = "wgpu-core-deps-apple"
 version = "30.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "061f3d319a40d39d00b1ecc2c33b89fe21d4e6fe01859df3500a3a8ecccd6b68"
+dependencies = [
+ "wgpu-hal",
+]
+
+[[package]]
+name = "wgpu-core-deps-emscripten"
+version = "30.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d98b86cf4abf524a902dd35f18ca6a3f08fc2ae9847c8f10b48e30491b1f0b86"
 dependencies = [
  "wgpu-hal",
 ]
