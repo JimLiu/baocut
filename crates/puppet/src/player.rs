@@ -106,6 +106,9 @@ impl Player {
                     self.puppet.set_expression(id, v);
                 }
             }
+            // 动作轨的权重就是显示的权重：笑不再缓动（别的表情本来就不缓动）。笑落后另一张表情零点几秒，换表情时
+            // 两张补丁一起不透明，笑的嘴角、眉毛露在下一张外面
+            self.puppet.smile_shown = self.puppet.params.smile;
         }
     }
 

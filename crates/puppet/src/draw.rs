@@ -1,6 +1,7 @@
 //! 按 LivLiv `Puppet.render` 的顺序画一帧：说话时嘴画在最后一张表情上面，表情说话时换无嘴版，重画了眉毛的表情
 //! 让中性眉毛淡出，闭眼的睫毛只在眨眼最后一段出现，眼珠被眼白裁，表情画的眉毛紧跟在最后一层眉毛之后。表情自己的
-//! 眼睛（`expr_eye_L` `expr_eye_R`，BaoCut 的扩展）和中性的眼睛一样眨：底下先画这一边的闭眼层，再画压扁的眼睛。
+//! 眼睛（`expr_eye_L` `expr_eye_R`，BaoCut 的扩展）和中性的眼睛一样眨：底下先画这一边的闭眼层，再画压扁的眼睛；
+//! 表情淡入淡出时它们和补丁先合成一组，再按表情的不透明度叠上去。
 
 use crate::raster::{self, Coverage, Frame, Paint, View};
 use crate::rig::{Layer, Puppet};
@@ -102,6 +103,25 @@ impl Puppet {
                 }
             }
         };
+        // 表情自己的眼睛：补丁在这里是光脸（补丁本来半透明的地方让出了一部分不透明度，睁眼时两者叠起来就是原来的
+        // 补丁），先画这一边的闭眼层（乘表情的不透明度），再画压扁的眼睛
+        let draw_expr_eye = |frame: &mut Frame, l: &Layer, side: &str, a: f64| {
+            let open = if side == "L" { p.eye_l_open } else { p.eye_r_open };
+            let lid = format!("lid_{side}");
+            if let Some(lid) = layers.iter().find(|e| e.def.role() == lid && e.shown) {
+                let la = (1.0 - smooth(0.05, 0.35, open)) * a;
+                if la > 0.01 {
+                    draw(frame, lid, &lid.tex, la, None, None);
+                }
+            }
+            if a > 0.01 && eye_alpha(open) > 0.0 {
+                draw(frame, l, &l.tex, a, None, None);
+            }
+        };
+        // 淡入淡出中的表情：补丁和它的眼睛先在一张空白缓冲上不透明地画好，再整组按表情的不透明度叠上去（与整张
+        // 补丁淡入淡出相同）。各自按不透明度画时，补丁里光脸的那块会从半透明的眼睛下面透出来，眼睛淡一下
+        let mut grouped = vec![false; layers.len()];
+        let mut scratch: Vec<u8> = Vec::new();
         let mut deferred: Option<&Layer> = None;
         for (li, l) in layers.iter().enumerate() {
             let d = &l.def;
@@ -136,24 +156,30 @@ impl Puppet {
                     } else {
                         &l.tex
                     };
-                    draw(&mut frame, l, tex, a, None, None);
+                    let id = d.expression_id();
+                    let eyes: Vec<usize> = (li + 1..layers.len())
+                        .filter(|&i| layers[i].def.role().starts_with("expr_eye_") && layers[i].def.expression_id() == id)
+                        .collect();
+                    if a < 1.0 && !eyes.is_empty() {
+                        scratch.clear();
+                        scratch.resize(w * h * 4, 0);
+                        let mut group = Frame { w, h, px: &mut scratch };
+                        draw(&mut group, l, tex, 1.0, None, None);
+                        for &i in &eyes {
+                            let side = &layers[i].def.role()["expr_eye_".len()..];
+                            draw_expr_eye(&mut group, &layers[i], side, 1.0);
+                            grouped[i] = true;
+                        }
+                        raster::composite(&mut frame, &scratch, a as f32);
+                    } else {
+                        draw(&mut frame, l, tex, a, None, None);
+                    }
                 }
                 continue;
             }
             if let Some(side) = role.strip_prefix("expr_eye_") {
-                // 表情自己的眼睛：补丁在这里是光脸（补丁本来半透明的地方让出了一部分不透明度，睁眼时两者叠起来就是原来的
-                // 补丁），先画这一边的闭眼层（乘表情的不透明度），再画压扁的眼睛
-                let a = self.expr_alpha(d);
-                let open = if side == "L" { p.eye_l_open } else { p.eye_r_open };
-                let lid = format!("lid_{side}");
-                if let Some(lid) = layers.iter().find(|e| e.def.role() == lid && e.shown) {
-                    let la = (1.0 - smooth(0.05, 0.35, open)) * a;
-                    if la > 0.01 {
-                        draw(&mut frame, lid, &lid.tex, la, None, None);
-                    }
-                }
-                if a > 0.01 && eye_alpha(open) > 0.0 {
-                    draw(&mut frame, l, &l.tex, a, None, None);
+                if !grouped[li] {
+                    draw_expr_eye(&mut frame, l, side, self.expr_alpha(d));
                 }
                 continue;
             }
@@ -165,13 +191,15 @@ impl Puppet {
                 continue;
             }
             if d.id == "brows" {
-                // 重画了眉毛的表情显示它自己的眉毛：中性眉毛随它淡出
+                // 重画了眉毛的表情显示它自己的眉毛：中性眉毛按这些表情的不透明度之和淡出（不超过 1）。LivLiv 取最大的，
+                // 两张这样的表情交接到一半时各 0.5，中性眉毛就以 0.5 叠在两张表情的眉毛上面
                 let mut fade = 0f64;
                 for e in layers {
                     if e.def.role() == "expr" && e.def.brows.as_deref() == Some("redrawn") {
-                        fade = fade.max(self.expr_alpha(&e.def));
+                        fade += self.expr_alpha(&e.def);
                     }
                 }
+                let fade = fade.min(1.0);
                 if fade < 0.99 {
                     draw(&mut frame, l, &l.tex, 1.0 - fade, None, None);
                 }

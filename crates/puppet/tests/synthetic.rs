@@ -466,3 +466,127 @@ fn an_expression_s_own_eyes_blink() {
     let off = rows(0.0, 1.0);
     assert!(off.0 == 0 && off.1 == 0 && off.2 > 0, "{off:?}");
 }
+
+/// 淡入淡出中的表情：补丁和它的眼睛合成一组再按表情的不透明度叠上去，与把眼睛画进补丁的整张补丁淡入淡出相同。各自
+/// 按不透明度画时，补丁里眼睛那块的光脸从半透明的眼睛下面透出来，眼睛淡一下。
+#[test]
+fn a_fading_expression_fades_with_its_eyes_as_one_picture() {
+    use puppet::testing::{model, png};
+    // 左眼（模型的 95..123 × 110..126）；补丁是 88..132 × 102..134 的一片皮肤
+    let inside = |x: f64, y: f64| ((x - 14.0) / 12.0).powi(2) + ((y - 8.0) / 6.0).powi(2) <= 1.0;
+    let build = |split: bool| {
+        let mut m = model();
+        m["expressions"] = serde_json::json!([{ "id": "smile" }, { "id": "surprised" }]);
+        let layers = m["layers"].as_array_mut().unwrap();
+        let mouth = layers.iter().position(|l| l["id"] == "mouth").unwrap();
+        layers.insert(mouth + 1, serde_json::json!({ "id": "expr_surprised", "role": "expr", "expression": "surprised",
+            "texture": "textures/patch.png", "x": 88, "y": 102, "w": 44, "h": 32, "group": "head" }));
+        if split {
+            layers.insert(mouth + 2, serde_json::json!({ "id": "expr_surprised_eye_L", "role": "expr_eye_L", "expression": "surprised",
+                "texture": "textures/surprised_eye.png", "x": 95, "y": 110, "w": 28, "h": 16, "group": "head", "pivot": [109, 118] }));
+        }
+        let mut fs = files("");
+        fs[0].1 = serde_json::to_vec(&m).unwrap();
+        fs.push((
+            "textures/patch.png".into(),
+            png(44, 32, move |x, y| if !split && inside(x - 7.0, y - 8.0) { [40, 160, 60, 255] } else { [250, 220, 200, 255] }),
+        ));
+        fs.push(("textures/surprised_eye.png".into(), png(28, 16, move |x, y| if inside(x, y) { [40, 160, 60, 255] } else { [0, 0, 0, 0] })));
+        Puppet::new(&Package::from_zip(&zip(&fs)).unwrap()).unwrap()
+    };
+    let shot = |p: &mut Puppet, w: f64| {
+        p.set_expression("surprised", w);
+        p.update(0.0, true);
+        let mut px = vec![0u8; 512 * 768 * 4];
+        p.render(512, 768, &mut px);
+        px
+    };
+    let (mut split, mut whole) = (build(true), build(false));
+    // 权重 0.5 是不透明度 0.5；0.4、0.6 各是 0.16、0.84
+    for w in [0.4, 0.5, 0.6, 1.0] {
+        let (a, b) = (shot(&mut split, w), shot(&mut whole, w));
+        // 眼睛的轮廓两边各采样一次，差一两级；眼睛里面的像素要一样
+        let off = a.iter().zip(&b).filter(|(x, y)| x.abs_diff(**y) > 2).count();
+        let worst = (230..242).flat_map(|y| (206..230).map(move |x| (x, y))).map(|(x, y)| {
+            let k = 4 * (y * 512 + x);
+            (0..4).map(|i| a[k + i].abs_diff(b[k + i])).max().unwrap()
+        });
+        assert!(worst.max().unwrap() <= 2 && off < 200, "weight {w}: {off} channels off");
+    }
+}
+
+/// 动作轨的笑就是显示的笑：轨上的笑落下时补丁跟着落下，不再缓动零点几秒（别的表情本来就不缓动；笑落在后面时，换表情
+/// 那一阵两张补丁一起不透明）。
+#[test]
+fn the_track_s_smile_is_shown_as_it_is() {
+    let n = 61;
+    let smile: Vec<f64> = (0..n).map(|i| if i <= 30 { 1.0 } else { 0.0 }).collect();
+    let tr = track(serde_json::json!({
+        "format": "baocut-puppet-track", "version": 1, "fps": 30, "duration": 2.0,
+        "expressions": { "smile": smile }
+    }));
+    let mut p = Player::new(Puppet::new(&package()).unwrap(), Some(tr), 1, 0.0);
+    // 笑的补丁（模型的 108..148 × 140..164，粉色）在画面里是 54..74 × 70..82；看它中间那一块有几个粉色像素
+    let pink = |px: &[u8]| {
+        (72..80).flat_map(|y| (58..70).map(move |x| (x, y))).filter(|&(x, y)| {
+            let c = at(px, x, y);
+            c[0] > 200 && c[1] < 160 && c[2] < 170
+        })
+        .count()
+    };
+    // 没有笑的同一条轨：嘴本身也有几个偏粉的像素
+    let none = track(serde_json::json!({
+        "format": "baocut-puppet-track", "version": 1, "fps": 30, "duration": 2.0,
+        "expressions": { "smile": vec![0.0; n] }
+    }));
+    let mut q = Player::new(Puppet::new(&package()).unwrap(), Some(none), 1, 0.0);
+    let base = pink(&frame(&mut q, 1.05));
+    assert!(pink(&frame(&mut p, 0.9)) > base + 20);
+    // 采样 30 是 1 秒，采样 31 已经是 0：1.05 秒时轨上的笑是 0
+    assert_eq!(frame(&mut p, 1.05), frame(&mut q, 1.05));
+}
+
+/// 两张都重画了眉毛的表情交接：中性眉毛按它们的不透明度之和淡出，交接到一半（各 0.5）时不露出来；只有一张表情淡入淡出
+/// 时照旧按它的不透明度淡出。按最大的那张淡出时，交接中途中性眉毛以 0.5 叠在两张表情上面。
+#[test]
+fn neutral_brows_stay_out_while_two_expressions_hand_over() {
+    use puppet::testing::{model, png};
+    let build = |with_brows: bool| {
+        let mut m = model();
+        m["expressions"] = serde_json::json!([{ "id": "smile" }, { "id": "surprised" }, { "id": "sad" }]);
+        let layers = m["layers"].as_array_mut().unwrap();
+        let bangs = layers.iter().position(|l| l["id"] == "front_hair").unwrap();
+        for (k, id) in ["surprised", "sad"].into_iter().enumerate() {
+            layers.insert(bangs + k, serde_json::json!({ "id": format!("expr_{id}"), "role": "expr", "expression": id, "brows": "redrawn",
+                "texture": format!("textures/{id}.png"), "x": 96, "y": 56, "w": 64, "h": 16, "group": "head" }));
+        }
+        if with_brows {
+            layers.push(serde_json::json!({ "id": "brows", "texture": "textures/brows.png", "x": 96, "y": 56, "w": 64, "h": 16, "group": "head" }));
+        }
+        let mut fs = files("");
+        fs[0].1 = serde_json::to_vec(&m).unwrap();
+        fs.push(("textures/surprised.png".into(), png(64, 16, |_, _| [250, 220, 200, 255])));
+        fs.push(("textures/sad.png".into(), png(64, 16, |_, _| [240, 200, 180, 255])));
+        fs.push(("textures/brows.png".into(), png(64, 16, |_, y| if (10.0..14.0).contains(&y) { [20, 20, 20, 255] } else { [0, 0, 0, 0] })));
+        Puppet::new(&Package::from_zip(&zip(&fs)).unwrap()).unwrap()
+    };
+    let shot = |p: &mut Puppet, ws: &[(&str, f64)]| {
+        for id in ["surprised", "sad"] {
+            p.set_expression(id, 0.0);
+        }
+        for &(id, w) in ws {
+            p.set_expression(id, w);
+        }
+        p.update(0.0, true);
+        let mut px = vec![0u8; 512 * 768 * 4];
+        p.render(512, 768, &mut px);
+        px
+    };
+    let (mut with, mut without) = (build(true), build(false));
+    // 交接到一半：两张各 0.5，加起来是 1
+    let half = [("surprised", 0.5), ("sad", 0.5)];
+    assert!(shot(&mut with, &half) == shot(&mut without, &half), "the neutral brows show half way through a handoff");
+    // 只有一张，淡到一半：中性眉毛还在一半
+    let one = [("surprised", 0.5)];
+    assert!(shot(&mut with, &one) != shot(&mut without, &one));
+}

@@ -396,6 +396,23 @@ pub(crate) fn draw(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri
     });
 }
 
+/// 把另画好的一组（同样大小的预乘 RGBA8）按不透明度 `alpha` 叠到画布上：一组几层合起来淡入淡出，叠在一起的
+/// 部分不会各自透出下面。
+pub(crate) fn composite(frame: &mut Frame, src: &[u8], alpha: f32) {
+    if alpha <= 0.0 {
+        return;
+    }
+    for (d, s) in frame.px.chunks_exact_mut(4).zip(src.chunks_exact(4)) {
+        if s[3] == 0 && s[0] == 0 && s[1] == 0 && s[2] == 0 {
+            continue;
+        }
+        let inv = 1.0 - f32::from(s[3]) * alpha / 255.0;
+        for i in 0..4 {
+            d[i] = (f32::from(s[i]) * alpha + f32::from(d[i]) * inv).round().clamp(0.0, 255.0) as u8;
+        }
+    }
+}
+
 /// 眼白这一帧的覆盖：画它的遮罩贴图，覆盖到的像素直接写 alpha（不混合，与 GL 的遮罩通道相同）。
 pub(crate) fn coverage(w: usize, h: usize, view: View, verts: &[f32], uv: &[f32], tri: &[u32], mask: &Texture) -> Coverage {
     let (mut x0, mut y0, mut x1, mut y1) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
