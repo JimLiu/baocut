@@ -7,6 +7,7 @@ use crate::format::{OverlayMetadata, Rect, Texture};
 use anyhow::{ensure, Context, Result};
 use std::collections::BTreeMap;
 
+#[derive(Clone)]
 pub(crate) struct OverlayItem {
     pub name: String,
     pub texture: String,
@@ -54,7 +55,7 @@ fn crop(image: &Texture, [x, y, width, height]: Rect) -> Texture {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct Overlays {
     pub items: Vec<OverlayItem>,
 }

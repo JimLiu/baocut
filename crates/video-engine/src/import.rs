@@ -98,7 +98,8 @@ pub fn media_type_of(path: &Path) -> Option<(AssetKind, &'static str)> {
         // 读出来是 Lottie 动画的 JSON 在 [`prepare_import`] 里改记成 `lottie`，别的 JSON 仍是 `other`。
         "json" => (AssetKind::Other, "application/json"),
         "lottie" => (AssetKind::Lottie, LOTTIE_ARCHIVE_MEDIA_TYPE),
-        "bcpuppet" => (AssetKind::Puppet, PUPPET_MEDIA_TYPE),
+        // 分层角色与 mesh-avatar 角色是同一种素材，按包里的文件区分（角色格式规范 §2.5）
+        "bcpuppet" | "mavatar" => (AssetKind::Puppet, PUPPET_MEDIA_TYPE),
         _ => return None,
     })
 }
@@ -615,8 +616,8 @@ fn check_puppet_track(source: &Path) -> EngineResult<()> {
     })
 }
 
-/// 角色包的尺寸：按渲染器的读法检查清单与全部贴图（不解码），显示尺寸是角色的画布。角色没有时长与音轨，跟着
-/// 实例的区间一直动。
+/// 角色包的尺寸：按渲染器的读法检查清单与全部贴图（分层角色不解码，mesh-avatar 角色整个读一遍），显示尺寸是角色的
+/// 画布。角色没有时长与音轨，跟着实例的区间一直动。
 fn probe_puppet(source: &Path, len: u64) -> EngineResult<ProbeInfo> {
     if len > PUPPET_MAX_BYTES {
         return Err(ErrorBody::invalid_operation(msg!(
@@ -635,7 +636,7 @@ fn probe_puppet(source: &Path, len: u64) -> EngineResult<ProbeInfo> {
             ),
         )
     })?;
-    let model = puppet::Package::inspect(&bytes).map_err(|e| {
+    let canvas = puppet::CharacterPackage::inspect(&bytes).map_err(|e| {
         ErrorBody::probe_failed(msg!(
             "engine.puppetUnreadable",
             "Not a readable character package: {error}",
@@ -643,8 +644,8 @@ fn probe_puppet(source: &Path, len: u64) -> EngineResult<ProbeInfo> {
         ))
     })?;
     let video = VideoInfo {
-        display_width: model.canvas[0],
-        display_height: model.canvas[1],
+        display_width: canvas[0],
+        display_height: canvas[1],
         rotation: 0,
         pixel_aspect_ratio: Rate { num: 1, den: 1 },
         frame_rate: FrameRateInfo::Cfr {
@@ -1045,6 +1046,23 @@ mod tests {
         files.retain(|(name, _)| name != "textures/iris.png");
         let missing = import(dir.path(), "missing.bcpuppet", &puppet::testing::zip(&files)).unwrap_err();
         assert_eq!(missing.code, "MEDIA_PROBE_FAILED", "{missing:?}");
+    }
+
+    #[test]
+    fn a_mesh_avatar_package_imports_as_the_same_puppet_kind() {
+        let dir = tempfile::tempdir().unwrap();
+        let bytes = puppet::testing::zip(&puppet::testing::mesh_avatar_files());
+        let prepared = import(dir.path(), "xiaoli.mavatar", &bytes).unwrap();
+        assert_eq!(prepared.kind, AssetKind::Puppet);
+        assert_eq!(prepared.media_type, PUPPET_MEDIA_TYPE);
+        let video = prepared.probe.video.as_ref().unwrap();
+        assert_eq!((video.display_width, video.display_height), (1024, 1536));
+        // 内容决定读法：扩展名是 .bcpuppet 也按 mesh-avatar 读
+        assert!(import(dir.path(), "renamed.bcpuppet", &bytes).is_ok());
+        let mut files = puppet::testing::mesh_avatar_files();
+        files.retain(|(name, _)| name != "rig.json");
+        let broken = import(dir.path(), "broken.mavatar", &puppet::testing::zip(&files)).unwrap_err();
+        assert_eq!(broken.code, "MEDIA_PROBE_FAILED", "{broken:?}");
     }
 
     #[test]

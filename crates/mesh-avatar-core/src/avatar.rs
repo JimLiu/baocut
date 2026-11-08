@@ -10,7 +10,8 @@ use crate::{
         physics::Physics,
         random::{RandomSource, SeededRandom},
         rig::{
-            eye_part_alpha, eye_part_y, BaseWeights, EyePart, HandWeights, Parameters, RigEngine,
+            eye_part_alpha, eye_part_y, BaseWeights, EyePart, HandWeights, Parameters,
+            PhysicsOffsets, RigEngine,
         },
         sprites::{eye_mood, Sprites},
     },
@@ -18,9 +19,9 @@ use crate::{
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct AvatarOptions {
     pub preserve_mouth_form: bool,
     pub lip_sync: Option<LipSyncSettings>,
@@ -57,20 +58,34 @@ pub struct Frame {
     pub motion_events: Vec<Option<String>>,
 }
 
+#[derive(Clone)]
 struct BaseLayer {
     name: String,
     mesh: Grid,
     weights: Vec<BaseWeights>,
 }
+#[derive(Clone)]
 struct EyeLayer {
     base: BaseLayer,
     eye: usize,
     part: EyePart,
     alpha: f64,
 }
+#[derive(Clone)]
 struct HandLayer {
     mesh: Grid,
     weights: Vec<HandWeights>,
+}
+
+/// What the last step leaves for drawing: its parameters and physics offsets, which layered
+/// eyes had their sprites before the step, and which eyes and mouth the sprites cover after it.
+#[derive(Clone)]
+struct Pose {
+    p: Parameters,
+    phys: PhysicsOffsets,
+    eyes_drawn: [bool; 2],
+    eyes_covered: [bool; 2],
+    mouth_drawn: bool,
 }
 
 fn mesh(package: &AvatarPackage, name: &str, rect: Rect, cell: u32, fine: bool) -> Result<Grid> {
@@ -125,8 +140,11 @@ fn draw_layer(
     }
 }
 
+/// Cloning copies the whole animation state (motion, physics, sprites, random sequence) and
+/// shares the package, so a clone is a snapshot to restore later.
+#[derive(Clone)]
 pub struct Avatar {
-    package: AvatarPackage,
+    package: Arc<AvatarPackage>,
     motion: Motion,
     physics: Physics,
     cloth: ClothPhysics,
@@ -142,6 +160,7 @@ pub struct Avatar {
     overlays: crate::engine::overlays::Overlays,
     tassels: Vec<(String, Grid)>,
     hand: Option<HandLayer>,
+    pose: Pose,
 }
 
 impl Avatar {
@@ -297,8 +316,15 @@ impl Avatar {
                 )?,
             )?;
         }
+        let pose = Pose {
+            p: Parameters::default(),
+            phys: physics.out.clone(),
+            eyes_drawn: sprites.as_ref().map_or([false; 2], |s| s.eyes_drawn),
+            eyes_covered: [false; 2],
+            mouth_drawn: false,
+        };
         Ok(Self {
-            package,
+            package: Arc::new(package),
             motion,
             physics,
             cloth,
@@ -314,6 +340,7 @@ impl Avatar {
             overlays,
             tassels,
             hand,
+            pose,
         })
     }
     pub fn motions(&self) -> &'static [MotionDefinition] {
@@ -431,6 +458,14 @@ impl Avatar {
 
     /// Advance by caller-provided seconds, capped at 0.05 like the JS animation loop.
     pub fn tick(&mut self, dt: f64) -> Frame {
+        self.step(dt);
+        self.frame()
+    }
+
+    /// Advance motion, physics, cloth and sprites by `dt` seconds (capped like [`Avatar::tick`])
+    /// without deforming the layer meshes. Several steps and then one [`Avatar::frame`] draw the
+    /// same as ticking every step.
+    pub fn step(&mut self, dt: f64) {
         let dt = if dt.is_nan() {
             0.0
         } else {
@@ -438,8 +473,46 @@ impl Avatar {
         };
         let p = self.update_parameters(dt);
         let engine = RigEngine::with_body_dynamics(&self.package.rig, self.body_dynamics);
-        let phys = self.physics.step(&engine, &p, dt);
+        let phys = self.physics.step(&engine, &p, dt).clone();
         self.body_dynamics = engine.body_dynamics();
+        let eyes_drawn = self.sprites.as_ref().map_or([false; 2], |s| s.eyes_drawn);
+        let mut eyes_covered = [false; 2];
+        let mut mouth_drawn = false;
+        if let Some(sprites) = &mut self.sprites {
+            let mood = eye_mood(
+                Some(&self.expression.name),
+                if self.motion.mode == Mode::Manual {
+                    None
+                } else {
+                    Some(&self.motion.expr)
+                },
+            );
+            let covered = sprites.update(&engine, &p, &phys, dt, mood);
+            mouth_drawn = covered.mouth_drawn;
+            eyes_covered = covered.eyes;
+        }
+        self.overlays.update(&engine, &p, &phys);
+        self.cloth.step(&engine, &p, dt, &phys);
+        self.pose = Pose {
+            p,
+            phys,
+            eyes_drawn,
+            eyes_covered,
+            mouth_drawn,
+        };
+    }
+
+    /// Deform the meshes for the last step and list the layers to draw.
+    pub fn frame(&mut self) -> Frame {
+        let Pose {
+            p,
+            phys,
+            eyes_drawn,
+            eyes_covered,
+            mouth_drawn,
+        } = self.pose.clone();
+        let phys = &phys;
+        let engine = RigEngine::with_body_dynamics(&self.package.rig, self.body_dynamics);
         for (k, (rest, pos)) in self
             .base
             .mesh
@@ -459,8 +532,6 @@ impl Avatar {
             );
             *pos = q.map(|v| v as f32);
         }
-        let eyes_drawn = self.sprites.as_ref().map_or([false; 2], |s| s.eyes_drawn);
-        let mut mouth_drawn = false;
         for eye in &mut self.eyes {
             let open = if eyes_drawn[eye.eye] {
                 1.0
@@ -474,7 +545,11 @@ impl Avatar {
             } else {
                 p.eye_smile_l.unwrap_or(p.eye_smile)
             };
-            eye.alpha = eye_part_alpha(eye.part, open, smile);
+            eye.alpha = if eyes_covered[eye.eye] {
+                0.0
+            } else {
+                eye_part_alpha(eye.part, open, smile)
+            };
             for (k, (rest, pos)) in eye
                 .base
                 .mesh
@@ -499,24 +574,6 @@ impl Avatar {
                     .map(|v| v as f32);
             }
         }
-        if let Some(sprites) = &mut self.sprites {
-            let mood = eye_mood(
-                Some(&self.expression.name),
-                if self.motion.mode == Mode::Manual {
-                    None
-                } else {
-                    Some(&self.motion.expr)
-                },
-            );
-            let covered = sprites.update(&engine, &p, phys, dt, mood);
-            mouth_drawn = covered.mouth_drawn;
-            for eye in &mut self.eyes {
-                if covered.eyes[eye.eye] {
-                    eye.alpha = 0.0;
-                }
-            }
-        }
-        self.overlays.update(&engine, &p, phys);
         if let Some(hand) = &mut self.hand {
             let frame = engine.hand_frame(&p);
             for (k, (rest, pos)) in hand
@@ -533,7 +590,6 @@ impl Avatar {
                     .map(|v| v as f32);
             }
         }
-        self.cloth.step(&engine, &p, dt, phys);
         self.cloth.deform();
         for (chain, (_, mesh)) in self.physics.chains.iter().zip(&mut self.tassels) {
             chain

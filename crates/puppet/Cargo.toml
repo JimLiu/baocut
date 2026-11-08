@@ -1,6 +1,6 @@
 [package]
 name = "puppet"
-description = "BaoCut 的分层角色（puppet）：读角色包（model.json + 分层贴图），按参数逐帧形变网格、跑头发与身体的弹簧，用 CPU 三角形光栅画成一帧预乘 RGBA。导出与编辑器预览（preview-wasm）共用同一份实现；形变与绘制顺序移植自 LivLiv Player（Apache-2.0）"
+description = "BaoCut 的角色（puppet）：读角色包（分层的 model.json + 贴图，或 mesh-avatar 的 .mavatar），按参数逐帧形变网格、跑头发与身体的弹簧，用 CPU 三角形光栅画成一帧预乘 RGBA。导出与编辑器预览（preview-wasm）共用同一份实现；形变与绘制顺序移植自 LivLiv Player（Apache-2.0）"
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true
@@ -13,6 +13,7 @@ parallel = ["dep:rayon"]
 
 [dependencies]
 image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+mesh-avatar-core.workspace = true
 miniz_oxide = "0.8"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

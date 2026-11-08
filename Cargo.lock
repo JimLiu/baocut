@@ -2362,9 +2362,11 @@ dependencies = [
  "mesh-avatar-core",
  "mesh-avatar-wgpu",
  "pollster",
+ "puppet",
  "rayon",
  "serde_json",
  "sha2 0.11.0",
+ "zip",
 ]
 
 [[package]]
@@ -3388,6 +3390,7 @@ name = "puppet"
 version = "0.4.0"
 dependencies = [
  "image",
+ "mesh-avatar-core",
  "miniz_oxide",
  "rayon",
  "serde",

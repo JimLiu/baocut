@@ -169,3 +169,56 @@ pub fn talking_track(duration: f64) -> Vec<u8> {
     }))
     .expect("json")
 }
+
+/// mesh-avatar 的合成角色（格式规范 §2.5）：清单、rig 与层的位置取 mesh-avatar-core 的测试角色（BaoCut 自己生成的
+/// xiaoli），贴图是程序画的色块，按 `.mavatar` 的目录排好（打包用 [`zip`]）。
+pub fn mesh_avatar_files() -> Vec<(String, Vec<u8>)> {
+    const AVATAR: &[u8] = include_bytes!("../../mesh-avatar-core/tests/fixtures/xiaoli/avatar.json");
+    const RIG: &[u8] = include_bytes!("../../mesh-avatar-core/tests/fixtures/xiaoli/rig.json");
+    const LAYERS: &[u8] = include_bytes!("../../mesh-avatar-core/tests/fixtures/xiaoli/built/layers.json");
+    const SPRITES: &[u8] = include_bytes!("../../mesh-avatar-core/tests/fixtures/xiaoli/built/sprites/sprites.json");
+    let rects = |json: &[u8], prefix: &str| -> Vec<(String, [u32; 4])> {
+        let v: serde_json::Value = serde_json::from_slice(json).expect("fixture json");
+        v["layers"]
+            .as_object()
+            .expect("fixture layers")
+            .iter()
+            .map(|(k, r)| {
+                let r: Vec<u32> = r.as_array().unwrap().iter().map(|n| n.as_u64().unwrap() as u32).collect();
+                (format!("{prefix}{k}"), [r[0], r[1], r[2], r[3]])
+            })
+            .collect()
+    };
+    let size: serde_json::Value = serde_json::from_slice(LAYERS).expect("fixture json");
+    let (w, h) = (size["size"][0].as_u64().unwrap() as u32, size["size"][1].as_u64().unwrap() as u32);
+    let mut files = vec![
+        ("avatar.json".to_string(), AVATAR.to_vec()),
+        ("rig.json".to_string(), RIG.to_vec()),
+        ("built/layers.json".to_string(), LAYERS.to_vec()),
+        ("built/sprites/sprites.json".to_string(), SPRITES.to_vec()),
+    ];
+    // 底图：上半是头发色、下半是皮肤色的渐变（转头看得出来）；头发遮罩取红通道，上 40% 是头发
+    files.push((
+        "built/base.png".to_string(),
+        png(w, h, |x, y| {
+            let t = y / f64::from(h);
+            let k = (x / f64::from(w) * 60.0) as u8;
+            if t < 0.4 { [90 + k, 60, 50, 255] } else { [240, 205 - k / 2, 185, 255] }
+        }),
+    ));
+    files.push((
+        "built/hairmask.png".to_string(),
+        png(w, h, |_, y| if y < f64::from(h) * 0.4 { [255, 0, 0, 255] } else { [0, 0, 0, 255] }),
+    ));
+    for (name, [_, _, lw, lh]) in rects(LAYERS, "").into_iter().chain(rects(SPRITES, "sprites/")) {
+        let rgb = match name.as_str() {
+            n if n.ends_with("_ball") => [40, 60, 120],
+            n if n.ends_with("_lash") || n.contains("closed") => [30, 20, 20],
+            n if n.contains("mouth") => [150, 40, 50],
+            n if n.contains("smile") => [200, 120, 90],
+            _ => [210, 170, 150],
+        };
+        files.push((format!("built/{name}.png"), ellipse(lw, lh, rgb)));
+    }
+    files
+}

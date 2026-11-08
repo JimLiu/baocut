@@ -15,7 +15,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | [`spec/command-protocol-spec.md`](spec/command-protocol-spec.md) | **命令与协议规范**：命令信封、编辑事务、回执、时间输入、批量预检、撤销、事件与错误合同 |
 | [`spec/model-worker-protocol-spec.md`](spec/model-worker-protocol-spec.md) | **Model Worker 协议规范**：Runtime 与本地推理进程的 stdio 消息、模型包描述、staging 目录与 `baocut.asr-result/v1` 输出合同 |
 | [`spec/node-protocol-spec.md`](spec/node-protocol-spec.md) | **节点协议规范**：局域网能力共享的 HTTP 端点、配对与令牌、任务与事件流、清理规则，以及本机网关的 `nodes` 方法 |
-| [`spec/puppet-format-spec.md`](spec/puppet-format-spec.md) | **分层角色格式规范**：角色包（`.bcpuppet`）的布局与 `model.json`、参数与表情、动作轨、按时刻出帧的语义、与 LivLiv v4 的差异 |
+| [`spec/puppet-format-spec.md`](spec/puppet-format-spec.md) | **角色格式规范**：分层角色包（`.bcpuppet`）的布局与 `model.json`、mesh-avatar 角色包（`.mavatar`）、参数与表情、动作轨、按时刻出帧的语义、与 LivLiv v4 的差异 |
 | [`spec/template-spec.md`](spec/template-spec.md) | **模板包规范**：Home 创作模板的目录布局、清单字段与分类、封面与预览、素材、路径与语言约束、场景模板的简报引导 |
 | [`acceptance/acceptance-spec.md`](acceptance/acceptance-spec.md) | **验收与测试**：测试策略、发布门槛、性能目标、验收矩阵 |
 | [`acceptance/agent-surface-e2e.md`](acceptance/agent-surface-e2e.md) | **Agent 面端到端验收记录**：2026-10-06 用 Claude Code 经 skill 与 MCP 走「链接 → 转录 → 自译 → 双语字幕 → 导出」的结论、证据位置、修复与发现 |
@@ -52,7 +52,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | 实现视频引擎与编辑语义 | 视频格式规范 §2–§4；命令与协议规范；架构设计 §5 |
 | 实现字幕、翻译、口播剪辑、配音 | 视频格式规范 §5–§7 |
 | 实现代码动画与渲染 | 代码包规范；架构设计 §8–§10 |
-| 实现分层角色（卡通主播）的渲染、动作轨与角色贴纸 | 分层角色格式规范；视频格式规范 §3.7、§4.1 |
+| 实现角色（卡通主播，分层与 mesh-avatar）的渲染、动作轨与角色贴纸 | 角色格式规范；视频格式规范 §3.7、§4.1 |
 | 实现模型接入与长任务 | 架构设计 §6–§7；Model Worker 协议规范 |
 | 实现局域网能力共享 | 架构设计 §6.7、§12.7；节点协议规范 |
 | 实现对外服务（MCP 服务、模型接口、Web） | 架构设计 §4.8、§12.8 |

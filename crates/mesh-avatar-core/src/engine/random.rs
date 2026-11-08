@@ -1,15 +1,32 @@
 //! Caller-injected randomness; core never reads a wall clock.
 /// Random sources travel with an avatar between host threads; captures must be Send.
-pub trait RandomSource: Send {
+/// They are also cloned with the avatar, so a host can snapshot and restore its state.
+pub trait RandomSource: Send + CloneRandom {
     fn next_f64(&mut self) -> f64;
 }
-impl<F: FnMut() -> f64 + Send> RandomSource for F {
+impl<F: FnMut() -> f64 + Send + Clone + 'static> RandomSource for F {
     fn next_f64(&mut self) -> f64 {
         self()
     }
 }
 
+/// Copies a boxed random source together with its position in the sequence.
+pub trait CloneRandom {
+    fn clone_box(&self) -> Box<dyn RandomSource>;
+}
+impl<T: RandomSource + Clone + 'static> CloneRandom for T {
+    fn clone_box(&self) -> Box<dyn RandomSource> {
+        Box::new(self.clone())
+    }
+}
+impl Clone for Box<dyn RandomSource> {
+    fn clone(&self) -> Self {
+        (**self).clone_box()
+    }
+}
+
 /// The seededRandom algorithm used by the JavaScript motion scenarios.
+#[derive(Clone)]
 pub struct SeededRandom {
     state: u32,
 }

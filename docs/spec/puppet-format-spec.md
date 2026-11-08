@@ -1,8 +1,8 @@
-# BaoCut 分层角色格式规范
+# BaoCut 角色格式规范
 
-> 分层角色是一种素材：一张角色拆成几十张整块的分层（后发、身体、光头的脸、眼白、眼珠、几帧嘴、表情补丁、侧发、刘海、眉毛……），按一组参数（转头、点头、眨眼、视线、张嘴、元音、笑……）逐帧形变网格再画出来，用来做对口型的卡通主播。本规范定义角色包（`.bcpuppet`）、动作轨（`baocut-puppet-track` JSON）与按时刻出帧的语义。
+> 角色是一种素材：按一组参数（转头、点头、眨眼、视线、张嘴、元音、笑……）逐帧形变网格再画出来，用来做对口型的卡通主播。角色包有两种布局：分层角色（`.bcpuppet`）把一张角色拆成几十张整块的分层（后发、身体、光头的脸、眼白、眼珠、几帧嘴、表情补丁、侧发、刘海、眉毛……）；mesh-avatar 角色（`.mavatar`，§2.5）是 mesh-avatar-studio 的包，一张补好皮肤的底图加眼睛分层与眨眼、口型的贴图。两种是同一种素材，共用动作轨与出帧语义。本规范定义两种角色包、动作轨（`baocut-puppet-track` JSON）与按时刻出帧的语义。
 
-格式标识：角色包里 `model.json` 的 `"format": "baocut-puppet", "version": 1`；动作轨的 `"format": "baocut-puppet-track", "version": 1`。
+格式标识：分层角色包里 `model.json` 的 `"format": "baocut-puppet", "version": 1`；mesh-avatar 角色包里 `avatar.json` 的 `"format": "mesh-avatar", "version": 1`；动作轨的 `"format": "baocut-puppet-track", "version": 1`。
 
 视频里怎么用（素材种类、角色贴纸的 `motionRef` 与 `motionIn`、拆分与合并）见[视频格式规范](video-format-spec.md) §3.7、§4.1；实现在 `crates/puppet`。用语见[文档约定](../README.md#文档约定)。
 
@@ -25,7 +25,8 @@
 - BaoCut 不读 `.livliv` 文件：格式头不同，读到 `"format": "livliv-model"` 一律拒绝（`puppet-invalid`）。
 - 角色包与动作轨分开：同一个角色换一段配音只换动作轨。动作轨由配音的音频分析生成（嘴型、元音、点头），也可以手写。
 - 内置技能 `virtual-host` 带两样生成工具：`puppet-build.mjs` 把一张正面像和几张只改一处的改图（光头、嘴的几帧、闭眼、表情）拆成角色包（表情改了眼睛时，把它画的眼睛切成 `expr_eye_L` `expr_eye_R`，两只眼都找得到开口时各带开口的 `mask`；画成闭着的眼睛留在补丁里），`rig` 只写 `neck`（下巴下面的脖子跟着转头走一半），其余的 `rig` 与 `tuning` 取缺省；`lipsync.mjs` 按逐字时间与配音的音量算动作轨，只写 `mouthOpen`、`vowel`、`angleX` `angleY` `angleZ` 与 `faces.json` 给的表情，眨眼与视线留给待机动作（§5）。用法见技能的 `references/art.md` 与 `references/lipsync.md`。
-- 渲染只用 CPU，预览（preview.wasm）与导出用同一份实现，同一个时刻画出来逐像素相同。
+- mesh-avatar 角色的格式、形变、物理与表情来自 [mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（MIT）的 Rust 运行时，内置在 `crates/mesh-avatar-core`；BaoCut 读哪些、哪里不同见 §2.5。
+- 渲染只用 CPU，预览（preview.wasm）与导出用同一份实现，同一个时刻画出来逐像素相同。两种角色包画在同一个三角形光栅上。
 
 ## 2. 角色包
 
@@ -35,7 +36,7 @@
 - 条目可以存储或 deflate；加密与 zip64 不支持（`puppet-not-zip`）。
 - 贴图路径写成 `textures/<名字>.png` 或 `textures/<名字>.webp`：名字以字母、数字或 `_` 开头，只含字母、数字与 `_ . -`，不含 `..` 与子目录。`model.json` 引用的每张贴图都要在包里（`puppet-missing-file`）；包里多出来的文件不读。
 - 贴图读进来就预乘 alpha 并生成 mipmap（每级边长减半，2×2 取平均），绘制时三线性采样。眼白的 `mask` 应是无损的（PNG 或无损 WebP）：读的时候不检查，有损压缩的边缘会让眼珠漏到眼白外面。
-- 文件扩展名 `.bcpuppet`，媒体类型 `application/x-baocut-puppet+zip`。
+- 文件扩展名 `.bcpuppet`，媒体类型 `application/x-baocut-puppet+zip`。读包时按内容分辨两种布局：zip 根上有 `avatar.json`、根上与一层目录里都没有 `model.json` 的按 mesh-avatar 角色读（§2.5），其余按分层角色读；扩展名不参与判断。
 
 ### 2.2 `model.json`
 
@@ -82,6 +83,32 @@ interface PuppetModel {
 | 导入视频的角色包文件（视频格式规范 §4.1） | 64 MiB |
 
 超过上限是 `puppet-too-large`。
+
+### 2.5 mesh-avatar 角色包
+
+mesh-avatar-studio 的 `.mavatar` 包（字段与含义见上游的 `docs/format.md`）。和分层角色是同一种素材（`kind: 'puppet'`，同一个媒体类型），动作轨、待机动作、固定步长重放、seek、平移与切口规则都按 §4、§5；形变、物理、眨眼与嘴的贴图由 `mesh-avatar-core` 算，画法见下面「画法」。
+
+- **布局**。zip，条目只能存储不压缩，至多 200 个，每个解压后不超过 64 MB；不套目录。根上是 `avatar.json`（`"format": "mesh-avatar", "version": 1`）、`rig.json` 与 `built/`：`built/layers.json`（`version` 1，`build` 不为空，至少有两只眼的 `eye0_*` `eye1_*` 的 `ball` `low` `crease` `lash` 四层）、底图 `built/base.png`（`rig.json` 有 `cloth` 时是 `built/base_cloth.png`）、头发遮罩 `built/hairmask.png`、`layers.json` 列出的每层 `built/<名字>.png`，可选的 `built/sprites/sprites.json` 与它列出的 `built/sprites/<名字>.png`（半闭与闭上的眼、口型、表情的嘴）、`built/overlays/overlays.json` 与它列出的叠加物。每张 PNG 的尺寸等于它的层框；包里多出来的文件不读。
+- **画布**是 `rig.json` 的 `image` 宽高，每边 [16, 8192]；全部贴图的像素数不超过 64 Mi（§2.4）。贴图读进来预乘 alpha 并生成 mipmap，和分层角色一样。
+- **导入**时把整个包读一遍、建好网格（分层角色只读尺寸，§2.1）；建不起来的不收。导入文件的大小上限与分层角色相同（视频格式规范 §4.1）。
+- **参数**。角色自己的待机、小动作与按声音的口型都关掉；每一步按 §5 合成好的参数换成 mesh-avatar 的参数：
+
+| §3 的参数 | mesh-avatar 的参数 |
+| --- | --- |
+| `angleX` `angleY` `angleZ`、`breath`、`eyeLOpen` `eyeROpen`、`mouthOpen` | 同名 |
+| `bodyX` `bodyZ` | `bodyAngleX` `bodyAngleZ` |
+| `eyeBallX` `eyeBallY` | `gazeX` `gazeY` |
+| `browLY` `browRY` | 两者的平均给 `browY` |
+| `smile` | `eyeSmile` |
+| `vowel` | `mouthForm` 取反（mesh-avatar 的 −1 是扁嘴、+1 是圆嘴） |
+| `moveX` `moveY` | 不交给角色，按 §5「输出」平移整个角色 |
+
+  `browAngle`、`blush` 与手臂、手指、重心的参数恒为 0。嘴的贴图由 mesh-avatar 按 `mouthOpen` 与 `mouthForm` 挑，眨眼的半闭、闭上的贴图按 `eyeLOpen` `eyeROpen` 挑；§5「眼睛开合」的规则不适用。
+- **表情**一次只显示一张：动作轨的表情（权重乘以交接的权重）里取权重不小于 0.5 的最大的一张，限于 `smile`、`shy`、`surprise`、`halfLidded`、`angry`、`sad`、`wink`；都没有时是中性。换表情时 mesh-avatar 按 `1 − e^(−12 Δt)` 每步缓动过去，表情改眼睛开合、`eyeSmile`、腮红、眉、嘴与视线，`sad` 再低头 6 度。别的表情 id 不画。
+- **切口**：底图最下面一行不透明的像素离画布底边不超过 4 像素时，角色按画到画布底边算（§3 的 `moveY`）。
+- **画法**。每一步由 `mesh-avatar-core` 给出每层形变后的三角形、贴图与不透明度，按它给的顺序画在 §5「输出」同一个 CPU 光栅上（等比缩放、居中、平移、预乘混合）。逐像素的着色移植自上游 wgpu 渲染器的 `avatar.wgsl`：脸那一层画出嘴（没有嘴的贴图时按参数画的嘴）与腮红，眼珠被眼睑裁切、随视线移动，半闭的眼按视线移动眼珠，其余层直接采样。顶点或下标不合法的层不画。与上游渲染器（4 倍多重采样）画同一帧，平均差不到 0.5/255，差超过 16/255 的像素不到 0.5%（`crates/mesh-avatar-build/tests/cpu_parity.rs`，没有 GPU 时跳过）。
+- **与上游运行时的差异**：待机与说话动作是 §5 的（上游有自己的待机与按声音的口型）；物理按 §5 的 1/120 秒固定步长重放（上游的 `mesh-avatar-talk` 是 60 Hz）；渲染用 CPU 光栅代替 wgpu，三角形边缘没有多重采样。
+- **错误代码**按 §6：不是 zip 或 zip 的目录不对是 `puppet-not-zip`；条目压缩了、`avatar.json` 的格式头或版本不对是 `puppet-unsupported`；超过上面的上限是 `puppet-too-large`；缺 `rig.json`、`built/layers.json` 或它们引用的贴图是 `puppet-missing-file`；PNG 解不开或尺寸与层框不符是 `puppet-image`；其余不合格式的是 `puppet-invalid`。
 
 ## 3. 参数与表情
 
@@ -144,10 +171,10 @@ interface PuppetTrack {
 | --- | --- |
 | `puppet-not-zip` | 不是 zip，或用了加密、zip64 |
 | `puppet-invalid` | 内容不合格式：格式头不对、缺字段、数值越界、贴图路径不对、动作轨的通道不对 |
-| `puppet-unsupported` | 版本比实现新 |
-| `puppet-too-large` | 超过 §2.4 或 §4 的上限 |
-| `puppet-missing-file` | `model.json` 引用的贴图不在包里 |
-| `puppet-image` | 贴图不是能解码的 PNG 或 WebP |
+| `puppet-unsupported` | 版本比实现新；mesh-avatar 角色包的条目压缩了（§2.5） |
+| `puppet-too-large` | 超过 §2.4、§2.5 或 §4 的上限 |
+| `puppet-missing-file` | `model.json` 引用的贴图不在包里；mesh-avatar 角色包缺必需的文件（§2.5） |
+| `puppet-image` | 贴图不是能解码的 PNG 或 WebP；mesh-avatar 角色包的 PNG 尺寸与层框不符 |
 
 上表是角色包的代码。视频里的角色贴纸画不出来时，导出预检、导出与预览的跳过原因（`EXPORT_UNSUPPORTED_CONTENT` 的 `reason`）是：角色包解不开时用上表的代码；角色包的字节读不到（没有冻结、文件不见了、预览还在取）是 `puppet-asset-missing`；动作轨的字节读不到是 `puppet-track-missing`；动作轨解不开（上表任何一种）是 `puppet-track-invalid`。这几种都是整层不画（`scope: 'asset'`），不会退回只画待机动作。
 
@@ -168,4 +195,6 @@ interface PuppetTrack {
 ## 8. 待评审事项
 
 - 是否读 v4 的 keyforms，让大角度转头更准。
-- 角色包是否带封面（v4 的 `files.cover`），用于素材库的缩略图；现在角色包没有缩略图。
+- 角色包是否带封面（v4 的 `files.cover`），用于素材库的缩略图；现在角色包没有缩略图。mesh-avatar 角色包可以带 `thumbnail.png`，现在也不读。
+- mesh-avatar 角色是否改用 GPU 渲染（上游的 wgpu 渲染器）：导出可以快，但预览（preview.wasm）与导出要逐像素相同，GPU 之间的结果不保证逐位一致，要另定对齐的办法。
+- mesh-avatar 角色的制作（`mesh-avatar-build` 的分层、改图、sprite 与打包）是否做成 Agent 工具与技能的一条路线；现在只有命令行。

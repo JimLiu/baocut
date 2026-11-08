@@ -18,24 +18,29 @@ pub enum Mode {
     Mouse,
     Manual,
 }
+#[derive(Clone)]
 struct Blink {
     t: f64,
     start: f64,
     double: bool,
 }
+#[derive(Clone)]
 struct Gaze {
     x: f64,
     y: f64,
     next: f64,
 }
+#[derive(Clone)]
 struct Tap {
     next: f64,
     until: f64,
 }
+#[derive(Clone)]
 pub struct Playback {
     pub id: String,
     pub t: f64,
 }
+#[derive(Clone)]
 struct Kana {
     moras: Vec<Mora>,
     t: f64,
@@ -56,6 +61,7 @@ pub struct LipSyncState {
     pub form: f64,
 }
 
+#[derive(Clone)]
 pub struct Motion {
     pub mode: Mode,
     pub parameters: Parameters,
@@ -103,6 +109,7 @@ pub struct Motion {
     arm_velocity: f64,
 }
 
+#[derive(Clone)]
 struct ArmMotion {
     swing: f64,
     inward: f64,

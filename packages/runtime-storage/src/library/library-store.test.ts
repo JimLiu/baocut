@@ -447,11 +447,13 @@ describe('用户库的存储', () => {
     expect(extensionOf('application/zip')).toBe('lottie');
   });
 
-  it('角色包：中央目录里有 model.json（或包在一层目录里）才算', () => {
+  it('角色包：中央目录里有 model.json（或包在一层目录里），或根上有 avatar.json 才算', () => {
     expect(isPuppetPackage(storedZip([['model.json', '{}'], ['textures/face.png', 'x']]))).toBe(true);
     expect(isPuppetPackage(storedZip([['host/model.json', '{}']]))).toBe(true);
     expect(isPuppetPackage(storedZip([['a/b/model.json', '{}']]))).toBe(false);
     expect(isPuppetPackage(storedZip([['animations/wave.json', '{}']]))).toBe(false);
+    expect(isPuppetPackage(storedZip([['avatar.json', '{}'], ['rig.json', '{}']]))).toBe(true);
+    expect(isPuppetPackage(storedZip([['host/avatar.json', '{}']]))).toBe(false);
     expect(isDotLottie(storedZip([['model.json', '{}']]))).toBe(false);
   });
 });

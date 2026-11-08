@@ -1081,8 +1081,27 @@ fn character_stickers_move_with_their_motion_track() {
     assert_eq!(render(&video, at(40.0), &mut media), b);
 }
 
-/// 半身角色的框伸出画面底边时，轻跳（`moveY` 往上）能跳到切口齐着画面底边；框整个在画面里时只往下（分层角色格式
-/// 规范 §3）。
+/// mesh-avatar 角色（角色格式规范 §2.5）放在同一个素材贴纸里：按包里的文件换后端，动作轨、seek 与跳过原因照旧。
+#[test]
+fn mesh_avatar_stickers_play_like_layered_ones() {
+    let video = puppet_video(&[("host", 0, 90, 0.0, None)]);
+    let mut media = puppet_media();
+    media.assets.insert("a_host".into(), puppet::testing::zip(&puppet::testing::mesh_avatar_files()));
+    let mut r = renderer(false, frame_render::Documents::default());
+    let a = render_with(&mut r, &video, at(6.0), &mut media);
+    let b = render_with(&mut r, &video, at(40.0), &mut media);
+    assert!(painted(&a) > 300, "painted {}", painted(&a));
+    assert_ne!(a, b);
+    assert_eq!(render_with(&mut r, &video, at(6.0), &mut media), a);
+    assert_eq!(render(&video, at(40.0), &mut media), b);
+    let mut files = puppet::testing::mesh_avatar_files();
+    files.retain(|(name, _)| name != "built/base.png");
+    let problem = frame_render::puppet_problem(&puppet::testing::zip(&files)).unwrap();
+    assert_eq!(problem.0, "puppet-missing-file", "{problem:?}");
+}
+
+/// 半身角色的框伸出画面底边时，轻跳（`moveY` 往上）能跳到切口齐着画面底边；框整个在画面里时只往下（角色格式规范
+/// §3）。
 #[test]
 fn a_character_boxed_past_the_frame_bottom_can_hop_up() {
     let sticker = |y: f64| {

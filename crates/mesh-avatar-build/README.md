@@ -11,6 +11,7 @@
 | `mesh-avatar-build layers <project> [--rig FILE] [--out DIR]` | 读 `source.png` 与 `rig.json`（没有就读 `rig.draft.json`），写 `built/base.png`、`built/hairmask.png`、8 张眼睛分层与 `built/layers.json`，并把眼睛轮廓写回 `rig.json`。 |
 | `mesh-avatar-build variant-requests <project>` | 为每个变体写 `variant-requests/<name>/mask.png` 与 `prompt.md`，交给图片编辑模型重画眼睛或嘴。 |
 | `mesh-avatar-build sprites <project> [--out DIR] [--tolerance N]` | 把 `variants/<name>.png` 与原图对齐、只取遮罩内改动的部分，写成带羽化边的 `built/sprites/`；缺的变体跳过。 |
+| `mesh-avatar-build pack <project> [--no-source] [-o OUT.mavatar]` | 把项目打成 `.mavatar`（条目不压缩的 zip）：只收清单、rig、`layers.json` 与 `sprites.json` 列出的层、叠加物、底图、头发遮罩与缩略图，`--no-source` 不带原图；不覆盖已有文件。移植自上游的 `tools/pack-avatar.mjs`。BaoCut 的视频里可以直接导入这个包（[角色格式规范](../../docs/spec/puppet-format-spec.md#25-mesh-avatar-角色包) §2.5）。 |
 | `mesh-avatar-talk <avatar> --audio speech.wav -o -` | 按配音渲染主播，逐帧输出未预乘的 RGBA8，交给 ffmpeg 编码。 |
 
 变体名：眼睛 `eyes_closed`、`eyes_half`、`eyes_smile`、`eyes_sad`、`eyes_surprise`；嘴 `mouth_a`、`mouth_a_half`、`mouth_i`、`mouth_o`、`mouth_angry`、`mouth_sad`。眨眼至少要 `eyes_closed`，口型至少要 `mouth_a`。
@@ -22,7 +23,7 @@
 3. `mesh-avatar-build layers <project>`。
 4. `mesh-avatar-build variant-requests <project>`，再用图片编辑模型（例如 GPT Image）按每个 `mask.png` 与 `prompt.md` 编辑 `source.png`，结果存为 `<project>/variants/<name>.png`。图片宽高比与原图相差不超过 0.5%，尺寸不同会自动缩放。
 5. `mesh-avatar-build sprites <project>`。
-6. 写 `<project>/avatar.json`：`{"format":"mesh-avatar","version":1,"name":"..."}`。
+6. 写 `<project>/avatar.json`：`{"format":"mesh-avatar","version":1,"name":"..."}`。要放进 BaoCut 的视频，再 `mesh-avatar-build pack <project>` 打成 `.mavatar` 导入。
 7. 配音存为 WAV（任意采样率、声道数），渲染并合成：
 
 ```bash
@@ -45,3 +46,11 @@ mesh-avatar-talk <project> --audio speech.wav --size 1080x1620 --fps 30 --lead 0
 - 嘴部编辑区按四舍五入取整，边界可能与上游相差 1 像素。
 
 用同一张图与 rig 和 Python 版对比：眼睛分层一致，头发遮罩 IoU 0.9976，底图只在眼睛挖空处有差别；sprite 像素最大差 2；整包渲染最大差 28（4 个像素）。
+
+## 验证
+
+```bash
+cargo test -p mesh-avatar-build --release
+```
+
+`tests/cpu_parity.rs` 让 `crates/puppet` 的 CPU 光栅和上游 wgpu 渲染器画同一帧逐像素比较，没有 GPU 时跳过；`BAOCUT_MESH_AVATAR=<.mavatar>` 换成真实角色。

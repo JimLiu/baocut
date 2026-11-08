@@ -521,7 +521,8 @@ DEALINGS IN THE SOFTWARE.
 虚拟主播的运行时与制作工具来自 [mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（提交 `3619620`，Yuki Shindo，MIT）：
 
 - `crates/mesh-avatar-core`、`crates/mesh-avatar-wgpu`：拷贝自上游 `native/crates/`，改动见 `crates/mesh-avatar-core/README.md`。
-- `crates/mesh-avatar-build`：分层、sprite 与变体请求的算法按上游 `tools/build-layers.py`、`tools/build-sprites.py`、`tools/variant-requests.py` 移植成 Rust，差别见该目录的 `README.md`。
+- `crates/mesh-avatar-build`：分层、sprite 与变体请求的算法按上游 `tools/build-layers.py`、`tools/build-sprites.py`、`tools/variant-requests.py` 移植成 Rust，`pack` 命令按上游 `tools/pack-avatar.mjs` 移植，差别见该目录的 `README.md`。
+- `crates/puppet/src/mesh_avatar.rs`：视频里画 mesh-avatar 角色的逐像素着色按上游 `mesh-avatar-wgpu/src/avatar.wgsl` 移植到 CPU。
 
 上游 `samples/` 里的示例角色不许单独再分发，没有拷进来；测试夹具是自己生成的角色。原始许可如下：
 

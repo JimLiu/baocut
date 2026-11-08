@@ -153,12 +153,12 @@ fn offsets_add_to_the_idle() {
     let mut added = Player::new(Puppet::new(&pkg).unwrap(), Some(offsets("angleX", 6.0)), 5, 0.0);
     idle.seek(1.0);
     added.seek(1.0);
-    let (a, b) = (idle.puppet().params.angle_x, added.puppet().params.angle_x);
+    let (a, b) = (idle.params().angle_x, added.params().angle_x);
     assert!((b - a - 6.0).abs() < 1e-9, "{a} + 6 != {b}");
     // 动作轨结束后渐渐交回待机
     idle.seek(3.0);
     added.seek(3.0);
-    assert_eq!(idle.puppet().params.angle_x, added.puppet().params.angle_x);
+    assert_eq!(idle.params().angle_x, added.params().angle_x);
 }
 
 #[test]

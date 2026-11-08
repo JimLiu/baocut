@@ -4,7 +4,8 @@
 
 use std::sync::Arc;
 
-use crate::rig::{Params, Puppet, State, TICK};
+use crate::character::{Character, CharacterState};
+use crate::rig::{Params, TICK};
 use crate::track::Track;
 use crate::{idle::Idle, smooth};
 
@@ -19,7 +20,7 @@ const MOUTH_OPEN: usize = 9;
 
 /// 一个条目上的角色：角色、动作轨与它们跨帧的状态。
 pub struct Player {
-    puppet: Puppet,
+    character: Character,
     track: Option<Arc<Track>>,
     seed: u64,
     /// 重放从角色时钟的哪一秒开始（≤ 0，按步长取整）：条目开头早于动作轨时是负的。
@@ -29,20 +30,20 @@ pub struct Player {
     tick: u64,
     deformed: Option<u64>,
     /// 第 k 份是第 (k + 1) × CHECKPOINT 步走完时的状态。
-    checkpoints: Vec<(State, Idle)>,
+    checkpoints: Vec<(CharacterState, Idle)>,
 }
 
 impl Player {
     /// `start` 是要画的最早的角色时钟（秒）：条目开头对应动作轨的第几秒。重放从 `min(start, 0)` 开始，所以
     /// 不早于 0 的条目画出来只看时刻，与 `start` 无关（拆开的两段在接缝处一样）。
-    pub fn new(puppet: Puppet, track: Option<Arc<Track>>, seed: u64, start: f64) -> Player {
+    pub fn new(character: impl Into<Character>, track: Option<Arc<Track>>, seed: u64, start: f64) -> Player {
         let origin = if start.is_finite() && start < 0.0 {
             (start / TICK).floor() * TICK
         } else {
             0.0
         };
         let mut p = Player {
-            puppet,
+            character: character.into(),
             track,
             seed,
             origin,
@@ -55,12 +56,18 @@ impl Player {
         p
     }
 
-    pub fn puppet(&self) -> &Puppet {
-        &self.puppet
+    /// 角色的画布尺寸（模型像素）。
+    pub fn canvas(&self) -> [u32; 2] {
+        self.character.canvas()
+    }
+
+    /// 当前一步的参数（动作轨与待机合起来的）。
+    pub fn params(&self) -> &Params {
+        self.character.params()
     }
 
     fn restart(&mut self) {
-        self.puppet.reset();
+        self.character.reset();
         self.idle = Idle::new(self.seed);
         self.tick = 0;
         self.deformed = None;
@@ -93,22 +100,33 @@ impl Player {
             }
             p.set(i, v);
         }
-        self.puppet.params = p;
-        self.puppet.expr.clear();
+        let puppet = match &mut self.character {
+            Character::Layered(puppet) => puppet,
+            Character::Mesh(m) => {
+                // mesh-avatar 一次只显示一张表情，自己缓动过去（见 MeshPuppet::set_inputs）
+                let expressions: Vec<(&str, f64)> = track
+                    .map(|tr| tr.expressions(t).map(|(id, v)| (id, v * (1.0 - fade))).collect())
+                    .unwrap_or_default();
+                m.set_inputs(p, &expressions);
+                return;
+            }
+        };
+        puppet.params = p;
+        puppet.expr.clear();
         if let Some(tr) = track {
             for (id, v) in tr.expressions(t) {
                 let v = v * (1.0 - fade);
                 // 笑既是参数也是表情：两路取大的（和 LivLiv 的 Player 一样）
                 if id == "smile" {
-                    let s = self.puppet.params.smile.max(v);
-                    self.puppet.set_expression(id, s);
+                    let s = puppet.params.smile.max(v);
+                    puppet.set_expression(id, s);
                 } else {
-                    self.puppet.set_expression(id, v);
+                    puppet.set_expression(id, v);
                 }
             }
             // 动作轨的权重就是显示的权重：笑不再缓动（别的表情本来就不缓动）。笑落后另一张表情零点几秒，换表情时
             // 两张补丁一起不透明，笑的嘴角、眉毛露在下一张外面
-            self.puppet.smile_shown = self.puppet.params.smile;
+            puppet.smile_shown = puppet.params.smile;
         }
     }
 
@@ -123,7 +141,7 @@ impl Player {
                 .and_then(|k| self.checkpoints.get(k as usize).map(|c| (k, c)))
             {
                 Some((k, (state, idle))) => {
-                    self.puppet.load(state);
+                    self.character.load(state);
                     self.idle = idle.clone();
                     self.tick = (k + 1) * CHECKPOINT;
                     self.deformed = None;
@@ -134,13 +152,13 @@ impl Player {
         while self.tick < target {
             self.tick += 1;
             self.apply_inputs(self.tick);
-            self.puppet.update(TICK, false);
+            self.character.update(TICK, false);
             if self.tick % CHECKPOINT == 0 && self.checkpoints.len() as u64 == self.tick / CHECKPOINT - 1 {
-                self.checkpoints.push((self.puppet.save(), self.idle.clone()));
+                self.checkpoints.push((self.character.save(), self.idle.clone()));
             }
         }
         if self.deformed != Some(self.tick) {
-            self.puppet.update(0.0, true);
+            self.character.update(0.0, true);
             self.deformed = Some(self.tick);
         }
     }
@@ -148,19 +166,19 @@ impl Player {
     /// 画角色时钟 `t` 秒的一帧到 `w`×`h` 的预乘 RGBA8 缓冲。
     pub fn render(&mut self, t: f64, w: u32, h: u32, out: &mut [u8]) {
         self.seek(t);
-        self.puppet.render(w, h, out);
+        self.character.render(w, h, out);
     }
 
-    /// 角色时钟 `t` 秒的 `moveX` `moveY` 在缓冲里的平移，见 [`Puppet::shift`]。
+    /// 角色时钟 `t` 秒的 `moveX` `moveY` 在缓冲里的平移，见 [`crate::Puppet::shift`]。
     pub fn shift(&mut self, t: f64, w: u32, h: u32, frame_bottom: f64) -> [f64; 2] {
         self.seek(t);
-        self.puppet.shift(w, h, frame_bottom)
+        self.character.shift(w, h, frame_bottom)
     }
 
-    /// 同 [`Player::render`]，平移由宿主给，见 [`Puppet::render_shifted`]。
+    /// 同 [`Player::render`]，平移由宿主给，见 [`crate::Puppet::render_shifted`]。
     pub fn render_shifted(&mut self, t: f64, w: u32, h: u32, shift: [f64; 2], out: &mut [u8]) {
         self.seek(t);
-        self.puppet.render_shifted(w, h, shift, out);
+        self.character.render_shifted(w, h, shift, out);
     }
 }
 

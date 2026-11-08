@@ -10,10 +10,16 @@
 //! 头的游移）不在渲染器里，由动作轨给出，没有动作轨时用固定种子的待机动作；物理按固定 1/120 秒步长从角色
 //! 时钟的 0 秒重放（每 10 秒存一份快照），任意时刻 seek 结果都一样；链条（`rig.chains` 与层的 `bones`）照 LivLiv 的绳子模拟移植，状态
 //! 按 f32 取整；不读 v4 的 keyforms（转头的实测修正，忽略）。
+//!
+//! 同一种素材的另一种角色包是 mesh-avatar-studio 的 `.mavatar`（[`MeshPackage`]，格式规范 §2.5）：形变与物理由
+//! 内置的 `mesh-avatar-core` 做，着色按上游的 `avatar.wgsl` 移植到同一个 CPU 光栅。两种角色由 [`Character`] 统一，
+//! 交给同一个 [`Player`] 按动作轨与待机动作播放。
 
+mod character;
 mod draw;
 mod idle;
 mod mesh;
+mod mesh_avatar;
 pub mod model;
 mod package;
 mod player;
@@ -25,6 +31,10 @@ pub mod track;
 
 use std::fmt;
 
+pub use character::{Character, CharacterPackage};
+pub use mesh_avatar::{MeshPackage, MeshPuppet};
+#[doc(hidden)]
+pub use mesh_avatar::render_frame as render_mesh_frame;
 pub use model::Model;
 pub use package::{Package, Texture};
 pub use player::Player;

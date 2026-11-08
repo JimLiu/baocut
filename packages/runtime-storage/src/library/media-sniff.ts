@@ -125,11 +125,11 @@ export function isDotLottie(bytes: Uint8Array): boolean {
 }
 
 /**
- * 角色包（`.bcpuppet`，分层角色格式规范 §2.1）：zip 的中央目录里有 `model.json`（或包在一层目录里的 `<目录>/model.json`）。
- * 只看条目名字；角色读不读得开由引擎导入时判断。
+ * 角色包：zip 的中央目录里有 `model.json`（或包在一层目录里的 `<目录>/model.json`，分层角色 `.bcpuppet`，角色格式规范
+ * §2.1），或根上有 `avatar.json`（mesh-avatar 角色 `.mavatar`，§2.5）。只看条目名字；角色读不读得开由引擎导入时判断。
  */
 export function isPuppetPackage(bytes: Uint8Array): boolean {
-  return zipHasEntry(bytes, /^([^/]+\/)?model\.json$/);
+  return zipHasEntry(bytes, /^(([^/]+\/)?model\.json|avatar\.json)$/);
 }
 
 /** zip 的中央目录里有没有名字合 `pattern` 的条目；读不出中央目录的算没有。 */

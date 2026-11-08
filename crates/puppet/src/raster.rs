@@ -327,11 +327,17 @@ fn bin(view: View, verts: &[f32], uv: &[f32], tri: &[u32], aa: &[u8], tex: &Text
     Binned { tris, start: count, list }
 }
 
-/// 一次绘制：贴图、不透明度，以及眼珠的眼白遮罩（遮罩与它的 soft：0 时按 alpha 0.5 一刀切，1 时乘 alpha）。
+/// 逐像素着色：给像素中心的贴图坐标 (u, v) 和一个在任意贴图坐标上按这个三角形的 mip 级采样的函数，返回这一点
+/// 的预乘颜色（0–255）。mesh-avatar 角色的脸（画出来的嘴、腮红）、眼珠（被眼睑裁）与半闭的眼睛用它代替直接采样。
+pub(crate) type Shade<'a> = &'a (dyn Fn(f64, f64, &dyn Fn(f64, f64) -> [f32; 4]) -> [f32; 4] + Sync);
+
+/// 一次绘制：贴图、不透明度，眼珠的眼白遮罩（遮罩与它的 soft：0 时按 alpha 0.5 一刀切，1 时乘 alpha），以及可选的
+/// 逐像素着色。
 pub(crate) struct Paint<'a> {
     pub tex: &'a Texture,
     pub alpha: f32,
     pub mask: Option<(&'a Coverage, f32)>,
+    pub shade: Option<Shade<'a>>,
 }
 
 fn for_bands(frame: &mut Frame, f: impl Fn(usize, &mut [u8]) + Sync + Send) {
@@ -381,7 +387,10 @@ fn blend(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri: &[u32], 
         for &ti in &bins.list[bins.start[b]..bins.start[b + 1]] {
             let t = &bins.tris[ti as usize];
             scan(t, y0, y1, |x, y, u, v, n| {
-                let mut c = sample(paint.tex, t.lod, u, v);
+                let mut c = match paint.shade {
+                    Some(shade) => shade(u, v, &|su, sv| sample(paint.tex, t.lod, su, sv)),
+                    None => sample(paint.tex, t.lod, u, v),
+                };
                 let mut k = if n == 4 { alpha } else { alpha * n as f32 / 4.0 };
                 if let Some((cov, soft)) = paint.mask {
                     let m = f32::from(cov.at(x, y)) / 255.0;
@@ -516,6 +525,7 @@ mod tests {
                 tex: &tex,
                 alpha: 1.0,
                 mask: None,
+                shade: None,
             },
         );
         let mut alphas = std::collections::BTreeSet::new();
@@ -549,6 +559,7 @@ mod tests {
                 tex: &tex,
                 alpha: 0.5,
                 mask: None,
+                shade: None,
             },
         );
         // 0.5 白在预乘 (0, 0, 200, 200) 上：rgb = 127.5 + c·0.5，a = 127.5 + 200·0.5
@@ -577,6 +588,7 @@ mod tests {
                 tex: &tex,
                 alpha: 1.0,
                 mask: None,
+                shade: None,
             },
         );
         let a = |x: usize, y: usize| px[4 * (y * 10 + x) + 3];
@@ -611,6 +623,7 @@ mod tests {
             tex: &clear,
             alpha: 1.0,
             mask: Some((&cov, 1.0)),
+            shade: None,
         };
         draw_replace(&mut f, view, &verts, &uv, &tri, &[], &paint);
         assert_eq!(&px[0..4], &[0, 0, 0, 0]);

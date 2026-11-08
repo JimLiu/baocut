@@ -145,6 +145,7 @@ pub struct SpriteCoverage {
     pub mouth_drawn: bool,
 }
 
+#[derive(Clone)]
 pub struct Sprites {
     pub items: Vec<SpriteItem>,
     /// Whether each eye has the closed and half-closed drawings, so the layered eye stays open.

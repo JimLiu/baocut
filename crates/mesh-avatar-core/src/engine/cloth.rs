@@ -109,10 +109,12 @@ fn locate(g: &Garment, x: f64, y: f64) -> Location {
     }
     best
 }
+#[derive(Clone)]
 pub struct ClothMesh {
     pub mesh: Grid,
     locations: Vec<Location>,
 }
+#[derive(Clone)]
 pub struct Garment {
     pub name: String,
     pub behind: bool,
@@ -140,6 +142,7 @@ pub struct Garment {
     parent: Option<usize>,
     parent_locations: Vec<Location>,
 }
+#[derive(Clone)]
 pub struct ClothPhysics {
     pub garments: Vec<Garment>,
     pub gain: f64,

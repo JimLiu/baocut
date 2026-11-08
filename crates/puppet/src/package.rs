@@ -267,6 +267,11 @@ struct Entry {
     offset: usize,
 }
 
+/// zip 根上有 `avatar.json`、又找不到分层角色的 `model.json`：mesh-avatar 角色包（格式规范 §2.5）。
+pub(crate) fn is_mesh_avatar(bytes: &[u8]) -> bool {
+    Zip::open(bytes).is_ok_and(|z| z.has("avatar.json") && z.root().is_err())
+}
+
 struct Zip<'a> {
     bytes: &'a [u8],
     entries: HashMap<String, Entry>,

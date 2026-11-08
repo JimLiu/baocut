@@ -13,6 +13,7 @@ struct StrandState {
     p: Option<[Point; 4]>,
     v: [Point; 4],
 }
+#[derive(Clone)]
 struct BunState {
     index: usize,
     at: Point,
@@ -71,6 +72,7 @@ impl TasselChain {
     }
 }
 
+#[derive(Clone)]
 pub struct Physics {
     pub gain: f64,
     pub out: PhysicsOffsets,

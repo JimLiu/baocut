@@ -228,9 +228,10 @@ pub fn lottie_problem(bytes: &[u8]) -> Option<(&'static str, String)> {
     load_lottie("lottie", bytes, None).err()
 }
 
-/// 角色包解不解得开（与合成时同一个解析，含建网格）：解不开时给出跳过原因（`puppet-*`，分层角色格式规范 §6）与说明。
+/// 角色包（分层或 mesh-avatar）解不解得开（与合成时同一个解析，含建网格）：解不开时给出跳过原因（`puppet-*`，角色格式
+/// 规范 §6）与说明。
 pub fn puppet_problem(bytes: &[u8]) -> Option<(&'static str, String)> {
-    let error = puppet::Package::from_zip(bytes).and_then(|p| puppet::Puppet::new(&p)).err()?;
+    let error = puppet::CharacterPackage::from_zip(bytes).and_then(|p| puppet::Character::new(&p)).err()?;
     Some((error.code(), error.message))
 }
 

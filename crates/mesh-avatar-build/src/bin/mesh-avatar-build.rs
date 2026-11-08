@@ -1,10 +1,11 @@
-//! 命令行：`layers` 切分层，`variant-requests` 写变体的编辑遮罩与说明，`sprites` 导入画好的变体。
+//! 命令行：`layers` 切分层，`variant-requests` 写变体的编辑遮罩与说明，`sprites` 导入画好的变体，`pack` 打成
+//! `.mavatar`。
 
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use anyhow::{Context, Result, bail};
-use mesh_avatar_build::{layers, sprites, variants};
+use mesh_avatar_build::{layers, pack, sprites, variants};
 use serde_json::Value;
 
 const USAGE: &str = "Usage:
@@ -14,7 +15,10 @@ const USAGE: &str = "Usage:
   mesh-avatar-build variant-requests <project>
       Write <project>/variant-requests/<name>/{mask.png,prompt.md} for drawn eye and mouth variants.
   mesh-avatar-build sprites <project> [--out DIR] [--tolerance N]
-      Import <project>/variants/*.png as feathered sprites (default DIR: <project>/built/sprites).";
+      Import <project>/variants/*.png as feathered sprites (default DIR: <project>/built/sprites).
+  mesh-avatar-build pack <project> [--no-source] [-o OUT.mavatar]
+      Pack the manifest, rig, built assets and optional thumbnail and source into a stored ZIP
+      (default OUT: <project>.mavatar). Never overwrites an existing file.";
 
 fn rig_path(project: &Path, name: Option<&str>) -> Result<PathBuf> {
     if let Some(name) = name {
@@ -119,6 +123,36 @@ fn run() -> Result<()> {
                 Ok(None) => println!("No variants available; existing sprites were left unchanged."),
                 Err(error) => return Err(error),
             }
+        }
+        "pack" => {
+            let (mut project, mut out, mut include_source) = (None, None, true);
+            let mut iter = args[1..].iter();
+            while let Some(arg) = iter.next() {
+                match arg.as_str() {
+                    "--no-source" => include_source = false,
+                    "-o" | "--out" => out = Some(PathBuf::from(iter.next().context("-o needs a value")?)),
+                    a if !a.starts_with('-') && project.is_none() => project = Some(PathBuf::from(a)),
+                    a => bail!("unexpected argument {a}\n{USAGE}"),
+                }
+            }
+            let project = project.with_context(|| format!("missing <project>\n{USAGE}"))?;
+            if !project.is_dir() {
+                bail!("{} is not a project folder", project.display());
+            }
+            let out = out.unwrap_or_else(|| project.with_extension("mavatar"));
+            let bytes = pack::pack_project(&project, include_source)?;
+            fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&out)
+                .and_then(|mut f| std::io::Write::write_all(&mut f, &bytes))
+                .with_context(|| format!("cannot write {}", out.display()))?;
+            println!(
+                "Packed {} ({} bytes{})",
+                out.display(),
+                bytes.len(),
+                if include_source { "" } else { ", source omitted" }
+            );
         }
         "-h" | "--help" | "help" => println!("{USAGE}"),
         other => bail!("unknown command {other}\n{USAGE}"),

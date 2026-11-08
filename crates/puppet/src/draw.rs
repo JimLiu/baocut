@@ -32,12 +32,8 @@ impl Puppet {
     /// `frame_bottom` 是看得见的画面的底边落在缓冲的第几行：缓冲画进一个伸出画面的框时比 `h` 小，框整个在画面里时
     /// 比 `h` 大（这时切口本来就看得见，只往下）。格式规范 §3。
     pub fn shift(&self, w: u32, h: u32, frame_bottom: f64) -> [f64; 2] {
-        let (s, _, oy) = self.fit(w, h);
-        let mh = f64::from(self.model.canvas[1]);
-        let cut = self.model.anchors.bottom_y >= mh - 4.0;
-        let room = if frame_bottom.is_finite() { (oy + mh * s - frame_bottom).max(0.0) / f64::from(h) } else { 0.0 };
-        let up = if cut { self.params.move_y.min(room) } else { self.params.move_y };
-        [self.params.move_x * f64::from(w), -up * f64::from(h)]
+        let cut = self.model.anchors.bottom_y >= f64::from(self.model.canvas[1]) - 4.0;
+        shift(self.model.canvas, cut, &self.params, w, h, frame_bottom)
     }
 
     /// 同 [`Puppet::render`]，但平移由宿主给（缓冲像素）：宿主把一部分平移拿去挪整张缓冲（角色贴纸挪框，跳起来
@@ -59,6 +55,7 @@ impl Puppet {
                     tex,
                     alpha: alpha as f32,
                     mask,
+                    shade: None,
                 };
                 raster::draw(frame, view, verts.unwrap_or(&l.out), &l.mesh.uv, &l.mesh.tri, &l.mesh.aa, &paint);
             };
@@ -274,6 +271,7 @@ impl Puppet {
                 tex: &l.tex,
                 alpha: alpha as f32,
                 mask: None,
+                shade: None,
             };
             raster::draw(frame, view, &l.out, &m.uv, &m.tri, &m.aa, &paint);
         };
@@ -310,6 +308,7 @@ impl Puppet {
             tex: &l.tex,
             alpha: 1.0,
             mask: None,
+            shade: None,
         };
         raster::draw(&mut sub, sub_view, &l.out, &m.uv, &m.tri, &m.aa, &shut);
         let cov = raster::coverage(w, h, sub_view, &l.out, &m.uv, &m.tri, mask);
@@ -317,6 +316,7 @@ impl Puppet {
             tex: &l.tex,
             alpha: 1.0,
             mask: Some((&cov, 1.0)),
+            shade: None,
         };
         raster::draw_replace(&mut sub, sub_view, open_v, &m.uv, &m.tri, &m.aa, &opened);
         raster::composite_at(frame, &px, bx0 as usize, by0 as usize, w, h, alpha as f32);
@@ -324,8 +324,22 @@ impl Puppet {
 
     /// 角色在 `w`×`h` 里按画布等比缩放、居中：缩放与左上角。
     fn fit(&self, w: u32, h: u32) -> (f64, f64, f64) {
-        let [mw, mh] = self.model.canvas;
-        let s = (f64::from(w) / f64::from(mw)).min(f64::from(h) / f64::from(mh));
-        (s, (f64::from(w) - f64::from(mw) * s) / 2.0, (f64::from(h) - f64::from(mh) * s) / 2.0)
+        fit(self.model.canvas, w, h)
     }
+}
+
+/// 画布 `canvas` 等比缩放、居中放进 `w`×`h`：缩放与左上角的偏移。
+pub(crate) fn fit(canvas: [u32; 2], w: u32, h: u32) -> (f64, f64, f64) {
+    let [mw, mh] = canvas;
+    let s = (f64::from(w) / f64::from(mw)).min(f64::from(h) / f64::from(mh));
+    (s, (f64::from(w) - f64::from(mw) * s) / 2.0, (f64::from(h) - f64::from(mh) * s) / 2.0)
+}
+
+/// `moveX` `moveY` 在缓冲里的平移，见 [`Puppet::shift`]；`cut` 是角色的下沿切在画布底边上。
+pub(crate) fn shift(canvas: [u32; 2], cut: bool, p: &crate::Params, w: u32, h: u32, frame_bottom: f64) -> [f64; 2] {
+    let (s, _, oy) = fit(canvas, w, h);
+    let mh = f64::from(canvas[1]);
+    let room = if frame_bottom.is_finite() { (oy + mh * s - frame_bottom).max(0.0) / f64::from(h) } else { 0.0 };
+    let up = if cut { p.move_y.min(room) } else { p.move_y };
+    [p.move_x * f64::from(w), -up * f64::from(h)]
 }

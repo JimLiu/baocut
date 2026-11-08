@@ -114,6 +114,7 @@ pub fn apply_overlay(p: &Parameters, m: &BTreeMap<String, f64>) -> Parameters {
     out.angle_y = (p.angle_y + m["pitch"]).clamp(-30.0, 30.0);
     out
 }
+#[derive(Clone)]
 pub struct ExpressionOverlay {
     pub name: String,
     mix: BTreeMap<String, f64>,

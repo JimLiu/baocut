@@ -199,7 +199,7 @@ pub struct FrameRenderer {
     templates: TemplateScenes,
     lotties: HashMap<String, Option<Arc<Lottie>>>,
     /// 读好的角色包与动作轨（键是 `素材ID@版本`）；解不开的记下错误（跳过原因与说明）。与输出尺寸无关。
-    puppets: HashMap<String, Result<Arc<puppet::Package>, (&'static str, String)>>,
+    puppets: HashMap<String, Result<Arc<puppet::CharacterPackage>, (&'static str, String)>>,
     puppet_tracks: HashMap<String, Result<Arc<puppet::Track>, String>>,
     /// 各角色贴纸实例的播放器（跨帧留着物理状态）与它按什么建的（包、动作轨、`motionIn`、种子）：变了就重建。
     puppet_players: HashMap<String, (String, puppet::Player)>,
@@ -838,12 +838,12 @@ impl FrameRenderer {
                 let Some(player) = self.puppet_player(layer, parameters, media)? else {
                     return Ok(None);
                 };
-                let [cw, ch] = player.puppet().model().canvas;
+                let [cw, ch] = player.canvas();
                 let dims = (f64::from(cw.max(1)), f64::from(ch.max(1)));
                 let geom = BoxGeom::of(&probe, Some(dims), (f64::from(size.0), f64::from(size.1)));
                 let (w, h) = (geom.w.round().clamp(1.0, 4096.0) as u32, geom.h.round().clamp(1.0, 4096.0) as u32);
                 // 看得见的画面底边落在框的第几行：半身角色的切口在画面外还有余量时，轻跳能往上跳到切口齐着画面底边
-                // （分层角色格式规范 §3 的 moveY）。框转了或上下翻了不算余量
+                // （角色格式规范 §3 的 moveY）。框转了或上下翻了不算余量
                 let frame_bottom = if geom.rotation == 0.0 && !geom.flip_y && geom.h > 0.0 {
                     (f64::from(size.1) - (geom.cy - geom.h / 2.0)) * f64::from(h) / geom.h
                 } else {
@@ -1137,8 +1137,8 @@ impl FrameRenderer {
                 self.refuse_or_skip(vec![asset_item(layer, "puppet-asset-missing", asset_text::puppet_unreadable())])?;
                 return Ok(None);
             };
-            let parsed = puppet::Package::from_zip(&bytes)
-                .and_then(|package| puppet::Puppet::new(&package).map(|_| Arc::new(package)))
+            let parsed = puppet::CharacterPackage::from_zip(&bytes)
+                .and_then(|package| puppet::Character::new(&package).map(|_| Arc::new(package)))
                 .map_err(|e| (e.code(), e.message));
             self.puppets.insert(package_key.clone(), parsed);
         }
@@ -1178,7 +1178,7 @@ impl FrameRenderer {
         );
         if self.puppet_players.get(&layer.item_id).is_none_or(|(built, _)| *built != config) {
             // 包在缓存时已经建过一次网格，这里不会失败
-            let rig = puppet::Puppet::new(&package).map_err(|e| RenderError::new("EXPORT_RENDER_FAILED", e.message))?;
+            let rig = puppet::Character::new(&package).map_err(|e| RenderError::new("EXPORT_RENDER_FAILED", e.message))?;
             let player = puppet::Player::new(rig, track, seed, motion_in);
             self.puppet_players.insert(layer.item_id.clone(), (config, player));
         }
