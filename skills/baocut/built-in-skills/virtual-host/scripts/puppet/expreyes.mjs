@@ -166,11 +166,14 @@ function envelope(pts, side) {
  * the edit changed that eye, lash: the neutral eye's lash thickness (neutralLash) }. `patch`: the expression patch (its
  * pixels with alpha); `changed`: the strokes the edit changed; `frame`: the glasses grown a little, or null (a rim is
  * not one of the eye's lines: a region that went on over it took in the skin past it, a piece of the frame squashed
- * with the blink, and was too wide to follow the lash across). Returns { R: [mask or null per side], shut: the sides
- * the edit drew shut (no whites, nothing to blink: they stay in the patch), any: both masks together, open: [the
- * opening (openingOf) or null per side, null on both sides when either side's is not found] }.
+ * with the blink, and was too wide to follow the lash across); `from`: per pixel next to the frame (under `frame`, off
+ * the frame itself) the nearest pixel past it, else -1, or null: one whose nearest pixel is an eye's goes with that eye
+ * (a lid's line drawn up to the frame, or the patch's copy of it there, stayed over the shut eye). Returns { R: [mask
+ * or null per side], shut: the sides the edit drew shut (no whites, nothing to blink: they stay in the patch), any:
+ * both masks together, open: [the opening (openingOf) or null per side, null on both sides when either side's is not
+ * found] }.
  */
-export function expressionEyeRegions({ E, im, patch, eyes, changed, frame = null, skin, w, h }) {
+export function expressionEyeRegions({ E, im, patch, eyes, changed, frame = null, from = null, skin, w, h }) {
   const N = w * h, white = whiteOf(skin), R = [null, null], shut = [], any = new Uint8Array(N), lash = [0, 0];
   const toneAt = ((t) => (p) => t(rgb(E, p)))(toneOf(skin));
   eyes.forEach((e, s) => {
@@ -353,6 +356,11 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, frame = null
   // both eyes blink alike: where one side's opening is not found, neither is cut by its opening (both squash)
   const found = R.map((M, s) => M && openingOf(M, toneAt, w, h, lash[s]));
   const open = R.every((M, s) => !M || found[s]) ? found : [null, null];
+  // (after the openings: a copy is not the eye's line, and would thicken the lash they are measured by)
+  if (frame && from) R.forEach((M) => {
+    if (!M) return;
+    for (let p = 0; p < N; p++) if (frame[p] && !M[p] && from[p] >= 0 && M[from[p]] && patch.d[4 * p + 3] > 0) { M[p] = 1; any[p] = 1; }
+  });
   return { R, shut, any, open };
 }
 

@@ -21,7 +21,7 @@ export function findEyes(C, w, h, hairBox) {
     const ws = whites.filter((c) => side(c) === s && c.area > 0.08 * whites[0].area);
     const sh = shines.filter((c) => side(c) === s);
     const box = ws.reduce((b, c) => [Math.min(b[0], c.x0), Math.min(b[1], c.y0), Math.max(b[2], c.x1), Math.max(b[3], c.y1)], [w, h, -1, -1]);
-    return { whites: compMask(W.lab, ws.map((c) => c.id)), shine: compMask(W.lab, sh.map((c) => c.id)), box, pieces: ws };
+    return { whites: compMask(W.lab, ws.map((c) => c.id)), shine: compMask(W.lab, sh.map((c) => c.id)), box, pieces: ws, lab: W.lab };
   });
   if (eyes.some((e) => !e.pieces.length)) throw new Error('did not find two open eyes with white eyeballs next to skin (the portrait needs both eyes open, whites showing)');
   return eyes;

@@ -2,7 +2,7 @@
 // Segmenting a flat front-facing cartoon portrait (solid key background) into what each puppet layer is cut from.
 import { components, compMask, dilate, erode, distTo, grow, not, and, or, minus, count, bbox, medianColor } from './ops.mjs';
 import { keyOut, classes, lineColor, lineWidth, findHair, hairColor, nearColor, luma } from './seg.mjs';
-import { findEyes, fitIris, fitRim, ellipseBand } from './parts.mjs';
+import { findEyes, fitIris, fitRim, ellipseBand, ellipseCover } from './parts.mjs';
 import { fillHoles } from './layers.mjs';
 
 const boxMask = (w, h, x0, y0, x1, y1) => {
@@ -13,8 +13,22 @@ const boxMask = (w, h, x0, y0, x1, y1) => {
 };
 export { boxMask };
 
+/** the pieces of an eye's whites that reach to within 3 px of its iris (all of them when none does) */
+function irisWhites(e, iris, w, h) {
+  const m = new Uint8Array(w * h), rx = iris.rx + 3, ry = iris.ry + 3;
+  for (const c of e.pieces) {
+    let at = false;
+    for (let y = c.y0; y <= c.y1 && !at; y++) for (let x = c.x0; x <= c.x1 && !at; x++)
+      at = e.lab[y * w + x] === c.id && ((x + 0.5 - iris.cx) / rx) ** 2 + ((y + 0.5 - iris.cy) / ry) ** 2 <= 1;
+    if (at) for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) if (e.lab[y * w + x] === c.id) m[y * w + x] = 1;
+  }
+  return m.some(Boolean) ? m : e.whites;
+}
+
 // a brow spans at least this much of its eye's width, side to side
 const BROW_OVER_EYE = 0.25;
+// a frame's body this far from the line colour is a colour of its own, and a pixel this near it is the frame's
+const FRAME_OWN_COLOUR = 28;
 
 /** the skin colour: the commonest light warm colour in the middle of the character */
 export function estimateSkin(K, w, h) {
@@ -72,11 +86,13 @@ export function segment(im, cfg = {}) {
   log('eyes', eyes.map((e) => e.box), 'iris', iris.map((i) => [i.cx, i.cy, i.rx, i.ry].map((v) => +v.toFixed(1))));
 
   // glasses: a dark ellipse round each eye, not the hair's thick mass
-  let rims = null, glass = new Uint8Array(n), rimW = 0;
+  let rims = null, glass = new Uint8Array(n), rimW = 0, ring = glass, frame = glass, frameLines = glass, glassSpots = glass, spotsOn = null;
   if (cfg.glasses !== false) {
     // a rim runs through skin round the eye: the eye's own outline and lashes (touching the whites) are not a rim
+    // (the whites against the iris: a highlight along a lens's lower bar passes for a piece of the whites, and its line
+    // took the bar out of the score, which fitted the rim flat along the top bar)
     const core = dilate(and(H.thick, hair), w, h, 1), score = new Float32Array(n);
-    const ownLine = dilate(or(eyes[0].whites, eyes[1].whites), w, h, outline + 3);
+    const ownLine = dilate(or(...eyes.map((e, s) => irisWhites(e, iris[s], w, h))), w, h, outline + 3);
     for (let p = 0; p < n; p++) score[p] = C.dark[p] && !core[p] && !ownLine[p] ? 1 : C.skin[p] ? -0.2 : 0;
     const fw = eyes[1].box[2] - eyes[0].box[0];
     rims = eyes.map((e) => fitRim(score, w, h, (e.box[0] + e.box[2]) / 2, (e.box[1] + e.box[3]) / 2, { rMin: Math.round(0.12 * fw), rMax: Math.round(0.4 * fw) }));
@@ -86,7 +102,7 @@ export function segment(im, cfg = {}) {
   if (rims) {
     rimW = Math.round((rimWidth(C.dark, w, h, rims[0]) + rimWidth(C.dark, w, h, rims[1])) / 2);
     const band = or(ellipseBand(rims[0], w, h, rimW / 2 + 2), ellipseBand(rims[1], w, h, rimW / 2 + 2));
-    const ring = and(C.dark, band);
+    ring = and(C.dark, band);
     // the bridge: dark pixels between the rims joined to them
     const [a, b] = rims;
     const between = boxMask(w, h, a.cx + 0.6 * a.rx, Math.min(a.cy, b.cy) - Math.max(a.ry, b.ry), b.cx - 0.6 * b.rx, Math.max(a.cy, b.cy));
@@ -97,23 +113,48 @@ export function segment(im, cfg = {}) {
     // a rivet or a glint on the frame: a small spot, not skin, on the frame and closed round by it, the line art past
     // the rims and the hair over a hinge. Left to the face it was painted out in skin and showed as a hole at rest. A
     // catchlight in an eye that reaches the frame stays with the eye: on the glasses it would hang there when the eye shut
-    const wall = or(or(glass, hair), C.dark), nearFrame = dilate(glass, w, h, 1);
-    const eyeZone = or(...eyes.map(({ box: b }) => boxMask(w, h, b[0] - 1, b[1] - 1, b[2] + 1, b[3] + 1)));
-    const shut = components(minus(fillHoles(wall, w, h), wall), w, h), spots = [];
-    for (const c of shut.comps) {
-      if (c.area > 2 * rimW * rimW) continue;
-      let onFrame = 0, onSkin = 0, onEye = 0;
-      for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) {
-        const q = y * w + x;
-        if (shut.lab[q] !== c.id) continue;
-        if (nearFrame[q]) onFrame++;
-        if (C.skin[q]) onSkin++;
-        if (eyeZone[q]) onEye++;
+    spotsOn = (glass) => {
+      const wall = or(or(glass, hair), C.dark), nearFrame = dilate(glass, w, h, 1);
+      const eyeZone = or(...eyes.map(({ box: b }) => boxMask(w, h, b[0] - 1, b[1] - 1, b[2] + 1, b[3] + 1)));
+      const shut = components(minus(fillHoles(wall, w, h), wall), w, h), spots = [];
+      for (const c of shut.comps) {
+        if (c.area > 2 * rimW * rimW) continue;
+        let onFrame = 0, onSkin = 0, onEye = 0;
+        for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) {
+          const q = y * w + x;
+          if (shut.lab[q] !== c.id) continue;
+          if (nearFrame[q]) onFrame++;
+          if (C.skin[q]) onSkin++;
+          if (eyeZone[q]) onEye++;
+        }
+        if (onFrame && !onEye && onSkin < c.area / 2) spots.push(c.id);
       }
-      if (onFrame && !onEye && onSkin < c.area / 2) spots.push(c.id);
-    }
-    glass = or(glass, compMask(shut.lab, spots));
-    log('glasses', count(glass), 'rim width', rimW, 'spots on the frame', spots.length);
+      return { m: compMask(shut.lab, spots), n: spots.length };
+    };
+    const sp = spotsOn(glass);
+    glassSpots = sp.m;
+    glass = or(glass, glassSpots);
+    log('glasses', count(glass), 'rim width', rimW, 'spots on the frame', sp.n);
+    // the frame's own dark line art joined to the rims (corners and hinges past the fitted ellipses)
+    frame = grow(glass, minus(C.dark, hair), w, h, rimW);
+    // a highlight along a lens's inner edge touches the skin seen through the lens and passed for a piece of the eye's
+    // whites: the eye's box ran down to the frame, and the open eye carried the frame's edge and a white line down the
+    // lens. A piece lying mostly against the frame's lines is the lens's, not the eye's
+    const byFrame = dilate(frame, w, h, outline + 2);
+    eyes.forEach((e, s) => {
+      const own = e.pieces.filter((c) => {
+        let on = 0;
+        for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) if (e.lab[y * w + x] === c.id && byFrame[y * w + x]) on++;
+        return on < c.area / 2;
+      });
+      if (!own.length || own.length === e.pieces.length) return;
+      const keep = new Uint8Array(n);
+      for (const c of own) for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) if (e.lab[y * w + x] === c.id) keep[y * w + x] = 1;
+      e.whites = keep; e.pieces = own;
+      e.box = own.reduce((b, c) => [Math.min(b[0], c.x0), Math.min(b[1], c.y0), Math.max(b[2], c.x1), Math.max(b[3], c.y1)], [w, h, -1, -1]);
+      iris[s] = fitIris(e, C, w, h);
+      log(`eye ${s}: lens highlights left out of the whites`, e.box);
+    });
   }
 
   // brows: the big strokes above the eyes, in the line colour or a colour of their own (brown brows are a fill)
@@ -121,10 +162,9 @@ export function segment(im, cfg = {}) {
   const eyeH = eyeBot - eyeTop;
   const notHair = minus(minus(C.dark, hair), glass);
   const dc = components(notHair, w, h);
-  // the frame's own dark line art joined to the rims (corners and hinges past the fitted ellipses) is not brow: a brow
-  // resting on the frame took a corner of it along. A brow in a colour of its own stays whole; one in the line colour
-  // loses the rows that touch the frame, and one with a gap above the frame is not reached
-  const frame = rims ? grow(glass, minus(C.dark, hair), w, h, rimW) : glass;
+  // the frame's line art is not brow: a brow resting on the frame took a corner of it along. A brow in a colour of its
+  // own stays whole; one in the line colour loses the rows that touch the frame, and one with a gap above the frame is
+  // not reached
   const bc = components(minus(minus(or(C.dark, C.fill), hair), frame), w, h);
   const midX = (eyes[0].box[2] + eyes[1].box[0]) / 2;
   // a brow lies over its own eye: a dark piece of the hair or the temple beside the eye, however big, is not one
@@ -167,10 +207,96 @@ export function segment(im, cfg = {}) {
   const brows = or(compMask(bc.lab, offHair.filter(Boolean).map((c) => c.id)), browOnHair);
   log('brows', browComps.map((c) => c && [c.x0, c.y0, c.x1, c.y1]), 'on the bangs', count(browOnHair));
 
-  // face skin: the skin component under the left eye's rim (cheek); the chin is its lowest row
-  const S = components(C.skin, w, h);
+  if (rims) {
+    // the lens side, once the brows are known: a brow is dark too (a brown one a dark fill, like a navy frame), and one
+    // resting on the frame's top was followed into the glasses: it stayed on the face when an expression redrew it
+    const browOff = dilate(brows, w, h, 2);
+    // the fitted ellipses miss a frame that is not one (a rounded square, a corner cut on a slant): its inner side ran
+    // inside the band, was left to the face, and a turn split the frame in two along the lens. On the lens side of each
+    // rim the frame's lines are followed round from the band, all the way along, through a ring four rim widths deep (a
+    // rounded square's side lay over three rim widths inside its ellipse, and a reach counted from the band stopped
+    // halfway down it), with the lens's highlights against them; past the rims the lines run on into the face's outline
+    // at the hinges and stay the face's. Not the eyes' own lines where they run into the frame
+    const lens = new Uint8Array(n), lensSide = new Uint8Array(n);
+    for (const r of rims) {
+      const e = { cx: r.cx, cy: r.cy, rx: r.rx + rimW / 2 + 2, ry: r.ry + rimW / 2 + 2 };
+      const inner = { cx: r.cx, cy: r.cy, rx: r.rx - 4 * rimW, ry: r.ry - 4 * rimW };
+      for (let y = Math.max(0, Math.floor(e.cy - e.ry)); y <= Math.min(h - 1, e.cy + e.ry); y++)
+        for (let x = Math.max(0, Math.floor(e.cx - e.rx)); x <= Math.min(w - 1, e.cx + e.rx); x++) {
+          if (ellipseCover(e, x + 0.5, y + 0.5) < 0.5) continue;
+          lens[y * w + x] = 1;
+          if (inner.rx <= 0 || inner.ry <= 0 || ellipseCover(inner, x + 0.5, y + 0.5) < 0.5) lensSide[y * w + x] = 1;
+        }
+    }
+    const eyeBoxes = or(...eyes.map(({ box: b }) => boxMask(w, h, b[0] - outline - 3, b[1] - outline - 3, b[2] + outline + 3, b[3] + outline + 3)));
+    // the frame's dark: a coloured frame's own shade (a navy) is a dark fill, not line colour; left out, its pixels were
+    // holes in the glasses over a face painted skin round them
+    const deep = Uint8Array.from({ length: n }, (_, p) => (C.dark[p] || (C.fill[p] && luma(K.fg.d[4 * p], K.fg.d[4 * p + 1], K.fg.d[4 * p + 2]) < 100) ? 1 : 0));
+    const eyeWhites = or(eyes[0].whites, eyes[1].whites), lineArt = minus(minus(deep, hair), dilate(eyeWhites, w, h, outline + 3));
+    const lines = grow(glass, minus(minus(and(lineArt, lensSide), eyeBoxes), browOff), w, h), byLines = dilate(lines, w, h, outline + 2);
+    const LW = components(and(and(C.white, lens), not(eyeWhites)), w, h), glints = [];
+    for (const c of LW.comps) {
+      let on = 0;
+      for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) if (LW.lab[y * w + x] === c.id && byLines[y * w + x]) on++;
+      if (on >= c.area / 2) glints.push(c.id);
+    }
+    // the spots and highlights keep their own colour on the glasses: they are not the frame's line colour mixed with skin
+    glassSpots = or(glassSpots, compMask(LW.lab, glints));
+    const lensGlass = or(lines, glassSpots);
+    log('glasses: on the lens side', count(minus(lensGlass, glass)), 'px of frame lines and', glints.length, 'highlights');
+    glass = or(glass, lensGlass);
+    // and its outer corners: a square frame's corners stand further off its ellipse than the band reaches, and left to
+    // the face they stayed behind as dark wedges when a turn moved the glasses. Its dark past the band but inside the
+    // ellipse's box, joined to the glasses (the arms past the box run on into the face's outline and stay the face's)
+    const cornerZone = new Uint8Array(n);
+    for (const r of rims) {
+      const b = rimW / 2 + 2;
+      for (let y = Math.max(0, Math.floor(r.cy - r.ry - b)); y <= Math.min(h - 1, r.cy + r.ry + b); y++)
+        for (let x = Math.max(0, Math.floor(r.cx - r.rx - b)); x <= Math.min(w - 1, r.cx + r.rx + b); x++) if (!lens[y * w + x]) cornerZone[y * w + x] = 1;
+    }
+    const corners = minus(grow(glass, minus(minus(and(deep, cornerZone), hair), browOff), w, h), glass);
+    glass = or(glass, corners);
+    // and its end pieces out to the hinges: they run on past the box (a wide frame's, with its rivet, two rim widths
+    // past it), and a rim fitted close to the frame left them to the face, cut off in a straight line. A frame in a
+    // colour of its own (a navy, a tortoiseshell) is followed through that colour, with its outline, as far as half a
+    // lens's width (a hinge is long beside a thin frame); one drawn in the line colour stops at the box, where its arms
+    // run on into the face's outline. An end piece against the hair at the temple was taken into the hair (it is dark
+    // and joined to it): a turn moved it with the hair, apart from the rest of the frame. Its own colour is taken back
+    // from the hair, a pixel at a time, when it is much nearer the frame than the hair's colour (a navy fringe beside a
+    // navy frame stays hair)
+    const body = medianColor(K.fg, ring), near = (p, c) => Math.hypot(K.fg.d[4 * p] - c[0], K.fg.d[4 * p + 1] - c[1], K.fg.d[4 * p + 2] - c[2]);
+    let ends = new Uint8Array(n);
+    if (Math.hypot(body[0] - line[0], body[1] - line[1], body[2] - line[2]) >= FRAME_OWN_COLOUR) {
+      const own = new Uint8Array(n), open = minus(minus(deep, browOff), lens);
+      for (let p = 0; p < n; p++) {
+        if (!open[p] || near(p, body) >= FRAME_OWN_COLOUR || near(p, body) >= near(p, line)) continue;
+        if (!hair[p] || (hairRGB && 2 * near(p, body) < near(p, hairRGB))) own[p] = 1;
+      }
+      const pieces = minus(grow(glass, own, w, h, Math.max(4 * rimW, ...rims.map((r) => r.rx))), glass);
+      ends = or(pieces, minus(grow(pieces, and(open, dilate(pieces, w, h, outline + 1)), w, h), glass));
+      glass = or(glass, ends);
+      for (let p = 0; p < n; p++) if (ends[p]) hair[p] = 0;
+    }
+    // and the spots they close round or come next to (a rivet on a hinge): unmixed as the frame over skin it came out
+    // a muddy brown, over a face painted skin under it
+    const more = minus(spotsOn(glass).m, glass);
+    glassSpots = or(glassSpots, more);
+    glass = or(glass, more);
+    log('glasses: outer corners', count(corners), 'px, end pieces', count(ends), 'px and', count(more), 'px of spots by them');
+    // the frame's lines out to a rim width past the glasses, for the closed lids and the redrawn brows
+    frameLines = grow(glass, minus(lineArt, browOff), w, h, rimW);
+  }
+
+  // face skin: the skin component under the left eye's rim (cheek); the chin is its lowest row. The first sizeable
+  // skin down the iris's column from a little under the rim: a rim fitted close to the frame put that point on the
+  // cheek's shade under the lens
+  const S = components(C.skin, w, h), big = Math.max(...S.comps.map((c) => c.area)) / 10, cx = Math.round(iris[0].cx);
   const cheekY = Math.round((rims ? rims[0].cy + rims[0].ry : eyes[0].box[3]) + 0.3 * eyeH);
-  const cheek = S.lab[cheekY * w + Math.round(iris[0].cx)];
+  let cheek = 0;
+  for (let y = cheekY; y < Math.min(h, cheekY + eyeH) && !cheek; y++) {
+    const id = S.lab[y * w + cx];
+    if (id && S.comps.find((c) => c.id === id).area >= big) cheek = id;
+  }
   if (!cheek) throw new Error(`no face skin under the left eye at (${Math.round(iris[0].cx)}, ${cheekY}): the cheek must be bare skin (no hair, hands or shading across it)`);
   const faceComp = S.comps.find((c) => c.id === cheek);
   const chinSkin = faceComp.y1;
@@ -201,12 +327,36 @@ export function segment(im, cfg = {}) {
   log('mouth', mc && [mc.x0, mc.y0, mc.x1, mc.y1]);
 
   // the head: its skin and shades, the lines round them, and what they enclose (eyes, glasses, brows, mouth)
-  const headFill = or(headSkin, headShade);
+  // a highlight on the face (lighter than the skin, in its warm hue: a fill or a white of its own) joined to the head's
+  // skin is the head's: one along the face's edge was left to the body with the jaw line beyond it, and a turn showed
+  // the backdrop through the face and a stripe of it left behind
+  const light = new Uint8Array(n);
+  for (let p = 0; p < n; p++) {
+    if (!C.fill[p] && !C.white[p]) continue;
+    const r = K.fg.d[4 * p], g = K.fg.d[4 * p + 1], b = K.fg.d[4 * p + 2];
+    if (r >= skin[0] - 22 && g >= skin[1] - 26 && b >= skin[2] - 28 && r >= g && g >= b - 6) light[p] = 1;
+  }
+  const LC = components(light, w, h), onSkin = dilate(headSkin, w, h, 2);
+  const headLight = compMask(LC.lab, LC.comps.filter((c) => {
+    if (c.y1 > chinSkin + 2 || c.area <= 20) return false;
+    for (let y = c.y0; y <= c.y1; y++) for (let x = c.x0; x <= c.x1; x++) if (LC.lab[y * w + x] === c.id && onSkin[y * w + x]) return true;
+    return false;
+  }).map((c) => c.id));
+  const headFill = or(or(headSkin, headShade), headLight);
   const near = dilate(headFill, w, h, lw + 2);
   // flat fills (clothes) are body, not the head's outline: their solid parts, without the thin antialiased rings
   const solidFill = grow(erode(C.fill, w, h, 2), C.fill, w, h, 3);
-  const notBody = not(or(or(neckSkin, neckShadow), or(solidFill, minus(C.white, dilate(or(eyes[0].whites, eyes[1].whites), w, h, 4)))));
+  const strayWhite = minus(C.white, dilate(or(eyes[0].whites, eyes[1].whites), w, h, 4));
+  const notBody = not(or(or(neckSkin, neckShadow), or(solidFill, strayWhite)));
   let head = or(headFill, and(and(near, char), and(notBody, not(C.skin))));
+  // an outline drawn heavier than the jaw's (an ear's) reaches past that: its outer rim, left to the body, stayed
+  // behind as a second line when the head turned. The head takes the line art round it out to twice the jaw's line,
+  // above the chin and away from the neck and the clothes
+  {
+    const fromFill = distTo(headFill, w, h), bodyNear = dilate(or(or(neckSkin, neckShadow), or(solidFill, strayWhite)), w, h, lw + 2);
+    const rim = Uint8Array.from({ length: n }, (_, p) => (char[p] && !C.skin[p] && !hair[p] && notBody[p] && !bodyNear[p] && fromFill[p] <= 2 * lw + 4 && p < (chinSkin + 1) * w ? 1 : 0));
+    head = or(head, grow(head, rim, w, h, lw + 4));
+  }
   const eyeReg = or(eyes[0].whites, eyes[1].whites);
   head = or(head, or(or(eyeReg, brows), or(glass, mouth)));
   head = fillHoles(and(head, not(hair)), w, h); // the hair is cut from its own layer; the bald repaint fills under it
@@ -239,6 +389,6 @@ export function segment(im, cfg = {}) {
   const neck = rows.length > 5 ? { top: y0, fillTop: nb[1], left: fit('l'), right: fit('r'), lw: rows.reduce((s, r) => s + r.lw, 0) / rows.length } : null;
   log('neck', neck && { top: neck.top, l: +neck.left(neck.top).toFixed(1), r: +neck.right(neck.top).toFixed(1), lw: +neck.lw.toFixed(1) });
 
-  return { w, h, K, skin, line, hairRGB, hairMask, C, char, charBox, H, hair, hairBox, eyes, iris, rims, rimW, glass, brows, browComps, browOnHair, mouth, mouthComp: mc,
+  return { w, h, K, skin, line, hairRGB, hairMask, C, char, charBox, H, hair, hairBox, eyes, iris, rims, rimW, glass, glassSpots, frameLines, brows, browComps, browOnHair, mouth, mouthComp: mc,
     faceComp, chin, chinSkin, lw, headSkin, headShade, neckSkin, neckShadow, head, neck, eyeTop, eyeBot };
 }

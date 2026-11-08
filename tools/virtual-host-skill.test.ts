@@ -3,13 +3,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
 import { readPng, writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
 import { smoothFill, strandFill } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/fill.mjs';
 import { expressionEyeRegions, cutExpressionEyes } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/expreyes.mjs';
 import { browAcross, redrawnBrows } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/brows.mjs';
+import { editFrame } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/edits.mjs';
+import { dilate } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/ops.mjs';
 import { faceZone } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/partmap.mjs';
 import { zipNames } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/zip.mjs';
 import { planLabel, planText, splitSyllable } from '../skills/baocut/built-in-skills/virtual-host/scripts/visemes.mjs';
@@ -356,7 +358,7 @@ function render(shapes: Shape[], line: RGB, background: RGB) {
   return { w: SIZE, h: SIZE, d };
 }
 
-function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false, rim = false, glasses = false, chinShade = false } = {}) {
+function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB, iris = null as RGB | null, fringe = false, socket = false, rim = false, glasses = false, chinShade = false, lowFrames = false, lensLight = false, faceLight = false, hingeOnHair = false, nose = false } = {}) {
   const skin: RGB = [252, 212, 180], white: RGB = [255, 255, 255], dark: RGB = [70, 20, 26], green: RGB = [0, 177, 64];
   // a shaded face: the skin round each eye darker than the cheeks, the closed lid as dark as it
   const shade: RGB = [212, 172, 140], lidSkin = socket ? shade : skin;
@@ -381,19 +383,30 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   // one on each frame's front beside it, closed round by the frame;
   // brown brows rest on the frames, a curl of hair hangs at the left temple apart from the hair, bigger than a brow,
   // and a dark shade lies on the face against the left frame's outer side
+  // lowFrames: the angry edit draws the frames' lower bars 7 px lower; lensLight: a white highlight along the inside of
+  // each lens's lower bar, against it, with skin between it and the eye; hingeOnHair: the hinges run on out over the
+  // hair's edge at the temples
   const frameCol: RGB = [32, 42, 50];
-  const frames: Shape[] = glasses ? [
-    ...[214, 298].map((cx) => ({ inside: (x: number, y: number) => rrect(cx - 31, 211, cx + 31, 267, 6)(x, y) && !rrect(cx - 26, 216, cx + 26, 262, 3)(x, y), fill: frameCol })),
+  const frames = (drop = 0): Shape[] => glasses ? [
+    ...[214, 298].map((cx) => ({ inside: (x: number, y: number) => rrect(cx - 31, 211, cx + 31, 267 + drop, 6)(x, y) && !rrect(cx - 26, 216, cx + 26, 262 + drop, 3)(x, y), fill: frameCol })),
+    ...(lensLight ? [214, 298].map((cx) => ({ inside: (x: number, y: number) => y >= 258 + drop && y < 262 + drop && Math.abs(x - cx) <= 20, fill: [255, 255, 255] as RGB })) : []),
     { inside: rect(245, 225, 267, 230), fill: frameCol },
-    { inside: rect(170, 219, 184, 229), fill: frameCol }, { inside: rect(328, 219, 342, 229), fill: frameCol },
+    { inside: rect(hingeOnHair ? 152 : 170, 219, 184, 229), fill: frameCol }, { inside: rect(328, 219, hingeOnHair ? 360 : 342, 229), fill: frameCol },
     { inside: ell(179, 224, 3, 1.6), fill: [150, 160, 172] }, { inside: ell(333, 224, 3, 1.6), fill: [150, 160, 172] },
     { inside: ell(185, 224, 1.2, 2), fill: [150, 160, 172] }, { inside: ell(327, 224, 1.2, 2), fill: [150, 160, 172] },
   ] : [];
+  // faceLight: a broad highlight lighter than the skin down the face's right edge, inside its outline
+  const faceGlow: Shape[] = faceLight ? [{ inside: (x, y) => ell(256, 228, 94, 112)(x, y) && !ell(244, 228, 94, 112)(x, y) && y > 236 && y < 318, fill: [255, 234, 214] }] : [];
   const temple: Shape[] = glasses ? [{ inside: ell(184, 194, 7, 13), fill: hair, outline: 2 }, { inside: rect(174, 240, 182, 262), fill: [190, 100, 70] }] : [];
   const browCol: RGB = glasses ? [96, 58, 40] : line;
   const brow = (cx: number, up = 0): Shape => ({ inside: stroke((x) => 206 - up + (glasses ? 4 : 0) - 4 * (1 - ((x - cx) / 22) ** 2), cx - 22, cx + 22, 3), fill: browCol });
   // shading on the chin either side of the mouth, alike in every picture: none of it is the mouth
   const chin: Shape[] = chinShade ? [{ inside: ell(226, 308, 3, 20), fill: [212, 172, 140] }, { inside: ell(286, 308, 3, 20), fill: [212, 172, 140] }] : [];
+  // nose: nostrils in the top rows of the mouth's area, alike in every picture; the angry edit draws a crease down
+  // beside each, into that area
+  const noseCol: RGB = [190, 120, 95];
+  const nostrils: Shape[] = nose ? [ell(238, 289, 4, 2), ell(274, 289, 4, 2)].map((inside) => ({ inside, fill: noseCol })) : [];
+  const creases: Shape[] = nose ? [236, 276].map((cx) => ({ inside: (x: number, y: number) => y >= 278 && y <= 298 && Math.abs(x - (cx + (cx < 256 ? -1 : 1) * 0.3 * (y - 278))) <= 1.6, fill: noseCol })) : [];
   // angry: brows pulled down toward the nose, the upper lids lowered flat over the irises, a blush on the cheeks
   const vBrow = (cx: number): Shape => ({ inside: stroke((x) => 198 + 10 * (cx < 256 ? x - (cx - 22) : cx + 22 - x) / 44, cx - 22, cx + 22, 3), fill: browCol });
   const narrowed = (cx: number): Shape[] => [
@@ -416,8 +429,8 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
   // rim: a light line, lighter than the skin, 2 px wide on the face under the hair's lower edges (the part map leaves
   // it to the face)
   const hairRim: Shape[] = rim ? [{ inside: (x, y) => head.inside(x, y) && !hairShape.inside(x, y) && hairShape.inside(x, y - 2), fill: [255, 248, 240] }] : [];
-  const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[] } = {}) =>
-    render([neck, body, head, ...sockets, ...temple, ...(bald ? [] : [hairShape, ...hairRim]), ...brows, ...eyes, ...frames, ...cheeks, ...mouth, ...chin], line, green);
+  const draw = ({ bald = false, brows = [brow(214), brow(298)], eyes = [...eye(214), ...eye(298)], mouth = mouths.rest, cheeks = [] as Shape[], drop = 0 } = {}) =>
+    render([neck, body, head, ...faceGlow, ...sockets, ...temple, ...(bald ? [] : [hairShape, ...hairRim]), ...brows, ...eyes, ...frames(drop), ...cheeks, ...mouth, ...chin, ...nostrils], line, green);
   // the part map (references/art.md section 5): the same shapes, each part in its key colour, the eye lines black
   const key = (s: Shape, fill: RGB, outline?: number): Shape => ({ inside: s.inside, fill, outline });
   const eyeMap = (cx: number) => { const [w, i, hl] = eye(cx); return [key(w, [255, 255, 255], 2), key(i, [0, 255, 255]), key(hl, [0, 255, 255])]; };
@@ -440,7 +453,7 @@ function drawCharacter({ line = [24, 20, 22] as RGB, hair = [120, 62, 32] as RGB
     broad: draw({ mouth: mouths.broad }),
     // one brow raised 7 px, the other left as it was
     raised: draw({ brows: [brow(214, 7), brow(298)] }),
-    angry: draw({ brows: [vBrow(214), vBrow(298)], eyes: [...eye(214), ...eye(298), ...narrowed(214), ...narrowed(298)], mouth: mouths.frown, cheeks: [blush(198), blush(314)] }),
+    angry: draw({ brows: [vBrow(214), vBrow(298)], eyes: [...eye(214), ...eye(298), ...narrowed(214), ...narrowed(298)], mouth: mouths.frown, cheeks: [blush(198), blush(314), ...creases], drop: lowFrames ? 7 : 0 }),
     // laughing with the eyes shut
     happy: draw({ eyes: [...lid(214), ...lid(298)], mouth: mouths.broad }),
   };
@@ -597,6 +610,28 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
       expect(ends(smile.texture)).toBeGreaterThan(20);
       // while the mouth layer talks, none of the smile is left beside it
       expect(ends(smile.talk)).toBe(0);
+    }
+  });
+
+  it('keeps the face round the mouth in the talking patch: a nose in the mouth\'s area is not cleared to bare skin', () => {
+    // the talking patch clears the edited mouth so the mouth layer can talk over it; the nostrils in the top rows of
+    // the mouth's area, under the angry patch (it reaches round the creases), stay as the face draws them
+    for (const partmap of [false, true]) {
+      const dir = tmp();
+      const { status, report } = build(writeCharacter(dir, { nose: true, ...(partmap ? { hair: [230, 190, 90] as RGB } : {}) }, undefined, { partmap }));
+      expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+      expect(status).toBe(0);
+      const pkg = path.join(dir, 'puppet/package');
+      type Layer = { id: string; x: number; y: number; texture: string; talk: string };
+      const angry = (JSON.parse(fs.readFileSync(path.join(pkg, 'model.json'), 'utf8')) as { layers: Layer[] }).layers.find((l) => l.id === 'expr_angry')!;
+      for (const file of [angry.texture, angry.talk]) {
+        const im = readPng(path.join(pkg, file));
+        for (const [x, y] of [[238, 289], [274, 289]]) {
+          const q = 4 * ((y - angry.y) * im.w + (x - angry.x)), c = [...im.d.subarray(q, q + 4)];
+          expect(c[3], `${partmap ? 'map' : 'flat'} ${file} ${x},${y}: ${c}`).toBeGreaterThan(200);
+          expect(Math.max(...[190, 120, 95].map((v, k) => Math.abs(c[k] - v))), `${partmap ? 'map' : 'flat'} ${file} ${x},${y}: ${c}`).toBeLessThan(30);
+        }
+      }
     }
   });
 
@@ -816,6 +851,90 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
       expect(Math.max(...[0, 1, 2].map((k) => Math.abs(rest.d[q + k] - portrait.d[q + k]))), `${x},${y}`).toBeLessThanOrEqual(24);
     }
     expect(layers.findIndex((l) => l.id === 'glasses')).toBeGreaterThan(-1);
+  });
+});
+
+describe('virtual-host glasses that move apart from the face', { timeout: 60_000 }, () => {
+  // one build of the glasses portrait with the awkward cases on: the angry edit draws the lower bars 7 px lower, a
+  // highlight runs along each lens's lower bar, a light edge runs down the face's right side, and the hinges run on out
+  // over the hair at the temples. The glasses sit in front of the face and move apart from it on a turn
+  type Layer = { id: string; x: number; y: number; w: number; h: number; texture: string; talk?: string };
+  let dir = '', status: number | null = null, report: Report, layers: Layer[] = [], portrait: ReturnType<typeof readPng>;
+  const tex = new Map<string, ReturnType<typeof readPng>>();
+  beforeAll(() => {
+    dir = tmp();
+    ({ status, report } = build(writeCharacter(dir, { glasses: true, lowFrames: true, lensLight: true, faceLight: true, hingeOnHair: true })));
+    layers = JSON.parse(fs.readFileSync(path.join(dir, 'puppet/package/model.json'), 'utf8')).layers;
+    portrait = readPng(path.join(dir, 'art/portrait.png'));
+  }, 60_000);
+  // a layer's pixel at a point of the portrait, [r, g, b, alpha]; all 0 off the layer
+  const at = (id: string, x: number, y: number, key: 'texture' | 'talk' = 'texture') => {
+    const l = layers.find((l) => l.id === id)!, file = l[key]!;
+    if (!tex.has(file)) tex.set(file, readPng(path.join(dir, 'puppet/package', file)));
+    const im = tex.get(file)!, i = x - l.x, j = y - l.y;
+    if (i < 0 || j < 0 || i >= im.w || j >= im.h) return [0, 0, 0, 0];
+    return [...im.d.subarray(4 * (j * im.w + i), 4 * (j * im.w + i) + 4)];
+  };
+  const near = (c: number[], k: number[], tol = 24) => Math.max(...[0, 1, 2].map((i) => Math.abs(c[i] - k[i]))) <= tol;
+  const frameCol = [32, 42, 50], skin = [252, 212, 180], browCol = [96, 58, 40], rivet = [150, 160, 172];
+
+  it('builds', () => {
+    expect(report.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(status).toBe(0);
+  });
+
+  it('leaves a highlight along a lens\'s lower bar out of the eye', () => {
+    // the highlight runs rows 258-261, inside the bar: taken for the eye's whites, it took the bar out of the rims' fit,
+    // which came out flat along the top bar, and the build stopped
+    for (const id of ['eye_L', 'eye_R']) {
+      const l = layers.find((l) => l.id === id)!;
+      expect(l.y + l.h, id).toBeLessThanOrEqual(256);
+    }
+  });
+
+  it('moves the whole frame with the glasses: its square corners, and its hinges out over the hair', () => {
+    // the corners stand past the ellipses fitted round the eyes, the hinges past the ellipses' boxes, and the hair took
+    // the hinges where they cross it: left to the face or the hair, a turn split the frame there
+    const left: string[] = [];
+    for (let y = 200; y < 290; y++) for (let x = 140; x < 372; x++) {
+      const q = 4 * (y * SIZE + x);
+      if (near([...portrait.d.subarray(q, q + 3)], frameCol, 4) && at('glasses', x, y)[3] < 128) left.push(`${x},${y}`);
+    }
+    expect(left).toEqual([]);
+    for (const [x, y] of [[156, 224], [166, 224], [346, 224], [356, 224]]) expect(at('front_hair', x, y)[3], `${x},${y}`).toBe(0);
+    // under the glasses where they meet the hair the face keeps the frame's colour: painted skin opened a light seam
+    // between the hair and the hinge as they moved apart
+    for (const [x, y] of [[154, 224], [358, 224]]) expect(near(at('face', x, y), frameCol), `${x},${y}`).toBe(true);
+  });
+
+  it('takes the rivets on the hinges as drawn', () => {
+    for (const [x, y] of [[179, 224], [333, 224], [185, 224], [327, 224]]) {
+      const c = at('glasses', x, y);
+      expect(c[3] === 255 && near(c, rivet, 8), `${x},${y}: ${c}`).toBe(true);
+    }
+  });
+
+  it('carries a brow on under the frame only where it rests on it, and none of it on the glasses', () => {
+    // the brows' ends touch the frames' top edge (row 211); over the middle of each eye a row of skin lies between
+    for (const [x, y] of [[200, 212], [228, 212], [236, 212]]) expect(near(at('face', x, y), browCol), `${x},${y}`).toBe(true);
+    for (const [x, y] of [[214, 211], [214, 212]]) expect(near(at('face', x, y), skin), `${x},${y}`).toBe(true);
+    for (const [x, y] of [[200, 210], [228, 209]]) expect(at('glasses', x, y)[3], `${x},${y}`).toBe(0);
+  });
+
+  it('draws no second frame in an expression whose edit drew the frame lower', () => {
+    // the angry edit's lower bars run rows 269-274, the portrait's 262-267: kept in the patch, they showed under the
+    // glasses as a second bar
+    for (const key of ['texture', 'talk'] as const) for (const [x, y] of [[230, 272], [280, 273]]) {
+      const c = at('expr_angry', x, y, key);
+      expect(c[3] === 0 || near(c, skin, 30), `${key} ${x},${y}: ${c}`).toBe(true);
+    }
+  });
+
+  it('keeps a light edge down the face in the face, not the hair', () => {
+    for (const [x, y] of [[322, 300], [318, 310], [340, 262]]) {
+      expect(near(at('face', x, y), [255, 234, 214], 12), `${x},${y}`).toBe(true);
+      expect(at('front_hair', x, y)[3], `${x},${y}`).toBe(0);
+    }
   });
 });
 
@@ -1249,6 +1368,48 @@ describe('virtual-host redrawn brows', () => {
     expect(inEye).toBeGreaterThan(0);
     // the right brow ends where it was drawn, short of the eye
     expect(bm.reduce((a, v) => a + v, 0)).toBe(E.brow.reduce((a, v) => a + v, 0));
+  });
+});
+
+describe('virtual-host frame an edit drew off', () => {
+  it('finds the frame an edit drew lower than the margin, and its outline, but not a brow on it, a lash in the lens or the face as it was', () => {
+    // a square frame with a line-colour outline; the edit drew its lower half 7 px lower (the lens's corner a frame's
+    // width off), with the outline's soft edge under it, pressed a dark brow onto its top and a lash onto the inside of
+    // its lower bar. A dark spot beside the frame is the same in both
+    const W = 120, H = 100;
+    const skin: RGB = [252, 212, 180], fill: RGB = [32, 42, 50], line: RGB = [20, 20, 28], brow: RGB = [60, 45, 40];
+    const ring = (x: number, y: number, y1: number) => x >= 30 && x < 90 && y >= 20 && y < y1 && !(x >= 36 && x < 84 && y >= 26 && y < y1 - 6);
+    const paint = (y1: number, edit: boolean) => {
+      const d = new Uint8ClampedArray(W * H * 4), frame = new Uint8Array(W * H), browM = new Uint8Array(W * H), lash = new Uint8Array(W * H), spot = new Uint8Array(W * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const p = y * W + x;
+        let c = skin;
+        if (ring(x, y, y1)) [c, frame[p]] = [x === 30 || x === 89 || y === 20 || y === y1 - 1 ? line : fill, 1];
+        else if (x >= 22 && x < 26 && y >= 40 && y < 45) [c, spot[p]] = [line, 1];
+        else if (edit && y === y1 && x >= 30 && x < 90) [c, frame[p]] = [skin.map((v, k) => Math.round(v + 0.3 * (line[k] - v))) as RGB, 1];
+        else if (edit && y >= 12 && y < 20 && x >= 40 && x < 80) [c, browM[p]] = [brow, 1];
+        else if (edit && y >= 62 && y < y1 - 6 && x >= 45 && x < 75) [c, lash[p]] = [line, 1];
+        d.set([...c, 255], 4 * p);
+      }
+      return { im: { w: W, h: H, d }, frame, brow: browM, lash, spot };
+    };
+    const N = paint(76, false), E = paint(83, true);
+    const margin = dilate(N.frame, W, H, 4), area = new Uint8Array(W * H).fill(1);
+    const got = editFrame({ E: E.im, im: N.im, margin, area, cols: [fill, line], others: [brow], reach: 12, lw: 2, w: W, h: H });
+    let want = 0;
+    for (let p = 0; p < W * H; p++) {
+      // the frame the edit drew past the margin, the outline's soft edge too: kept, it stayed on the face as a second
+      // rim beside the glasses when the head turned
+      if (E.frame[p] && !margin[p]) { expect(got[p]).toBe(1); want++; }
+      // the brow as dark as the frame's line: taken, the brow came out cut short above the frame
+      if (E.brow[p]) expect(got[p]).toBe(0);
+      // the lash in the lens, as dark as the frame and joined to it: taken, the open eye lost its lash
+      if (E.lash[p]) expect(got[p]).toBe(0);
+      // the face the edit left as it was
+      if (E.spot[p]) expect(got[p]).toBe(0);
+    }
+    expect(want).toBe(4 * 60);
+    expect(got.reduce((a: number, v: number) => a + v, 0)).toBe(want);
   });
 });
 

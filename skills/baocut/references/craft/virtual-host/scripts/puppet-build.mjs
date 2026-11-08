@@ -20,13 +20,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { readImage, writePng, writeGray } from './puppet/png.mjs';
-import { blank, clone, dilate, erode, distTo, not, and, or, minus, count, bbox, medianColor, over, blur, components, compMask } from './puppet/ops.mjs';
+import { blank, clone, dilate, erode, distTo, not, and, or, minus, grow, count, bbox, medianColor, over, blur, components, compMask } from './puppet/ops.mjs';
 import { keyOut, luma, unmix } from './puppet/seg.mjs';
 import { ellipseBand, ellipseCover } from './puppet/parts.mjs';
 import { buildEye } from './puppet/eyes.mjs';
 import { segment, boxMask } from './puppet/segment.mjs';
 import { fillHoles, softEdge, fromMask, setPx, rgb, alphaBox, unionBox, cut, bleed, nearestIndex } from './puppet/layers.mjs';
-import { registered, strokes } from './puppet/edits.mjs';
+import { registered, strokes, editFrame } from './puppet/edits.mjs';
 import { browNear, redrawnBrows, browNoteOf, writeBrowDebug, sideOf } from './puppet/brows.mjs';
 import { strandFill } from './puppet/fill.mjs';
 import { zip } from './puppet/zip.mjs';
@@ -307,8 +307,30 @@ if (G.rims) {
     const clean = and(minus(faceM, or(dilate(featCore, w, h, 3), G.hair)), not(edge));
     const nOut = nearestIndex(clean, w, h, 6), glassCol = medianColor(im, G.glass);
     for (let p = 0; p < N; p++) if (blankM[p] && besideGlass[p] && nOut[p] >= 0 && unmix(rgb(faceSrc, p), glassCol, rgb(faceSrc, nOut[p])) < 0.12) keep[p] = 1;
+    // nor the frame's lines where they run on past the glasses (a corner piece out to the hinge, the face's outline at
+    // the temple), and under the glasses next to that cut: painted skin up to it and under it, a turn opened a seam
+    // across the frame. Not a rivet's pixels: under the glasses they showed beside it as it moved
+    // The same where the glasses meet the hair (an end piece at the temple, against the hair and the arm that runs into
+    // it): the hair stays as the glasses move
+    const past = minus(G.frameLines, G.glass), runOn = grow(minus(past, dilate(G.glass, w, h, 3)), past, w, h, 4);
+    const cut = or(runOn, and(G.hair, dilate(G.glass, w, h, 1)));
+    const underCut = minus(and(dilate(cut, w, h, 6), G.glass), dilate(G.glassSpots, w, h, 1));
+    for (let p = 0; p < N; p++) if (blankM[p] && ((besideGlass[p] && runOn[p]) || underCut[p])) keep[p] = 1;
   }
   for (let p = 0; p < N; p++) if (blankM[p] && !keep[p]) setPx(L, p, skin, 1);
+  // under the frame where a brow rests on it the brow goes on, from its nearest pixel: the glasses move apart from the
+  // face and the brows when the head turns, and painted skin there showed as a light seam between brow and frame. Only
+  // where it touches the frame: past a line of skin above the frame a brow carried on under it showed as a second brow
+  if (G.rims) {
+    const rests = and(G.brows, dilate(G.glass, w, h, 1));
+    const on = and(and(G.glass, dilate(rests, w, h, 4)), blankM), inner = erode(G.brows, w, h, 1);
+    const nB = nearestIndex(count(inner) ? inner : G.brows, w, h, 7);
+    for (let p = 0; p < N; p++) if (on[p] && nB[p] >= 0) setPx(L, p, rgb(im, nB[p]), 1);
+    // and under the hair's edge where it meets the glasses the portrait's own colour: the hair's soft edge let the
+    // bald skin under it through, a light line along the frame's end piece once a turn moved the glasses off it
+    const hairEdge = and(and(G.hair, dilate(G.glass, w, h, 2)), faceM);
+    for (let p = 0; p < N; p++) if (hairEdge[p]) setPx(L, p, rgb(im, p), 1);
+  }
   softEdge(L, faceM, faceSrc, rest, faceKey, w, h, { allow: not(G.hair) });
   add('face', L, { group: 'head', depth: 0 });
   faceL = L;
@@ -340,7 +362,8 @@ for (const [i, side] of [[0, 'L'], [1, 'R']]) {
       const r = G.rims[i], sh = { cx: r.cx, cy: r.cy, rx: r.rx - G.rimW / 2 - 4, ry: r.ry - G.rimW / 2 - 4 };
       const inside = new Uint8Array(N);
       for (let y = Math.floor(sh.cy - sh.ry); y <= sh.cy + sh.ry; y++) for (let x = Math.floor(sh.cx - sh.rx); x <= sh.cx + sh.rx; x++) if (ellipseCover(sh, x + 0.5, y + 0.5) >= 1) inside[y * w + x] = 1;
-      lz = and(lz, inside);
+      // nor the frame's own lines inside that ellipse (a rounded-square frame's corners): the lid carried an arc of it
+      lz = minus(and(lz, inside), dilate(G.frameLines, w, h, 2));
     }
     lz = minus(lz, dilate(G.brows, w, h, 6));
     const S = strokes(lidEdit.im, lz, w, h, { skin, minArea: 40 });
@@ -416,8 +439,11 @@ const expressions = [];
   // the hair keeps its own layer: the patch has none of it. Under the glasses the patch carries what is next to the
   // frames, not the edit's own frames (they would show beside the real ones when the head turns)
   const area = minus(and(or(faceIn, dilate(G.brows, w, h, 12)), boxMask(w, h, fc.x0, browTop - 0.5 * eyeH, fc.x1, G.chin - G.lw)), dilate(G.hair, w, h, 1));
-  const glassD = dilate(G.glass, w, h, 2), seen = minus(area, glassD);
-  const fromSeen = nearestIndex(seen, w, h, G.lw + 8);
+  // (4 px round them: an edit redraws the frames a pixel or three off the portrait's, and at 2 px the patch carried
+  // their edge as a dotted line under the bridge and along the lenses)
+  const glassD = dilate(G.glass, w, h, G.rims ? 4 : 2), seen = minus(area, glassD);
+  const fromSeen = nearestIndex(seen, w, h, G.lw + 8), frameCol = G.rims ? medianColor(im, G.glass) : null;
+  const margin = G.rims ? and(minus(glassD, G.glass), area) : new Uint8Array(N);
   const eyeBox = G.eyes.map((e) => and(dilate(boxMask(w, h, ...e.box), w, h, 4), area));
   // what the open eye layers draw, lashes included
   const eyeDrawn = ['L', 'R'].map((s) => { const L = eyeLayers.find((e) => e.id === `eye_${s}`).L; return Uint8Array.from({ length: N }, (_, p) => (L.d[4 * p + 3] > 0 ? 1 : 0)); });
@@ -456,8 +482,20 @@ const expressions = [];
     // portrait's skin, first as a whole, then by what is left round each place on the skin it did not change
     const eskin = medianColor(R.im, and(skinCore, Uint8Array.from({ length: N }, (_, p) => (Math.hypot(...[0, 1, 2].map((k) => R.im.d[4 * p + k] - skin[k])) < 30 ? 1 : 0))));
     const Ls = luma(...eskin), shift = [0, 1, 2].map((k) => skin[k] - eskin[k]);
+    // in that margin the edit's own colour where it is not its frame: the frame mixed into the colour past the margin,
+    // or no more of it than a trace. Copied from past the margin, the skin between a lowered brow and the frame came
+    // out the brow's colour in streaks
+    // past the margin the edit's frame where it drew it further off (a lens's corner a frame's width lower): kept, it
+    // stayed on the face as a second rim beside the glasses when the head turned. What is there comes from past it
+    const drift = G.rims ? editFrame({ E: R.im, im, margin: glassD, area, cols: [frameCol, G.line], others: [browCol, G.hairRGB].filter(Boolean), reach: G.rimW, lw: G.lw, w, h }) : null;
+    const seenE = drift && count(drift) ? minus(seen, drift) : seen, frameE = seenE === seen ? glassD : or(glassD, drift);
+    const fromE = seenE === seen ? fromSeen : nearestIndex(seenE, w, h, G.lw + 8 + G.rimW);
+    if (seenE !== seen) log(`expression ${id}: its frame drawn past the margin`, count(drift), 'px');
+    const own = new Uint8Array(N);
+    for (let p = 0; p < N; p++) if (margin[p] && fromE[p] >= 0 && unmix(rgb(R.im, p), frameCol, rgb(R.im, fromE[p])) < 0.1) own[p] = 1;
+    const mine = or(seenE, own);
     const E = blank(w, h);
-    for (let p = 0; p < N; p++) if (seen[p]) { const c = rgb(R.im, p), t = tSkin(c, Ls); E.d.set([...c.map((v, k) => v + t * shift[k]), 255], 4 * p); }
+    for (let p = 0; p < N; p++) if (mine[p]) { const c = rgb(R.im, p), t = tSkin(c, Ls); E.d.set([...c.map((v, k) => v + t * shift[k]), 255], 4 * p); }
     {
       const c0 = changes(E), away = dilate(or(c0.strong, c0.pink), w, h, 8);
       const U = new Float32Array(N), Rk = [0, 1, 2].map(() => new Float32Array(N));
@@ -469,14 +507,14 @@ const expressions = [];
       }
       const den = blur(U, w, h, 16), num = Rk.map((r) => blur(r, w, h, 16));
       for (let p = 0; p < N; p++) {
-        if (!seen[p] || den[p] < 0.02) continue;
+        if (!mine[p] || den[p] < 0.02) continue;
         const t = tSkin(rgb(E, p), luma(...skin));
         for (let k = 0; k < 3; k++) E.d[4 * p + k] -= t * num[k][p] / den[p];
       }
     }
     for (let p = 0; p < N; p++) {
-      if (seen[p]) for (let k = 0; k < 3; k++) E.d[4 * p + k] = Math.max(0, Math.min(255, Math.round(E.d[4 * p + k])));
-      else if (area[p] && fromSeen[p] >= 0) for (let k = 0; k < 3; k++) E.d[4 * p + k] = E.d[4 * fromSeen[p] + k];
+      if (mine[p]) for (let k = 0; k < 3; k++) E.d[4 * p + k] = Math.max(0, Math.min(255, Math.round(E.d[4 * p + k])));
+      else if (area[p] && fromE[p] >= 0) for (let k = 0; k < 3; k++) E.d[4 * p + k] = E.d[4 * fromE[p] + k];
     }
     const { strong, pink } = changes(E);
     // thin slivers along the lines are a redraw a pixel off, not a change: what is left after opening decides
@@ -515,35 +553,37 @@ const expressions = [];
     // a blush fades out slowly: let the patch reach round it
     const soft = blur(Float32Array.from(or(patch, and(dilate(blush, w, h, 10), cheeks))), w, h, 2);
     // the edit's own mouth can reach past the portrait's (a broad smile): every changed stroke that reaches into the
-    // mouth area is that mouth, and the talking patch shows skin under all of it, so its ends never stay on beside the
-    // talking mouth
+    // mouth area is that mouth, and the talking patch shows the face under all of it, so its ends never stay on beside
+    // the talking mouth. The face, not one flat skin colour: the mouth's area reaches up under the nose, and a stroke
+    // the edit redrew there (a nostril, a crease beside the nose) went bare while the mouth talked
     const inMouth = new Set();
     for (let p = 0; p < N; p++) if (mouthArea[p] && sc.lab[p]) inMouth.add(sc.lab[p]);
-    const talkSkin = or(mouthArea, dilate(compMask(sc.lab, [...inMouth]), w, h, 2));
+    const talkFace = or(mouthArea, dilate(compMask(sc.lab, [...inMouth]), w, h, 2));
     const L = blank(w, h), T = blank(w, h);
     for (let p = 0; p < N; p++) {
       const a = Math.min(1, soft[p] * 1.25);
       if (a <= 0.01 || !area[p]) continue;
       const c = rgb(E, p);
       setPx(L, p, c, a);
-      setPx(T, p, talkSkin[p] ? skin : c, a);
+      setPx(T, p, talkFace[p] ? rgb(faceL, p) : c, a);
     }
     if (DEBUG) {
       const dm = blank(w, h);
       for (let p = 0; p < N; p++) dm.d.set([patch[p] * 255, solid[p] * 255, (cheeks[p] ? 120 : 0) + blush[p] * 135, 255], 4 * p);
       writePng(path.join(DBG, `expr-${id}-masks.png`), dm);
+      if (drift) writeGray(path.join(DBG, `expr-${id}-frame.png`), w, h, drift.map((v) => v * 255));
     }
     // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them, the bare
     // face beneath them). Read from the edit as registered where the patch has no colours (the hair): a brow or hair
     // pixel needs no skin matching. Found nothing (a brow the colour of the hair): the brows stay in the patch
     // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
-    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, frame: G.rims ? glassD : null, skin, w, h });
+    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, frame: G.rims ? frameE : null, from: G.rims ? Int32Array.from(fromE, (q, p) => (G.glass[p] ? -1 : q)) : null, skin, w, h });
     if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h);
     let BT = null, browNote = '', browPx = null;
     if (browsRedrawn) {
       const Eb = clone(R.im);
       for (let p = 0; p < N; p++) if (area[p]) Eb.d.set(E.d.subarray(4 * p, 4 * p + 3), 4 * p);
-      const B = redrawnBrows({ E: Eb, im, near, eyes: ER.any, lids: lidCover, full: G.brows, browCol, hairCol, skin, midX, L, T, under: faceL, w, h });
+      const B = redrawnBrows({ E: Eb, im, near, eyes: ER.any, lids: lidCover, frame: G.rims ? dilate(G.frameLines, w, h, 2) : null, full: G.brows, browCol, hairCol, skin, midX, L, T, under: faceL, w, h });
       if (DEBUG) writeBrowDebug(path.join(DBG, `brows-${id}.png`), B, near, w, h);
       BT = B.BT;
       if (BT) browPx = dilate(B.bm, w, h, 2);
@@ -567,8 +607,12 @@ const expressions = [];
 // portrait, and a redrawn brow leaves plain hair
 const bangsFill = or(G.browOnHair, and(dilate(G.browOnHair, w, h, 2), G.hair));
 if (G.rims) {
+  // the edge reaches as far as the face was blanked round the glasses (3 px): at 2.5 a ring of frame pixels was left
+  // painted skin. A rivet or a lens highlight is drawn as it is: unmixed as the frame against skin it came out grey or
+  // skin, and the frame next to a rivet took the rivet's grey. Nor onto the brows: a brow resting on the frame came out
+  // as the frame there, and stayed on as a dark band when an expression redrew the brows
   const L = fromMask(im, null, G.glass, w, h);
-  softEdge(L, G.glass, im, rest, K, w, h, { allow: not(G.hair) });
+  softEdge(L, G.glass, im, rest, K, w, h, { r: 3, allow: not(or(G.hair, G.brows)), asIs: G.glassSpots, reach: 7 + G.rimW });
   add('glasses', L, { group: 'head', depth: 0.03 });
 }
 {

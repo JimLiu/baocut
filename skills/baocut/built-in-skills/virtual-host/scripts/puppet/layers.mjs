@@ -44,15 +44,17 @@ export function fromMask(src, alpha, m, w, h) {
  * orig: the picture the layer was cut from; under: the composite of the layers below; keyed: {alpha, fg} of `orig`,
  * used where nothing is under (the background). Pixels just outside the core (within r, where `allow`) and the core's
  * own rim get alpha = unmix(orig, K, U): K the colour of the nearest core-interior pixel, U the under colour.
+ * o.asIs: core pixels of another colour (a rivet, a highlight) left as painted, and never the K of the edge round them;
+ * o.reach: how far the edge looks for K (default r + 4; past an as-is piece the core's interior can be further)
  */
 export function softEdge(L, core, orig, under, keyed, w, h, o = {}) {
-  const r = o.r ?? 2.5, allow = o.allow, minSep = o.minSep ?? 40;
+  const r = o.r ?? 2.5, allow = o.allow, minSep = o.minSep ?? 40, asIs = o.asIs;
   const dOut = distTo(core, w, h), dIn = distTo(not(core), w, h);
-  const interior = Uint8Array.from(dIn, (v) => (v >= 2 ? 1 : 0));
-  const nI = nearestIndex(interior, w, h, r + 4), nC = nearestIndex(core, w, h, r + 1);
+  const interior = Uint8Array.from(dIn, (v, p) => (v >= 2 && !asIs?.[p] ? 1 : 0));
+  const nI = nearestIndex(interior, w, h, o.reach ?? r + 4), nC = nearestIndex(asIs ? minus(core, asIs) : core, w, h, r + 1);
   for (let p = 0; p < w * h; p++) {
     const ring = !core[p] && dOut[p] <= r && (!allow || allow[p]);
-    const rim = core[p] && dIn[p] <= 1.5;
+    const rim = core[p] && dIn[p] <= 1.5 && !asIs?.[p];
     if (!ring && !rim) continue;
     const s = nI[p] >= 0 ? nI[p] : nC[p];
     if (s < 0) continue;

@@ -141,7 +141,7 @@ const thicknessOf = (m, s, midX, w, h) => {
 /**
  * The brows an edit `E` redrew: on each side the widest brow-coloured strokes in the zone `near` (from browNear),
  * changed from the portrait `im` or on the old brow. They are looked for outside `eyes` (the eyes the edit drew, from
- * expressionEyeRegions; a lash is never taken for a brow), and a brow that runs on into one goes on along its own line
+ * expressionEyeRegions; a lash is never taken for a brow) and outside `frame` (the glasses' lines, when there are any), and a brow that runs on into one goes on along its own line
  * and thickness: the eye layer leaves those pixels to the brow, so a lowered brow pressed onto the lid stays whole
  * through a blink. Strand lines drawn across or beside a brow (narrow along the row) are left out. Returns `BT` (their
  * colours, a 1 px soft edge; null when none were found: a brow the colour of the hair, and the brows stay in the
@@ -149,9 +149,11 @@ const thicknessOf = (m, s, midX, w, h) => {
  * texture is opaque, so the patch `L` and its talking copy `T` become `under` (the bare face) beneath them, also where
  * the edit left a brow as it was: the neutral brows fade out under a redrawn one.
  */
-export function redrawnBrows({ E, im, near, eyes, lids, full, browCol, hairCol, skin, midX, L, T, under, w, h }) {
+export function redrawnBrows({ E, im, near, eyes, lids, frame, full, browCol, hairCol, skin, midX, L, T, under, w, h }) {
   const N = w * h, hairApart = !!hairCol && dist3(browCol, hairCol) >= 40;
-  const eyeEdge = eyes ? dilate(eyes, w, h, 1) : new Uint8Array(N), search = minus(near, eyeEdge);
+  // the glasses' frame is dark like a brow: past the patch the edit's own frame is taken for one, and a brow over the
+  // frame's top drew a dark notch into it that stayed when the head turned
+  const eyeEdge = eyes ? dilate(eyes, w, h, 1) : new Uint8Array(N), search = minus(minus(near, eyeEdge), frame ?? new Uint8Array(N));
   const browish = new Uint8Array(N), like = new Uint8Array(N);
   for (let p = 0; p < N; p++) {
     if (!near[p]) continue;
