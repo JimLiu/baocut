@@ -6,6 +6,7 @@ retrying: (p) => `${p.message} (yeniden deneniyor)`, modeChanged: (p) => `Erişi
   jobWoke: 'Bir arka plan görevi bitti, bu yüzden ajan bu göreve kaldığı yerden devam etti.',
   jobHeld: 'Bir arka plan görevi bitti. Ajana mevcut turu bitince bildirilecek.',
   jobDropped: 'Bir arka plan görevi bitti, ancak bu görev durduruldu ya da başarısız oldu veya oturum kullanılamıyor; bu yüzden ajana bildirilmedi.',
+  unfinishedNudged: 'Ajan işi bitirmeden turunu sonlandırdı, bu yüzden BaoCut devam etmesini istedi.',
   contextCompacted: 'Ajan çalışmaya devam etmek için bağlamını sıkıştırdı. Önceki ayrıntılar artık yalnızca özet olarak kalmış olabilir.',
   forkTitle: (p) => `${p.title} (dal)`,
   forkedFrom: (p) => `"${p.title}" oturumundan dal · ${p.turn}. tura kadar`,

@@ -11,7 +11,7 @@ import {
   createCustomAcpDriver,
   resolveLoginShellPath,
 } from '@baocut/agent-drivers';
-import { DriverRegistry, Harness, engineProtections, projectMissingError, type AgentDriver, type Logger } from '@baocut/harness';
+import { DriverRegistry, Harness, engineProtections, projectMissingError, type AgentDriver, type Logger, type UnfinishedWork } from '@baocut/harness';
 import {
   BUILTIN_DRIVER_IDS,
   PROTOCOL_VERSION,
@@ -798,6 +798,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     // 每个原生会话开始时附在指导后面的：开着的 skill 的索引，再是用户的自定义指导（§3.8）。
     // Bot 模式的服务（docs/design/bot-mode）：Harness 建好之后才有；频道与线程的角色指令跟在开发者指导后面（§6.2）。
     let bot: BotService | null = null;
+    // 会话里智能体的工具范围：工具目录建好时才有，回合结束时的「没做完」检查（§3.2）从它读没写入的译文。
+    let agentScope: AgentScope | null = null;
     const grants = new AgentGrants(
       (principal) => videos.connectionClosed(principal.connectionId),
       async (conversationId) =>
@@ -835,6 +837,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       tools: grants,
       // 主停止（§7.4）一并取消这个会话的智能体提交、还没结束的 Job。
       jobs: { cancelSubmittedBy: (conversationId) => cancelAgentJobs(models.jobs, conversationId) },
+      // 回合结束时的「没做完」检查（§3.2）：任务还在跑的后台 Job，与智能体用 translateTo 读了、还没写入的译文。
+      work: { pending: (conversationId, taskId) => unfinishedWork(models.jobs, agentScope, conversationId, taskId) },
       attachments,
       // 任务预算（§3.2、§7.8）：合同的预算策略登记在授权账本里，任务里的每次外发调用在授权之外还要通过它。
       budgets: models.grants,
@@ -1129,15 +1133,16 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     };
     // 会话的工具桥与网关 `catalog.call`（终端）共用同一组工具实例：`ScopeRouter` 按主体的种类转给会话的范围或终端的范围
     // （用户本人，相对路径按 cwd 解析）；两个面各自是这组工具的一个视图（`surface`）。
+    agentScope = new AgentScope({
+      harness,
+      videos,
+      jobs: models.jobs,
+      sessionsDirs: [home.scratchDir, ...home.legacyScratchDirs],
+      // Bot 线程按任务资源打开项目里的视频（技术方案 §7.1）。
+      videoProjects: (conversation) => botService.videoProjectsOf(conversation),
+    });
     const scope = new ScopeRouter({
-      agent: new AgentScope({
-        harness,
-        videos,
-        jobs: models.jobs,
-        sessionsDirs: [home.scratchDir, ...home.legacyScratchDirs],
-        // Bot 线程按任务资源打开项目里的视频（技术方案 §7.1）。
-        videoProjects: (conversation) => botService.videoProjectsOf(conversation),
-      }),
+      agent: agentScope,
       local: new LocalScope({ harness, videos, jobs: models.jobs, space: () => space, projectsDir: home.projectsDir }),
     });
     const tools = new ToolCatalog(toolSets(scope), log, { surface: 'agent' });
@@ -1549,6 +1554,17 @@ async function cancelAgentJobs(jobs: JobManager, conversationId: Id): Promise<nu
   await Promise.race([Promise.all(barriers), timeout]);
   clearTimeout(timer);
   return pending.length;
+}
+
+/**
+ * 一个任务此刻还没做完的事（回合结束时的检查，§3.2）：它提交、还没结束的后台 Job（智能体翻译的进度记录不算，没写入的译文
+ * 由 `AgentScope` 报），与智能体开了头、还没做完的事。
+ */
+function unfinishedWork(jobs: JobManager, agent: AgentScope | null, conversationId: Id, taskId: Id): UnfinishedWork {
+  const runningJobs = jobs
+    .list()
+    .filter((job) => job.submitter.kind === 'agent' && job.submitter.taskId === taskId && job.kind !== 'agentTranslate' && !isTerminal(job.state)).length;
+  return { runningJobs, items: agent?.unfinished(conversationId, taskId) ?? [] };
 }
 
 /** 主停止等引擎确认停止屏障的上限：引擎卡住时不拖住停止（之后到的提交仍有 Node 侧的屏障）。 */

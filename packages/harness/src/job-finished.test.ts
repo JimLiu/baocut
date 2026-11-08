@@ -2,19 +2,21 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { newId, type DriverProbe, type Id, type TimelineItem } from '@baocut/protocol';
+import { newId, type DriverProbe, type Id, type TaskContractInput, type TimelineItem } from '@baocut/protocol';
 import { ConversationStore, ProjectStore, resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { DriverRegistry } from './agent-manager.ts';
 import type { AgentDriver, AgentEvent, AgentSession } from './driver.ts';
-import { Harness, type JobFinished } from './harness.ts';
+import { Harness, type JobFinished, type UnfinishedWork } from './harness.ts';
 import { silentLogger } from './logger.ts';
 
 /**
- * 完成收件箱（架构设计 §7.2）：后台任务结束时插话、唤醒、等回合结束或不告诉；以及原生会话的空闲回收（§2.5）。
- * 假 Driver，全部在临时目录里。
+ * 完成收件箱（架构设计 §7.2）：后台任务结束时插话、唤醒、等回合结束或不告诉；回合结束时的「没做完」检查（§3.2）；
+ * 以及原生会话的空闲回收（§2.5）。假 Driver，全部在临时目录里。
  */
 
 let steerable = true;
+/** Runtime 报的没做完的事（`HarnessOptions.work`）。 */
+let work: UnfinishedWork = { runningJobs: 0, items: [] };
 
 /** 回合开始后一直开着，直到测试 `finish()`；`steerable` 为 false 时没有插话。 */
 class Session implements AgentSession {
@@ -138,6 +140,7 @@ async function open(): Promise<Harness> {
     conversations: new ConversationStore(home.conversationsDir),
     projects: new ProjectStore(home.projectsFile),
     drivers,
+    work: { pending: () => work },
     log: silentLogger,
   });
 }
@@ -162,9 +165,9 @@ const notices = (conversationId: Id) =>
     .items.filter((i): i is Extract<TimelineItem, { kind: 'notice' }> => i.kind === 'notice' && i.job !== undefined);
 
 /** 发一条消息、等回合开始；`done` 时让回合结束、等任务完成。 */
-async function started(text: string, done: boolean) {
+async function started(text: string, done: boolean, extra: { contract?: TaskContractInput; accessMode?: 'plan' } = {}) {
   const conversation = await harness.createConversation({ title: text });
-  const { taskId } = await harness.send({ conversationId: conversation.id, text, commandId: newId('cmd') });
+  const { taskId } = await harness.send({ conversationId: conversation.id, text, commandId: newId('cmd'), ...extra });
   const session = await until(() => driver.sessions.at(-1));
   await until(() => harness.agentRun(conversation.id).taskId && session.turnId);
   if (done) {
@@ -186,6 +189,7 @@ const finished = (conversationId: Id, taskId: Id, over: Partial<JobFinished> = {
 
 beforeEach(async () => {
   steerable = true;
+  work = { runningJobs: 0, items: [] };
   dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-job-inbox-')));
   home = resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'home') });
   driver = new Driver();
@@ -266,6 +270,86 @@ describe('Harness.jobFinished', () => {
     await harness.shutdown();
     harness = await open();
     expect(notices(running.conversationId)[0]?.job?.delivery).toBe('dropped');
+  });
+});
+
+describe('回合结束时没做完（§3.2）', () => {
+  const bilingual: TaskContractInput = {
+    acceptanceChecks: [
+      { checkId: 'check_subs', kind: 'review', description: 'Bilingual subtitles cover every sentence', required: true },
+      { checkId: 'check_style', kind: 'quality', description: 'Optional polish', required: false },
+    ],
+  };
+  const unfinishedNotices = (conversationId: Id) =>
+    harness.getConversation(conversationId).items.filter((i) => i.kind === 'notice' && i.id.startsWith('unfinished_'));
+
+  it('必过检查没记结果：重开同一个任务、交一段 <baocut-unfinished>，记一条提示；每个任务只催一次', async () => {
+    const { conversationId, taskId, session } = await started('转写并翻译成双语字幕', false, { contract: bilingual });
+    session.finish();
+    const input = await until(() => session.turns[1]);
+    expect(input.startsWith('<baocut-unfinished>\n')).toBe(true);
+    expect(input).toContain('check_subs');
+    expect(input).toContain('Bilingual subtitles cover every sentence');
+    expect(input).not.toContain('check_style');
+    expect(input).toContain('tasks_record_check');
+    expect(taskOf(conversationId, taskId)).toMatchObject({ status: 'running', endedAt: null });
+    expect(unfinishedNotices(conversationId)).toEqual([
+      expect.objectContaining({ id: `unfinished_${taskId}`, taskId, level: 'info', textRef: { key: 'harnessRuns.unfinishedNudged' } }),
+    ]);
+
+    await until(() => session.turnId);
+    session.finish();
+    await until(() => taskOf(conversationId, taskId)?.status === 'completed');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(session.turns).toHaveLength(2);
+    expect(unfinishedNotices(conversationId)).toHaveLength(1);
+  });
+
+  it('记了结果（不论通过与否）或只有非必过检查：不催', async () => {
+    const { conversationId, taskId, session } = await started('转写并翻译成双语字幕', false, { contract: bilingual });
+    harness.recordCheck({ taskId, checkId: 'check_subs', outcome: 'failed', note: 'two sentences missing' }, 'agent');
+    session.finish();
+    await until(() => taskOf(conversationId, taskId)?.status === 'completed');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(session.turns).toHaveLength(1);
+    expect(unfinishedNotices(conversationId)).toEqual([]);
+  });
+
+  it('Runtime 报的没做完的事也催；任务还有后台 Job 在跑时不催', async () => {
+    work = { runningJobs: 0, items: ['You read transcript doc_1 of video vid_1 with translateTo "zh-Hans" but have not written that translation.'] };
+    const first = await started('翻译', false);
+    first.session.finish();
+    const input = await until(() => first.session.turns[1]);
+    expect(input).toContain('translateTo "zh-Hans"');
+
+    work = { runningJobs: 1, items: work.items };
+    const second = await started('翻译', false, { contract: bilingual });
+    second.session.finish();
+    await until(() => taskOf(second.conversationId, second.taskId)?.status === 'completed');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(second.session.turns).toHaveLength(1);
+  });
+
+  it('方案模式不催', async () => {
+    const { conversationId, taskId, session } = await started('先给方案', false, { contract: bilingual, accessMode: 'plan' });
+    session.finish();
+    await until(() => taskOf(conversationId, taskId)?.status === 'completed');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(session.turns).toHaveLength(1);
+  });
+
+  it('回合结束时有等着的后台任务：先交后台任务，那一回合结束时再催', async () => {
+    steerable = false;
+    const { conversationId, taskId, session } = await started('做一段配乐', false, { contract: bilingual });
+    expect(await harness.jobFinished(finished(conversationId, taskId))).toBe('held');
+    session.finish();
+    const woke = await until(() => session.turns[1]);
+    expect(woke).toContain('<baocut-job-finished>');
+    expect(woke).not.toContain('<baocut-unfinished>');
+    await until(() => session.turnId);
+    session.finish();
+    const nudged = await until(() => session.turns[2]);
+    expect(nudged).toContain('<baocut-unfinished>');
   });
 });
 

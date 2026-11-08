@@ -17,6 +17,7 @@ export {
   withDesignSystemAnnotations,
   withVideoAnnotations,
   type JobFinished,
+  type UnfinishedWork,
   BOT_INTERNAL,
   unattendedMode,
   type BotInternal,

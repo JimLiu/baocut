@@ -45,6 +45,8 @@ const en = {
   jobWoke: 'A background task ended, so the agent picked this task back up.',
   jobHeld: 'A background task ended. The agent will be told when its current turn ends.',
   jobDropped: "A background task ended, but this task was stopped or failed, or the session isn't available, so the agent wasn't told.",
+  /** 回合结束时的「没做完」检查（架构设计 §3.2）：智能体留着没做完的事就结束了回合，BaoCut 叫它接着做。每个任务至多一次。 */
+  unfinishedNudged: 'The agent ended its turn with work still unfinished, so BaoCut asked it to keep going.',
   contextCompacted: 'The agent compacted its context to keep working. Earlier details may now be summarized.',
   /** 分叉（产品设计 §3.2.2「分叉」）：新会话的标题与线程顶上那一条。 */
   forkTitle: (p: { title: string }) => `${p.title} (fork)`,

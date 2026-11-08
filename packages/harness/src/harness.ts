@@ -170,6 +170,11 @@ export interface HarnessOptions {
    * 停止屏障之后兑现（之后这些 Job 不会再写进视频）。
    */
   jobs?: { cancelSubmittedBy(conversationId: Id): number | Promise<number> };
+  /**
+   * 回合结束时的「没做完」检查（架构设计 §3.2「做完再结束」）：这个任务还在跑的后台 Job，与智能体开了头、还没做完的事。
+   * 没有时只看合同里没记结果的必过检查，不管后台 Job。
+   */
+  work?: { pending(conversationId: Id, taskId: Id): UnfinishedWork };
   /** 消息里的图片附件（产品设计 §3.2.4）。没有时带附件的发送如实拒绝。 */
   attachments?: HarnessAttachments;
   /** 任务预算的账本（架构设计 §3.2、§7.8）：每个任务建立时登记它的预算策略。没有时合同不带 `budgetPolicyRef`、不能设预算。 */
@@ -335,6 +340,14 @@ export interface JobFinished {
   state: 'completed' | 'failed';
 }
 
+/** 一个任务此刻还没做完的事（`HarnessOptions.work`），回合正常结束时查。 */
+export interface UnfinishedWork {
+  /** 这个任务提交、还在排队或运行的后台 Job（进度记录不算）：有时不催，Job 结束时完成收件箱会叫醒它（§7.2）。 */
+  runningJobs: number;
+  /** 智能体开了头、还没做完的事，每项一句给模型看的英文（例如用 `translateTo` 读了转写、还没写入的译文）。 */
+  items: readonly string[];
+}
+
 /**
  * 不属于项目的会话放进哪里（§3.10，`ensureConversationProject` 的 `into`）：任意目录（不存在时建出来、登记为项目），或一个已登记的
  * 项目。不给时在默认项目目录下新建一个项目。
@@ -395,6 +408,7 @@ export class Harness {
   readonly #log: Logger;
   readonly #agents: AgentManager;
   readonly #jobs: HarnessOptions['jobs'];
+  readonly #work: HarnessOptions['work'] | null;
   readonly #budgets: TaskBudgetPort | null;
   #budgetFor: ((conversation: Conversation) => TaskBudgetLimits | null) | null = null;
   #ceilingFor: ((conversation: Conversation) => AgentMode | null) | null = null;
@@ -463,6 +477,7 @@ export class Harness {
     this.#prefs = options.prefs ?? new AgentPrefsStore(options.home.agentPrefsFile);
     this.#log = options.log.child('harness');
     this.#jobs = options.jobs;
+    this.#work = options.work ?? null;
     this.#budgets = options.budgets ?? null;
     this.#settings = options.settings ?? { snapshot: defaultSettingsSnapshot };
     this.#providers = options.providers ?? null;
@@ -2174,19 +2189,7 @@ export class Harness {
     };
     const target = jobs.find((job) => statusOf(job.taskId) === 'completed')?.taskId ?? null;
     const conversation = state.conversation;
-    let autonomy: { mode: AgentMode; source: AutonomySource } | null = null;
-    if (target && !conversation.archived) {
-      try {
-        this.#checkCanSend(state.id);
-        this.#checkProjectNotMissing(conversation);
-        this.#checkDriverUsable(conversation.driverId);
-        autonomy = this.#startMode(state);
-        this.#checkAccessMode(conversation.driverId, autonomy.mode);
-      } catch (error) {
-        this.#log.info('Not waking the agent for a finished job', { conversationId: state.id, error: String(error) });
-        autonomy = null;
-      }
-    }
+    const autonomy = target ? this.#wakeMode(state, 'a finished job') : null;
     if (!target || !autonomy) {
       for (const job of jobs) this.#noteJob(state, job, 'dropped', null);
       return;
@@ -2226,29 +2229,97 @@ export class Harness {
       });
       return;
     }
-    reopenTask(state, target);
+    this.#wakeTask(state, target, bot ? unattendedMode(autonomy.mode) : autonomy.mode, !bot, jobFinishedText(wake));
+  }
+
+  /**
+   * 空闲会话里重开一个已完成的任务之前的检查，同 `send`：会话没归档、能发、项目目录在、Driver 能用、访问模式这个 Driver 支持。
+   * 返回此刻的起始模式；过不了时返回 null（记一条日志，`why` 说明是为了什么叫醒）。
+   */
+  #wakeMode(state: ConversationState, why: string): { mode: AgentMode; source: AutonomySource } | null {
+    const conversation = state.conversation;
+    if (conversation.archived) return null;
+    try {
+      this.#checkCanSend(state.id);
+      this.#checkProjectNotMissing(conversation);
+      this.#checkDriverUsable(conversation.driverId);
+      const autonomy = this.#startMode(state);
+      this.#checkAccessMode(conversation.driverId, autonomy.mode);
+      return autonomy;
+    } catch (error) {
+      this.#log.info(`Not waking the agent for ${why}`, { conversationId: state.id, error: String(error) });
+      return null;
+    }
+  }
+
+  /** 重新打开一个已完成的任务（回到 `running`，还是同一个任务）并起一个回合，交给它 `text`。调用方先过 `#wakeMode`。 */
+  #wakeTask(state: ConversationState, taskId: Id, mode: AgentMode, attended: boolean, text: string): void {
+    const conversation = state.conversation;
+    reopenTask(state, taskId);
     this.#cancelIdle(state.id);
-    const reopened = state.item(target);
+    const reopened = state.item(taskId);
     const run: ActiveRun = {
-      taskId: target,
+      taskId,
       runGeneration: ++this.#runGeneration,
       turnId: null,
       stopRequested: false,
-      mode: bot ? unattendedMode(autonomy.mode) : autonomy.mode,
+      mode,
       sessionAllowed: new Set(),
       model: conversation.model,
       effort: conversation.effort,
       interruptSent: false,
       stopTimer: null,
-      attended: !bot,
+      attended,
       tainted: false,
       userCitations: new Set(),
       origin: (reopened?.kind === 'task' ? reopened.origin : undefined) ?? 'user',
       userMessageId: null,
     };
     this.#runs.set(state.id, run);
-    this.#emitRun({ type: 'started', conversationId: state.id, taskId: target, origin: run.origin, attended: run.attended });
-    void this.#startRun(state, run, { text: jobFinishedText(wake) });
+    this.#emitRun({ type: 'started', conversationId: state.id, taskId, origin: run.origin, attended: run.attended });
+    void this.#startRun(state, run, { text });
+  }
+
+  /**
+   * 回合正常结束时还有没做完的事（架构设计 §3.2「做完再结束」）：合同里必过、还没记结果的验收检查，与 Runtime 报的智能体开了头
+   * 没做完的事（`HarnessOptions.work`）。有时在会话里记一条提示，重新打开这个任务、起一个回合交给它一段 `<baocut-unfinished>`，
+   * 让它做完、记下检查结果，或说清卡在哪里。每个任务至多一次（提示的 id 由任务决定，重启后也认得）。
+   *
+   * 不催的情形：方案模式；这个任务还有后台 Job 在跑（结束时完成收件箱会叫醒它）；Bot 角色的会话（回合由 Bot 汇报，§8.1）；
+   * 过不了 `#wakeMode` 或叫醒闸门。调用方已经排除了回合结束时还有别的东西要交（等着的投递与后台任务）的情形。
+   */
+  #checkUnfinished(state: ConversationState, run: ActiveRun): void {
+    if (run.mode === 'plan' || isBotRole(state.conversation)) return;
+    const taskId = run.taskId;
+    const noteId = unfinishedNoteId(taskId);
+    if (state.item(noteId)) return;
+    const task = state.item(taskId);
+    if (task?.kind !== 'task' || task.status !== 'completed') return;
+    let work: UnfinishedWork = { runningJobs: 0, items: [] };
+    try {
+      if (this.#work) work = this.#work.pending(state.id, taskId);
+    } catch (error) {
+      this.#log.warn('Failed to read unfinished work at the end of a turn', { conversationId: state.id, error: String(error) });
+      return;
+    }
+    if (work.runningJobs > 0) return;
+    const checks = this.#openChecks(state, taskId);
+    if (checks.length === 0 && work.items.length === 0) return;
+    const autonomy = this.#wakeMode(state, 'unfinished work');
+    if (!autonomy || autonomy.mode === 'plan') return;
+    if (this.#jobWakeGate && !this.#jobWakeGate(state.id)) return;
+    const text = HR.unfinishedNudged();
+    state.upsert({ kind: 'notice', id: noteId, createdAt: nowIso(), taskId, level: 'info', text: String(text), textRef: refOf(text) });
+    this.#wakeTask(state, taskId, autonomy.mode, true, unfinishedText(checks, work.items));
+  }
+
+  /** 合同最新修订里必过、还没有任何结果的验收检查。 */
+  #openChecks(state: ConversationState, taskId: Id): CheckDefinition[] {
+    const log = this.#tasksOf(state)[taskId];
+    const latest = log?.revisions.at(-1);
+    if (!log || !latest) return [];
+    const recorded = new Set(log.checkResults.map((result) => result.checkId));
+    return latest.acceptanceChecks.filter((check) => check.required && !recorded.has(check.checkId));
   }
 
   /** 正在退出：退出时停掉的回合不是用户停的。 */
@@ -4079,6 +4150,7 @@ export class Harness {
     }
     // 等回合结束的 Bot 投递（报告、转交）现在合成一次交（Bot 技术方案 §8.3「合并」）。先于 Job：两者都有时 Job 落到这个新回合里插话或等它。
     const heldDeliveries = this.#heldDeliveries.get(state.id);
+    const handedOn = Boolean(heldDeliveries?.length) || this.#heldJobs.has(state.id) || this.#gatedJobs.has(state.id);
     if (heldDeliveries?.length && !this.#closing) {
       this.#heldDeliveries.delete(state.id);
       this.#deliverHeld(state, heldDeliveries);
@@ -4096,6 +4168,10 @@ export class Harness {
       void this.releaseJobWakes(state.id).catch((e: unknown) =>
         this.#log.warn('Failed to deliver gated jobs after the turn', { conversationId: state.id, error: String(e) }),
       );
+    }
+    // 回合正常结束、没有别的要接着交时，看看还有没有没做完的事（§3.2「做完再结束」）。
+    if (status === 'completed' && 'attended' in run && !handedOn && !this.#closing && !this.#runs.has(state.id)) {
+      this.#checkUnfinished(state, run);
     }
   }
 
@@ -4235,6 +4311,27 @@ function jobFinishedText(jobs: readonly JobFinished[]): string {
       ),
     )
     .join('\n\n');
+}
+
+/** 「没做完」的提示（§3.2）：每个任务一条。 */
+function unfinishedNoteId(taskId: Id): Id {
+  return `unfinished_${taskId}`;
+}
+
+/** 回合结束时还有没做完的事，交给智能体的那一段（skills/baocut/SKILL.md 写明了这个段）。检查的说明是用户或智能体写的，段内转义。 */
+function unfinishedText(checks: readonly CheckDefinition[], items: readonly string[]): string {
+  return contextBlock(
+    '<baocut-unfinished>',
+    [
+      'Your turn ended, but this task still has unfinished work:',
+      ...checks.map((check) => `- Required acceptance check ${check.checkId} has no recorded result: ${check.description}`),
+      ...items.map((item) => `- ${item}`),
+      'Continue now and finish what the user asked for. After verifying a check, record it with tasks_record_check (passed or failed; skipped with a note when it no longer applies).',
+      'If you cannot finish (you need the user\'s answer, a setting, a permission, or a long job), do not retry: tell the user in one or two sentences what is done and what is blocking.',
+      'BaoCut sends this reminder once per task.',
+    ],
+    '</baocut-unfinished>',
+  );
 }
 
 /** 核对提问的回答：每题都有，单选恰好一个，不许自填的只能是选项名。返回去重、去空白后的答案；不合格抛 `invalid-request`。 */

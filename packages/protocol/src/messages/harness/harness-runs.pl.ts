@@ -23,6 +23,7 @@ export const pl: HarnessRunsMessages = {
   jobWoke: 'Zadanie w tle zakończyło się, więc agent wrócił do tego zadania.',
   jobHeld: 'Zadanie w tle zakończyło się. Agent zostanie poinformowany po zakończeniu bieżącej tury.',
   jobDropped: 'Zadanie w tle zakończyło się, ale to zadanie zostało zatrzymane lub nie powiodło się albo sesja jest niedostępna, więc agent nie został poinformowany.',
+  unfinishedNudged: 'Agent zakończył turę, zanim skończył pracę, więc BaoCut poprosił go o kontynuowanie.',
   contextCompacted: 'Agent skompaktował kontekst, aby pracować dalej. Wcześniejsze szczegóły mogą być teraz tylko streszczone.',
   forkTitle: (p) => `${p.title} (odgałęzienie)`,
   forkedFrom: (p) => `Odgałęzienie z „${p.title}” · do tury ${p.turn}`,

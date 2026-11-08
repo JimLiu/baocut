@@ -29,6 +29,7 @@ export const nl: HarnessRunsMessages = {
   jobWoke: 'Een achtergrondtaak is klaar, dus de agent heeft deze taak weer opgepakt.',
   jobHeld: 'Een achtergrondtaak is klaar. De agent hoort het zodra zijn huidige beurt eindigt.',
   jobDropped: 'Een achtergrondtaak is klaar, maar deze taak is gestopt of mislukt, of de sessie is niet beschikbaar. De agent is niet op de hoogte gebracht.',
+  unfinishedNudged: 'De agent beëindigde zijn beurt terwijl er nog werk openstond, dus BaoCut heeft hem gevraagd verder te gaan.',
   contextCompacted: 'De agent heeft zijn context ingekort om door te werken. Eerdere details zijn nu mogelijk alleen samengevat.',
   forkTitle: (p) => `${p.title} (afsplitsing)`,
   forkedFrom: (p) => `Afgesplitst van ‘${p.title}’ · t/m beurt ${p.turn}`,

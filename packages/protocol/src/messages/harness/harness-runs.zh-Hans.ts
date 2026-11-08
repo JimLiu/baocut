@@ -23,6 +23,7 @@ export const zhHans: HarnessRunsMessages = {
   jobWoke: '后台任务已结束，智能体接着这个任务继续做。',
   jobHeld: '后台任务已结束，等智能体这一回合结束后再告诉它。',
   jobDropped: '后台任务已结束，但这个任务已经停止或失败，或者会话现在用不了，没有告诉智能体。',
+  unfinishedNudged: '智能体还有没做完的事就结束了回合，BaoCut 让它接着做。',
   contextCompacted: '智能体压缩了上下文以便继续工作，较早的细节可能只剩摘要。',
   forkTitle: (p) => `${p.title}（分叉）`,
   forkedFrom: (p) => `分叉自「${p.title}」· 截至第 ${p.turn} 轮`,

@@ -123,6 +123,35 @@ describe('智能体自己翻译的进度记录', () => {
     expect(hosted[1]!.record.submitter).toMatchObject({ taskId: 'task_2' });
   });
 
+  it('回合结束时的「没做完」检查：开着的与回合结束时中断的都报，写入后、用户停止的、任务删掉的不报', () => {
+    const { scope, access, emit, nextTask } = setup();
+    const task = (taskId: string, status: 'completed' | 'stopped') =>
+      ({ taskId, status }) as unknown as Extract<TasksEvent, { type: 'task.upsert' }>['task'];
+    scope.translationStarted(access(), { ...zh, sentences: 3 });
+    expect(scope.unfinished('conv_1', 'task_1')).toEqual([
+      'You read transcript doc_speech of video video_1 with translateTo "zh-Hans" but have not written that translation.',
+    ]);
+    expect(scope.unfinished('conv_1', 'task_other')).toEqual([]);
+    emit({ type: 'task.upsert', task: task('task_1', 'completed') });
+    expect(scope.unfinished('conv_1', 'task_1')).toHaveLength(1);
+    // 被叫醒的回合接着做、写入了这门语言的译文。
+    scope.translationStarted(access(), { ...zh, sentences: 3 });
+    scope.translationWritten(access(), { ...zh, language: 'zh-hans', documentId: 'doc_tr' });
+    expect(scope.unfinished('conv_1', 'task_1')).toEqual([]);
+
+    nextTask('task_2');
+    scope.translationStarted(access(), { ...zh, sentences: 3 });
+    emit({ type: 'task.upsert', task: task('task_2', 'stopped') });
+    expect(scope.unfinished('conv_1', 'task_2')).toEqual([]);
+
+    nextTask('task_3');
+    scope.translationStarted(access(), { ...zh, language: 'ja', sentences: 3 });
+    emit({ type: 'task.upsert', task: task('task_3', 'completed') });
+    expect(scope.unfinished('conv_1', 'task_3')).toHaveLength(1);
+    emit({ type: 'task.removed', taskId: 'task_3' } as TasksEvent);
+    expect(scope.unfinished('conv_1', 'task_3')).toEqual([]);
+  });
+
   it('JobManager 取消或 Runtime 停止：只结束这条记录', async () => {
     const { scope, access, hosted } = setup();
     scope.translationStarted(access(), { ...zh, sentences: 3 });

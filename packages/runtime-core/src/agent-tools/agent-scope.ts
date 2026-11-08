@@ -68,7 +68,12 @@ export class AgentScope implements ToolScope<AgentAccess> {
   /** 按 videoId 找过的、没有打开的视频的目录：下次先核对它，不对再扫。 */
   readonly #located = new Map<Id, string>();
   /** 智能体自己翻译的进度记录（`translationStarted`），按会话、视频、转写与语言；终结了就拿掉。 */
-  readonly #translations = new Map<string, { job: HostedJob; taskId: Id }>();
+  readonly #translations = new Map<string, { job: HostedJob; taskId: Id; scope: TranslationScope }>();
+  /**
+   * 回合结束时还没写入的翻译（进度记录已中断）：任务 → 键同 `#translations` → 范围。写入这门语言的译文时拿掉；回合结束时的
+   * 「没做完」检查（`unfinished`）读它。只在内存里，至多留 `UNWRITTEN_TASKS` 个任务。
+   */
+  readonly #unwritten = new Map<Id, Map<string, TranslationScope>>();
   /** 订阅了任务中心（回合结束时收尾进度记录）。第一次登记进度记录时才订阅。 */
   #watchingTasks = false;
 
@@ -386,13 +391,29 @@ export class AgentScope implements ToolScope<AgentAccess> {
       void job?.finish(state);
     };
     job = this.#jobs.host(record, { hosted: 'agent-translate', control: { cancel: () => end('cancelled'), interrupt: () => end('interrupted') } });
-    this.#translations.set(key, { job, taskId: access.taskId });
+    this.#translations.set(key, { job, taskId: access.taskId, scope });
     return job.jobId;
+  }
+
+  /**
+   * 一个任务里智能体开了头、还没做完的事（架构设计 §3.2「做完再结束」），每项一句给模型看的英文：用 `translateTo` 读了转写、
+   * 还没写入这门语言的译文（进度记录还开着的，与回合结束时中断的）。
+   */
+  unfinished(conversationId: Id, taskId: Id): string[] {
+    const pending = new Map<string, TranslationScope>(this.#unwritten.get(taskId));
+    for (const [key, open] of this.#translations) if (open.taskId === taskId) pending.set(key, open.scope);
+    return [...pending]
+      .filter(([key]) => key.startsWith(`${conversationId}\u0000`))
+      .map(
+        ([, scope]) =>
+          `You read transcript ${scope.sourceDocumentId} of video ${scope.videoId} with translateTo "${scope.language}" but have not written that translation.`,
+      );
   }
 
   /** 写入了一份译文：同一会话、同一视频、同一份转写、同一门语言的进度记录完成，结果指向写入的译文。 */
   translationWritten(access: AgentAccess, written: TranslationScope & { documentId: Id | null }): void {
     const key = translationKey(access.conversation.id, written);
+    for (const [taskId, keys] of this.#unwritten) if (keys.delete(key) && keys.size === 0) this.#unwritten.delete(taskId);
     const open = this.#translations.get(key);
     if (!open) return;
     this.#translations.delete(key);
@@ -411,12 +432,25 @@ export class AgentScope implements ToolScope<AgentAccess> {
         ended = { taskId: payload.task.taskId, stopped: payload.task.status === 'stopped' };
       }
       if (!ended) return;
+      if (payload.type === 'task.removed') this.#unwritten.delete(ended.taskId);
       for (const [key, open] of this.#translations) {
         if (open.taskId !== ended.taskId) continue;
         this.#translations.delete(key);
         void open.job.finish(ended.stopped ? 'cancelled' : 'interrupted');
+        if (!ended.stopped && payload.type === 'task.upsert') this.#noteUnwritten(ended.taskId, key, open.scope);
       }
     });
+  }
+
+  #noteUnwritten(taskId: Id, key: string, scope: TranslationScope): void {
+    const keys = this.#unwritten.get(taskId) ?? new Map<string, TranslationScope>();
+    keys.set(key, scope);
+    this.#unwritten.delete(taskId);
+    this.#unwritten.set(taskId, keys);
+    for (const oldest of this.#unwritten.keys()) {
+      if (this.#unwritten.size <= UNWRITTEN_TASKS) break;
+      this.#unwritten.delete(oldest);
+    }
   }
 
   /** 任务合同此刻的保护范围：合同修改之后，之后的提交按新范围检查。 */
@@ -628,6 +662,9 @@ const VIDEO_ID = /^video_[0-9a-f]{8,32}$/;
 export function ownedBy(record: JobRecord, conversation: Conversation): boolean {
   return record.submitter.kind === 'agent' && record.submitter.id === conversation.id;
 }
+
+/** `#unwritten` 至多留几个任务的：之前的任务早就过了回合结束时的检查。 */
+const UNWRITTEN_TASKS = 200;
 
 function translationKey(conversationId: Id, scope: TranslationScope): string {
   return [conversationId, scope.videoId, scope.sourceDocumentId, scope.language.toLowerCase()].join('\u0000');
