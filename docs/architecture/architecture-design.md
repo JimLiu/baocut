@@ -164,7 +164,7 @@ Electron Main
 
 ### 2.2 启动、所有权与退出
 
-**发现**。Electron 只管理由它创建且身份仍然匹配的服务。发现信息包含 `instanceId`、`home`、`supervisorPid`、`startedAt`、`endpoint`、`runtimeVersion` 和 `protocolVersion`。启动分为 `acquiring-lock`、`starting`、`ready`、`degraded` / `failed`；进程存在不等于可以接收业务。发现文件与实例锁只凭 PID 存在不算有效：记录早于这次开机的作废（重启后 PID 重新分配，没来得及清理的记录里的 PID 常已是别的进程）；发现文件在网关监听之后才写、停止时先于网关撤掉，所以同一实例的发现文件还在而端点拒绝连接，也按那个 Runtime 已不在处理。桌面端按这两条判断，CLI 只按开机时间判断；遇到失效的发现文件就拉起新的 Runtime，新 Runtime 按同样的两条判断接管实例锁，不把失效的端点交给界面反复重连。
+**发现**。Electron 只管理由它创建且身份仍然匹配的服务。发现信息包含 `instanceId`、`home`、`supervisorPid`、`startedAt`、`endpoint`、`runtimeVersion` 和 `protocolVersion`。启动分为 `acquiring-lock`、`starting`、`ready`、`degraded` / `failed`；进程存在不等于可以接收业务。发现文件与实例锁只凭 PID 存在不算有效：记录早于这次开机的作废（重启后 PID 重新分配，没来得及清理的记录里的 PID 常已是别的进程）；发现文件在网关监听之后才写、停止时先于网关撤掉，所以同一实例的发现文件还在而端点拒绝连接，也按那个 Runtime 已不在处理。桌面端与 CLI 都按这两条判断（`isDiscoveryLive`，CLI 的 `findRuntime`）；遇到失效的发现文件就拉起新的 Runtime，新 Runtime 按同样的两条判断接管实例锁，不把失效的端点交给界面反复重连。
 
 **监管**。Supervisor 启动 Worker、发布 ready、处理重启与停止，不依赖视频与模型代码。运行期崩溃可以有界重启并退避；启动失败则报告错误，不无限拉起。只有在旧的 Worker 与 Engine Host 已确认失去写入与执行能力之后，替代者才能取得执行权与写入权。PID、启动身份和代（generation）必须一起验证。
 

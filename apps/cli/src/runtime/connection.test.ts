@@ -1,13 +1,16 @@
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { packagedResourceEnv as desktopResourceEnv, packagedResources } from '../../../desktop/src/main/packaged-resources.ts';
+import { isDiscoveryLive, isEndpointRefused as storageEndpointRefused } from '../../../../packages/runtime-storage/src/discovery.ts';
 import { CliError, EXIT, exitCodeFor } from '../envelope.ts';
 import {
   checkInterfaceVersion,
   ensureRuntime,
   findRuntime,
+  isEndpointRefused,
   lockHolderAlive,
   packagedApps,
   packagedResourceEnv,
@@ -73,22 +76,72 @@ describe('Runtime 的入口与版本门', () => {
   });
 });
 
-describe('上一次开机留下的发现文件与实例锁（架构设计 §2.2）', () => {
-  it('PID 现在有进程也不算 Runtime 还在', () => {
+const servers: net.Server[] = [];
+afterEach(async () => {
+  await Promise.all(servers.splice(0).map((server) => new Promise((resolve) => server.close(resolve))));
+});
+
+async function listening(): Promise<string> {
+  const server = net.createServer((socket) => socket.destroy());
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return `ws://127.0.0.1:${(server.address() as net.AddressInfo).port}`;
+}
+
+/** 刚刚还有人监听、现在已经关掉的端口。 */
+async function closed(): Promise<string> {
+  const server = net.createServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as net.AddressInfo;
+  await new Promise((resolve) => server.close(resolve));
+  return `ws://127.0.0.1:${port}`;
+}
+
+describe('过期的发现文件与实例锁（架构设计 §2.2）', () => {
+  const write = (home: string, at: string, endpoint: string) => {
+    fs.writeFileSync(path.join(home, 'runtime.json'), JSON.stringify({ instanceId: 'rt_old', pid: process.pid, startedAt: at, endpoint }));
+    fs.writeFileSync(path.join(home, 'runtime.lock'), JSON.stringify({ pid: process.pid, instanceId: 'rt_old', acquiredAt: at }));
+  };
+
+  it('上一次开机留下的：PID 现在有进程也不算 Runtime 还在', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-stale-'));
     try {
       const beforeBoot = new Date(Date.now() - os.uptime() * 1000 - 10 * 60_000).toISOString();
-      const now = new Date().toISOString();
-      const write = (at: string) => {
-        fs.writeFileSync(path.join(home, 'runtime.json'), JSON.stringify({ instanceId: 'rt_old', pid: process.pid, startedAt: at, endpoint: 'ws://127.0.0.1:1' }));
-        fs.writeFileSync(path.join(home, 'runtime.lock'), JSON.stringify({ pid: process.pid, instanceId: 'rt_old', acquiredAt: at }));
-      };
-      write(now);
-      expect(findRuntime(home)?.instanceId).toBe('rt_old');
+      const endpoint = await listening();
+      write(home, new Date().toISOString(), endpoint);
+      expect((await findRuntime(home))?.instanceId).toBe('rt_old');
       expect(lockHolderAlive(home)).toBe(true);
-      write(beforeBoot);
-      expect(findRuntime(home)).toBeNull();
+      write(home, beforeBoot, endpoint);
+      expect(await findRuntime(home)).toBeNull();
       expect(lockHolderAlive(home)).toBe(false);
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('端点拒绝连接：进程在（PID 被复用）也不算 Runtime 还在', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-stale-'));
+    try {
+      write(home, new Date().toISOString(), await closed());
+      expect(await findRuntime(home)).toBeNull();
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('与桌面端的判断一致（isDiscoveryLive）', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-stale-'));
+    try {
+      const beforeBoot = new Date(Date.now() - os.uptime() * 1000 - 10 * 60_000).toISOString();
+      const endpoints = [await listening(), await closed(), 'not a url', 'ws://127.0.0.1'];
+      for (const endpoint of endpoints) {
+        expect(await isEndpointRefused(endpoint)).toBe(await storageEndpointRefused(endpoint));
+        for (const at of [new Date().toISOString(), beforeBoot]) {
+          write(home, at, endpoint);
+          const discovery = JSON.parse(fs.readFileSync(path.join(home, 'runtime.json'), 'utf8'));
+          expect((await findRuntime(home)) !== null).toBe(await isDiscoveryLive(discovery));
+        }
+      }
     } finally {
       fs.rmSync(home, { recursive: true, force: true });
     }

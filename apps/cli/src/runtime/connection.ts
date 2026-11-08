@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -93,10 +94,40 @@ export function isRecordedProcessAlive(pid: number, recordedAt: string, now = Da
   return isProcessAlive(pid);
 }
 
-/** 正在跑的 Runtime 的发现信息；没有发现文件、进程已经不在或是上一次开机留下的时 null。 */
-export function findRuntime(home: string): RuntimeDiscovery | null {
+/**
+ * 端点明确拒绝连接吗（与 `@baocut/runtime-storage` 的同名函数一致）。连不上的其他情况（超时、地址不对）不算拒绝：只在确定
+ * 没人监听时才把发现文件当作过期。
+ */
+export function isEndpointRefused(endpoint: string, timeoutMs = 3_000): Promise<boolean> {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return Promise.resolve(false);
+  }
+  const port = Number(url.port);
+  if (!port) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: url.hostname.replace(/^\[(.*)\]$/, '$1'), port });
+    const finish = (refused: boolean) => {
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(refused);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    socket.once('connect', () => finish(false));
+    socket.once('error', (error: NodeJS.ErrnoException) => finish(error.code === 'ECONNREFUSED'));
+  });
+}
+
+/**
+ * 正在跑的 Runtime 的发现信息；没有发现文件、进程已经不在、是上一次开机留下的，或端点拒绝连接时 null。判断与桌面端的
+ * `isDiscoveryLive` 相同：Runtime 没收尾就被结束、PID 又被别的进程用上时，只看进程会把一个死掉的端点当成在跑。
+ */
+export async function findRuntime(home: string): Promise<RuntimeDiscovery | null> {
   const discovery = readDiscovery(home);
-  return discovery && isRecordedProcessAlive(discovery.pid, discovery.startedAt) ? discovery : null;
+  if (!discovery || !isRecordedProcessAlive(discovery.pid, discovery.startedAt)) return null;
+  return (await isEndpointRefused(discovery.endpoint)) ? null : discovery;
 }
 
 /** 怎么启动 Runtime。 */
@@ -233,7 +264,7 @@ export async function launchRuntime(
     for (;;) {
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
       if (child.error) throw new CliError('RUNTIME_START_FAILED', M.runtimeStartFailed(child.error.message, log), { log });
-      const discovery = findRuntime(home);
+      const discovery = await findRuntime(home);
       if (discovery && (discovery.pid === child.pid || child.exitCode === 3)) return { discovery, started: discovery.pid === child.pid };
       if (child.exitCode !== undefined && child.exitCode !== 3) {
         throw new CliError('RUNTIME_START_FAILED', M.runtimeStartFailed(M.exitedWith(child.exitCode), log), { log, tail: tail(log) });
@@ -293,7 +324,7 @@ export interface EnsureOptions {
 
 /** 找到或拉起 Runtime。 */
 export async function ensureRuntime(home: string, options: EnsureOptions): Promise<{ discovery: RuntimeDiscovery; started: boolean }> {
-  const running = findRuntime(home);
+  const running = await findRuntime(home);
   if (running) return { discovery: running, started: false };
   if (!options.start) throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeNotRunning(home), { home, next: 'baocut runtime ensure' });
   const spec = resolveRuntimeLaunch(options.env);

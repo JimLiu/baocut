@@ -11,7 +11,7 @@ import { findRuntime, openClient, type Session } from './runtime/connection.ts';
 /** `baocut version`：CLI、Runtime（在跑时）与接口版本。 */
 export async function version(output: Output, home: string): Promise<ExitCode> {
   const cli = { version: RUNTIME_VERSION, interfaceVersion: MCP_INTERFACE_VERSION };
-  const discovery = findRuntime(home);
+  const discovery = await findRuntime(home);
   if (!discovery) return output.raw({ cli, runtime: null });
   try {
     const { client, info } = await openClient(discovery);

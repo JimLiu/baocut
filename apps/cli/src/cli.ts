@@ -116,7 +116,7 @@ export async function runCli(argv: readonly string[], admin: AdminBucket, io: Cl
     // 没有正在跑的 Runtime 时先按快照看命令：拼错的命令（含已知名词后不认识的动词）不必为此拉起 Runtime，只给名词时
     // 列出这个组也不必。有在跑的就问它（快照旧了时以它为准），不拉起。
     const snapshot = first === 'status' ? null : loadSnapshot();
-    if (snapshot && !findRuntime(home)) {
+    if (snapshot && !(await findRuntime(home))) {
       const known = lookup(buildTree(snapshot.tools), rest);
       if (known.kind === 'none' || (known.kind === 'group' && known.verb !== null)) {
         throw new CliError('UNKNOWN_COMMAND', M.unknownCommand(rest.slice(0, 2).join(' ')));
@@ -126,7 +126,7 @@ export async function runCli(argv: readonly string[], admin: AdminBucket, io: Cl
     // `status` 只认 `--full`；不认识的在拉起 Runtime 之前拒绝。
     const statusFull = first === 'status' && statusArgs(tail);
     // `status --no-start`：只看状态，没在跑也是一个回答。
-    if (first === 'status' && globals.noStart && !findRuntime(home)) {
+    if (first === 'status' && globals.noStart && !(await findRuntime(home))) {
       return output.success({ runtime: { running: false, home } }, 'baocut runtime ensure');
     }
 
@@ -183,7 +183,7 @@ async function readCatalog(
   cwd: string,
   withOps: boolean,
 ): Promise<{ catalog: CatalogListResult; editOps: CatalogEditOperations | null }> {
-  const discovery = findRuntime(home);
+  const discovery = await findRuntime(home);
   if (discovery) {
     try {
       const { client } = await openClient(discovery);

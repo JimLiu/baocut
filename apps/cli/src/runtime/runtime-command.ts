@@ -30,7 +30,7 @@ export async function runtimeCommand(output: Output, home: string, args: readonl
     });
   }
 
-  const discovery = findRuntime(home);
+  const discovery = await findRuntime(home);
   if (!discovery) {
     return action === 'stop'
       ? output.success({ stopped: false, running: false, home })
