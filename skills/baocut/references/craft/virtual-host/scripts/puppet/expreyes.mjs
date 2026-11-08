@@ -1,11 +1,12 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文
 // The eyes an expression edit drew, for both builds (puppet-build.mjs and the part-map build): cut out of the
-// expression's patch into layers of their own (roles expr_eye_L and expr_eye_R, a BaoCut extension). The BaoCut player
-// squashes them in a blink like the neutral eyes, over that side's closed lid, so a character that smiles or frowns
-// still blinks; the patch was opaque over the eyes, and every expression of a talking host hid every blink. Under them
-// the patch and its talking copy are the bare face. The LivLiv package keeps the patch whole: LivLiv draws a role it
-// does not know as a plain layer, always on.
-import { blank, clone, dilate, minus, count, bbox, blur, components } from './ops.mjs';
+// expression's patch into layers of their own (roles expr_eye_L and expr_eye_R, a BaoCut extension), each with the mask
+// of its opening when one is found. The BaoCut player blinks them like the neutral eyes, over that side's closed lid:
+// the lash slides down and the closing opening cuts the iris (without a mask the eye squashes), so a character that
+// smiles or frowns still blinks; the patch was opaque over the eyes, and every expression of a talking host hid every
+// blink. Under them the patch and its talking copy are the bare face. The LivLiv package keeps the patch whole: LivLiv
+// draws a role it does not know as a plain layer, always on.
+import { blank, clone, dilate, minus, count, bbox, blur, components, open as openM } from './ops.mjs';
 import { setPx, rgb } from './layers.mjs';
 import { writePng } from './png.mjs';
 
@@ -110,6 +111,23 @@ const toneOf = (skin) => {
 };
 
 /**
+ * How thick the neutral eye's lash is, as the player measures it: per column, the rows of the eye layer `L` (alpha at
+ * least 128) right above the first row of its whites' mask `mask` (red at least 128), the median over the columns.
+ */
+export function neutralLash(L, mask, w, h) {
+  const runs = [];
+  for (let x = 0; x < w; x++) {
+    let t = -1;
+    for (let y = 0; y < h && t < 0; y++) if (mask.d[4 * (y * w + x)] >= 128) t = y;
+    let n = 0;
+    while (t - n - 1 >= 0 && L.d[4 * ((t - n - 1) * w + x) + 3] >= 128) n++;
+    if (t > 0 && n > 0) runs.push(n);
+  }
+  runs.sort((a, b) => a - b);
+  return runs.length ? runs[runs.length >> 1] : 0;
+}
+
+/**
  * The convex hull's side of points [x, y] sorted by x, as a function of x between the first and the last: side 1 the
  * least y (the top of a shape, in image rows), -1 the greatest
  */
@@ -145,18 +163,20 @@ function envelope(pts, side) {
  * lines while it narrows, then the wing; then the light the whites run into, and a gap of a few columns the eye goes on
  * over. Whites drawn as pink as the skin and cut off from the rest by the iris are not found: they stay in the patch,
  * close to the skin's colour. `eyes` per side (image left first): { drawn: the neutral eye layer's pixels, hit: whether
- * the edit changed that eye }. `patch`: the expression patch (its pixels with alpha); `changed`: the strokes the edit
- * changed. Returns { R: [mask or null per side], shut: the sides the edit drew shut (no whites, nothing to blink: they
- * stay in the patch), any: both masks together }.
+ * the edit changed that eye, lash: the neutral eye's lash thickness (neutralLash) }. `patch`: the expression patch (its
+ * pixels with alpha); `changed`: the strokes the edit changed. Returns { R: [mask or null per side], shut: the sides
+ * the edit drew shut (no whites, nothing to blink: they stay in the patch), any: both masks together, open: [the
+ * opening (openingOf) or null per side, null on both sides when either side's is not found] }.
  */
 export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }) {
-  const N = w * h, white = whiteOf(skin), R = [null, null], shut = [], any = new Uint8Array(N);
+  const N = w * h, white = whiteOf(skin), R = [null, null], shut = [], any = new Uint8Array(N), lash = [0, 0];
   const toneAt = ((t) => (p) => t(rgb(E, p)))(toneOf(skin));
   eyes.forEach((e, s) => {
     if (!e?.hit) return;
     const b = bbox(e.drawn, w, h);
     if (!b) return;
     const bw = b[2] - b[0] + 1, bh = b[3] - b[1] + 1, inPatch = (p) => patch.d[4 * p + 3] > 0;
+    lash[s] = e.lash ?? 0;
     const ok = (p) => inPatch(p) && (e.drawn[p] || changed[p]);
     const wn = whites(im, b, (p) => e.drawn[p], white, w, h);
     const we = whites(E, [b[0] - 0.15 * bw, b[1] - 0.6 * bh, b[2] + 0.15 * bw, b[3] + 0.4 * bh], ok, white, w, h);
@@ -328,14 +348,206 @@ export function expressionEyeRegions({ E, im, patch, eyes, changed, skin, w, h }
     for (let p = 0; p < N; p++) if (M[p] && !inPatch(p)) M[p] = 0; else if (M[p]) any[p] = 1;
     R[s] = M;
   });
-  return { R, shut, any };
+  // both eyes blink alike: where one side's opening is not found, neither is cut by its opening (both squash)
+  const found = R.map((M, s) => M && openingOf(M, toneAt, w, h, lash[s]));
+  const open = R.every((M, s) => !M || found[s]) ? found : [null, null];
+  return { R, shut, any, open };
+}
+
+/** the thinnest run of an eye's lines that is its lash, as a share of the eye's width (a crease is thinner) */
+const LASH_MIN_K = 0.035;
+/** a run of the lower lid's line is the line alone up to this many times its usual thickness; more, the iris with it */
+const LASH_ALONE_K = 1.6;
+/** the pieces of an eye's lines that count: at least this share of the largest (a fleck is less) */
+const PIECE_K = 0.05;
+/** a lash measured this many times as thick as the neutral eye's lash, at least and at most, is the lash alone */
+const LASH_LIKE = [0.6, 1.5];
+/** an opening is trusted only when the lash was followed over at least this share of the region's columns ... */
+const OPEN_FOUND_MIN = 0.6;
+/** ... and it is at least and at most these shares of the region */
+const OPEN_SHARE = [0.15, 0.85];
+
+const median = (v) => { const s = [...v].sort((a, b) => a - b); return s.length ? s[s.length >> 1] : NaN; };
+
+/** v with each value off the median of its 2k + 1 neighbours by more than `off` set to that median (nulls kept) */
+function despike(v, k, off) {
+  return v.map((x, i) => {
+    if (x == null) return x;
+    const n = [];
+    for (let j = Math.max(0, i - k); j <= Math.min(v.length - 1, i + k); j++) if (v[j] != null) n.push(v[j]);
+    const m = median(n);
+    return Math.abs(x - m) > off ? m : x;
+  });
+}
+
+/** per index of the curve v, how much taller than thick a line along it is (1 level, at most 3) */
+function slant(v) {
+  return v.map((x, i) => {
+    if (x == null) return 1;
+    let a = i, b = i;
+    while (a > i - 2 && a > 0 && v[a - 1] != null) a--;
+    while (b < i + 2 && b < v.length - 1 && v[b + 1] != null) b++;
+    return Math.min(3, Math.hypot(1, b > a ? (v[b] - v[a]) / (b - a) : 0));
+  });
+}
+
+/** per index, the values of `at` (null where none) carried in from the nearest on both sides, linearly between them */
+function across(at) {
+  const near = (i, d) => {
+    const got = [];
+    for (let j = i; j >= 0 && j < at.length && got.length < 3; j += d) if (at[j] != null) got.push([j, at[j]]);
+    return got.length ? [got[0][0], median(got.map((g) => g[1]))] : null;
+  };
+  return at.map((_, i) => {
+    const a = near(i, -1), b = near(i, 1);
+    if (a && b) return a[0] === b[0] ? a[1] : a[1] + ((i - a[0]) * (b[1] - a[1])) / (b[0] - a[0]);
+    return a ? a[1] : b ? b[1] : null;
+  });
+}
+
+/**
+ * The opening of an expression's eye in its region `M`: what lies between the lash and the lower lid's line (the
+ * whites, the iris, a highlight), which the player cuts the eye by in a blink, as the neutral eye by its whites' mask:
+ * the lash above it slides down, what is in it is not squashed. Found by the lines, not the whites: an edit's whites
+ * can be as pink as the skin. Per column, the lash is the first run of the eye's lines (`toneAt` LINE) as thick as a
+ * lash, followed from the eye's middle out where its slope points, so a crease or a brow's tip above it is not taken.
+ * Its thickness is measured where a gap and then a line lie under it (whites over the lower line) and it is about as
+ * thick as the neutral eye's lash `lashN` (the player's measure of it; with no column so, as this eye's usual run: an
+ * edit drew its lid's line bolder), and carried across the rest, so over the iris the opening starts that thick under
+ * the lash's top and the iris's top is in it. The opening ends over the lowest run of lines or shade, the lower lid's
+ * line, or the line's thickness short of that run's bottom where the iris runs on into it; with no line, at the skin. A
+ * corner where the lash runs on to the skin, or only skin and lines lie under it, has none. The largest piece is kept,
+ * slivers two pixels thin off. Null (the eye squashes, as before) when the lash was followed over too few columns or
+ * the opening is too small or too large a share of the region: a wrong opening would cut the iris where the lid is not.
+ */
+function openingOf(M, toneAt, w, h, lashN) {
+  const box = bbox(M, w, h);
+  if (!box) return null;
+  const [x0, y0, x1, y1] = box, N = w * h, bw = x1 - x0 + 1;
+  const D = new Uint8Array(N);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const p = y * w + x; if (M[p] && toneAt(p) === LINE) D[p] = 1; }
+  const { lab, comps } = components(D, w, h);
+  const big = Math.max(0, ...comps.map((c) => c.area));
+  const keep = new Set(comps.filter((c) => c.area >= PIECE_K * big).map((c) => c.id));
+  const minRun = Math.max(2, Math.round(LASH_MIN_K * bw));
+  // per column, the runs of the eye's lines from the top (over gaps of a pixel) as thick as a lash can be
+  const cols = [];
+  for (let x = x0; x <= x1; x++) {
+    let lo = -1, hi = -1;
+    for (let y = y0; y <= y1; y++) if (M[y * w + x]) { if (lo < 0) lo = y; hi = y; }
+    if (lo < 0) { cols.push(null); continue; }
+    const line = (y) => y >= lo && y <= hi && keep.has(lab[y * w + x]);
+    const runs = [];
+    for (let y = lo; y <= hi; y++) {
+      if (!line(y)) continue;
+      let e = y;
+      for (;;) { if (line(e + 1)) e++; else if (line(e + 2)) e += 2; else break; }
+      if (e - y + 1 >= minRun) runs.push([y, e]);
+      y = e;
+    }
+    cols.push({ x, lo, hi, runs });
+  }
+  // a usual thickness: a low share of the values, leaving out the thinnest (a crease, a corner's tip)
+  const usual = (v) => {
+    const m = median(v), u = v.filter((x) => x >= 0.35 * m).sort((p, q) => p - q);
+    return u.length ? u[Math.floor(0.3 * (u.length - 1))] : NaN;
+  };
+  const T1 = usual(cols.flatMap((c) => (c?.runs.length ? [c.runs[0][1] - c.runs[0][0] + 1] : [])));
+  if (!(T1 > 0)) return null;
+  // the lash from the eye's middle out, column by column: the run that starts nearest where the lash's slope so far
+  // points (it steepens toward the corners)
+  const mid = cols.slice(Math.floor(cols.length / 3), Math.ceil((2 * cols.length) / 3)).flatMap((c) => {
+    const r = c?.runs.find(([a, z]) => z - a + 1 >= 0.5 * T1);
+    return r ? [r[0]] : [];
+  });
+  if (!mid.length) return null;
+  const tol = Math.max(3, 0.5 * T1), from = Math.floor(cols.length / 2);
+  for (const [i0, d] of [[from, 1], [from - 1, -1]]) {
+    let prev = median(mid), slope = 0, miss = 0;
+    for (let i = i0; i >= 0 && i < cols.length; i += d) {
+      const c = cols[i];
+      if (!c) continue;
+      const want = prev + slope * (miss + 1);
+      let best = null;
+      for (const r of c.runs) if (Math.abs(r[0] - want) <= tol && (!best || Math.abs(r[0] - want) < Math.abs(best[0] - want))) best = r;
+      if (!best) { cols[i] = null; miss++; continue; }
+      [c.a, c.z] = best;
+      slope = Math.max(-tol, Math.min(tol, 0.5 * slope + 0.5 * ((c.a - prev) / (miss + 1))));
+      prev = c.a; miss = 0;
+    }
+  }
+  const tracked = cols.filter(Boolean).length;
+  // per column, the lowest run of lines or shade under the lash, a light rim of a row or two under it left out (the
+  // lower lid's line, the iris with it where they touch), and the last of the eye over the skin
+  const lineish = (c, y) => { const p = y * w + c.x, t = M[p] ? toneAt(p) : -1; return t === LINE || t === SHADE; };
+  for (const c of cols) {
+    if (!c) continue;
+    let y = c.hi;
+    while (y > c.z && !(M[y * w + c.x] && toneAt(y * w + c.x) !== SKIN)) y--;
+    c.end = y; c.c = -1; c.d = -1;
+    let j = 0;
+    while (j < 2 && y - j > c.z + 1 && !lineish(c, y - j)) j++;
+    if (y - j > c.z + 1 && lineish(c, y - j)) for (c.d = y - j, y = c.d; y > c.z + 1 && lineish(c, y); y--) c.c = y;
+  }
+  // a column whose lash runs on to the skin, or has only skin, shade and lines under it (none of the eye's own colours:
+  // whites, iris, a highlight), has no opening (a corner, where the lid lines meet), unless it lies between columns
+  // that have one (the iris dark down to the lower line)
+  const own = (c) => { for (let y = c.z + 1; y <= c.end; y++) if (M[y * w + c.x] && toneAt(y * w + c.x) === OTHER) return true; return false; };
+  const shut = cols.map((c) => !!c && (c.end <= c.z + 1 || !own(c))), openAt = (i) => !!cols[i] && !shut[i];
+  shut.forEach((s, i) => {
+    if (s && !(cols.slice(0, i).some((_, k) => openAt(k)) && cols.slice(i + 1).some((_, k) => openAt(i + 1 + k)))) cols[i] = null;
+  });
+  const sA = slant(despike(cols.map((c) => c && c.a), 2, 2));
+  const T0 = usual(cols.flatMap((c, i) => (c ? [(c.z - c.a + 1) / sA[i]] : [])));
+  if (!(T0 > 0)) return null;
+  // the lash's thickness along the eye (straight across, so it is even where the lash slants): measured where a gap and
+  // then a line lie under it and it is about as thick as the neutral eye's lash (none so: as this eye's usual run, an
+  // edit that drew its lid's line bolder), a running median of that carried across the rest; none measured, the
+  // neutral eye's (or this eye's usual run when that is unknown)
+  const win = Math.max(2, Math.round(0.06 * bw)), Tn = lashN > 0 ? lashN : T0;
+  const isLine = (c, y) => y <= c.hi && M[y * w + c.x] && toneAt(y * w + c.x) === LINE;
+  const clear = (c) => ![1, 2, 3].some((k) => isLine(c, c.z + k)) && Array.from({ length: Math.max(0, c.hi - c.z - 3) }, (_, k) => c.z + 4 + k).some((y) => isLine(c, y));
+  const lashLike = (ref) => cols.map((c, i) => {
+    const t = c && clear(c) ? (c.z - c.a + 1) / sA[i] : null;
+    return t != null && t >= LASH_LIKE[0] * ref && t <= LASH_LIKE[1] * ref ? t : null;
+  });
+  let tk = lashLike(Tn);
+  if (!tk.some((t) => t != null)) tk = lashLike(T0);
+  const Ts = across(tk.map((t, i) => (t == null ? null : median(tk.slice(Math.max(0, i - win), i + win + 1).filter((v) => v != null))))).map((t) => t ?? Tn);
+  // a column inside the eye where no lash was found takes its edges from its neighbours
+  const A = across(cols.map((c) => c && c.a));
+  const first = cols.findIndex(Boolean), last = cols.findLastIndex(Boolean);
+  const top = despike(cols.map((c, i) => (i < first || i > last ? null : tk[i] != null ? c.z + 1 : Math.round(A[i] + Ts[i] * sA[i]))), 2, 2);
+  // the lower line's usual thickness, from its thinnest runs (where it is apart from the iris)
+  const sD = slant(despike(cols.map((c) => (c && c.d >= 0 ? c.d : null)), 2, 2));
+  const lows = cols.flatMap((c, i) => (c && c.d >= 0 ? [(c.d - c.c + 1) / sD[i]] : [])).sort((p, q) => p - q);
+  const Tl = median(lows.filter((v) => v <= 2 * (lows[Math.floor(0.2 * (lows.length - 1))] ?? 0) + 1)) || 2;
+  const bot = across(despike(cols.map((c, i) => {
+    if (!c) return null;
+    if (c.d < 0) return c.end > c.z + 1 ? c.end : c.end - Math.max(1, Math.round(Tl));
+    return c.d - c.c + 1 <= LASH_ALONE_K * Tl * sD[i] ? c.c - 1 : Math.max(c.c - 1, c.d - Math.round(Tl * sD[i]));
+  }), 2, Math.max(2, Tl)));
+  const O = new Uint8Array(N);
+  for (let i = first; i <= last; i++) {
+    const x = x0 + i;
+    for (let y = Math.max(y0, top[i]); y <= Math.min(y1, Math.round(bot[i])); y++) if (M[y * w + x]) O[y * w + x] = 1;
+  }
+  // the largest piece, without slivers two pixels thin (a corner's skin, a lash's tip)
+  const { lab: ol, comps: oc } = components(openM(O, w, h, 2), w, h);
+  if (!oc.length) return null;
+  const keepId = oc.reduce((p, q) => (q.area > p.area ? q : p)).id;
+  for (let p = 0; p < N; p++) O[p] = O[p] && ol[p] === keepId ? 1 : 0;
+  const share = count(O) / count(M);
+  if (tracked < OPEN_FOUND_MIN * cols.length || share < OPEN_SHARE[0] || share > OPEN_SHARE[1]) return null;
+  return O;
 }
 
 /**
  * Cut the eyes in `regions` (from expressionEyeRegions) out of the patch `L` and its talking copy `T`, in place;
  * `keep`: pixels that stay in the patch (the brows it redrew), or null; `under` the bare face; `pivots` per side, the
  * neutral eyes' (the lid line). Returns `whole` (the patch and its talking copy as they were, for the LivLiv package),
- * `eyes` ([{ side, L, pivot }] for the sides cut) and `note` (for the check line).
+ * `eyes` ([{ side, L, pivot, mask? }] for the sides cut; `mask` the opening, full-canvas, its coverage in the red
+ * channel) and `note` (for the check line).
  *
  * An open eye over the cut patch is the patch as drawn, over whatever is under it: where the patch is opaque it fades
  * into the bare face over the region's soft edge and the eye layer is opaque; where the patch is see-through (an edit
@@ -362,11 +574,20 @@ export function cutExpressionEyes({ L, T, under, regions, pivots, keep, w, h }) 
         else setPx(P, p, rgb(P, p), Math.max(0, (aP - ax) / (1 - ax)));
       }
     }
-    out.push({ side: s ? 'R' : 'L', L: X, pivot: pivots[s] });
+    // the opening the player cuts it by in a blink, inside what it took
+    const O = regions.open?.[s];
+    let mask = null;
+    for (let p = 0; O && p < N; p++) {
+      if (!O[p] || !R[p] || !(X.d[4 * p + 3] > 0)) continue;
+      mask ??= blank(w, h);
+      mask.d.set([255, 255, 255, 255], 4 * p);
+    }
+    out.push({ side: s ? 'R' : 'L', L: X, pivot: pivots[s], ...(mask ? { mask } : {}) });
   });
-  const cut = out.map((o) => o.side).join(' ');
+  const cut = out.map((o) => o.side).join(' '), squash = out.filter((o) => !o.mask).map((o) => o.side).join(' ');
   const { shut } = regions;
-  const note = `${cut ? `; eyes ${cut} blink` : ''}${shut.length ? `; eyes ${shut.join(' ')} drawn shut, kept in the patch` : ''}`;
+  const how = squash ? ` (${squash} squashed: no opening found)` : ' (lid)';
+  const note = `${cut ? `; eyes ${cut} blink${how}` : ''}${shut.length ? `; eyes ${shut.join(' ')} drawn shut, kept in the patch` : ''}`;
   return { whole, eyes: out, note };
 }
 
@@ -381,6 +602,9 @@ export function writeEyeDebug(file, E, { any }, w, h, patch) {
   writePng(file, dm);
 }
 
-/** the layers for the cut eyes, after the expression's patch */
+/** the layers for the cut eyes, after the expression's patch; the opening as the mask both package writers read */
 export const expressionEyeLayers = (id, eyes) =>
-  eyes.map((e) => ({ id: `expr_${id}_eye_${e.side}`, L: e.L, def: { group: 'head', depth: 0, role: `expr_eye_${e.side}`, expression: id, pivot: e.pivot }, hidden: true }));
+  eyes.map((e) => ({
+    id: `expr_${id}_eye_${e.side}`, L: e.L, ...(e.mask ? { mask: e.mask, maskFull: e.mask } : {}),
+    def: { group: 'head', depth: 0, role: `expr_eye_${e.side}`, expression: id, pivot: e.pivot }, hidden: true,
+  }));

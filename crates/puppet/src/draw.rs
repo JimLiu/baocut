@@ -1,7 +1,8 @@
 //! 按 LivLiv `Puppet.render` 的顺序画一帧：说话时嘴画在最后一张表情上面，表情说话时换无嘴版，重画了眉毛的表情
 //! 让中性眉毛淡出，闭眼的睫毛只在眨眼最后一段出现，眼珠被眼白裁，表情画的眉毛紧跟在最后一层眉毛之后。表情自己的
-//! 眼睛（`expr_eye_L` `expr_eye_R`，BaoCut 的扩展）和中性的眼睛一样眨：底下先画这一边的闭眼层，再画压扁的眼睛；
-//! 表情淡入淡出时它们和补丁先合成一组，再按表情的不透明度叠上去。
+//! 眼睛（`expr_eye_L` `expr_eye_R`，BaoCut 的扩展）和中性的眼睛一样眨：底下先画这一边的闭眼层，再画眼睛（带遮罩的
+//! 睫毛下滑、眼珠被裁，见 [`Puppet::draw_own_eye`]；没有遮罩的压扁）；表情淡入淡出时它们和补丁先合成一组，再按表情
+//! 的不透明度叠上去。
 
 use crate::raster::{self, Coverage, Frame, Paint, View};
 use crate::rig::{Layer, Puppet};
@@ -104,7 +105,7 @@ impl Puppet {
             }
         };
         // 表情自己的眼睛：补丁在这里是光脸（补丁本来半透明的地方让出了一部分不透明度，睁眼时两者叠起来就是原来的
-        // 补丁），先画这一边的闭眼层（乘表情的不透明度），再画压扁的眼睛
+        // 补丁），先画这一边的闭眼层（乘表情的不透明度），再画眼睛（[`Puppet::draw_own_eye`]）
         let draw_expr_eye = |frame: &mut Frame, l: &Layer, side: &str, a: f64| {
             let open = if side == "L" { p.eye_l_open } else { p.eye_r_open };
             let lid = format!("lid_{side}");
@@ -115,7 +116,7 @@ impl Puppet {
                 }
             }
             if a > 0.01 && eye_alpha(open) > 0.0 {
-                draw(frame, l, &l.tex, a, None, None);
+                self.draw_own_eye(frame, view, l, open, a);
             }
         };
         // 淡入淡出中的表情：补丁和它的眼睛先在一张空白缓冲上不透明地画好，再整组按表情的不透明度叠上去（与整张
@@ -263,6 +264,64 @@ impl Puppet {
 }
 
 impl Puppet {
+    /// 表情自己的一只眼睛，不透明度 `alpha`。带遮罩、正在眨时和中性的眼睛一样：往下合的那一套顶点画出下滑的睫毛和
+    /// 合拢的眼白，合拢的遮罩里再换成不往下合的那一套（眼白、眼珠不压扁，随眼皮下移一点，由遮罩的边裁）。两次都画在
+    /// 一小块空白缓冲上，整块再按 `alpha` 叠上去，换的时候不会透出底下的脸。没有遮罩或睁开时照原样画这一层。
+    fn draw_own_eye(&self, frame: &mut Frame, view: View, l: &Layer, open: f64, alpha: f64) {
+        let m = &l.mesh;
+        let plain = |frame: &mut Frame| {
+            let paint = Paint {
+                tex: &l.tex,
+                alpha: alpha as f32,
+                mask: None,
+            };
+            raster::draw(frame, view, &l.out, &m.uv, &m.tri, &m.aa, &paint);
+        };
+        let (Some(open_v), Some(mask)) = (l.out_open.as_deref(), l.mask.as_deref()) else {
+            return plain(frame);
+        };
+        if open >= 1.0 {
+            return plain(frame);
+        }
+        let (mut x0, mut y0, mut x1, mut y1) = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+        for p in l.out.chunks_exact(2).chain(open_v.chunks_exact(2)) {
+            let (x, y) = (f64::from(p[0]) * view.s + view.ox, f64::from(p[1]) * view.s + view.oy);
+            (x0, x1, y0, y1) = (x0.min(x), x1.max(x), y0.min(y), y1.max(y));
+        }
+        if !x0.is_finite() || !y0.is_finite() || !x1.is_finite() || !y1.is_finite() {
+            return;
+        }
+        let bx0 = (x0.floor() as i64 - 2).max(0);
+        let by0 = (y0.floor() as i64 - 2).max(0);
+        let bx1 = (x1.ceil() as i64 + 2).min(frame.w as i64);
+        let by1 = (y1.ceil() as i64 + 2).min(frame.h as i64);
+        if bx1 <= bx0 || by1 <= by0 {
+            return;
+        }
+        let (w, h) = ((bx1 - bx0) as usize, (by1 - by0) as usize);
+        let sub_view = View {
+            s: view.s,
+            ox: view.ox - bx0 as f64,
+            oy: view.oy - by0 as f64,
+        };
+        let mut px = vec![0u8; w * h * 4];
+        let mut sub = Frame { w, h, px: &mut px };
+        let shut = Paint {
+            tex: &l.tex,
+            alpha: 1.0,
+            mask: None,
+        };
+        raster::draw(&mut sub, sub_view, &l.out, &m.uv, &m.tri, &m.aa, &shut);
+        let cov = raster::coverage(w, h, sub_view, &l.out, &m.uv, &m.tri, mask);
+        let opened = Paint {
+            tex: &l.tex,
+            alpha: 1.0,
+            mask: Some((&cov, 1.0)),
+        };
+        raster::draw_replace(&mut sub, sub_view, open_v, &m.uv, &m.tri, &m.aa, &opened);
+        raster::composite_at(frame, &px, bx0 as usize, by0 as usize, w, h, alpha as f32);
+    }
+
     /// 角色在 `w`×`h` 里按画布等比缩放、居中：缩放与左上角。
     fn fit(&self, w: u32, h: u32) -> (f64, f64, f64) {
         let [mw, mh] = self.model.canvas;

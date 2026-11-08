@@ -127,7 +127,7 @@ export function writePackages(outDir, pkgDir, model, rest, o = {}) {
   fs.cpSync(path.join(pkgDir, 'textures'), path.join(lvDir, 'textures'), { recursive: true });
   const ownEyes = (d) => (d.role ?? '').startsWith('expr_eye_');
   for (const d of model.layers) {
-    if (ownEyes(d)) fs.rmSync(path.join(lvDir, d.texture), { force: true });
+    if (ownEyes(d)) for (const f of [d.texture, d.mask].filter(Boolean)) fs.rmSync(path.join(lvDir, f), { force: true });
     const W = o.whole?.[d.id];
     if (!W) continue;
     const box = [d.x, d.y, d.w, d.h];

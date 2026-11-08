@@ -417,8 +417,9 @@ pub(crate) struct UpperLid {
 /// 眼白 `e`（贴图 `img`）的上眼皮：遮罩每一列 alpha ≥ 128 的第一行的上边是眼白的上沿，贴图在它上面连着不透明的
 /// 行数是那一列睫毛的厚度。合上时睫毛薄 [`LASH_THIN`]，眼角那几列（弧线陡的地方，一列里睫毛很高）再压到和中间
 /// 一样厚：整列平移时它们会在眼角立成一块。顶点所在的列没有眼白时（眼角外的睫毛尾巴）取最近的有眼白的列，整条
-/// 睫毛一起动；遮罩里没有眼白时没有。
-pub(crate) fn upper_lid(mask: &Texture, img: &Texture, e: &LayerDef, rest: &[f32]) -> Option<UpperLid> {
+/// 睫毛一起动；遮罩里没有眼白时没有。`skin_above` 是贴图在睫毛上面还带着皮肤（表情自己画的眼睛）：那一列只数睫毛
+/// 那几行，见 [`lash_rows`]。
+pub(crate) fn upper_lid(mask: &Texture, img: &Texture, e: &LayerDef, rest: &[f32], skin_above: bool) -> Option<UpperLid> {
     let (mw, mh) = (i64::from(mask.width()), i64::from(mask.height()));
     let (iw, ih) = (f64::from(img.width()), f64::from(img.height()));
     // 每一列：眼白的上沿与它上面睫毛的厚度（模型 y、模型像素）
@@ -428,7 +429,10 @@ pub(crate) fn upper_lid(mask: &Texture, img: &Texture, e: &LayerDef, rest: &[f32
             let t = e.y + v as f64 * e.h / mh as f64;
             let x = (((u as f64 + 0.5) / mw as f64) * iw).floor() as i64;
             let top = ((t - e.y) / e.h * ih).round() as i64;
-            let n = (1..=top).take_while(|&k| img.alpha(x, top - k) >= 128).count();
+            let mut n = (1..=top).take_while(|&k| img.alpha(x, top - k) >= 128).count();
+            if skin_above {
+                n = lash_rows(img, x, top, n);
+            }
             Some((t, n as f64 * e.h / ih))
         })
         .collect();
@@ -452,6 +456,27 @@ pub(crate) fn upper_lid(mask: &Texture, img: &Texture, e: &LayerDef, rest: &[f32
         thin,
         lash: (1.0 - LASH_THIN) * med / 2.0,
     })
+}
+
+/// 贴图第 `x` 列在第 `top` 行上面连着不透明的 `n` 行里睫毛占的行数：从 `top` 往上，先跳过最多两行浅的（眼白的
+/// 一道边），再数连着的深的行，到上面的皮肤为止。深浅按这 `n` 行里最深的与最上面一行的中间分；两者差不到 40
+/// （睫毛一直画到贴图的上沿，上面没有皮肤）时是整 `n` 行。
+fn lash_rows(img: &Texture, x: i64, top: i64, n: usize) -> usize {
+    let luma = |k: usize| {
+        let [r, g, b, a] = img.texel(x, top - k as i64);
+        (0.299 * f64::from(r) + 0.587 * f64::from(g) + 0.114 * f64::from(b)) * 255.0 / f64::from(a.max(1))
+    };
+    if n == 0 {
+        return 0;
+    }
+    let dark = (1..=n).map(luma).fold(f64::INFINITY, f64::min);
+    let sky = luma(n);
+    if sky - dark < 40.0 {
+        return n;
+    }
+    let mid = (dark + sky) / 2.0;
+    let rim = (1..=n.min(2)).take_while(|&k| luma(k) > mid).count();
+    rim + (rim + 1..=n).take_while(|&k| luma(k) <= mid).count()
 }
 
 /// 睫毛线能用的模型：正面的日漫半身与厚涂角色，不戴眼镜（LivLiv 的 `lidCurveFits`）。
@@ -788,5 +813,52 @@ pub(crate) fn build(ctx: &Ctx, l: &LayerDef, img: &Texture, frames: &[&Texture],
         lid: None,
         skin,
         alt_skin,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 表情自己画的眼睛，贴图在睫毛上面还带着皮肤：只数睫毛那几行，和只有睫毛的中性眼睛量出的一样厚；睫毛画到贴图
+    /// 上沿、上面没有皮肤时数整列。
+    #[test]
+    fn an_expression_eye_counts_its_lash_without_the_skin_above() {
+        // 20×24 的层：第 0–7 行皮肤（或透明）、8–11 行睫毛、12 行起眼白；遮罩从第 12 行起
+        let (w, h) = (20u32, 24u32);
+        let tex = |skin: bool| {
+            let px = (0..h)
+                .flat_map(|y| {
+                    let c = match y {
+                        0..8 if skin => [250, 220, 200, 255],
+                        0..8 => [0, 0, 0, 0],
+                        8..12 => [30, 20, 20, 255],
+                        _ => [255, 255, 255, 255],
+                    };
+                    std::iter::repeat_n(c, w as usize).flatten()
+                })
+                .collect();
+            Texture::from_rgba(w, h, px)
+        };
+        let mask = Texture::from_rgba(
+            w,
+            h,
+            (0..h)
+                .flat_map(|y| std::iter::repeat_n([255, 255, 255, if y >= 12 { 255 } else { 0 }], w as usize).flatten())
+                .collect(),
+        );
+        let def: LayerDef =
+            serde_json::from_value(serde_json::json!({ "id": "e", "texture": "t", "x": 0, "y": 0, "w": 20, "h": 24, "group": "head" }))
+                .unwrap();
+        let rest = [10.0f32, 5.0];
+        let lash = |skin: bool, own: bool| upper_lid(&mask, &tex(skin), &def, &rest, own).unwrap().lash;
+        assert!(
+            (lash(true, true) - lash(false, false)).abs() < 1e-9,
+            "{} vs {}",
+            lash(true, true),
+            lash(false, false)
+        );
+        assert!(lash(true, false) > 2.0 * lash(true, true));
+        assert!((lash(false, true) - lash(false, false)).abs() < 1e-9);
     }
 }

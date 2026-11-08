@@ -276,6 +276,8 @@ pub(crate) struct Layer {
     pub out: Vec<f32>,
     /// 表情画的眉毛（brow_tex）按刘海走时的顶点。
     pub out_b: Option<Vec<f32>>,
+    /// 带遮罩的表情眼睛（`expr_eye_L` `expr_eye_R`）不往下合的顶点：它的眼白与眼珠按这一套画，由往下合的遮罩裁。
+    pub out_open: Option<Vec<f32>>,
     pub tex: Arc<Texture>,
     pub frames: Vec<Arc<Texture>>,
     pub mask: Option<Arc<Texture>>,
@@ -497,6 +499,7 @@ impl Puppet {
             let n = m.rest.len();
             layers.push(Layer {
                 out_b: m.fol_b.as_ref().map(|_| vec![0f32; n]),
+                out_open: None,
                 out: m.rest.clone(),
                 mesh: m,
                 def: l.clone(),
@@ -533,12 +536,17 @@ impl Puppet {
                 nasal[side] = mesh::nasal_room(&l.tex, &l.def, mask, &p.def, sign);
             }
         }
-        // 有遮罩的眼白：每个顶点那一列眼白的上沿。眨眼时它以上的睫毛整条往下平移，眼珠不压扁、由合拢的眼白裁
+        // 有遮罩的眼白：每个顶点那一列眼白的上沿。眨眼时它以上的睫毛整条往下平移，眼珠不压扁、由合拢的眼白裁。表情
+        // 自己的眼睛带遮罩时也一样（遮罩是眼白连同眼珠那一块），眼白与眼珠另按不往下合的一套顶点画
         for l in layers.iter_mut() {
-            if !matches!(l.def.role(), "eye_L" | "eye_R") || l.def.pivot.is_none() {
+            if !matches!(l.def.role(), "eye_L" | "eye_R" | "expr_eye_L" | "expr_eye_R") || l.def.pivot.is_none() {
                 continue;
             }
-            l.mesh.lid = l.mask.as_deref().and_then(|mask| mesh::upper_lid(mask, &l.tex, &l.def, &l.mesh.rest));
+            let own = l.def.role().starts_with("expr_eye_");
+            l.mesh.lid = l.mask.as_deref().and_then(|mask| mesh::upper_lid(mask, &l.tex, &l.def, &l.mesh.rest, own));
+            if l.mesh.lid.is_some() && own {
+                l.out_open = Some(l.mesh.rest.clone());
+            }
         }
         // 闭眼层睫毛的弧线：能用的模型眼睛几层都压向它；别的模型只有往下合的眼白和被它裁的眼珠、高光用它（睫毛滑到
         // 的地方要对上闭眼层的睫毛，压向 pivot 那一行的平线时，两头会和弯的睫毛错开）
@@ -556,7 +564,9 @@ impl Puppet {
             for l in layers.iter_mut() {
                 let r = l.def.role();
                 let sliding = r == eye || r == format!("iris_{s}") || r == format!("shine_{s}");
-                if !(sliding && (fits || cut)) && !(fits && r == format!("expr_eye_{s}")) {
+                // 表情自己的眼睛看它自己有没有量出上沿
+                let own = r == format!("expr_eye_{s}") && (fits || l.mesh.lid.is_some());
+                if !(sliding && (fits || cut)) && !own {
                     continue;
                 }
                 let n = l.mesh.len();
@@ -1399,6 +1409,14 @@ impl Puppet {
             } else if lid_cut {
                 l.soft = lid_soft.min(1.0);
             }
+            // 表情自己的眼睛带遮罩：眼白与眼珠那一套顶点不往下合，只像眼珠一样随眼皮下移一点，由往下合的遮罩裁
+            let open_drop = if l.out_open.is_some() {
+                let py = m.piv_c.unwrap_or_else(|| d.pivot.map_or(0.0, |p| p[1]));
+                let mid = side.and_then(|s| iris_mid[s]).unwrap_or(d.y + d.h / 2.0);
+                IRIS_DROP * shut * (py - mid)
+            } else {
+                0.0
+            };
             let tw = if chained && role.starts_with("shine_") {
                 twinkle(time + if side == Some(1) { 1.3 } else { 0.0 })
             } else {
@@ -1410,24 +1428,8 @@ impl Puppet {
                 (rg, h[0] + neck_body[0], h[1] + neck_body[1])
             });
             let (rc, rs) = (roll.cos(), roll.sin());
-            let out = &mut l.out;
-            let mut out_b = l.out_b.as_mut();
-            for i in 0..n {
-                let (mut x, mut y) = (f64::from(r[2 * i]), f64::from(r[2 * i + 1]));
-                if tw != 1.0 {
-                    x = tcx + (x - tcx) * tw;
-                    y = tcy + (y - tcy) * tw;
-                }
-                if is_eye && let Some(pv) = d.pivot {
-                    let py = m.piv_y.as_ref().map_or(pv[1], |v| f64::from(v[i]));
-                    x += nx + nk * f64::from(r[2 * i]);
-                    y += iy;
-                    if let Some(lid) = &m.lid {
-                        y = lid_slide(y, f64::from(lid.top[i]), f64::from(lid.thin[i]), py + lid.lash, shut);
-                    } else if !lid_cut && (!lid_iris || y > py) {
-                        y = py + (y - py) * squash;
-                    }
-                }
+            // 形变前的一点放到画面上：这一点自己的位置，按刘海走的眉毛在这一点的位置
+            let place_at = |i: usize, x: f64, mut y: f64| -> ([f64; 2], [f64; 2]) {
                 if m.brow_side[i] >= 0 {
                     // 眉毛压在不透明的刘海下面时最多动 cap
                     let v = brow_lift[m.brow_side[i] as usize];
@@ -1500,16 +1502,46 @@ impl Puppet {
                     }
                     px += (q[0] - x0) * c;
                     py += (q[1] - y0) * c;
-                    if let Some(ob) = out_b.as_mut() {
-                        ob[2 * i] = (x0 + (q[0] - x0) * cb) as f32;
-                        ob[2 * i + 1] = (y0 + (q[1] - y0) * cb) as f32;
-                    }
-                } else if let Some(ob) = out_b.as_mut() {
-                    ob[2 * i] = px as f32;
-                    ob[2 * i + 1] = py as f32;
+                    return ([px, py], [x0 + (q[0] - x0) * cb, y0 + (q[1] - y0) * cb]);
                 }
-                out[2 * i] = px as f32;
-                out[2 * i + 1] = py as f32;
+                ([px, py], [px, py])
+            };
+            let out = &mut l.out;
+            let mut out_b = l.out_b.as_mut();
+            let open_set = l.out_open.is_some();
+            let mut out_open = l.out_open.as_mut();
+            for i in 0..n {
+                let (mut x, mut y) = (f64::from(r[2 * i]), f64::from(r[2 * i + 1]));
+                if tw != 1.0 {
+                    x = tcx + (x - tcx) * tw;
+                    y = tcy + (y - tcy) * tw;
+                }
+                let mut y_open = None;
+                if is_eye && let Some(pv) = d.pivot {
+                    let py = m.piv_y.as_ref().map_or(pv[1], |v| f64::from(v[i]));
+                    x += nx + nk * f64::from(r[2 * i]);
+                    y += iy;
+                    if let Some(lid) = &m.lid {
+                        if open_set {
+                            y_open = Some(y + open_drop);
+                        }
+                        y = lid_slide(y, f64::from(lid.top[i]), f64::from(lid.thin[i]), py + lid.lash, shut);
+                    } else if !lid_cut && (!lid_iris || y > py) {
+                        y = py + (y - py) * squash;
+                    }
+                }
+                let (pt, b) = place_at(i, x, y);
+                if let Some(ob) = out_b.as_mut() {
+                    ob[2 * i] = b[0] as f32;
+                    ob[2 * i + 1] = b[1] as f32;
+                }
+                out[2 * i] = pt[0] as f32;
+                out[2 * i + 1] = pt[1] as f32;
+                if let (Some(oo), Some(yo)) = (out_open.as_mut(), y_open) {
+                    let (pt, _) = place_at(i, x, yo);
+                    oo[2 * i] = pt[0] as f32;
+                    oo[2 * i + 1] = pt[1] as f32;
+                }
             }
         }
         self.layers = layers;

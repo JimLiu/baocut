@@ -31,7 +31,7 @@ import { browNear, redrawnBrows, browNoteOf, writeBrowDebug, sideOf } from './pu
 import { strandFill } from './puppet/fill.mjs';
 import { zip } from './puppet/zip.mjs';
 import { RIG, NECK_UP_MAX } from './puppet/pack.mjs';
-import { expressionEyeRegions, cutExpressionEyes, expressionEyeLayers, writeEyeDebug } from './puppet/expreyes.mjs';
+import { expressionEyeRegions, cutExpressionEyes, expressionEyeLayers, writeEyeDebug, neutralLash } from './puppet/expreyes.mjs';
 
 const args = process.argv.slice(2);
 const cfgArg = args.find((a) => !a.startsWith('--'));
@@ -409,6 +409,7 @@ const expressions = [];
   const eyeBox = G.eyes.map((e) => and(dilate(boxMask(w, h, ...e.box), w, h, 4), area));
   // what the open eye layers draw, lashes included
   const eyeDrawn = ['L', 'R'].map((s) => { const L = eyeLayers.find((e) => e.id === `eye_${s}`).L; return Uint8Array.from({ length: N }, (_, p) => (L.d[4 * p + 3] > 0 ? 1 : 0)); });
+  const eyeLash = ['L', 'R'].map((s) => { const e = eyeLayers.find((x) => x.id === `eye_${s}`); return neutralLash(e.L, e.maskFull, w, h); });
   const browZone = and(dilate(G.brows, w, h, 6), seen);
   const midX = (G.eyes[0].box[2] + G.eyes[1].box[0]) / 2;
   const near = browNear({ full: G.brows, boxes: G.browComps.map((c) => (c ? [c.x0, c.y0, c.x1, c.y1] : null)), eyes: G.eyes.map((e) => e.box), midX, eyeH, w, h });
@@ -524,7 +525,7 @@ const expressions = [];
     // face beneath them). Read from the edit as registered where the patch has no colours (the hair): a brow or hair
     // pixel needs no skin matching. Found nothing (a brow the colour of the hair): the brows stay in the patch
     // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
-    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s] })), changed: kept, skin, w, h });
+    const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, skin, w, h });
     if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h);
     let BT = null, browNote = '', browPx = null;
     if (browsRedrawn) {

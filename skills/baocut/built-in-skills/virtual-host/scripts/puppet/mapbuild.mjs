@@ -15,7 +15,7 @@ import { readLabels, part, faceZone, PARTS, NAMES } from './partmap.mjs';
 import { smoothFill, strandFill } from './fill.mjs';
 import { browNear, redrawnBrows, browNoteOf, writeBrowDebug, browAcross } from './brows.mjs';
 import { writeLayers, writePackages, NECK_UP_MAX } from './pack.mjs';
-import { expressionEyeRegions, cutExpressionEyes, expressionEyeLayers, writeEyeDebug } from './expreyes.mjs';
+import { expressionEyeRegions, cutExpressionEyes, expressionEyeLayers, writeEyeDebug, neutralLash } from './expreyes.mjs';
 
 // soft shading redrawn by an edit leaves more residual than flat colours (puppet-build.mjs uses 6)
 const RESIDUAL_MAX = 8;
@@ -523,6 +523,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
     const area = minus(minus(and(or(faceM, dilate(browFull, w, h, 10)), box(w, h, fb[0], browTop - 0.5 * eyeH, fb[2], chin - 3)), minus(dilate(minus(hairF, browHidden), w, h, 1), dilate(browFull, w, h, 3))), outline);
     const eyeBox = eyeParts.map((e) => and(dilate(box(w, h, ...e.box), w, h, 4), area));
     const eyeDrawn = ['L', 'R'].map((s) => { const Lr = layers.find((l) => l.id === `eye_${s}`).L; return Uint8Array.from({ length: N }, (_, p) => (Lr.d[4 * p + 3] > 0 ? 1 : 0)); });
+    const eyeLash = ['L', 'R'].map((s) => { const Lr = layers.find((l) => l.id === `eye_${s}`); return neutralLash(Lr.L, Lr.mask, w, h); });
     const browZone = and(dilate(browFull, w, h, 6), area);
     const near = browNear({ full: browFull, boxes: brows.map((b) => b && bbox(b, w, h)), eyes: eyeParts.map((e) => e.box), midX, eyeH, w, h });
     const bangsOver = or(M.front, browOnHair), bangsEdge = minus(dilate(bangsOver, w, h, 2), bangsOver);
@@ -579,7 +580,7 @@ export function buildFromMap(cfgPath, cfg, o = {}) {
       // brows the edit redrew go to the layer's brow texture, drawn over the bangs (the patch is under them, the bare
       // face beneath them). Found nothing (a brow the colour of the hair): the brows stay in the patch
       // the eyes it drew are placed first and the brows looked for outside them: a lash is never taken for a brow
-      const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s] })), changed: kept, skin, w, h });
+      const ER = expressionEyeRegions({ E, im, patch: L, eyes: eyeDrawn.map((drawn, s) => ({ drawn, hit: eyesHit[s], lash: eyeLash[s] })), changed: kept, skin, w, h });
       if (DEBUG) writeEyeDebug(path.join(DBG, `eyes-${id}.png`), E, ER, w, h, L);
       let BT = null, browNote = '', browPx = null;
       if (browsRedrawn) {

@@ -354,6 +354,18 @@ fn for_bands(frame: &mut Frame, f: impl Fn(usize, &mut [u8]) + Sync + Send) {
 /// `aa`：每个三角形的外边（[`boundary_edges`]）；空表示全按像素中心。
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn draw(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri: &[u32], aa: &[u8], paint: &Paint) {
+    blend(frame, view, verts, uv, tri, aa, paint, false);
+}
+
+/// 同 [`draw`]，但盖到的地方按覆盖换成这一层而不是叠上去：dst = src·k + dst·(1 − k)，k 是不透明度、边上的覆盖
+/// 与遮罩的乘积。表情自己的眼睛用它把合拢的遮罩里换成不往下合的眼白与眼珠。
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn draw_replace(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri: &[u32], aa: &[u8], paint: &Paint) {
+    blend(frame, view, verts, uv, tri, aa, paint, true);
+}
+
+#[allow(clippy::too_many_arguments)]
+fn blend(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri: &[u32], aa: &[u8], paint: &Paint, replace: bool) {
     if paint.alpha <= 0.0 || frame.w == 0 || frame.h == 0 {
         return;
     }
@@ -382,10 +394,10 @@ pub(crate) fn draw(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri
                 for ch in &mut c {
                     *ch *= k;
                 }
-                if c[3] <= 0.0 && c[0] <= 0.0 && c[1] <= 0.0 && c[2] <= 0.0 {
+                if !replace && c[3] <= 0.0 && c[0] <= 0.0 && c[1] <= 0.0 && c[2] <= 0.0 {
                     return;
                 }
-                let inv = 1.0 - c[3] / 255.0;
+                let inv = if replace { 1.0 - k } else { 1.0 - c[3] / 255.0 };
                 let o = 4 * ((y - y0) as usize * w + x as usize);
                 let d = &mut chunk[o..o + 4];
                 for i in 0..4 {
@@ -399,18 +411,8 @@ pub(crate) fn draw(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri
 /// 把另画好的一组（同样大小的预乘 RGBA8）按不透明度 `alpha` 叠到画布上：一组几层合起来淡入淡出，叠在一起的
 /// 部分不会各自透出下面。
 pub(crate) fn composite(frame: &mut Frame, src: &[u8], alpha: f32) {
-    if alpha <= 0.0 {
-        return;
-    }
-    for (d, s) in frame.px.chunks_exact_mut(4).zip(src.chunks_exact(4)) {
-        if s[3] == 0 && s[0] == 0 && s[1] == 0 && s[2] == 0 {
-            continue;
-        }
-        let inv = 1.0 - f32::from(s[3]) * alpha / 255.0;
-        for i in 0..4 {
-            d[i] = (f32::from(s[i]) * alpha + f32::from(d[i]) * inv).round().clamp(0.0, 255.0) as u8;
-        }
-    }
+    let (w, h) = (frame.w, frame.h);
+    composite_at(frame, src, 0, 0, w, h, alpha);
 }
 
 /// 眼白这一帧的覆盖：画它的遮罩贴图，覆盖到的像素直接写 alpha（不混合，与 GL 的遮罩通道相同）。
@@ -462,6 +464,28 @@ pub(crate) fn coverage(w: usize, h: usize, view: View, verts: &[f32], uv: &[f32]
         });
     }
     cov
+}
+
+/// 同 [`composite`]，但叠的是另画好的一小块（`w`×`h` 的预乘 RGBA8，左上角在画布的 (`x0`, `y0`)）；伸出画布的部分
+/// 不画。
+pub(crate) fn composite_at(frame: &mut Frame, src: &[u8], x0: usize, y0: usize, w: usize, h: usize, alpha: f32) {
+    if alpha <= 0.0 || x0 >= frame.w || y0 >= frame.h {
+        return;
+    }
+    let cw = w.min(frame.w - x0);
+    for y in 0..h.min(frame.h - y0) {
+        let row = &src[4 * y * w..4 * (y * w + cw)];
+        let o = 4 * ((y0 + y) * frame.w + x0);
+        for (d, s) in frame.px[o..o + 4 * cw].chunks_exact_mut(4).zip(row.chunks_exact(4)) {
+            if s[3] == 0 && s[0] == 0 && s[1] == 0 && s[2] == 0 {
+                continue;
+            }
+            let inv = 1.0 - f32::from(s[3]) * alpha / 255.0;
+            for i in 0..4 {
+                d[i] = (f32::from(s[i]) * alpha + f32::from(d[i]) * inv).round().clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -559,5 +583,43 @@ mod tests {
         assert_eq!((a(1, 3), a(2, 3), a(3, 3), a(6, 3), a(7, 3)), (0, 128, 255, 255, 0));
         assert_eq!((a(4, 0), a(4, 1), a(4, 6), a(4, 7)), (0, 255, 255, 0));
         assert!(px.chunks_exact(4).all(|p| p[3] == 0 || p[3] == 64 || p[3] == 128 || p[3] == 255));
+    }
+
+    /// 换上去的一层在遮罩里盖掉底下的颜色（不叠），遮罩外不动，透明的贴图也照样换；小块按位置与不透明度叠回画布。
+    #[test]
+    fn replace_swaps_inside_the_mask() {
+        let verts = [0f32, 0.0, 4.0, 0.0, 0.0, 4.0, 4.0, 4.0];
+        let uv = [0f32, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+        let tri = [0u32, 1, 2, 1, 3, 2];
+        let view = View { s: 1.0, ox: 0.0, oy: 0.0 };
+        // 遮罩只盖左半边
+        let mut m = vec![0u8; 4 * 4 * 4];
+        for (i, p) in m.chunks_exact_mut(4).enumerate() {
+            if i % 4 < 2 {
+                p.copy_from_slice(&[255, 255, 255, 255]);
+            }
+        }
+        let mask = Texture::from_rgba(4, 4, m);
+        let cov = coverage(4, 4, view, &verts, &uv, &tri, &mask);
+        let mut px = vec![0u8; 4 * 4 * 4];
+        for p in px.chunks_exact_mut(4) {
+            p.copy_from_slice(&[0, 0, 200, 200]);
+        }
+        let mut f = Frame { w: 4, h: 4, px: &mut px };
+        let clear = solid(2, 2, [0, 0, 0, 0]);
+        let paint = Paint {
+            tex: &clear,
+            alpha: 1.0,
+            mask: Some((&cov, 1.0)),
+        };
+        draw_replace(&mut f, view, &verts, &uv, &tri, &[], &paint);
+        assert_eq!(&px[0..4], &[0, 0, 0, 0]);
+        assert_eq!(&px[12..16], &[0, 0, 200, 200]);
+        // 伸出画布的部分不画
+        let mut big = vec![0u8; 6 * 3 * 4];
+        let mut f = Frame { w: 6, h: 3, px: &mut big };
+        composite_at(&mut f, &[0, 0, 200, 200].repeat(16), 4, 1, 4, 4, 0.5);
+        let a = |x: usize, y: usize| big[4 * (y * 6 + x) + 3];
+        assert_eq!((a(3, 1), a(4, 0), a(4, 1), a(5, 2)), (0, 0, 100, 100));
     }
 }

@@ -495,8 +495,8 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(status).toBe(0);
     const note = (id: string) => report.checks.find((c) => c.item === `expression ${id}`)!.note;
     expect(note('smile')).toMatch(/px patch: mouth$/);
-    expect(note('angry')).toMatch(/px patch: eyes, brows, blush, mouth; brows L \d+ \/ R \d+ px, 0 of them on the bangs; eyes L R blink$/);
-    type Layer = { id: string; x: number; y: number; w: number; h: number; texture: string; talk?: string; brows?: string; role?: string; expression?: string; pivot?: number[] };
+    expect(note('angry')).toMatch(/px patch: eyes, brows, blush, mouth; brows L \d+ \/ R \d+ px, 0 of them on the bangs; eyes L R blink \(lid\)$/);
+    type Layer = { id: string; x: number; y: number; w: number; h: number; texture: string; mask?: string; talk?: string; brows?: string; role?: string; expression?: string; pivot?: number[] };
     const pkg = path.join(path.dirname(cfg), 'puppet/package');
     const layers = (JSON.parse(fs.readFileSync(path.join(pkg, 'model.json'), 'utf8')) as { layers: Layer[] }).layers;
     const smile = layers.find((l) => l.id === 'expr_smile')!, angry = layers.find((l) => l.id === 'expr_angry')!;
@@ -510,7 +510,7 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
     expect(angry.x + angry.w).toBeGreaterThanOrEqual(328);
     expect(angry.y).toBeLessThanOrEqual(198);
     expect(angry.y + angry.h).toBeGreaterThanOrEqual(282);
-    // the eyes it drew are layers of their own after the patch, squashed onto the neutral eye's lid line in a blink;
+    // the eyes it drew are layers of their own after the patch, closed onto the neutral eye's lid line in a blink;
     // under them the patch and its talking copy are bare skin (the irises are line-coloured, centred at row 239)
     const ids = layers.map((l) => l.id);
     const lum = (l: Layer, file: string, x: number, y: number) => {
@@ -524,6 +524,12 @@ describe('virtual-host puppet package', { timeout: 60_000 }, () => {
       expect(lum(e, e.texture, cx, 239)).toBeLessThan(60);
       expect(lum(angry, angry.texture, cx, 239)).toBeGreaterThan(180);
       expect(lum(angry, angry.talk!, cx, 239)).toBeGreaterThan(180);
+      // the mask of its opening, which the blink cuts the eye by while its lash slides down: the whites and the iris
+      // under the lowered lid's line (rows 233-234 of the eye), not the line
+      expect(e.mask).toBe(`textures/${e.id}_mask.png`);
+      const m = readPng(path.join(pkg, e.mask!)), cover = (x: number, y: number) => m.d[4 * ((y - e.y) * m.w + (x - e.x)) + 3];
+      expect([cover(cx, 233), cover(cx, 234)]).toEqual([0, 0]);
+      expect([cover(cx, 236), cover(cx, 244), cover(cx - 15, 240), cover(cx + 15, 240)]).toEqual([255, 255, 255, 255]);
     }
     expect(ids.some((i) => i.startsWith('expr_smile_eye'))).toBe(false);
   });
@@ -954,6 +960,37 @@ describe('virtual-host expression eye regions', () => {
     expect([...patch.d.slice(4 * (cy * W + cx), 4 * (cy * W + cx) + 3)]).toEqual([255, 236, 214]);
     expect([...patch.d.slice(4 * (5 * W + cx + 30), 4 * (5 * W + cx + 30) + 3)]).toEqual(skin);
     expect(patch.d[4 * (cy * W + cx - 25) + 3]).toBe(0);
+  });
+
+  it('finds the opening a blink cuts the eye by: under the lash, the top of the iris in it, over the lower line', () => {
+    const N = draw(cy + 1), E = draw(cy - 3, { catchlight: true });
+    const changed = new Uint8Array(W * H).map((_, p) => [0, 1, 2].some((k) => N.im.d[4 * p + k] !== E.im.d[4 * p + k]) ? 1 : 0);
+    const patch = { w: W, h: H, d: new Uint8ClampedArray(W * H * 4).fill(255) };
+    const eyes = [{ drawn: N.drawn, hit: true, lash: 8 }, null];
+    const { open } = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes, changed, skin, w: W, h: H });
+    const at = (x: number, y: number) => open[0]![y * W + x];
+    // from the row under the lash (to t + 2), so the lash slides down, to the row over the lower line (the eye's last 2
+    // rows). Over the whites it starts right there; over the iris, which runs on from the lash as dark as it, within 2
+    // rows of it (the lash's thickness is carried over from beside the iris, where the catchlight under the lash adds
+    // the iris's top row to it)
+    for (const [x, off] of [[cx - 16, 0], [cx, 2], [cx + 3, 2], [cx + 16, 0]]) {
+      const t = top(x + 0.5)!, under = Math.floor(t + 1.5) + 1;
+      let first = 0, last = H - 1;
+      while (!at(x, first)) first++;
+      while (!inEye(x + 0.5, last + 0.5 + 2)) last--;
+      expect(first).toBeGreaterThanOrEqual(under);
+      expect(first).toBeLessThanOrEqual(under + off);
+      for (let y = first; y <= last; y++) expect(at(x, y)).toBe(1);
+      expect(at(x, last + 1)).toBe(0);
+    }
+    // the wing past the outer corner is not in it
+    expect(at(cx - rx - 5, cy - 5)).toBe(0);
+    // where the other side's opening is not found (an eye of plain skin, no lines), neither is cut by its opening:
+    // both eyes blink alike, squashed
+    const plain = N.drawn.map((_, p) => (p % W < 20 && p >= 63 * W ? 1 : 0));
+    const both = expressionEyeRegions({ E: E.im, im: N.im, patch, eyes: [eyes[0], { drawn: plain, hit: true, lash: 8 }], changed, skin, w: W, h: H });
+    expect(both.R[1]).not.toBeNull();
+    expect(both.open).toEqual([null, null]);
   });
 });
 
