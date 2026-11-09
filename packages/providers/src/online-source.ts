@@ -118,6 +118,8 @@ export interface VoiceCloner {
   available(): boolean;
   /** 克隆要附上授权声明录音（适配器的 `requiresConsentClip`）。 */
   requiresConsentClip: boolean;
+  /** 供应商收的参考录音时长（秒，适配器的 `sourceSeconds`）；没有公开范围时不给。 */
+  sourceSeconds?: { min: number; max: number };
   create(input: {
     name: string;
     file: string;
@@ -391,6 +393,7 @@ export class OnlineProviderSource implements ProviderSource {
       version: adapter.version,
       available: () => this.#availability(providerId).available,
       requiresConsentClip: adapter.requiresConsentClip === true,
+      ...sourceSecondsOf(adapter),
       create: async (input) => adapter.createVoiceClone({ ...input, config: await config(), http }),
       remove: async (voiceId, signal) => adapter.deleteVoiceClone({ voiceId, signal, config: await config(), http }),
     };
@@ -615,7 +618,9 @@ export class OnlineProviderSource implements ProviderSource {
     if (adapters.transcribe && declares('transcribe')) capabilities.transcribe = offer('transcribe', adapters.transcribe.models(config));
     if (adapters.speech && declares('synthesizeSpeech')) {
       capabilities.synthesizeSpeech = offer('synthesizeSpeech', adapters.speech.models(config));
-      if (adapters.clone) capabilities.synthesizeSpeech.voiceClone = { requiresConsentClip: adapters.clone.requiresConsentClip === true };
+      if (adapters.clone) {
+        capabilities.synthesizeSpeech.voiceClone = { requiresConsentClip: adapters.clone.requiresConsentClip === true, ...sourceSecondsOf(adapters.clone) };
+      }
     }
     if (adapters.image && declares('generateImage')) capabilities.generateImage = offer('generateImage', adapters.image.models(config));
     if (adapters.text && declares('generateText')) capabilities.generateText = offer('generateText', adapters.text.models(config));
@@ -849,6 +854,12 @@ function annotate(models: ModelInfoBase[], discovered: DiscoveredList): void {
       speech.voices = discovered.voices.map((v) => ({ ...v }));
     }
   }
+}
+
+/** 适配器公开的参考录音时长范围（复制一份，不把适配器的对象交出去）；没有时空对象。 */
+function sourceSecondsOf(adapter: VoiceCloneAdapter): { sourceSeconds?: { min: number; max: number } } {
+  const range = adapter.sourceSeconds;
+  return range ? { sourceSeconds: { min: range.min, max: range.max } } : {};
 }
 
 function isBuiltin(providerId: string): providerId is BuiltinId {

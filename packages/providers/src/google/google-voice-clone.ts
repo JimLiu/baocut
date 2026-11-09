@@ -10,21 +10,29 @@
 // 没能确认、列在架构设计 §14 待评审的：`store` 的默认值（参考说 false、指南说默认存），所以总是明确给 true；`language_code`
 // 在参考里是可选的描述字段，是否用来认授权声明的语言（我们给授权声明录音的语言，自定义的一句不给）；`Api-Revision`
 // 请求头（指南的 curl 没带，与别的 Gemini 请求一样带上）；音色已经不存在时删除的状态码（按 404 当作「远端已经没有」）；
-// 请求体的大小上限（参考录音只受库的上限约束，base64 之后再加授权声明录音，可能超过）。
+// 请求体的大小上限（参考录音只受库的上限约束，base64 之后再加授权声明录音，可能超过）；被拒时的原话（按关键词归类，
+// 见 `google-voice-clone-errors.ts`）。
+// 参考录音比 30 秒长的 WAV（界面录的样本至多 180 秒）只传开头不超过 30 秒、切在静音处的一段（`trimWavHead`）；别的格式原样上传，
+// 太长时由 Gemini 拒绝（`source-duration`）。
 import fs from 'node:fs/promises';
 import { ProviderFailure } from '@baocut/models';
 import { voiceCloneTimeoutMs, type VoiceCloneAdapter, type VoiceCloneDeleteRequest, type VoiceCloneRequest } from '../adapter.ts';
+import { trimWavHead } from '../audio/wav-trim.ts';
 import { providerFetch } from '../http/provider-fetch.ts';
 import { classifyGoogle, GOOGLE_API_REVISION, googleAuthOf, googleHttpOptions } from './google-adapter.ts';
+import { classifyGoogleVoiceClone } from './google-voice-clone-errors.ts';
 import { ProvidersHttp as PH } from '@baocut/protocol/messages/providers';
 import { RuntimeStorageLibrary as SL } from '@baocut/protocol/messages/runtime-storage';
 import { VOICE_CONSENT_CUSTOM } from '@baocut/protocol';
 
 const LABEL = 'Google Gemini';
+/** 文档写的参考录音时长：10–30 秒。 */
+export const GEMINI_CLONE_SOURCE_SECONDS = { min: 10, max: 30 } as const;
 
 export class GoogleVoiceCloneAdapter implements VoiceCloneAdapter {
   readonly version = 'baocut-providers/google-voice-replication@1';
   readonly requiresConsentClip = true;
+  readonly sourceSeconds = GEMINI_CLONE_SOURCE_SECONDS;
 
   async createVoiceClone(request: VoiceCloneRequest): Promise<{ voiceId: string }> {
     const { config, consentClip } = request;
@@ -34,7 +42,8 @@ export class GoogleVoiceCloneAdapter implements VoiceCloneAdapter {
         code: 'VOICE_CONSENT_CLIP_REQUIRED',
       });
     }
-    const [source, consent] = await Promise.all([fs.readFile(request.file), fs.readFile(consentClip.file)]);
+    const [reference, consent] = await Promise.all([fs.readFile(request.file), fs.readFile(consentClip.file)]);
+    const source = trimWavHead(reference, this.sourceSeconds.max).bytes;
     const body = JSON.stringify({
       store: true,
       voice: {
@@ -59,7 +68,7 @@ export class GoogleVoiceCloneAdapter implements VoiceCloneAdapter {
         body: () => body,
         timeoutMs: voiceCloneTimeoutMs(request.http),
         signal: request.signal,
-        classify: classifyGoogle,
+        classify: classifyGoogleVoiceClone,
       },
     );
     let parsed: { id?: unknown } | null = null;

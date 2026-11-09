@@ -10,11 +10,12 @@ import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
 
 /**
- * 音色克隆（架构设计 §5.9）：`library.createVoiceClone` / `library.removeVoiceClone` 经真实的 Runtime，ElevenLabs 指向本机回环
- * 地址上的假供应商。密钥是测试里编的字符串。参考录音的解码校验要 ffprobe（没有时跳过）。
+ * 音色克隆（架构设计 §5.9）：`library.createVoiceClone` / `library.removeVoiceClone` 经真实的 Runtime，ElevenLabs 与 Google 指向
+ * 本机回环地址上的假供应商。密钥是测试里编的字符串。参考录音的解码校验要 ffprobe（没有时跳过）。
  */
 
 const KEY = 'xi-test-ONLY-FOR-TESTS-voice-clone-0123456789';
+const GOOGLE_KEY = 'AIzaTESTONLY-voice-clone-0123456789abcdef';
 
 const ffprobe = (() => {
   try {
@@ -66,7 +67,7 @@ describe.skipIf(!ffprobe)('音色克隆', () => {
       modelWorker: null,
       initiator: { discoverer: null },
       nodes: { host: '127.0.0.1', advertiser: null },
-      online: { baseUrls: { elevenlabs: `${fake.origin}/v1` }, http: { backoffMs: () => 5 } },
+      online: { baseUrls: { elevenlabs: `${fake.origin}/v1`, google: `${fake.origin}/v1beta` }, http: { backoffMs: () => 5 } },
     });
     const { endpoint, token } = runtime.discovery;
     client = new BaoCutClient({
@@ -265,6 +266,52 @@ describe.skipIf(!ffprobe)('音色克隆', () => {
     expect(after.clones ?? {}).toEqual({});
     const usage = await client.request('grants.usage', { grantId });
     expect(usage.grant.usage.reservedCalls).toBe(0);
+  });
+
+  it('Gemini 拒绝克隆：任务失败，原因与 HTTP 状态进 error.details，界面据此说明', async () => {
+    await client.request('models.configure', { providerId: 'google', enabled: true, credential: GOOGLE_KEY });
+    await client.request('grants.create', { recipient: 'google', dataKinds: ['audio'], purpose: '克隆音色', budgetMode: 'per-call-unknown-cost' });
+    const consent = path.join(dir, 'consent.wav');
+    await fs.writeFile(consent, wavFixture(1));
+    const { entry } = await client.request('library.put', {
+      library: 'voices',
+      content: {
+        name: 'My voice',
+        language: 'en-US',
+        transcript: 'hello',
+        origin: 'recorded',
+        consent: { declared: true, statement: 'This is my own voice' },
+        consentClip: { language: 'en-US' },
+      },
+      source: { path: reference },
+      consentSource: { path: consent },
+    });
+    fake.handler = (request) =>
+      request.method === 'POST' && request.path === '/v1beta/voices'
+        ? {
+            status: 400,
+            json: {
+              error: {
+                code: 400,
+                message: 'Speaker verification failed: the voice in the consent audio does not match the source audio.',
+                status: 'INVALID_ARGUMENT',
+              },
+            },
+          }
+        : { status: 404, json: { error: { code: 404, message: 'not found', status: 'NOT_FOUND' } } };
+    const { jobId } = await client.request('library.createVoiceClone', { id: entry.id, providerId: 'google', commandId: newId('cmd') });
+    const job = await settled(jobId);
+    expect(job.state).toBe('failed');
+    expect(job.error).toMatchObject({
+      code: 'PROVIDER_REJECTED',
+      details: { providerId: 'google', status: 400, reason: 'speaker-mismatch' },
+    });
+    expect(job.error!.message).toContain('Speaker verification failed');
+    expect(fake.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /v1beta/voices']);
+    expect(fake.requests[0]!.headers['x-goog-api-key']).toBe(GOOGLE_KEY);
+    expect(JSON.stringify(job)).not.toContain(GOOGLE_KEY);
+    const { entry: after } = await client.request('library.get', { library: 'voices', id: entry.id });
+    expect(after.clones ?? {}).toEqual({});
   });
 
   it('localOnly：不请求远端，只清记录', async () => {

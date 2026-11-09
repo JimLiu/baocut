@@ -38,6 +38,7 @@ export {
   type FfmpegTool,
 } from './audio/audio-prep.ts';
 export { chunkLimitSec, parseSilences, planChunks, type PlannedChunk, type Silence } from './audio/chunk-plan.ts';
+export { trimWavHead, type WavTrim } from './audio/wav-trim.ts';
 export {
   ProviderAborted,
   providerFetch,
@@ -69,7 +70,8 @@ export {
 } from './openai-compatible/compatible-media.ts';
 export { ElevenLabsAdapter, ELEVENLABS_DEFAULT_BASE_URL } from './elevenlabs/elevenlabs-adapter.ts';
 export { ElevenLabsVoiceCloneAdapter } from './elevenlabs/elevenlabs-voice-clone.ts';
-export { GoogleVoiceCloneAdapter } from './google/google-voice-clone.ts';
+export { GoogleVoiceCloneAdapter, GEMINI_CLONE_SOURCE_SECONDS } from './google/google-voice-clone.ts';
+export { classifyGoogleVoiceClone, type VoiceCloneRejectionReason } from './google/google-voice-clone-errors.ts';
 export { GoogleImageAdapter, parseImageInteraction } from './google/google-image.ts';
 export { GoogleSpeechAdapter, parseSpeechInteraction } from './google/google-speech.ts';
 export {

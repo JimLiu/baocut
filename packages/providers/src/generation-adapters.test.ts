@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ModelServiceStore, ProviderFailure, freezeImageInput, type GenerationRun, type ImageParameters, type SpeechParameters } from '@baocut/models';
+import { ModelServiceStore, ProviderFailure, freezeImageInput, inspectWav, type GenerationRun, type ImageParameters, type SpeechParameters } from '@baocut/models';
 import { FileCredentialStore } from '@baocut/runtime-storage';
 import type { AdapterConfig, ImageAdapter, ImageInputBytes, SpeechAdapter, VoiceCloneConsentClip, VoiceCloneRequest } from './adapter.ts';
 import { ElevenLabsAdapter } from './elevenlabs/elevenlabs-adapter.ts';
@@ -496,6 +496,72 @@ describe('Google 复刻音色', () => {
     server.handler = () => ({ status: 200, json: { type: 'replicated', key: 'voicekey_abc' } });
     const noId = await failure(adapter.createVoiceClone(await cloneRequest(cfg)));
     expect(noId.kind).toBe('protocol');
+  });
+
+  it('比 30 秒长的 WAV 只传开头、切在静音处；短的 WAV 与别的格式原样上传', async () => {
+    server = await startFakeProviderServer(fakeGoogleHandler());
+    const cfg = config(`${server.origin}/v1beta`, GOOGLE_KEY);
+    const adapter = new GoogleVoiceCloneAdapter();
+    expect(adapter.sourceSeconds).toEqual({ min: 10, max: 30 });
+    const uploaded = (index: number) => {
+      const body = server!.requests[index]!.json as { voice: { replicated: { source_audio: { mime_type: string; data: string } } } };
+      return { ...body.voice.replicated.source_audio, bytes: Buffer.from(body.voice.replicated.source_audio.data, 'base64') };
+    };
+
+    // 48 kHz、45 秒：一直是 440 Hz 的音，只有 28.5–28.8 秒是静音。
+    const sampleRate = 48_000;
+    const long = wavFixture(45, sampleRate);
+    for (let i = 0; i < 45 * sampleRate; i++) {
+      const t = i / sampleRate;
+      long.writeInt16LE(t >= 28.5 && t < 28.8 ? 0 : Math.round(Math.sin(2 * Math.PI * 440 * t) * 16_000), 44 + i * 2);
+    }
+    const file = path.join((dir ??= await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-gclone-'))), 'long.wav');
+    await fs.writeFile(file, long);
+    await adapter.createVoiceClone(await cloneRequest(cfg, {}, { file, fileName: 'long.wav' }));
+    const trimmed = uploaded(0);
+    expect(trimmed.mime_type).toBe('audio/wav');
+    const wav = inspectWav(trimmed.bytes);
+    expect(wav.ok).toBe(true);
+    const seconds = wav.ok ? wav.wav.durationSec : 0;
+    expect(seconds).toBeGreaterThan(28.5);
+    expect(seconds).toBeLessThan(28.8);
+    expect(trimmed.bytes.subarray(44).equals(long.subarray(44, trimmed.bytes.length))).toBe(true);
+
+    // 不是 WAV：原样上传（太长时由 Gemini 拒绝）。
+    const mp3 = path.join(dir, 'long.mp3');
+    await fs.writeFile(mp3, mp3Fixture(3000));
+    await adapter.createVoiceClone(await cloneRequest(cfg, {}, { file: mp3, fileName: 'long.mp3', mediaType: 'audio/mpeg' }));
+    expect(uploaded(1)).toMatchObject({ mime_type: 'audio/mpeg' });
+    expect(uploaded(1).bytes.equals(mp3Fixture(3000))).toBe(true);
+  });
+
+  it('被拒时按原因归类：details 带 reason 与 status；音色到上限的 429 不按限速重试；密钥无效仍是认证失败', async () => {
+    server = await startFakeProviderServer(fakeGoogleHandler());
+    const cfg = config(`${server.origin}/v1beta`, GOOGLE_KEY);
+    const adapter = new GoogleVoiceCloneAdapter();
+    const reply = (status: number, grpc: string, message: string, headers: Record<string, string> = {}) => () => ({
+      status,
+      json: { error: { code: status, message, status: grpc } },
+      headers,
+    });
+
+    server.handler = reply(400, 'INVALID_ARGUMENT', 'Consent verification failed: the consent audio does not contain the required consent statement.');
+    const consent = await failure(adapter.createVoiceClone(await cloneRequest(cfg)));
+    expect(consent.kind).toBe('rejected');
+    expect(consent.details).toMatchObject({ code: 'PROVIDER_REJECTED', status: 400, reason: 'consent-unrecognized' });
+    expect(consent.message).toContain('consent statement');
+
+    server.handler = reply(429, 'RESOURCE_EXHAUSTED', 'You have reached the maximum number of voices (200) for this project.', { 'retry-after': '1' });
+    const before = server.requests.length;
+    const limit = await failure(adapter.createVoiceClone(await cloneRequest(cfg, {}, { http: { ...http, attempts: 3 } })));
+    expect(limit.details).toMatchObject({ code: 'PROVIDER_REJECTED', status: 429, reason: 'voice-limit' });
+    expect(server.requests.length - before).toBe(1);
+
+    server.handler = reply(400, 'INVALID_ARGUMENT', 'API key not valid. Please pass a valid API key.');
+    const key = await failure(adapter.createVoiceClone(await cloneRequest(cfg)));
+    expect(key.details).toMatchObject({ code: 'PROVIDER_AUTH_FAILED', status: 400 });
+    expect(key.details).not.toHaveProperty('reason');
+    expect(key.message).not.toContain(GOOGLE_KEY);
   });
 
   it('DELETE /voices/<id>：删掉为 deleted，远端已经没有（404）为 not-found', async () => {
@@ -1046,13 +1112,16 @@ describe('OnlineProviderSource 的生成能力', () => {
       expect(views.moonshot!.vendor?.regionBaseUrls).toEqual({ global: 'https://api.moonshot.ai/v1', cn: 'https://api.moonshot.cn/v1' });
       expect(Object.keys(views.elevenlabs!.capabilities)).toEqual(['synthesizeSpeech']);
       expect(views.elevenlabs!.capabilities.synthesizeSpeech!.available).toBe(true);
-      // 能克隆的 Provider 在合成能力上带 voiceClone：ElevenLabs 不要求授权声明录音，Google 要；没有克隆接口的不带。
+      // 能克隆的 Provider 在合成能力上带 voiceClone：ElevenLabs 不要求授权声明录音、没有公开的时长范围，Google 要授权声明录音、
+      // 参考录音 10–30 秒；没有克隆接口的不带。
       expect(views.elevenlabs!.capabilities.synthesizeSpeech!.voiceClone).toEqual({ requiresConsentClip: false });
-      expect(views.google!.capabilities.synthesizeSpeech!.voiceClone).toEqual({ requiresConsentClip: true });
+      expect(views.google!.capabilities.synthesizeSpeech!.voiceClone).toEqual({ requiresConsentClip: true, sourceSeconds: { min: 10, max: 30 } });
       expect(views.openai!.capabilities.synthesizeSpeech!.voiceClone).toBeUndefined();
       expect(views['volcengine-speech']!.capabilities.synthesizeSpeech!.voiceClone).toBeUndefined();
       expect(source.voiceCloner('elevenlabs')!.requiresConsentClip).toBe(false);
+      expect(source.voiceCloner('elevenlabs')!.sourceSeconds).toBeUndefined();
       expect(source.voiceCloner('google')!.requiresConsentClip).toBe(true);
+      expect(source.voiceCloner('google')!.sourceSeconds).toEqual({ min: 10, max: 30 });
       expect(source.voiceCloner('openai')).toBeNull();
       expect(views.openai!.capabilities.synthesizeSpeech).toMatchObject({ available: false, unavailableReason: 'not-configured' });
       expect(Object.keys(views['custom:studio']!.capabilities)).toEqual(['synthesizeSpeech']);
