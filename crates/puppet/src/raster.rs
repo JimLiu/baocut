@@ -199,7 +199,9 @@ fn setup(view: View, verts: &[f32], uv: &[f32], abc: [usize; 3], aa: u8, tex: &T
     })
 }
 
-#[inline]
+// 取样的这几个小函数一个像素要调到几十次：预览 WASM 的链接期按体积优化，`#[inline]` 不一定内联，960×540 的
+// 角色因此慢三成多，所以强制内联。
+#[inline(always)]
 fn texel(l: &Level, x: i64, y: i64) -> [f32; 4] {
     let x = x.clamp(0, i64::from(l.w) - 1) as usize;
     let y = y.clamp(0, i64::from(l.h) - 1) as usize;
@@ -213,7 +215,7 @@ fn texel(l: &Level, x: i64, y: i64) -> [f32; 4] {
 }
 
 /// 一级 mip 上 (u, v) 处的双线性采样（0–255 的预乘值）。
-#[inline]
+#[inline(always)]
 fn bilinear(l: &Level, u: f64, v: f64) -> [f32; 4] {
     let x = u * f64::from(l.w) - 0.5;
     let y = v * f64::from(l.h) - 0.5;
@@ -233,7 +235,7 @@ fn bilinear(l: &Level, u: f64, v: f64) -> [f32; 4] {
     o
 }
 
-#[inline]
+#[inline(always)]
 fn sample(tex: &Texture, lod: Lod, u: f64, v: f64) -> [f32; 4] {
     let a = bilinear(&tex.levels[lod.l0], u, v);
     if lod.l1 == lod.l0 || lod.f == 0.0 {
