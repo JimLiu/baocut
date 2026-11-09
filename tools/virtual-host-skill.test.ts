@@ -499,7 +499,8 @@ const build = (cfg: string) => {
 const texturesIn = (v: unknown): string[] =>
   typeof v === 'string' ? (v.startsWith('textures/') ? [v] : []) : v && typeof v === 'object' ? Object.values(v).flatMap(texturesIn) : [];
 
-describe('virtual-host puppet package', { timeout: 60_000 }, () => {
+// each build is a child process: a test with two builds takes 12-14 s alone and 40-60+ s on a loaded CI runner
+describe('virtual-host puppet package', { timeout: 180_000 }, () => {
   it('masks the hair for the bald repaint', () => {
     const cfg = writeCharacter(tmp());
     const r = spawnSync(process.execPath, [path.join(skill, 'scripts/puppet-mask.mjs'), cfg], { encoding: 'utf8' });
