@@ -192,7 +192,7 @@ export const ptBR: ShellMessages = {
     lost: (reason: string, retrying: boolean) => `${reason}.${retrying ? " Reconectando…" : ""}`,
     reconnectingEllipsis: "Reconectando…",
     title: "Não conectado ao Runtime BaoCut",
-    reconnecting: "Reconectando",
+    reconnecting: "Reconectando", buildTitle: "A compilação pode estar desatualizada", buildProtocol: (command) => `O cliente web desta página foi compilado para uma versão de protocolo diferente da do Runtime. Execute ${command} e recarregue a página.`, buildStale: (part, command) => `${part === 'preview' ? 'O mecanismo de prévia desta página' : 'O cliente web desta página'} é mais antigo que o código-fonte, então a imagem pode sair errada ou não aparecer. Execute ${command} e recarregue a página.`, buildUnverified: (part, command) => `Não dá para saber se ${part === 'preview' ? 'o mecanismo de prévia desta página' : 'o cliente web desta página'} corresponde ao código-fonte (não tem carimbo de compilação ou não foi compilado com o comando de compilação), então a imagem pode sair errada ou não aparecer. Execute ${command} e recarregue a página.`,
   },
   videoInfo: {
     title: "Detalhes do vídeo",

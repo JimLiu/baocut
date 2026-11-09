@@ -190,6 +190,10 @@ export const ko: ShellMessages = {
     reconnectingEllipsis: '다시 연결하는 중…',
     title: 'BaoCut Runtime에 연결되지 않음',
     reconnecting: '다시 연결하는 중',
+    buildTitle: '빌드가 오래되었을 수 있음',
+    buildProtocol: (command) => `이 페이지의 웹 클라이언트는 Runtime과 다른 프로토콜 버전으로 빌드되었습니다. ${command}을(를) 실행한 다음 페이지를 새로 고치세요.`,
+    buildStale: (part, command) => `${part === 'preview' ? '이 페이지의 미리보기 엔진' : '이 페이지의 웹 클라이언트'}이(가) 소스보다 오래되어 화면이 잘못 그려지거나 그려지지 않을 수 있습니다. ${command}을(를) 실행한 다음 페이지를 새로 고치세요.`,
+    buildUnverified: (part, command) => `${part === 'preview' ? '이 페이지의 미리보기 엔진' : '이 페이지의 웹 클라이언트'}이(가) 소스와 일치하는지 확인할 수 없습니다(빌드 스탬프가 없거나 빌드 명령으로 빌드되지 않음). 화면이 잘못 그려지거나 그려지지 않을 수 있습니다. ${command}을(를) 실행한 다음 페이지를 새로 고치세요.`,
   },
   videoInfo: {
     title: '영상 세부 정보',

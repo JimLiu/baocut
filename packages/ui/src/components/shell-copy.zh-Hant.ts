@@ -190,6 +190,10 @@ export const zhHant: ShellMessages = {
     reconnectingEllipsis: '正在重新連線…',
     title: '未連線到 BaoCut Runtime',
     reconnecting: '正在重新連線',
+    buildTitle: '建置可能已過期',
+    buildProtocol: (command) => `這個頁面的 Web 用戶端是依另一個協定版本建置的，連不上 Runtime。執行 ${command}，然後重新整理頁面。`,
+    buildStale: (part, command) => `${part === 'preview' ? '這個頁面裡的預覽引擎' : '這個頁面的 Web 用戶端'}比原始碼舊，畫面可能畫不對或畫不出來。執行 ${command}，然後重新整理頁面。`,
+    buildUnverified: (part, command) => `無法判斷${part === 'preview' ? '這個頁面裡的預覽引擎' : '這個頁面的 Web 用戶端'}是否與原始碼一致（沒有建置戳記，或不是用建置指令編譯的），畫面可能畫不對或畫不出來。執行 ${command}，然後重新整理頁面。`,
   },
   videoInfo: {
     title: '影片詳細資訊',

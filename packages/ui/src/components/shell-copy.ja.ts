@@ -190,6 +190,10 @@ export const ja: ShellMessages = {
     reconnectingEllipsis: '再接続中…',
     title: 'BaoCut Runtime に接続されていません',
     reconnecting: '再接続中',
+    buildTitle: 'ビルドが古い可能性があります',
+    buildProtocol: (command) => `このページの Web クライアントは Runtime と異なるプロトコルバージョンでビルドされています。${command} を実行してから、ページを再読み込みしてください。`,
+    buildStale: (part, command) => `${part === 'preview' ? 'このページのプレビューエンジン' : 'このページの Web クライアント'}がソースより古いため、映像が正しく描画されないか、まったく描画されない可能性があります。${command} を実行してから、ページを再読み込みしてください。`,
+    buildUnverified: (part, command) => `${part === 'preview' ? 'このページのプレビューエンジン' : 'このページの Web クライアント'}がソースと一致しているか確認できません（ビルドスタンプがないか、ビルドコマンドでビルドされていません）。映像が正しく描画されないか、まったく描画されない可能性があります。${command} を実行してから、ページを再読み込みしてください。`,
   },
   videoInfo: {
     title: '動画の詳細',

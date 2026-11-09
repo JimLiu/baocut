@@ -1,3 +1,4 @@
+import type { ComponentBuild } from './domain.ts';
 import type { FileTarget, RpcMethod } from './methods.ts';
 
 /**
@@ -187,6 +188,22 @@ export function parseWebReviewPath(pathname: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * 页面用的构建比对（CLI 独立使用与发布 §7.4）：`GET /_build`，要会话（完整或审片），走 HTTP 而不走网关：Web 客户端的协议版本
+ * 与 Runtime 不同时握手被拒，正是要说明原因的时候。
+ */
+export const WEB_BUILD_PATH = '/_build';
+
+/**
+ * `GET /_build` 的回答里的一项：正在服务的 Web 客户端与内联进它的 `preview.wasm` 里与源码不一致的那些。只有从源码运行的
+ * Runtime 比，打包的总是空列表。不带目录与变了的文件：审片链接可能交给别人。
+ */
+export type WebBuildNote = Pick<ComponentBuild, 'component' | 'reason' | 'rebuild'> & { state: 'stale' | 'unverified' };
+
+export interface WebBuildReport {
+  builds: WebBuildNote[];
 }
 
 /** 只读配置下还剩的方法（逐个列出：以后新增的方法在只读下默认不开放）。 */

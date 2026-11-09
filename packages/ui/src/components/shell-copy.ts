@@ -215,6 +215,10 @@ const en = {
     reconnectingEllipsis: 'Reconnecting…',
     title: 'Not connected to BaoCut Runtime',
     reconnecting: 'Reconnecting',
+    buildTitle: 'Build may be out of date',
+    buildProtocol: (command: string) => `This page’s web client was built for a different protocol version than the Runtime. Run ${command}, then reload the page.`,
+    buildStale: (part: 'web' | 'preview', command: string) => `${part === 'preview' ? 'The preview engine in this page' : 'This page’s web client'} is older than the source, so the picture may be wrong or missing. Run ${command}, then reload the page.`,
+    buildUnverified: (part: 'web' | 'preview', command: string) => `Can’t tell whether ${part === 'preview' ? 'the preview engine in this page' : 'this page’s web client'} matches the source (it has no build stamp, or it wasn’t built with the build command), so the picture may be wrong or missing. Run ${command}, then reload the page.`,
   },
   videoInfo: {
     title: 'Video details',

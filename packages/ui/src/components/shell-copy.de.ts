@@ -192,7 +192,7 @@ export const de: ShellMessages = {
     lost: (reason: string, retrying: boolean) => `${reason}.${retrying ? " Wird neu verbunden…" : ""}`,
     reconnectingEllipsis: "Wird neu verbunden…",
     title: "Nicht mit BaoCut Runtime verbunden",
-    reconnecting: "Wird neu verbunden",
+    reconnecting: "Wird neu verbunden", buildTitle: "Build ist möglicherweise veraltet", buildProtocol: (command) => `Der Web-Client dieser Seite wurde für eine andere Protokollversion als die der Runtime gebaut. Führen Sie ${command} aus und laden Sie die Seite dann neu.`, buildStale: (part, command) => `${part === 'preview' ? 'Die Vorschau-Engine dieser Seite' : 'Der Web-Client dieser Seite'} ist älter als der Quellcode, daher kann das Bild falsch sein oder fehlen. Führen Sie ${command} aus und laden Sie die Seite dann neu.`, buildUnverified: (part, command) => `Es lässt sich nicht feststellen, ob ${part === 'preview' ? 'die Vorschau-Engine dieser Seite' : 'der Web-Client dieser Seite'} zum Quellcode passt (kein Build-Stempel, oder nicht mit dem Build-Befehl gebaut), daher kann das Bild falsch sein oder fehlen. Führen Sie ${command} aus und laden Sie die Seite dann neu.`,
   },
   videoInfo: {
     title: "Videodetails",

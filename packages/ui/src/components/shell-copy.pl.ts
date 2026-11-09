@@ -189,7 +189,7 @@ export const pl: ShellMessages = {
     lost: (reason, retrying) => `${reason}.${retrying ? " Łączenie ponowne…" : ""}`,
     reconnectingEllipsis: "Łączenie ponowne…",
     title: "Brak połączenia z Runtime BaoCut",
-    reconnecting: "Łączenie ponowne",
+    reconnecting: "Łączenie ponowne", buildTitle: "Kompilacja może być nieaktualna", buildProtocol: (command) => `Klient webowy tej strony został zbudowany dla innej wersji protokołu niż Runtime. Uruchom ${command}, a potem odśwież stronę.`, buildStale: (part, command) => `${part === 'preview' ? 'Silnik podglądu na tej stronie' : 'Klient webowy tej strony'} jest starszy niż kod źródłowy, więc obraz może się wyświetlać błędnie albo wcale. Uruchom ${command}, a potem odśwież stronę.`, buildUnverified: (part, command) => `Nie da się stwierdzić, czy ${part === 'preview' ? 'silnik podglądu na tej stronie' : 'klient webowy tej strony'} odpowiada kodowi źródłowemu (brak stempla kompilacji albo nie zbudowano go poleceniem kompilacji), więc obraz może się wyświetlać błędnie albo wcale. Uruchom ${command}, a potem odśwież stronę.`,
   },
   videoInfo: {
     title: "Szczegóły wideo",

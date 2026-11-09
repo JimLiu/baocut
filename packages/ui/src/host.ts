@@ -1,4 +1,4 @@
-import type { Locale } from '@baocut/protocol';
+import type { Locale, WebBuildNote } from '@baocut/protocol';
 
 /** 宿主（Electron 预加载脚本）提供的原生能力。界面包不直接依赖 Electron。 */
 export interface HostBridge {
@@ -76,6 +76,11 @@ export interface HostBridge {
   notifications?: NotificationsHost;
   /** 界面语言变了（启动时也调一次）：宿主据此换原生菜单与对话框的语言。没有它的宿主不管。 */
   setLocale?(locale: Locale): void;
+  /**
+   * 正在服务这个页面的构建与源码不一致的那些（CLI 独立使用与发布 §7.4，`GET /_build`）；问不到时空列表。Web 才有：桌面端的界面
+   * 在开发时来自开发服务器、出货时与 Runtime 同一次构建，没有这个问题。
+   */
+  buildNotes?(): Promise<WebBuildNote[]>;
 }
 
 /**

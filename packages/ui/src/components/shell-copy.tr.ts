@@ -188,7 +188,7 @@ export const tr: ShellMessages = {
     lost: (reason,retrying) => `${reason}.${retrying ? ' Yeniden bağlanılıyor…' : ''}`,
     reconnectingEllipsis: "Yeniden bağlanılıyor…",
     title: "BaoCut Runtime bağlı değil",
-    reconnecting: "Yeniden bağlanılıyor",
+    reconnecting: "Yeniden bağlanılıyor", buildTitle: "Derleme eski olabilir", buildProtocol: (command) => `Bu sayfanın web istemcisi, Runtime'dan farklı bir protokol sürümü için derlenmiş. ${command} komutunu çalıştırın, ardından sayfayı yenileyin.`, buildStale: (part, command) => `${part === 'preview' ? 'Bu sayfadaki önizleme motoru' : 'Bu sayfanın web istemcisi'} kaynak koddan eski; görüntü yanlış çizilebilir ya da hiç çizilmeyebilir. ${command} komutunu çalıştırın, ardından sayfayı yenileyin.`, buildUnverified: (part, command) => `${part === 'preview' ? 'Bu sayfadaki önizleme motorunun' : 'Bu sayfanın web istemcisinin'} kaynak kodla eşleşip eşleşmediği anlaşılamıyor (derleme damgası yok ya da derleme komutuyla derlenmemiş); görüntü yanlış çizilebilir ya da hiç çizilmeyebilir. ${command} komutunu çalıştırın, ardından sayfayı yenileyin.`,
   },
   videoInfo: {
     title: "Video ayrıntıları",

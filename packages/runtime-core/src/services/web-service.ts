@@ -6,6 +6,7 @@ import path from 'node:path';
 import type { Duplex } from 'node:stream';
 import {
   RpcError,
+  WEB_BUILD_PATH,
   WEB_DEFAULT_METHODS,
   WEB_REVIEW_METHODS,
   WEB_REVIEW_TOPICS,
@@ -20,6 +21,8 @@ import {
   type ServiceConfigureParams,
   type ServiceRequestRecord,
   type WebAccessLink,
+  type WebBuildNote,
+  type WebBuildReport,
   type WebReviewLink,
   type WebServiceAccess,
   type WebSession,
@@ -28,6 +31,7 @@ import { RcServices, RcWeb } from '@baocut/protocol/messages/runtime-core';
 import type { Harness, Logger } from '@baocut/harness';
 import type { SlidesServer } from '@baocut/slides';
 import type { DocsServer } from '@baocut/docs';
+import { buildTargets, checkBuilds } from '../build-freshness.ts';
 import { Gateway, type TrustedPrincipal } from '../gateway.ts';
 import type { RpcHandlers } from '../handlers.ts';
 import { MediaRegistry } from '../media.ts';
@@ -101,7 +105,7 @@ export class WebService implements ManagedService {
   readonly #log: Logger;
   readonly #sessions: WebSessions;
   readonly #uploads = new Map<string, { sessionId: string; url: string; expires: number }>();
-  #binding: { handlers: RpcHandlers; runtime: RuntimeInfo; videoTarget: (videoId: string) => FileTarget } | null = null;
+  #binding: { handlers: RpcHandlers; runtime: RuntimeInfo; videoTarget: (videoId: string) => FileTarget; sourceRoot: string | null } | null = null;
   #slides: SlidesServer | null = null;
   #docs: DocsServer | null = null;
   #server: Server | null = null;
@@ -127,12 +131,15 @@ export class WebService implements ManagedService {
     videoTarget: (videoId: string) => FileTarget;
     slides?: SlidesServer;
     docs?: DocsServer;
+    /** 从源码运行时的仓库根：`GET /_build` 按它比对正在服务的 Web 客户端（CLI 独立使用与发布 §7.4）。打包的 Runtime 不给。 */
+    sourceRoot?: string | null;
   }): void {
     this.#slides = binding.slides ?? null;
     this.#docs = binding.docs ?? null;
     this.#binding = {
       runtime: binding.runtime,
       videoTarget: binding.videoTarget,
+      sourceRoot: binding.sourceRoot ?? null,
       handlers: webHandlers(binding.handlers, {
         harness: this.#deps.harness,
         videos: this.#deps.videos,
@@ -505,6 +512,14 @@ export class WebService implements ManagedService {
     const sameOrigin = site === undefined || site === 'same-origin' || site === 'none';
     const session = sameOrigin ? this.#anySession(request) : null;
     const videos = session ? this.#sessions.scope(session) : null;
+    // 构建比对（CLI 独立使用与发布 §7.4）：页面在网关之外问，协议版本不同、握手被拒时也问得到。完整会话与审片会话都给。
+    if (pathname === WEB_BUILD_PATH) {
+      if (!session) return void deny(sameOrigin ? 401 : 403, RcWeb.loginRequired().text);
+      return void this.#sendBuilds(request, response).catch(() => {
+        if (!response.headersSent) deny(500, RcWeb.readFailed().text);
+        else response.destroy();
+      });
+    }
     // 审片页（`/review/<videoId>`）：完整会话或能看这部视频的审片会话给客户端页面，否则给审片页的登录脚本（用 fragment 里的密钥换会话）。
     const review = parseWebReviewPath(pathname);
     if (review !== null) {
@@ -524,6 +539,24 @@ export class WebService implements ManagedService {
       return;
     }
     this.#sendApp(page ? '/' : pathname, request, response);
+  }
+
+  /**
+   * `GET /_build`：正在服务的 Web 客户端与内联进它的 `preview.wasm` 里与源码不一致的那些（`WebBuildReport`）。打包的 Runtime
+   * 不比，回答空列表。只给组件、状态、原因与重建命令，不给目录与变了的文件。
+   */
+  async #sendBuilds(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const root = this.#binding?.sourceRoot ?? null;
+    const builds: WebBuildNote[] = [];
+    if (root && this.#dist) {
+      for (const build of await checkBuilds(root, buildTargets(root, { workers: [], editorWasm: null, web: this.#dist }))) {
+        if (build.state === 'fresh') continue;
+        builds.push({ component: build.component, state: build.state, ...(build.reason ? { reason: build.reason } : {}), rebuild: build.rebuild });
+      }
+    }
+    const report: WebBuildReport = { builds };
+    response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    response.end(request.method === 'HEAD' ? undefined : JSON.stringify(report));
   }
 
   #sendApp(pathname: string, request: IncomingMessage, response: ServerResponse): void {

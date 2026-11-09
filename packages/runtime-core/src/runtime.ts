@@ -1431,6 +1431,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       slides: slides.server,
       docs: docs.server,
       videoTarget: (videoId) => videoTargetOf(videos, space, videoId),
+      sourceRoot: options.sourceRoot ?? null,
     });
     // 在场的用户（工具页的当场授权，§7.9）：这个网关上的桌面界面连接。CLI、智能体、浏览器与对外服务都不算。
     const present = new Set<string>();

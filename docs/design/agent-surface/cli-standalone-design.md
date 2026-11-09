@@ -248,9 +248,9 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 > - 比的是源文件内容，不是 commit：构建戳除了构建 commit 与协议版本，还记下这次构建读过的每个仓库文件的内容摘要（cargo 的 dep-info、Vite 的模块列表，加上清单与锁文件）。只比 commit 的话，无关的提交、借用主 checkout 产物的 worktree 都会被误报。web 构建另比协议版本，不同就算过期；Worker 有自己的协议，只比源码。
 > - 没有构建戳（旧脚本或直接 `cargo build` 编的）、产物比构建戳新的，报「比不了」（`unverified`），一样警告并给出重建命令。新脚本落地后、各自重建一次之前，每个开发者都会看到这几条。
 > - 结果放在 `runtime.status` 的 `builds`（[命令与协议规范 §4.1](../../spec/command-protocol-spec.md#41-方法)），不进发现信息与 `runtime.info`：要读文件、算摘要，不该在握手时做。`baocut version` 在 `runtime.builds` 与顶层 `warnings` 里报出，`status` 同样；`status` 的 `next` 先给第一个过期的那个的重建命令。
-> - 第三条（审片页的提示）没做。
+> - 审片页的提示从 Web 服务的同源 `GET /_build` 取（要会话，完整会话与审片会话都行），不经网关：Web 客户端的协议版本与 Runtime 不同时握手被拒，正是要说明原因的时候。它只比正在服务的 Web 客户端与内联进它的 `preview.wasm`，只回答组件、状态、原因与重建命令，不给目录与变了的文件（审片链接可能交给别人）；打包的 Runtime 回答空列表。页面载入时问一次，提示放在两个界面共用的连接横幅里：协议版本不同时换掉笼统的「不兼容」，写明是 Web 客户端按另一个协议版本构建；连上了也一直提示「构建可能过期」与重建命令。某一次画不出来是不是构建的原因判断不了，所以连上了就提示，不等画不出来，也不改预览的出错与「N 处画不出来」。完整的 Web 编辑器用同一条横幅，同样有这条提示；桌面端的界面开发时来自开发服务器、出货时与 Runtime 同一次构建，没有对应的提示；原型没有连接横幅，不同步。
 >
-> 验证：构建戳与比对的单测，`runtime.status` 带不带 `builds` 的 Runtime 测试；在一个临时 Vite 工程上跑插件，改源文件后报过期、改协议版本后报 `protocol`；用主 checkout 现成的 dep-info 写一份 Worker 构建戳（1034 个仓库文件，冷比对约 90 ms、之后约 5 ms）；源码 CLI 在临时 Home 上 `status` 与 `version` 报出三条 `unverified` 与重建命令。没在仓库里真跑 `build:engine`、`build:wasm` 与 `build:web`（这个 worktree 借用主 checkout 的 cargo 产物目录，也没有 WASM）。
+> 验证：构建戳与比对的单测，`runtime.status` 带不带 `builds` 的 Runtime 测试；在一个临时 Vite 工程上跑插件，改源文件后报过期、改协议版本后报 `protocol`；用主 checkout 现成的 dep-info 写一份 Worker 构建戳（1034 个仓库文件，冷比对约 90 ms、之后约 5 ms）；源码 CLI 在临时 Home 上 `status` 与 `version` 报出三条 `unverified` 与重建命令。没在仓库里真跑 `build:engine`、`build:wasm` 与 `build:web`（这个 worktree 借用主 checkout 的 cargo 产物目录，也没有 WASM）。审片页的提示：Web 服务的测试覆盖要会话、跨站拒绝、审片会话，以及没有构建戳、协议版本不同、一致、源码变了四种状态与打包的 Runtime 回答空列表；横幅写什么有单测；在临时 Home 上从源码起的 Runtime 打开审片页，实际看到预览引擎「比不了」、Web 客户端过期，以及把页面里的协议版本改成 0.5、握手被拒时的红色提示。只在简体中文的审片页上看过，其他语言与完整的 Web 编辑器没在页面上看。
 
 ## 8. 诊断与文案
 
@@ -433,7 +433,7 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 **第二批（让 CLI 真正独立）**：§4，§6.1，§7.1，§7.2，§7.4。
 
 - 验收：§4.2 的组合（版本同或不同、空闲或忙、拉起者）各有单测；App 更新时有一个 CLI Runtime 在跑，macOS 与 Windows 各实测一次；链接账号能读、改密钥被拒、移除只解除链接，钥匙串条目还在（用 `security find-generic-password` 只查条目在不在，不读密钥）；Claude Code 与 Codex 各以 stdio 形式接上 MCP，Runtime 不在时能自己拉起。
-- 状态（2026-11-08）：已实现，各节的「已实现」写了与方案的出入与验证。验收没做到的：App 更新时有 CLI Runtime 在跑，macOS 与 Windows 都没实测；链接账号经假助手读，没经 App 的助手真读一次钥匙串里的密钥；Codex 只确认读得懂写进去的条目，没在它的会话里实际调用（Claude Code 实测连上）；Windows 上的入口、链接账号与 `sandbox create` 都没实测；§7.4 审片页的提示没做。协议版本不同时靠握手拒绝里报的忙闲与 `SIGTERM` 替换，只对带上这一改动之后的版本有效，见 §4.3 的说明。
+- 状态（2026-11-08）：已实现，各节的「已实现」写了与方案的出入与验证。验收没做到的：App 更新时有 CLI Runtime 在跑，macOS 与 Windows 都没实测；链接账号经假助手读，没经 App 的助手真读一次钥匙串里的密钥；Codex 只确认读得懂写进去的条目，没在它的会话里实际调用（Claude Code 实测连上）；Windows 上的入口、链接账号与 `sandbox create` 都没实测；§7.4 审片页的提示只在简体中文的审片页上实测过。协议版本不同时靠握手拒绝里报的忙闲与 `SIGTERM` 替换，只对带上这一改动之后的版本有效，见 §4.3 的说明。
 
 **第三批**：§9 独立包；之后再做按需组件（§9.7）。
 

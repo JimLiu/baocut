@@ -1,3 +1,4 @@
+import { WEB_BUILD_PATH, type WebBuildNote, type WebBuildReport } from '@baocut/protocol';
 import type { HostBridge } from '@baocut/ui';
 import { M } from './web-host-copy.ts';
 
@@ -8,6 +9,7 @@ import { M } from './web-host-copy.ts';
  * - 连接：同源的 `/ws`。登录状态在 HttpOnly cookie 里，页面拿不到也不需要令牌（握手里的令牌是空的，服务不看它）。
  * - 选目录、选素材文件、拖入文件：浏览器给不出文件在磁盘上的路径，按路径导入不可用；会话文件通过独立的同源附件上传通道处理。
  * - 在文件夹中显示：不可用。
+ * - 构建比对：同源的 `GET /_build`，不经网关（协议版本不同时握手被拒）。
  */
 
 const NOTICE_ID = 'baocut-web-notice';
@@ -65,5 +67,15 @@ export const webHost: HostBridge = {
   },
   async revealPath() {
     notice(M.reveal);
+  },
+  async buildNotes(): Promise<WebBuildNote[]> {
+    try {
+      const response = await fetch(WEB_BUILD_PATH, { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) return [];
+      const report = (await response.json()) as Partial<WebBuildReport>;
+      return Array.isArray(report.builds) ? report.builds : [];
+    } catch {
+      return [];
+    }
   },
 };

@@ -189,6 +189,10 @@ export const zhHans: ShellMessages = {
     reconnectingEllipsis: '正在重新连接…',
     title: '没有连上 BaoCut Runtime',
     reconnecting: '正在重新连接',
+    buildTitle: '构建可能过期',
+    buildProtocol: (command) => `这个页面的 Web 客户端是按另一个协议版本构建的，连不上 Runtime。运行 ${command}，然后刷新页面。`,
+    buildStale: (part, command) => `${part === 'preview' ? '这个页面里的预览引擎' : '这个页面的 Web 客户端'}比源码旧，画面可能画不对或画不出来。运行 ${command}，然后刷新页面。`,
+    buildUnverified: (part, command) => `比不了${part === 'preview' ? '这个页面里的预览引擎' : '这个页面的 Web 客户端'}与源码是否一致（没有构建戳，或不是用构建命令编的），画面可能画不对或画不出来。运行 ${command}，然后刷新页面。`,
   },
   videoInfo: {
     title: '视频详情',

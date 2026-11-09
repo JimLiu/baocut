@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
@@ -7,7 +8,7 @@ import vm from 'node:vm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { BaoCutClient } from '@baocut/client';
-import { RpcError, newId, webVideoHref, type Id, type Project, type ServicesEvent, type ServicesSnapshot } from '@baocut/protocol';
+import { PROTOCOL_VERSION, RpcError, newId, webVideoHref, type Id, type Project, type ServicesEvent, type ServicesSnapshot } from '@baocut/protocol';
 import { createDoc } from '@baocut/docs';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
@@ -1203,6 +1204,50 @@ describe('Web 服务', () => {
     },
   ] as const;
 
+  it('构建比对（CLI 独立使用与发布 §7.4）：GET /_build 要会话，只报 Web 客户端的状态、原因与重建命令；打包的 Runtime 不比', async () => {
+    // 一个假的仓库根：只有一个源文件；构建戳记下它的摘要。
+    const root = path.join(dir, 'repo');
+    await fs.mkdir(path.join(root, 'apps', 'web', 'src'), { recursive: true });
+    const source = path.join(root, 'apps', 'web', 'src', 'main.tsx');
+    await fs.writeFile(source, 'export {};');
+    const stamp = (protocolVersion: string, inputs: Record<string, string>) =>
+      fs.writeFile(
+        path.join(dist, 'baocut-build.json'),
+        JSON.stringify({ schema: 1, component: 'web', build: 'abc1234', protocolVersion, builtAt: new Date().toISOString(), outputs: ['index.html'], inputs }),
+      );
+    const hash = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16);
+
+    await boot({ dist }, { sourceRoot: root });
+    const origin = await openWeb();
+    const cookie = await login(origin);
+    const builds = async () => {
+      const reply = await send(`${origin}/_build`, { headers: { Cookie: cookie, 'Sec-Fetch-Site': 'same-origin' } });
+      expect(reply.status).toBe(200);
+      expect(reply.headers['cache-control']).toBe('no-store');
+      return JSON.parse(reply.body) as unknown;
+    };
+
+    expect((await send(`${origin}/_build`)).status).toBe(401);
+    expect((await send(`${origin}/_build`, { headers: { Cookie: cookie, 'Sec-Fetch-Site': 'cross-site' } })).status).toBe(403);
+    // 没有构建戳：比不了。回答里没有目录与变了的文件。
+    expect(await builds()).toEqual({ builds: [{ component: 'web', state: 'unverified', reason: 'no-stamp', rebuild: 'npm run build:web' }] });
+    await stamp('0.0', { 'apps/web/src/main.tsx': hash('export {};') });
+    expect(await builds()).toEqual({ builds: [{ component: 'web', state: 'stale', reason: 'protocol', rebuild: 'npm run build:web' }] });
+    await stamp(PROTOCOL_VERSION, { 'apps/web/src/main.tsx': hash('export {};') });
+    expect(await builds()).toEqual({ builds: [] });
+    await fs.writeFile(source, 'export const changed = 1;');
+    expect(await builds()).toEqual({ builds: [{ component: 'web', state: 'stale', reason: 'inputs', rebuild: 'npm run build:web' }] });
+
+    await runtime!.close();
+    runtime = undefined;
+    desktop.close();
+    await boot({ dist });
+    const packaged = await openWeb();
+    const packagedCookie = await login(packaged);
+    const reply = await send(`${packaged}/_build`, { headers: { Cookie: packagedCookie } });
+    expect(JSON.parse(reply.body)).toEqual({ builds: [] });
+  });
+
   async function bootIsolated() {
     const editors: Record<string, string> = {};
     for (const name of ['design-editor', 'design-system-editor']) {
@@ -1526,6 +1571,7 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
     expect((await send(`${origin}/`, { headers: { Cookie: cookie } })).body).toContain('/_auth/login.js');
     expect((await send(`${origin}/review/vid_other`, { headers: { Cookie: cookie } })).body).toContain('/_auth/review.js');
     expect((await send(`${origin}/slides/x/`, { headers: { Cookie: cookie } })).status).toBe(401);
+    expect(JSON.parse((await send(`${origin}/_build`, { headers: { Cookie: cookie } })).body)).toEqual({ builds: [] });
 
     const viewer = new BaoCutClient({
       resolve: async () => ({ endpoint: `${origin.replace('http:', 'ws:')}/ws`, token: '' }),
