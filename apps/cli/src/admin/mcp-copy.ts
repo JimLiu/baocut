@@ -21,11 +21,13 @@ const en = {
 
   /** `baocut mcp --help` 与 `baocut help mcp` 的正文。 */
   help: `Usage:
-  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <client name>] [--yes]
+  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <client name>] [--yes]
                                    Connect an external agent to BaoCut's MCP service: start the service (and make it start with
                                    the Runtime), create a new client and token for the agent, and write the address and token into
                                    the agent's MCP config (entry name baocut); then restart the agent
                                    If BaoCut has no projects, register the CLI project in the default projects folder for external agents
+    --transport stdio|http         stdio (default): the agent runs baocut mcp serve --stdio, which finds or starts BaoCut's Runtime
+                                   by itself; http: write the service's address, which works only while the Runtime is running
     --level ask|auto               Access level: ask has you confirm each write and task in BaoCut (the service's default); auto
                                    runs them directly. If omitted, the current level is kept
     --name <client name>           Client name shown in BaoCut (defaults to the agent's name); it can be revoked on its own
@@ -38,7 +40,9 @@ const en = {
   level; if a token leaks, revoke it with baocut services mcp revoke <clientId>.
   The service is available only while BaoCut's Runtime is running (open BaoCut, or run baocut runtime ensure).
   baocut mcp status                The MCP service's status, address, level and clients, and whether each agent's config has a
-                                   baocut entry (tokens not included)`,
+                                   baocut entry (tokens not included)
+  baocut mcp serve --stdio         What the stdio entry runs: a stdio MCP server that forwards to the MCP service with the token in
+                                   BAOCUT_MCP_TOKEN, finding or starting the Runtime when needed. The agent runs it, not a terminal`,
   entryExists: (file: string, entry: string) => `${file} already has a ${entry} entry; nothing was changed. Add --yes to replace it`,
   serviceNotAvailable: "This version of BaoCut doesn't provide the MCP service",
   serviceStartFailed: (reason: string | null) => `The MCP service didn't start: ${reason ?? 'unknown reason'}`,
@@ -63,6 +67,19 @@ const en = {
   hostNotConfigured: 'no',
   noServiceStatus: "The Runtime didn't report the MCP service's status",
   levelChoice: (value: string) => `--level must be ask or auto: ${value}`,
+  connectedStdio: (host: string, command: string) => `Connected ${host} to BaoCut's MCP service over stdio: ${host} runs ${command}`,
+  configEnvInherited: (configFile: string, envFile: string, envVar: string) =>
+    `Config: ${configFile} (the token is in env.${envVar} of ${envFile}; the command inherits it from there)`,
+  restartHintStdio: (host: string) =>
+    `Restart ${host} for this to take effect. ${host} runs the command itself, and the command starts BaoCut's Runtime when it isn't running`,
+  transportChoice: (value: string) => `--transport must be stdio or http: ${value}`,
+  serveTokenMissing: (envVar: string) =>
+    `${envVar} isn't set, so there's no token for BaoCut's MCP service: run baocut mcp install --agent <agent> to write it into the agent's MCP config`,
+  serveServiceOff: "BaoCut's MCP service is turned off: turn it on in BaoCut, or run baocut services configure mcp --autostart on",
+  serveTokenRejected: "BaoCut's MCP service rejected the token (revoked, or issued by another Runtime Home): rerun baocut mcp install --agent <agent> --yes",
+  serveRuntimeLost: "BaoCut's Runtime stopped while handling this request; it wasn't retried",
+  serveRuntimeUnavailable: (reason: string) => `Can't reach BaoCut's Runtime: ${reason}`,
+  serveHttpStatus: (status: number) => `BaoCut's MCP service answered HTTP ${status}`,
 };
 
 export type McpMessages = typeof en;

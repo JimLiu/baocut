@@ -6,11 +6,13 @@ export const fr: McpMessages = {
 
 
   help: `Utilisation :
-  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <client name>] [--yes]
+  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <client name>] [--yes]
                                    Connecter un Agent externe au service MCP de BaoCut : démarrer le service (avec démarrage
                                    au lancement du Runtime), créer un client et jeton pour l’Agent, puis écrire adresse et jeton
                                    dans ses réglages MCP (entrée baocut) ; redémarrer ensuite l’Agent
                                    Si BaoCut n’a aucun projet, enregistrer le projet CLI dans le dossier par défaut pour les Agents externes
+    --transport stdio|http         stdio (par défaut) : l’agent exécute baocut mcp serve --stdio, qui trouve ou démarre lui-même le
+                                   Runtime de BaoCut ; http : écrit l’adresse du service, utilisable seulement quand le Runtime tourne
     --level ask|auto               Niveau : ask demande confirmation de chaque écriture et tâche dans BaoCut (par défaut) ;
                                    auto les exécute directement. Absent, le niveau actuel est conservé
     --name <client name>           Nom du client affiché dans BaoCut (nom de l’Agent par défaut) ; révocable séparément
@@ -23,7 +25,9 @@ export const fr: McpMessages = {
   le niveau ask ; en cas de fuite, révoquez avec baocut services mcp revoke <clientId>.
   Le service est disponible seulement quand le Runtime de BaoCut fonctionne (ouvrez BaoCut, ou lancez baocut runtime ensure).
   baocut mcp status                État, adresse, niveau et clients du service MCP, et présence d’une entrée baocut
-                                   dans les réglages de chaque Agent (sans les jetons)`,
+                                   dans les réglages de chaque Agent (sans les jetons)
+  baocut mcp serve --stdio         Ce que lance l’entrée stdio : un serveur MCP stdio qui relaie vers le service MCP avec le jeton de
+                                   BAOCUT_MCP_TOKEN et trouve ou démarre le Runtime au besoin. C’est l’agent qui le lance, pas un terminal`,
   entryExists: (file: string, entry: string) => `${file} contient déjà une entrée ${entry} ; rien n’a été modifié. Ajoutez --yes pour la remplacer`,
   serviceNotAvailable: "Cette version de BaoCut ne fournit pas le service MCP",
   serviceStartFailed: (reason: string | null) => `Le service MCP n’a pas démarré : ${reason ?? "motif inconnu"}`,
@@ -48,4 +52,17 @@ export const fr: McpMessages = {
   hostNotConfigured: "non",
   noServiceStatus: "Le Runtime n’a pas communiqué l’état du service MCP",
   levelChoice: (value: string) => `--level doit être ask ou auto : ${value}`,
+  connectedStdio: (host, command) => `${host} est connecté au service MCP de BaoCut via stdio : ${host} lance ${command}`,
+  configEnvInherited: (configFile, envFile, envVar) =>
+    `Réglages : ${configFile} (le jeton se trouve dans env.${envVar} de ${envFile} ; la commande en hérite)`,
+  restartHintStdio: (host) =>
+    `Redémarrez ${host} pour appliquer les changements. ${host} lance la commande lui-même, et la commande démarre le Runtime de BaoCut s’il est arrêté`,
+  transportChoice: (value) => `--transport doit valoir stdio ou http : ${value}`,
+  serveTokenMissing: (envVar) =>
+    `${envVar} n’est pas défini : aucun jeton pour le service MCP de BaoCut. Exécutez baocut mcp install --agent <agent> pour l’écrire dans les réglages MCP de l’agent`,
+  serveServiceOff: 'Le service MCP de BaoCut est désactivé : activez-le dans BaoCut ou exécutez baocut services configure mcp --autostart on',
+  serveTokenRejected: 'Le service MCP de BaoCut a refusé le jeton (révoqué, ou émis par un autre Runtime Home) : relancez baocut mcp install --agent <agent> --yes',
+  serveRuntimeLost: 'Le Runtime de BaoCut s’est arrêté pendant cette requête ; elle n’a pas été relancée',
+  serveRuntimeUnavailable: (reason) => `Impossible de joindre le Runtime de BaoCut : ${reason}`,
+  serveHttpStatus: (status) => `Le service MCP de BaoCut a répondu HTTP ${status}`,
 };

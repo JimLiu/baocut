@@ -5,11 +5,13 @@ export const ja: McpMessages = {
   previousClientUnknown: '置き換えたエントリが使っていたクライアントを特定できなかったため、クライアントは撤回していません。baocut mcp status で既存のクライアントを確認し、使わないものは baocut services mcp revoke <clientId> で撤回してください。',
   defaultProjectRegistered: (name, path) => `BaoCut にプロジェクトがなかったため、外部 Agent が動画を作成する既定のプロジェクト「${name}」（${path}）を登録しました`,
   help: `使い方：
-  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <client name>] [--yes]
+  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <client name>] [--yes]
                                    外部の Agent を BaoCut の MCP サービスに接続：サービスを起動し（Runtime と一緒に起動する
                                    ように設定）、その Agent 用に新しいクライアントとトークンを作成して、アドレスとトークンを
                                    Agent の MCP 設定（エントリ名 baocut）に書き込みます。その後 Agent を再起動してください
                                    BaoCut にプロジェクトがない場合、外部 Agent 用の CLI プロジェクトを既定のプロジェクトフォルダに登録します
+    --transport stdio|http         stdio（既定）：エージェントが baocut mcp serve --stdio を実行し、BaoCut の Runtime を自分で
+                                   見つけるか起動します。http：サービスのアドレスを書き込みます（Runtime の実行中のみ使えます）
     --level ask|auto               アクセスレベル：ask は書き込みとタスクを毎回 BaoCut で確認（サービスの既定）、auto は
                                    そのまま実行。省略すると現在のレベルを維持
     --name <client name>           BaoCut に表示するクライアント名（既定は Agent の名前）。個別に撤回できます
@@ -23,7 +25,9 @@ export const ja: McpMessages = {
   トークンが漏れた場合は baocut services mcp revoke <clientId> で撤回してください。
   サービスは BaoCut の Runtime の実行中だけ利用できます（BaoCut を開くか、baocut runtime ensure を実行）。
   baocut mcp status                MCP サービスの状態、アドレス、レベル、クライアント、各 Agent の設定に baocut エントリが
-                                   あるかどうか（トークンは含みません）`,
+                                   あるかどうか（トークンは含みません）
+  baocut mcp serve --stdio         stdio エントリが実行するコマンド：BAOCUT_MCP_TOKEN のトークンで MCP サービスに転送する stdio 形式の
+                                   MCP サーバーで、必要なら Runtime を見つけるか起動します。エージェントが実行するもので、端末用ではありません`,
   entryExists: (file, entry) => `${file} にはすでに ${entry} エントリがあります。何も変更していません。置き換えるには --yes を付けてください`,
   serviceNotAvailable: 'このバージョンの BaoCut は MCP サービスを提供していません',
   serviceStartFailed: (reason) => `MCP サービスが起動しませんでした：${reason ?? '理由不明'}`,
@@ -47,4 +51,17 @@ export const ja: McpMessages = {
   hostNotConfigured: 'なし',
   noServiceStatus: 'Runtime から MCP サービスの状態が報告されませんでした',
   levelChoice: (value) => `--level には ask または auto を指定してください：${value}`,
+  connectedStdio: (host, command) => `${host} を stdio で BaoCut の MCP サービスに接続しました：${host} は ${command} を実行します`,
+  configEnvInherited: (configFile, envFile, envVar) =>
+    `設定：${configFile}（トークンは ${envFile} の env.${envVar} にあり、コマンドはそこから受け継ぎます）`,
+  restartHintStdio: (host) =>
+    `${host} を再起動すると有効になります。${host} がコマンドを自分で実行し、Runtime が実行中でなければコマンドが起動します`,
+  transportChoice: (value) => `--transport は stdio か http のどちらかです：${value}`,
+  serveTokenMissing: (envVar) =>
+    `${envVar} が設定されていないため、BaoCut の MCP サービスのトークンがありません：baocut mcp install --agent <agent> を実行してエージェントの MCP 設定に書き込んでください`,
+  serveServiceOff: 'BaoCut の MCP サービスがオフです：BaoCut でオンにするか、baocut services configure mcp --autostart on を実行してください',
+  serveTokenRejected: 'BaoCut の MCP サービスがトークンを拒否しました（撤回済み、または別の Runtime Home が発行したもの）：baocut mcp install --agent <agent> --yes を再実行してください',
+  serveRuntimeLost: 'このリクエストの処理中に BaoCut の Runtime が停止しました。再試行はしていません',
+  serveRuntimeUnavailable: (reason) => `BaoCut の Runtime に接続できません：${reason}`,
+  serveHttpStatus: (status) => `BaoCut の MCP サービスが HTTP ${status} を返しました`,
 };

@@ -3,11 +3,13 @@ import type { McpMessages } from './mcp-copy.ts';
 export const it: McpMessages = {
   previousClientUnknown: 'Impossibile identificare il client della voce sostituita, quindi nessun client è stato revocato: baocut mcp status elenca quelli esistenti; revoca quelli inutilizzati con baocut services mcp revoke <clientId>', defaultProjectRegistered: (name: string, path: string) => `BaoCut non aveva progetti: registrato il progetto predefinito «${name}» (${path}) in cui gli agenti esterni possono creare video`,
   help: `Uso:
-  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <client name>] [--yes]
+  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <client name>] [--yes]
                                    Connette un agente esterno al servizio MCP di BaoCut: avvia il servizio (anche insieme
                                    al Runtime), crea un nuovo client e token per l’agente e scrive indirizzo e token nella
                                    configurazione MCP dell’agente (voce baocut); poi riavvia l’agente
                                    Se BaoCut non ha progetti, registra il progetto CLI nella cartella dei progetti predefinita per gli agenti esterni
+    --transport stdio|http         stdio (predefinito): l’agente esegue baocut mcp serve --stdio, che trova o avvia da solo il Runtime
+                                   di BaoCut; http: scrive l’indirizzo del servizio, che funziona solo mentre il Runtime è in esecuzione
     --level ask|auto               Livello di accesso: ask richiede la conferma di ogni scrittura e attività in BaoCut (predefinito del servizio);
                                    auto le esegue direttamente. Se omesso, mantiene il livello attuale
     --name <client name>           Nome del client in BaoCut (predefinito: nome dell’agente); può essere revocato separatamente
@@ -20,9 +22,21 @@ export const it: McpMessages = {
   il livello ask; se il token viene divulgato, revocalo con baocut services mcp revoke <clientId>.
   Il servizio è disponibile solo mentre il Runtime di BaoCut è in esecuzione (apri BaoCut o esegui baocut runtime ensure).
   baocut mcp status                Stato, indirizzo, livello e client del servizio MCP e presenza di una voce baocut
-                                   nella configurazione di ogni agente (senza token)`,
+                                   nella configurazione di ogni agente (senza token)
+  baocut mcp serve --stdio         Ciò che esegue la voce stdio: un server MCP stdio che inoltra al servizio MCP con il token di
+                                   BAOCUT_MCP_TOKEN e trova o avvia il Runtime quando serve. Lo esegue l’agente, non un terminale`,
   entryExists: (file: string, entry: string) => `${file} ha già una voce ${entry}; nulla è cambiato. Aggiungi --yes per sostituirla`, serviceNotAvailable: 'Questa versione di BaoCut non offre il servizio MCP', serviceStartFailed: (reason: string | null) => `Il servizio MCP non è partito: ${reason ?? 'motivo sconosciuto'}`, connected: (host: string, url: string) => `${host} connesso al servizio MCP di BaoCut: ${url}`,
   configEnv: (configFile: string, envFile: string, envVar: string) => `Configurazione: ${configFile} (il token è in env.${envVar} di ${envFile}; la configurazione lo referenzia soltanto)`, configPlaintext: (configFile: string, clientId: string) => `Configurazione: ${configFile} (il token è scritto in chiaro in questo file: non includerlo nei commit né condividerlo; se divulgato, revocalo con baocut services mcp revoke ${clientId})`, clientLine: (name: string, clientId: string, level: string | null) => `Client: ${name} (${clientId})  Livello: ${level ?? '—'}`,
   restartHint: (host: string) => `Riavvia ${host} per applicare. Il servizio funziona con il Runtime di BaoCut: se non è in esecuzione, apri BaoCut o esegui prima baocut runtime ensure`, replacedRevoked: (name: string, clientId: string) => `Vecchia voce sostituita e client usato revocato: ${name} (${clientId})`, replacedRevokeFailed: (reason: string) => `Vecchia voce sostituita, ma impossibile revocare il client usato: ${reason}`, oldClientRemains: (ids: readonly string[]) => `Il vecchio client è ancora presente: ${ids.join(', ')}. Se non è più usato: baocut services mcp revoke <clientId>`, sameNameClientsRemain: (ids: readonly string[], unrecognized: boolean) => `${unrecognized ? 'Impossibile identificare il client della vecchia voce; i client' : 'I client'} con lo stesso nome sono ancora presenti: ${ids.join(', ')}. Se non sono più usati: baocut services mcp revoke <clientId>`,
   hostsHeading: (entry: string) => `Presenza di una voce ${entry} nella configurazione di ogni agente:`, hostUnreadable: (problem: string) => `impossibile leggere (${problem})`, hostConfigured: 'sì', hostNotConfigured: 'no', noServiceStatus: 'Il Runtime non ha riportato lo stato del servizio MCP', levelChoice: (value: string) => `--level deve essere ask o auto: ${value}`,
+  connectedStdio: (host: string, command: string) => `${host} collegato al servizio MCP di BaoCut via stdio: ${host} esegue ${command}`,
+  configEnvInherited: (configFile: string, envFile: string, envVar: string) => `Configurazione: ${configFile} (il token è in env.${envVar} di ${envFile}; il comando lo eredita da lì)`,
+  restartHintStdio: (host: string) => `Riavvia ${host} per applicare. ${host} esegue il comando da solo, e il comando avvia il Runtime di BaoCut se non è in esecuzione`,
+  transportChoice: (value: string) => `--transport deve essere stdio o http: ${value}`,
+  serveTokenMissing: (envVar: string) => `${envVar} non è impostato, quindi non c’è un token per il servizio MCP di BaoCut: esegui baocut mcp install --agent <agent> per scriverlo nella configurazione MCP dell’agente`,
+  serveServiceOff: 'Il servizio MCP di BaoCut è spento: accendilo in BaoCut o esegui baocut services configure mcp --autostart on',
+  serveTokenRejected: 'Il servizio MCP di BaoCut ha rifiutato il token (revocato o emesso da un altro Runtime Home): esegui di nuovo baocut mcp install --agent <agent> --yes',
+  serveRuntimeLost: 'Il Runtime di BaoCut si è fermato durante questa richiesta; non è stata ripetuta',
+  serveRuntimeUnavailable: (reason: string) => `Impossibile raggiungere il Runtime di BaoCut: ${reason}`,
+  serveHttpStatus: (status: number) => `Il servizio MCP di BaoCut ha risposto HTTP ${status}`,
 };

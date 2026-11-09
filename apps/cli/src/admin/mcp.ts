@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Project, ServiceClient, ServiceLevel, ServiceStatus } from '@baocut/protocol';
-import { CliError } from '../envelope.ts';
+import { CliError, EXIT } from '../envelope.ts';
+import { isDefaultHome, ownCliCommand } from '../runtime/connection.ts';
 import {
   AGENT_HOSTS,
   HOST_LABELS,
@@ -14,19 +15,24 @@ import {
   writeMcpEntry,
   type AgentHost,
   type McpHostConfig,
+  type McpStdioCommand,
 } from './agent-hosts.ts';
 import { defineNoun, type AdminRun } from './context.ts';
 import { M } from './mcp-copy.ts';
+import { serveMcpStdio } from './mcp-stdio.ts';
 import { formatClients, formatService } from './services-output.ts';
 
 /**
- * 管理桶 `baocut mcp install|status`（Agent 面设计 §6.2；架构设计 §4.8）：一条命令把外部 Agent 接到 BaoCut 的 MCP 服务——开服务、
- * 为这个宿主建客户端拿令牌、写进宿主的 MCP 配置。令牌能放进宿主的环境变量段时放那里、配置里引用它（Claude Code）；宿主没有这样的
- * 地方时明文写进它的配置文件（Codex、Cursor、Gemini CLI），结果与帮助里都说明。`status` 不打印令牌。
+ * 管理桶 `baocut mcp install|status|serve`（Agent 面设计 §6.2；架构设计 §4.8）：一条命令把外部 Agent 接到 BaoCut 的 MCP 服务——开服务、
+ * 为这个宿主建客户端拿令牌、写进宿主的 MCP 配置。默认写 stdio 形式（宿主拉起 `baocut mcp serve --stdio`，它自己找或拉起 Runtime，
+ * CLI 独立使用与发布 §6.1），`--transport http` 写地址。令牌能放进宿主的环境变量段时放那里、配置里引用它或由命令继承（Claude Code）；
+ * 宿主没有这样的地方时明文写进它的配置文件（Codex、Cursor、Gemini CLI），结果与帮助里都说明。`status` 不打印令牌。
  */
 export const mcp = defineNoun({
   name: 'mcp',
-  verbs: ['install', 'status'],
+  verbs: ['install', 'status', 'serve'],
+  // `serve` 自己找或拉起 Runtime，断了还要再找：不用管理桶开的那条连接。
+  offline: ['serve'],
   get usage() {
     return M.help;
   },
@@ -34,13 +40,30 @@ export const mcp = defineNoun({
     agent: { type: 'string' },
     level: { type: 'string' },
     name: { type: 'string' },
+    transport: { type: 'string' },
+    stdio: { type: 'boolean' },
     yes: { type: 'boolean' },
   },
   async run(ctx) {
     const [sub, ...extra] = ctx.args;
     if (extra.length > 0) throw ctx.usageError();
+    if (sub === 'serve') {
+      const { stdio, ...others } = ctx.values;
+      if (stdio !== true || Object.values(others).some((value) => value !== undefined && value !== false)) throw ctx.usageError();
+      // stdout 只走 MCP 协议：不经 `ctx.done` 的输出。
+      return (await serveMcpStdio({
+        home: ctx.home,
+        env: ctx.env,
+        input: process.stdin,
+        output: process.stdout,
+        errors: process.stderr,
+      })) === 0
+        ? EXIT.ok
+        : EXIT.actionRequired;
+    }
+    if (ctx.values.stdio) throw ctx.usageError();
     if (sub === 'status') {
-      if (ctx.values.agent || ctx.values.level || ctx.values.name || ctx.values.yes) throw ctx.usageError();
+      if (ctx.values.agent || ctx.values.level || ctx.values.name || ctx.values.yes || ctx.values.transport) throw ctx.usageError();
       return status(ctx);
     }
     if (sub !== 'install') throw ctx.usageError();
@@ -48,11 +71,12 @@ export const mcp = defineNoun({
   },
 });
 
-type McpRun = AdminRun<{ agent?: string; level?: string; name?: string; yes?: boolean }>;
+type McpRun = AdminRun<{ agent?: string; level?: string; name?: string; transport?: string; stdio?: boolean; yes?: boolean }>;
 
 async function install(ctx: McpRun) {
   const host = ctx.parse(() => parseAgentHost(ctx.values.agent));
   const level = ctx.parse(() => parseLevel(ctx.values.level));
+  const transport = ctx.parse(() => parseTransport(ctx.values.transport));
   const clientName = ctx.values.name?.trim() || HOST_LABELS[host];
   const config = mcpHostConfig(host, ctx.env);
   // 先看宿主的配置：要拒绝就在发令牌之前拒绝，不留下没人用的客户端。
@@ -81,9 +105,11 @@ async function install(ctx: McpRun) {
   const created = await ctx.client.request('services.mcp.createClient', { name: clientName });
   let written: McpHostConfig;
   let url: string;
+  let stdio: McpStdioCommand | null = null;
   try {
     url = (await ctx.client.request('services.mcp.connectionInfo', { clientId: created.client.clientId })).url;
-    written = writeMcpEntry(host, ctx.env, { name: MCP_ENTRY_NAME, url, token: created.token });
+    stdio = transport === 'stdio' ? await stdioCommand(ctx) : null;
+    written = writeMcpEntry(host, ctx.env, { name: MCP_ENTRY_NAME, url, token: created.token, ...(stdio ? { stdio } : {}) });
   } catch (error) {
     // 没写进去的令牌没人能用：吊销刚建的客户端。
     await ctx.client.request('services.mcp.revokeClient', { clientId: created.client.clientId }).catch(() => undefined);
@@ -111,6 +137,9 @@ async function install(ctx: McpRun) {
   const result = {
     agent: host,
     entry: MCP_ENTRY_NAME,
+    // 认不出这个 CLI 怎么启动（Linux 的包）时退回 HTTP。
+    transport: stdio ? ('stdio' as const) : ('http' as const),
+    ...(stdio ? { command: [stdio.command, ...stdio.args], ...(Object.keys(stdio.env).length ? { commandEnv: stdio.env } : {}) } : {}),
     configFile: written.file,
     tokenStorage: written.tokenStorage,
     ...(written.envFile ? { envFile: written.envFile, envVar: written.envVar } : {}),
@@ -130,6 +159,8 @@ async function install(ctx: McpRun) {
 function formatInstall(
   host: AgentHost,
   result: {
+    transport: 'stdio' | 'http';
+    command?: string[];
     configFile: string;
     tokenStorage: string;
     envFile?: string;
@@ -144,13 +175,16 @@ function formatInstall(
   },
   { others, revokeFailed }: { others: ServiceClient[]; revokeFailed: string | null },
 ): string[] {
+  const stdio = result.transport === 'stdio' && result.command;
   const lines = [
-    M.connected(HOST_LABELS[host], result.url),
+    stdio ? M.connectedStdio(HOST_LABELS[host], result.command!.map(shellWord).join(' ')) : M.connected(HOST_LABELS[host], result.url),
     result.tokenStorage === 'env'
-      ? M.configEnv(result.configFile, result.envFile ?? '', result.envVar ?? '')
+      ? stdio
+        ? M.configEnvInherited(result.configFile, result.envFile ?? '', result.envVar ?? '')
+        : M.configEnv(result.configFile, result.envFile ?? '', result.envVar ?? '')
       : M.configPlaintext(result.configFile, result.client.clientId),
     M.clientLine(result.client.name, result.client.clientId, result.level),
-    M.restartHint(HOST_LABELS[host]),
+    stdio ? M.restartHintStdio(HOST_LABELS[host]) : M.restartHint(HOST_LABELS[host]),
   ];
   if (result.defaultProject) {
     lines.push(
@@ -213,6 +247,43 @@ async function mcpService(ctx: McpRun): Promise<ServiceStatus> {
   const service = services.find((candidate) => candidate.serviceId === 'mcp');
   if (!service) throw new Error(M.noServiceStatus);
   return service;
+}
+
+/**
+ * stdio 形式里宿主拉起的命令：这个 CLI 自己（CLI 独立使用与发布 §6.1）。App 自带的入口已经装进 `~/.local/bin/baocut`（指向的正是它）
+ * 时写那个位置，App 换了位置重装入口后照样能用；否则写入口的完整路径，从仓库运行时是 Node 加 `apps/cli/src/main.ts`。Home 不是默认的
+ * 那个时带上 `BAOCUT_HOME`。Windows 的入口是 `.cmd`，宿主不经 shell 拉不起来，经 `cmd /c`。认不出时 null（退回 HTTP）。
+ */
+async function stdioCommand(ctx: McpRun): Promise<McpStdioCommand | null> {
+  const own = ownCliCommand();
+  if (!own) return null;
+  let command = own.command;
+  if (own.entry) {
+    const link = await ctx.client.request('cliEntry.status', {}).catch(() => null);
+    if (link?.state === 'current' && link.entry && samePath(link.entry, own.entry)) command = link.path;
+  }
+  const serve = [...own.args, 'mcp', 'serve', '--stdio'];
+  const env: Record<string, string> = isDefaultHome(ctx.home) ? {} : { BAOCUT_HOME: ctx.home };
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(command)) {
+    return { command: ctx.env.ComSpec || 'cmd.exe', args: ['/d', '/c', command, ...serve], env };
+  }
+  return { command, args: serve, env };
+}
+
+function samePath(a: string, b: string): boolean {
+  const norm = (p: string) => path.resolve(p).replace(/[\\/]+$/, '');
+  return process.platform === 'win32' || process.platform === 'darwin' ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
+}
+
+/** 给人看的命令行：带空格或引号的词加引号。 */
+function shellWord(word: string): string {
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`;
+}
+
+function parseTransport(value: string | undefined): 'stdio' | 'http' {
+  if (value === undefined || value === 'stdio') return 'stdio';
+  if (value !== 'http') throw new Error(M.transportChoice(value));
+  return value;
 }
 
 function parseLevel(value: string | undefined): Extract<ServiceLevel, 'ask' | 'auto'> | undefined {

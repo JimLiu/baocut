@@ -47,6 +47,11 @@ export function runtimeHome(env: NodeJS.ProcessEnv = process.env): string {
   return path.resolve(env.BAOCUT_HOME || defaultHome());
 }
 
+/** 是不是默认的 `~/.baocut`（不是时，交给别的进程的命令要带上 `BAOCUT_HOME`）。 */
+export function isDefaultHome(home: string): boolean {
+  return path.resolve(home) === path.resolve(defaultHome());
+}
+
 export function discoveryFile(home: string): string {
   return path.join(home, 'runtime.json');
 }
@@ -257,6 +262,26 @@ export function resolveRuntimeLaunch(
     }
   }
   return repo;
+}
+
+/**
+ * 这个 CLI 自己怎么启动（`mcp install` 写进宿主的 stdio 形式，CLI 独立使用与发布 §6.1）：包内的 CLI 是 App 自带的命令行入口
+ * （`entry`：macOS `Contents/MacOS/baocut-cli`，Windows 安装目录里的 `baocut.cmd`）；从仓库运行时是当前的 Node 加仓库里的
+ * `apps/cli/src/main.ts`（`entry` 为 null）。都认不出（Linux 的包）时 null。
+ */
+export function ownCliCommand(
+  platform: NodeJS.Platform = process.platform,
+  from: string = path.dirname(fileURLToPath(import.meta.url)),
+  node: NodeInfo = currentNode(),
+): { command: string; args: string[]; entry: string | null } | null {
+  const own = packagedApps({}, platform, from).find((app) => app.own);
+  if (own) {
+    const entry = packagedResourceEnv(own.resources, platform).BAOCUT_CLI_ENTRY;
+    return entry ? { command: entry, args: [], entry } : null;
+  }
+  const root = repoRoot(from);
+  const main = root && path.join(root, 'apps', 'cli', 'src', 'main.ts');
+  return main && fs.existsSync(main) ? { command: process.execPath, args: nodeArgs(main, node), entry: null } : null;
 }
 
 /** 装好的 BaoCut 应用可能在的位置（Windows 的 NSIS 按用户安装、macOS 的 Applications）。 */

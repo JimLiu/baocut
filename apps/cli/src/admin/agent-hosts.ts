@@ -24,7 +24,10 @@ export const HOST_LABELS: Record<AgentHost, string> = {
 
 /** 宿主 MCP 配置里 BaoCut 那一项的名字。 */
 export const MCP_ENTRY_NAME = 'baocut';
-/** Claude Code 的令牌放在它 `settings.json` 的 `env` 里，MCP 配置的请求头引用它。 */
+/**
+ * 令牌所在的环境变量：Claude Code 放在它 `settings.json` 的 `env` 里（HTTP 形式的请求头引用它，stdio 形式的桥从继承的环境里读）；
+ * 其余宿主的 stdio 形式写在那一项的 `env` 里。`baocut mcp serve --stdio` 读的就是它。
+ */
 export const MCP_TOKEN_ENV = 'BAOCUT_MCP_TOKEN';
 
 export function parseAgentHost(value: string | undefined): AgentHost {
@@ -97,9 +100,9 @@ export function hasMcpEntry(host: AgentHost, env: NodeJS.ProcessEnv, name: strin
 }
 
 /**
- * 宿主配置里这一项现在用的令牌（替换前读，用来认出旧客户端）：JSON 宿主读 `mcpServers.<名字>.headers.Authorization`，
- * Claude Code 的 `${VAR}` 引用到 `settings.json` 的 `env` 里取；Codex 读那一段（含子表）里的 `Authorization = "…"`。
- * 没有这一项、没有请求头或认不出时 null；配置读不懂时抛错。
+ * 宿主配置里这一项现在用的令牌（替换前读，用来认出旧客户端）：JSON 宿主读 `mcpServers.<名字>.headers.Authorization`，stdio 形式读
+ * 那一项 `env` 的 `BAOCUT_MCP_TOKEN`；Claude Code 的 `${VAR}` 引用与 stdio 形式到 `settings.json` 的 `env` 里取；Codex 读那一段
+ * （含子表）里的 `Authorization = "…"` 或 `BAOCUT_MCP_TOKEN = "…"`。没有这一项、没有令牌或认不出时 null；配置读不懂时抛错。
  */
 export function readMcpEntryToken(host: AgentHost, env: NodeJS.ProcessEnv, name: string = MCP_ENTRY_NAME): string | null {
   const config = mcpHostConfig(host, env);
@@ -109,14 +112,16 @@ export function readMcpEntryToken(host: AgentHost, env: NodeJS.ProcessEnv, name:
     const range = codexSectionRange(text, name);
     if (!range) return null;
     for (const line of text.split('\n').slice(range.start, range.end)) {
-      const match = /(?:^|[{,\s])"?Authorization"?\s*=\s*("(?:[^"\\]|\\.)*"|'[^']*')/.exec(line);
+      const match = new RegExp(`(?:^|[{,\\s])"?(Authorization|${MCP_TOKEN_ENV})"?\\s*=\\s*("(?:[^"\\\\]|\\\\.)*"|'[^']*')`).exec(line);
       if (!match) continue;
-      const quoted = match[1]!;
+      const quoted = match[2]!;
+      let value: string | null;
       try {
-        header = quoted.startsWith('"') ? (JSON.parse(quoted) as string) : quoted.slice(1, -1);
+        value = quoted.startsWith('"') ? (JSON.parse(quoted) as string) : quoted.slice(1, -1);
       } catch {
-        header = null;
+        value = null;
       }
+      header = value && match[1] === MCP_TOKEN_ENV ? `Bearer ${value}` : value;
       break;
     }
   } else {
@@ -124,7 +129,16 @@ export function readMcpEntryToken(host: AgentHost, env: NodeJS.ProcessEnv, name:
     const server = isRecord(servers) ? servers[name] : undefined;
     const headers = isRecord(server) ? server.headers : undefined;
     const value = isRecord(headers) ? headers.Authorization : undefined;
-    header = typeof value === 'string' ? value : null;
+    const stdioEnv = isRecord(server) && isRecord(server.env) ? server.env[MCP_TOKEN_ENV] : undefined;
+    header =
+      typeof value === 'string'
+        ? value
+        : typeof stdioEnv === 'string'
+          ? `Bearer ${stdioEnv}`
+          : // stdio 形式的 Claude Code 条目没有令牌：桥从 `settings.json` 的 `env` 继承它。
+            host === 'claude-code' && isRecord(server) && typeof server.command === 'string'
+            ? `Bearer \${${MCP_TOKEN_ENV}}`
+            : null;
   }
   if (!header) return null;
   const token = header.replace(/^\s*Bearer\s+/i, '').trim();
@@ -141,10 +155,20 @@ export function clientIdOfToken(token: string): string | null {
   return /^([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/.exec(token)?.[1] ?? null;
 }
 
+/** stdio 形式：宿主拉起的命令（`baocut mcp serve --stdio`）与不含令牌的环境变量（Home 不是默认的那个时的 `BAOCUT_HOME`）。 */
+export interface McpStdioCommand {
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+}
+
 export interface McpEntry {
   name: string;
+  /** HTTP 形式的地址；有 `stdio` 时不写进配置。 */
   url: string;
   token: string;
+  /** 有就写 stdio 形式（CLI 独立使用与发布 §6.1），否则写 HTTP 地址与令牌。 */
+  stdio?: McpStdioCommand;
 }
 
 export interface WriteMcpOptions {
@@ -152,10 +176,22 @@ export interface WriteMcpOptions {
   runClaude?: ((args: string[]) => void) | null;
 }
 
-/** 写（或替换）宿主配置里的这一项。返回写到了哪里、令牌怎么存。 */
+/**
+ * 写（或替换）宿主配置里的这一项。返回写到了哪里、令牌怎么存。stdio 形式的令牌：Claude Code 照旧放在 `settings.json` 的 `env`，
+ * 由它拉起的桥继承；其余宿主写进那一项的 `env`（明文，与 HTTP 形式的请求头一样）。
+ */
 export function writeMcpEntry(host: AgentHost, env: NodeJS.ProcessEnv, entry: McpEntry, options: WriteMcpOptions = {}): McpHostConfig {
   const config = mcpHostConfig(host, env);
   const bearer = `Bearer ${entry.token}`;
+  const stdio = entry.stdio;
+  const stdioValue = (withToken: boolean) =>
+    stdio && {
+      command: stdio.command,
+      args: stdio.args,
+      ...(withToken || Object.keys(stdio.env).length > 0
+        ? { env: { ...stdio.env, ...(withToken ? { [MCP_TOKEN_ENV]: entry.token } : {}) } }
+        : {}),
+    };
   switch (host) {
     case 'claude-code': {
       // 令牌先进 settings.json 的 env，再写引用它的那一项；那一项没写成时把 env 里的旧值放回去（旧条目引用的是同一个变量）。
@@ -166,18 +202,19 @@ export function writeMcpEntry(host: AgentHost, env: NodeJS.ProcessEnv, entry: Mc
         settings.env = { ...envBlock, [config.envVar!]: entry.token };
       });
       const header = `Authorization: Bearer \${${config.envVar}}`;
+      const value = stdio
+        ? { type: 'stdio', ...stdioValue(false) }
+        : { type: 'http', url: entry.url, headers: { Authorization: `Bearer \${${config.envVar}}` } };
       const runClaude = options.runClaude === undefined ? claudeRunner(env) : options.runClaude;
       try {
         if (runClaude) {
           if (hasMcpEntry(host, env, entry.name)) runClaude(['mcp', 'remove', '--scope', 'user', entry.name]);
-          runClaude(['mcp', 'add', '--scope', 'user', '--transport', 'http', entry.name, entry.url, '--header', header]);
+          if (stdio) runClaude(['mcp', 'add-json', '--scope', 'user', entry.name, JSON.stringify(value)]);
+          else runClaude(['mcp', 'add', '--scope', 'user', '--transport', 'http', entry.name, entry.url, '--header', header]);
         } else {
           updateJson(config.file, (root) => {
             const servers = isRecord(root.mcpServers) ? root.mcpServers : {};
-            root.mcpServers = {
-              ...servers,
-              [entry.name]: { type: 'http', url: entry.url, headers: { Authorization: `Bearer \${${config.envVar}}` } },
-            };
+            root.mcpServers = { ...servers, [entry.name]: value };
           });
         }
       } catch (error) {
@@ -197,11 +234,21 @@ export function writeMcpEntry(host: AgentHost, env: NodeJS.ProcessEnv, entry: Mc
     }
     case 'codex': {
       const text = readText(config.file) ?? '';
-      const section = [
-        `[mcp_servers.${entry.name}]`,
-        `url = ${tomlString(entry.url)}`,
-        `http_headers = { Authorization = ${tomlString(bearer)} }`,
-      ];
+      // Codex 只把少数几个环境变量（HOME、PATH 等）传给 stdio 服务器：令牌与 Home 都写进 `env`。
+      const section = stdio
+        ? [
+            `[mcp_servers.${entry.name}]`,
+            `command = ${tomlString(stdio.command)}`,
+            `args = [${stdio.args.map(tomlString).join(', ')}]`,
+            `env = { ${Object.entries({ ...stdio.env, [MCP_TOKEN_ENV]: entry.token })
+              .map(([key, value]) => `${key} = ${tomlString(value)}`)
+              .join(', ')} }`,
+          ]
+        : [
+            `[mcp_servers.${entry.name}]`,
+            `url = ${tomlString(entry.url)}`,
+            `http_headers = { Authorization = ${tomlString(bearer)} }`,
+          ];
       writeText(config.file, replaceCodexSection(text, entry.name, section.join('\n')));
       return config;
     }
@@ -209,8 +256,9 @@ export function writeMcpEntry(host: AgentHost, env: NodeJS.ProcessEnv, entry: Mc
     case 'gemini': {
       updateJson(config.file, (root) => {
         const servers = isRecord(root.mcpServers) ? root.mcpServers : {};
-        const value =
-          host === 'gemini'
+        const value = stdio
+          ? stdioValue(true)
+          : host === 'gemini'
             ? { url: entry.url, type: 'http', headers: { Authorization: bearer } }
             : { url: entry.url, headers: { Authorization: bearer } };
         root.mcpServers = { ...servers, [entry.name]: value };

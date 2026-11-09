@@ -324,7 +324,7 @@ baocut — 用 BaoCut 转录、翻译、剪辑、配音与导出视频。先 `ba
 
 ### 6.1 不变的部分
 
-Streamable HTTP、回环监听、按客户端发令牌、`Host` 与 `Origin` 检查、访问策略（范围 + 等级）、服务审批与 50 秒超时、`initialize` 报告接口版本：全部沿用架构设计 §4.8 与 §12.8。
+Streamable HTTP、回环监听、按客户端发令牌、`Host` 与 `Origin` 检查、访问策略（范围 + 等级）、服务审批与 50 秒超时、`initialize` 报告接口版本：全部沿用架构设计 §4.8 与 §12.8。stdio 形式（§6.2）只是这个端点前面的一座桥，上面这些对它同样成立。
 
 ### 6.2 变化
 
@@ -333,7 +333,8 @@ Streamable HTTP、回环监听、按客户端发令牌、`Host` 与 `Origin` 检
 - **`jobs_wait { jobId, timeoutSec ≤ 50 }`**：阻塞到终态或超时，返回与 `jobs_inspect` 相同的记录。上限避开常见 MCP 客户端 60 秒的请求超时；没等到就再调一次。
 - **工具数**：对外目录（`ask` 与 `auto` 等级）49 个（含后来开放的代码画面 `compositions_import` / `compositions_preview`、清理换下来的旧版本用的 `assets_prune`、采用素材来源章节的 `chapters_adopt` 、网上素材的 `assets_search` / `assets_download` 与音效、音频分析、找空档的 `assets_sfx` / `assets_analyze` / `assets_dead_air`；`compositions_import` 带 `replace: { itemId }` 时把时间线上已有的代码画面实例原地换成新版本，见[代码包规范 §3.3](../../spec/code-bundle-spec.md#33-替换版本)），其中 `read` 等级露出的只读工具 20 个；清单是协议常量 `MCP_SERVICE_TOOL_NAMES`，测试核对它与目录推出的一致。管理面一个都不进。
 - **接口版本升到 `2`**：工具改名（`models_transcribe` 的流程形态改叫 `transcribe`、`link_import_start` → `download`、`exports_create` → `export`）与参数统一是破坏性变更。工具桥不对外，不受版本约束，但名字同时改。
-- **`baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <客户端名>] [--yes]`**（另有 `baocut mcp status`）：新建一个客户端，把地址与令牌写进该 Agent 宿主的 MCP 配置，提示重启宿主。宿主有自己的环境变量段时令牌放那里、配置里只写引用（Claude Code 的 `settings.json` `env`）；没有时明文写入（Codex、Cursor、Gemini CLI），`--help` 与结果里说明风险并建议 `ask` 等级。BaoCut 里还没有任何已登记项目时（新装、没开过 App），一并登记默认项目目录下的 `CLI` 项目（与终端没有项目时用的同一个），结果的 `defaultProject` 写明：对外服务新建视频必须给已登记的项目、又不能自己建项目，没有它外部 Agent 无处新建视频。细节见架构设计 §4.8、§12.8。对应 v2 skill 的 `bin/connect`。`mcp` 是 CLI 的管理桶命令，不在目录里。
+- **stdio 形式 `baocut mcp serve --stdio`**：宿主把它当作 stdio 形式的 MCP 服务器拉起，Runtime 不在时它按 CLI 的规则自己拉起（[CLI 独立使用与发布 §6.1](cli-standalone-design.md#61-mcp-stdio)）。它带着 `BAOCUT_MCP_TOKEN` 里的客户端令牌把每条消息转发给上面的 HTTP 端点，所以开放清单、等级、审批与审计都是同一个客户端的；转发期间开着一条 CLI 连接，Runtime 不空闲退出。只走 MCP 的宿主因此不用先开 App 或跑一条 CLI 命令。
+- **`baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <客户端名>] [--yes]`**（另有 `baocut mcp status`）：新建一个客户端，把接法与令牌写进该 Agent 宿主的 MCP 配置，提示重启宿主。默认写 stdio 形式（命令加参数，命令是 `~/.local/bin/baocut` 指向这份安装时的那个链接，否则是这份安装的入口；Home 不是默认的时一并写 `BAOCUT_HOME`），`--transport http` 写地址与请求头。宿主有自己的环境变量段时令牌放那里、配置里只写引用或靠继承（Claude Code 的 `settings.json` `env`）；没有时明文写入（Codex、Cursor、Gemini CLI；stdio 形式写在那一项的 `env` 里），`--help` 与结果里说明风险并建议 `ask` 等级。BaoCut 里还没有任何已登记项目时（新装、没开过 App），一并登记默认项目目录下的 `CLI` 项目（与终端没有项目时用的同一个），结果的 `defaultProject` 写明：对外服务新建视频必须给已登记的项目、又不能自己建项目，没有它外部 Agent 无处新建视频。细节见架构设计 §4.8、§12.8。对应 v2 skill 的 `bin/connect`。`mcp` 是 CLI 的管理桶命令，不在目录里。
 
 ### 6.3 CLI 与 MCP 的差异只剩这些
 

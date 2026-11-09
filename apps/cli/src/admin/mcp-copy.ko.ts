@@ -5,11 +5,13 @@ export const ko: McpMessages = {
   previousClientUnknown: '교체된 항목이 쓰던 클라이언트를 식별하지 못해 어떤 클라이언트도 철회하지 않았습니다. baocut mcp status로 기존 클라이언트를 확인하고, 쓰지 않는 클라이언트는 baocut services mcp revoke <clientId>로 철회하세요.',
   defaultProjectRegistered: (name, path) => `BaoCut에 프로젝트가 없어 기본 프로젝트 “${name}”(${path})을 등록했습니다. 외부 Agent는 이 프로젝트에 영상을 만듭니다`,
   help: `사용법:
-  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <클라이언트 이름>] [--yes]
+  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <클라이언트 이름>] [--yes]
                                    외부 Agent를 BaoCut의 MCP 서비스에 연결합니다: 서비스를 켜고(Runtime과 함께 시작하도록
                                    설정), 그 Agent용 새 클라이언트와 토큰을 만들고, 주소와 토큰을 Agent의 MCP 설정
                                    (항목 이름 baocut)에 씁니다. 그다음 Agent를 다시 시작하세요
                                    BaoCut에 프로젝트가 없으면 외부 Agent용 CLI 프로젝트를 기본 프로젝트 폴더에 등록합니다
+    --transport stdio|http         stdio(기본값): 에이전트가 baocut mcp serve --stdio를 실행하고, 이 명령이 BaoCut의 Runtime을
+                                   직접 찾거나 시작합니다. http: 서비스 주소를 기록하며 Runtime이 실행 중일 때만 쓸 수 있습니다
     --level ask|auto               접근 등급: ask는 쓰기와 작업을 BaoCut에서 매번 확인합니다(서비스의 기본값). auto는
                                    바로 실행합니다. 생략하면 현재 등급을 유지합니다
     --name <클라이언트 이름>       BaoCut에 표시할 클라이언트 이름(기본값은 Agent 이름). 따로 철회할 수 있습니다
@@ -22,7 +24,9 @@ export const ko: McpMessages = {
   토큰이 유출되면 baocut services mcp revoke <clientId>로 철회하세요.
   서비스는 BaoCut의 Runtime이 실행 중일 때만 쓸 수 있습니다(BaoCut을 열거나 baocut runtime ensure 실행).
   baocut mcp status                MCP 서비스의 상태, 주소, 등급, 클라이언트와 각 Agent 설정에 baocut 항목이
-                                   있는지 여부(토큰은 포함하지 않음)`,
+                                   있는지 여부(토큰은 포함하지 않음)
+  baocut mcp serve --stdio         stdio 항목이 실행하는 명령: BAOCUT_MCP_TOKEN의 토큰으로 MCP 서비스에 전달하는 stdio MCP 서버이며,
+                                   필요하면 Runtime을 찾거나 시작합니다. 에이전트가 실행하는 것으로, 터미널용이 아닙니다`,
   entryExists: (file, entry) => `${file}에 이미 ${entry} 항목이 있어 아무것도 변경하지 않았습니다. 바꾸려면 --yes를 추가하세요`,
   serviceNotAvailable: '이 버전의 BaoCut은 MCP 서비스를 제공하지 않습니다',
   serviceStartFailed: (reason) => `MCP 서비스를 시작하지 못했습니다: ${reason ?? '알 수 없는 이유'}`,
@@ -46,4 +50,17 @@ export const ko: McpMessages = {
   hostNotConfigured: '없음',
   noServiceStatus: 'Runtime이 MCP 서비스의 상태를 보고하지 않았습니다',
   levelChoice: (value) => `--level은 ask 또는 auto여야 합니다: ${value}`,
+  connectedStdio: (host, command) => `${host}을(를) stdio로 BaoCut의 MCP 서비스에 연결했습니다: ${host}이(가) ${command}을(를) 실행합니다`,
+  configEnvInherited: (configFile, envFile, envVar) =>
+    `설정: ${configFile}(토큰은 ${envFile}의 env.${envVar}에 있으며 명령이 그곳에서 물려받습니다)`,
+  restartHintStdio: (host) =>
+    `${host}을(를) 다시 시작하면 적용됩니다. ${host}이(가) 명령을 직접 실행하고, Runtime이 실행 중이 아니면 명령이 시작합니다`,
+  transportChoice: (value) => `--transport는 stdio 또는 http여야 합니다: ${value}`,
+  serveTokenMissing: (envVar) =>
+    `${envVar}이(가) 설정되지 않아 BaoCut MCP 서비스의 토큰이 없습니다: baocut mcp install --agent <agent>를 실행해 에이전트의 MCP 설정에 기록하세요`,
+  serveServiceOff: 'BaoCut의 MCP 서비스가 꺼져 있습니다: BaoCut에서 켜거나 baocut services configure mcp --autostart on을 실행하세요',
+  serveTokenRejected: 'BaoCut의 MCP 서비스가 토큰을 거부했습니다(철회되었거나 다른 Runtime Home에서 발급됨): baocut mcp install --agent <agent> --yes를 다시 실행하세요',
+  serveRuntimeLost: '이 요청을 처리하는 중에 BaoCut의 Runtime이 멈췄습니다. 다시 시도하지 않았습니다',
+  serveRuntimeUnavailable: (reason) => `BaoCut의 Runtime에 연결할 수 없습니다: ${reason}`,
+  serveHttpStatus: (status) => `BaoCut의 MCP 서비스가 HTTP ${status}을(를) 반환했습니다`,
 };

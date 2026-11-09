@@ -175,6 +175,12 @@ CLI 拉起的 Runtime 在有在用的连接、任务或开着的对外服务（W
 - 转发期间算一条在用的 CLI 连接，Runtime 不空闲退出。Runtime 中途退出时重新找或拉起一次，正在进行的请求以错误返回，不重放。
 - `baocut mcp install` 默认写 stdio 形式（命令加参数）。命令写 `~/.local/bin/baocut`（装了的话），否则写入口的完整路径；宿主不支持 stdio 时才写 HTTP 地址与令牌。
 
+> 已实现（2026-11-08）：`apps/cli/src/admin/mcp-stdio.ts`；落地后的说法见 Agent 面设计 §6.2 与架构设计 §4.8「stdio 桥」。桥带着条目里的客户端令牌转发给 HTTP 端点，权限、审批与审计都是那个客户端的。与上文的出入：
+>
+> - 命令只在 `~/.local/bin/baocut` 指向这份安装时写它，否则写这份安装的入口（源码时是 `node` 加 `apps/cli/src/main.ts`）；Home 不是默认的时条目带 `BAOCUT_HOME`。四家宿主都支持 stdio，`--transport http` 留给要 HTTP 的情形。
+> - 用户关掉的 MCP 服务（不随 Runtime 启动）桥不替他开；找不到或拉不起 Runtime 时桥不退出，每个请求以原因回答，下一个请求再试。
+> - 实测：Claude Code 2.1.296 的 `claude mcp list` 显示已连接（令牌从 `settings.json` 的 `env` 继承）；MCP SDK 客户端只给 `PATH`、`HOME` 与条目的 `env`（同 Codex 给 stdio 服务器的最少环境）时，Runtime 不在能自己拉起、SIGKILL 掉 Runtime 后下一个请求重新拉起。Codex 0.159.0 与 Gemini CLI 读得懂写进去的条目，但没在它们的会话里实际调用（`codex mcp list` 不连接，Gemini 在未信任的目录里不启用 MCP）。Windows 上 `.cmd` 入口经 `cmd /d /c` 拉起，未实测。
+
 ### 6.2 开机常驻（第一版不做）
 
 第一版不做：有了 §6.1，MCP 宿主自己会拉起 Runtime；审片链接在 Web 服务开着时一直可用，重启电脑后跑一次 `baocut web review` 就恢复。以后要做时按下面的做法：

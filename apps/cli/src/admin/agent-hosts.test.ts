@@ -87,6 +87,49 @@ describe('写 MCP 配置', () => {
     expect(calls.map((args) => args[1])).toEqual(['remove', 'add']);
   });
 
+  it('stdio 形式：Claude Code 的令牌留在 settings.json 由命令继承，其余宿主写进那一项的 env；读回的令牌相同', () => {
+    const stdio = { command: '/usr/local/bin/baocut', args: ['mcp', 'serve', '--stdio'], env: { BAOCUT_HOME: '/tmp/h' } };
+    const calls: string[][] = [];
+    writeMcpEntry('claude-code', env, { ...entry, token: 'mcl_a.c2VjcmV0', stdio }, { runClaude: (args) => calls.push(args) });
+    expect(calls).toEqual([
+      ['mcp', 'add-json', '--scope', 'user', 'baocut', JSON.stringify({ type: 'stdio', command: stdio.command, args: stdio.args, env: stdio.env })],
+    ]);
+    writeMcpEntry('claude-code', env, { ...entry, token: 'mcl_a.c2VjcmV0', stdio }, { runClaude: null });
+    const root = readJson(path.join(home, '.claude.json'));
+    expect(root.mcpServers.baocut).toEqual({ type: 'stdio', command: stdio.command, args: stdio.args, env: { BAOCUT_HOME: '/tmp/h' } });
+    expect(readJson(path.join(home, '.claude', 'settings.json')).env).toEqual({ BAOCUT_MCP_TOKEN: 'mcl_a.c2VjcmV0' });
+    expect(readMcpEntryToken('claude-code', env)).toBe('mcl_a.c2VjcmV0');
+
+    writeMcpEntry('cursor', env, { ...entry, token: 'mcl_b.c2VjcmV0', stdio: { ...stdio, env: {} } });
+    expect(readJson(path.join(home, '.cursor', 'mcp.json')).mcpServers.baocut).toEqual({
+      command: stdio.command,
+      args: stdio.args,
+      env: { BAOCUT_MCP_TOKEN: 'mcl_b.c2VjcmV0' },
+    });
+    expect(readMcpEntryToken('cursor', env)).toBe('mcl_b.c2VjcmV0');
+
+    writeMcpEntry('gemini', env, { ...entry, token: 'mcl_c.c2VjcmV0', stdio });
+    expect(readJson(path.join(home, '.gemini', 'settings.json')).mcpServers.baocut.env).toEqual({
+      BAOCUT_HOME: '/tmp/h',
+      BAOCUT_MCP_TOKEN: 'mcl_c.c2VjcmV0',
+    });
+    expect(readMcpEntryToken('gemini', env)).toBe('mcl_c.c2VjcmV0');
+
+    fs.mkdirSync(path.join(home, '.codex'));
+    fs.writeFileSync(path.join(home, '.codex', 'config.toml'), '[mcp_servers.baocut]\nurl = "x"\nhttp_headers = { Authorization = "Bearer old" }\n');
+    writeMcpEntry('codex', env, { ...entry, token: 'mcl_d.c2VjcmV0', stdio });
+    expect(fs.readFileSync(path.join(home, '.codex', 'config.toml'), 'utf8')).toBe(
+      [
+        '[mcp_servers.baocut]',
+        'command = "/usr/local/bin/baocut"',
+        'args = ["mcp", "serve", "--stdio"]',
+        'env = { BAOCUT_HOME = "/tmp/h", BAOCUT_MCP_TOKEN = "mcl_d.c2VjcmV0" }',
+        '',
+      ].join('\n'),
+    );
+    expect(readMcpEntryToken('codex', env)).toBe('mcl_d.c2VjcmV0');
+  });
+
   it('Cursor 与 Gemini CLI：明文请求头，新文件只给自己读写', () => {
     expect(writeMcpEntry('cursor', env, entry).tokenStorage).toBe('plaintext');
     const cursorFile = path.join(home, '.cursor', 'mcp.json');

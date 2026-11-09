@@ -8,11 +8,13 @@ export const de: McpMessages = {
 
 
   help: `Verwendung:
-  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <client name>] [--yes]
+  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <client name>] [--yes]
                                    Externen Agenten mit dem MCP-Dienst von BaoCut verbinden: Dienst starten (und mit der Runtime
                                    starten lassen), neuen Client und Token für den Agenten erstellen und Adresse und Token in dessen
                                    MCP-Konfiguration schreiben (Eintragsname baocut); anschließend den Agenten neu starten
                                    Hat BaoCut keine Projekte, wird das CLI-Projekt im Standardprojektordner für externe Agenten registriert
+    --transport stdio|http         stdio (Standard): Der Agent führt baocut mcp serve --stdio aus, das die Runtime von BaoCut selbst
+                                   findet oder startet; http: schreibt die Adresse des Dienstes, die nur bei laufender Runtime funktioniert
     --level ask|auto               Zugriffsstufe: ask lässt Sie jede Änderung und Aufgabe in BaoCut bestätigen (Standard des Dienstes);
                                    auto führt sie direkt aus. Ohne Angabe bleibt die aktuelle Stufe erhalten
     --name <client name>           In BaoCut angezeigter Clientname (standardmäßig der Agentname); der Client lässt sich einzeln widerrufen
@@ -25,7 +27,9 @@ export const de: McpMessages = {
   bevorzugen Sie ask; falls ein Token offengelegt wird, widerrufen Sie es mit baocut services mcp revoke <clientId>.
   Der Dienst ist nur verfügbar, solange die BaoCut-Runtime läuft (BaoCut öffnen oder baocut runtime ensure ausführen).
   baocut mcp status                Status, Adresse, Stufe und Clients des MCP-Dienstes sowie Vorhandensein eines baocut-Eintrags
-                                   in der Konfiguration der einzelnen Agenten (ohne Tokens)`,
+                                   in der Konfiguration der einzelnen Agenten (ohne Tokens)
+  baocut mcp serve --stdio         Was der stdio-Eintrag ausführt: ein stdio-MCP-Server, der mit dem Token aus BAOCUT_MCP_TOKEN an den
+                                   MCP-Dienst weiterleitet und die Runtime bei Bedarf findet oder startet. Der Agent führt ihn aus, kein Terminal`,
   entryExists: (file: string, entry: string) => `${file} hat bereits einen ${entry}-Eintrag; nichts wurde geändert. Fügen Sie --yes hinzu, um ihn zu ersetzen`,
   serviceNotAvailable: "Diese BaoCut-Version bietet den MCP-Dienst nicht an",
   serviceStartFailed: (reason: string | null) => `Der MCP-Dienst wurde nicht gestartet: ${reason ?? "unbekannter Grund"}`,
@@ -50,4 +54,17 @@ export const de: McpMessages = {
   hostNotConfigured: "nein",
   noServiceStatus: "Die Runtime hat den Status des MCP-Dienstes nicht gemeldet",
   levelChoice: (value: string) => `--level muss ask oder auto sein: ${value}`,
+  connectedStdio: (host: string, command: string) => `${host} ist über stdio mit dem MCP-Dienst von BaoCut verbunden: ${host} führt ${command} aus`,
+  configEnvInherited: (configFile: string, envFile: string, envVar: string) =>
+    `Konfiguration: ${configFile} (das Token liegt in env.${envVar} von ${envFile}; der Befehl erbt es von dort)`,
+  restartHintStdio: (host: string) =>
+    `Starten Sie ${host} neu, damit dies wirksam wird. ${host} führt den Befehl selbst aus, und der Befehl startet die Runtime von BaoCut, falls sie nicht läuft`,
+  transportChoice: (value: string) => `--transport muss stdio oder http sein: ${value}`,
+  serveTokenMissing: (envVar: string) =>
+    `${envVar} ist nicht gesetzt, daher gibt es kein Token für den MCP-Dienst von BaoCut: Führen Sie baocut mcp install --agent <agent> aus, um es in die MCP-Konfiguration des Agenten zu schreiben`,
+  serveServiceOff: 'Der MCP-Dienst von BaoCut ist ausgeschaltet: Schalten Sie ihn in BaoCut ein oder führen Sie baocut services configure mcp --autostart on aus',
+  serveTokenRejected: 'Der MCP-Dienst von BaoCut hat das Token abgelehnt (widerrufen oder von einem anderen Runtime Home ausgestellt): Führen Sie baocut mcp install --agent <agent> --yes erneut aus',
+  serveRuntimeLost: 'Die Runtime von BaoCut wurde während dieser Anfrage beendet; sie wurde nicht wiederholt',
+  serveRuntimeUnavailable: (reason: string) => `Die Runtime von BaoCut ist nicht erreichbar: ${reason}`,
+  serveHttpStatus: (status: number) => `Der MCP-Dienst von BaoCut hat mit HTTP ${status} geantwortet`,
 };

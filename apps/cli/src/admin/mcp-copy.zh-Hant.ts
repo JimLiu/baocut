@@ -5,11 +5,13 @@ export const zhHant: McpMessages = {
   previousClientUnknown: '無法辨識被取代的項目使用哪個用戶端，因此沒有撤銷任何用戶端：baocut mcp status 會列出現有用戶端；請用 baocut services mcp revoke <clientId> 撤銷不再使用的用戶端。',
   defaultProjectRegistered: (name, path) => `BaoCut 尚無專案：已登記預設專案「${name}」（${path}），供外部 Agent 在其中建立影片`,
   help: `用法：
-  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <client name>] [--yes]
+  baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <client name>] [--yes]
                                    將外部 Agent 連接到 BaoCut 的 MCP 服務：啟動服務（並設為隨 Runtime 啟動），
                                    為這個 Agent 建立新的用戶端與權杖，將位址與權杖寫入 Agent 的 MCP 設定（項目名稱 baocut），
                                    之後重新啟動 Agent
                                    BaoCut 尚無專案時，會在預設專案資料夾中登記 CLI 專案，供外部 Agent 使用
+    --transport stdio|http         stdio（預設）：宿主執行 baocut mcp serve --stdio，它自己找到或啟動 BaoCut 的 Runtime；
+                                   http：寫入服務的位址，只在 Runtime 執行時可用
     --level ask|auto               存取等級：ask 由你在 BaoCut 中逐一確認每次寫入與任務（服務的預設）；auto 直接執行。
                                    省略時維持目前的等級
     --name <client name>           在 BaoCut 中顯示的用戶端名稱（預設為 Agent 的名稱），可單獨撤銷
@@ -20,7 +22,9 @@ export const zhHant: McpMessages = {
   因此權杖會以明文寫入它們的設定檔：請勿提交或分享這些檔案，建議使用 ask 等級；權杖外洩時請用
   baocut services mcp revoke <clientId> 撤銷。
   只有在 BaoCut 的 Runtime 執行時才能使用這項服務（開啟 BaoCut，或執行 baocut runtime ensure）。
-  baocut mcp status                MCP 服務的狀態、位址、等級與用戶端，以及各 Agent 的設定中是否有 baocut 項目（不含權杖）`,
+  baocut mcp status                MCP 服務的狀態、位址、等級與用戶端，以及各 Agent 的設定中是否有 baocut 項目（不含權杖）
+  baocut mcp serve --stdio         stdio 項目執行的指令：stdio 形式的 MCP 伺服器，用 BAOCUT_MCP_TOKEN 中的權杖轉送給 MCP 服務，
+                                   需要時找到或啟動 Runtime。由宿主執行，不在終端機中使用`,
   entryExists: (file, entry) => `${file} 中已有 ${entry} 項目，未做任何變更。加上 --yes 即可取代`,
   serviceNotAvailable: '這個版本的 BaoCut 不提供 MCP 服務',
   serviceStartFailed: (reason) => `MCP 服務未能啟動：${reason ?? '原因不明'}`,
@@ -42,4 +46,14 @@ export const zhHant: McpMessages = {
   hostNotConfigured: '無',
   noServiceStatus: 'Runtime 未回報 MCP 服務的狀態',
   levelChoice: (value) => `--level 必須是 ask 或 auto：${value}`,
+  connectedStdio: (host, command) => `已將 ${host} 以 stdio 形式連接到 BaoCut 的 MCP 服務：${host} 執行 ${command}`,
+  configEnvInherited: (configFile, envFile, envVar) => `設定：${configFile}（權杖在 ${envFile} 的 env.${envVar} 中，指令從那裡繼承）`,
+  restartHintStdio: (host) => `重新啟動 ${host} 後生效。${host} 會自己執行這個指令，Runtime 未在執行時由它啟動`,
+  transportChoice: (value) => `--transport 只能是 stdio 或 http：${value}`,
+  serveTokenMissing: (envVar) => `未設定 ${envVar}，沒有 BaoCut MCP 服務的權杖：執行 baocut mcp install --agent <宿主> 將它寫入宿主的 MCP 設定`,
+  serveServiceOff: 'BaoCut 的 MCP 服務已關閉：請在 BaoCut 中開啟，或執行 baocut services configure mcp --autostart on',
+  serveTokenRejected: 'BaoCut 的 MCP 服務不接受這個權杖（已撤銷，或由其他 Runtime Home 發出）：請重新執行 baocut mcp install --agent <宿主> --yes',
+  serveRuntimeLost: 'BaoCut 的 Runtime 在處理這個請求時停止了，未重試',
+  serveRuntimeUnavailable: (reason) => `無法連線到 BaoCut 的 Runtime：${reason}`,
+  serveHttpStatus: (status) => `BaoCut 的 MCP 服務回應了 HTTP ${status}`,
 };

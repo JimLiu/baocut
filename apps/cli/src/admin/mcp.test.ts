@@ -80,10 +80,40 @@ describe('baocut mcp install', () => {
     expect(fake.calls[1]!.params).toEqual({ serviceId: 'mcp', autostart: true, level: 'auto' });
     expect(fake.calls[4]!.params).toEqual({ name: 'Cursor' });
     const envelope = capture.envelope();
-    expect(envelope.result).toMatchObject({ agent: 'cursor', entry: 'baocut', tokenStorage: 'plaintext', replaced: false, level: 'auto' });
+    expect(envelope.result).toMatchObject({
+      agent: 'cursor',
+      entry: 'baocut',
+      transport: 'stdio',
+      tokenStorage: 'plaintext',
+      replaced: false,
+      level: 'auto',
+    });
     expect(envelope.next).toBe('baocut mcp status');
+    // 默认写 stdio 形式：宿主拉起这个 CLI 的 `mcp serve --stdio`（从仓库运行时是 Node 加 main.ts），Home 不是默认的那个时带上它。
     const config = JSON.parse(fs.readFileSync(path.join(home, '.cursor', 'mcp.json'), 'utf8'));
-    expect(config.mcpServers.baocut.headers.Authorization).toBe('Bearer bct_secret');
+    const entry = config.mcpServers.baocut;
+    expect(entry.command).toBe(process.execPath);
+    expect(entry.args.at(-4)).toMatch(/apps[\\/]cli[\\/]src[\\/]main\.ts$/);
+    expect(entry.args.slice(-3)).toEqual(['mcp', 'serve', '--stdio']);
+    expect(entry.env).toEqual({ BAOCUT_HOME: home, BAOCUT_MCP_TOKEN: 'bct_secret' });
+    expect(entry.url).toBeUndefined();
+  });
+
+  it('--transport http：写地址与请求头', async () => {
+    const fake = fakeRuntime();
+    const { capture, done } = run(['install'], { agent: 'cursor', transport: 'http' }, fake);
+    expect(await done).toBe(0);
+    expect(capture.envelope().result).toMatchObject({ transport: 'http', url: 'http://127.0.0.1:47620/mcp' });
+    const config = JSON.parse(fs.readFileSync(path.join(home, '.cursor', 'mcp.json'), 'utf8'));
+    expect(config.mcpServers.baocut).toEqual({ url: 'http://127.0.0.1:47620/mcp', headers: { Authorization: 'Bearer bct_secret' } });
+  });
+
+  it('--transport 只认 stdio 与 http；serve 只认 --stdio', async () => {
+    const fake = fakeRuntime();
+    await expect(run(['install'], { agent: 'cursor', transport: 'sse' }, fake).done).rejects.toThrow(/--transport/);
+    await expect(run(['serve'], {}, fake).done).rejects.toSatisfy((error: unknown) => error instanceof CliError);
+    await expect(run(['serve'], { stdio: true, agent: 'cursor' }, fake).done).rejects.toSatisfy((error: unknown) => error instanceof CliError);
+    expect(fake.calls).toEqual([]);
   });
 
   it('已有 baocut 条目、没给 --yes：拒绝，不建客户端', async () => {
@@ -102,7 +132,7 @@ describe('baocut mcp install', () => {
     fs.writeFileSync(file, JSON.stringify({ mcpServers: { baocut: { url: 'x', headers: { Authorization: 'Bearer mcl_old.c2VjcmV0' } } } }));
     const old = { clientId: 'mcl_old', name: 'Cursor', createdAt: '2026-10-01T00:00:00.000Z', lastUsedAt: null };
     const fake = fakeRuntime({ ...off, state: 'on', autostart: true, clients: [old] });
-    const { capture, done } = run(['install'], { agent: 'cursor', yes: true }, fake, false);
+    const { capture, done } = run(['install'], { agent: 'cursor', yes: true, transport: 'http' }, fake, false);
     expect(await done).toBe(0);
     expect(fake.calls.map((call) => call.method)).toEqual([
       'services.list',

@@ -11,16 +11,16 @@ BaoCut 的 MCP 服务与 CLI 是同一份工具目录。宿主里接好 MCP 之�
 一条命令接好（要用户同意，它会改宿主的 MCP 配置）：
 
 ```text
-baocut mcp install --agent <claude-code|codex|cursor|gemini> [--level ask|auto] [--name <客户端名>] [--yes]
+baocut mcp install --agent <claude-code|codex|cursor|gemini> [--transport stdio|http] [--level ask|auto] [--name <客户端名>] [--yes]
 ```
 
-它开启 MCP 服务（并设为随 BaoCut 的 Runtime 启动），在 BaoCut 里为这个宿主新建一个客户端，把地址与令牌写进宿主的 MCP 配置，然后提示重启宿主。令牌的去向：Claude Code 放进它的环境变量段、配置里只写引用；Codex、Cursor、Gemini CLI 明文写在配置文件里。问用户时把这一点说清楚。宿主配置里已有 `baocut` 条目时它不覆盖，要替换加 `--yes`（同样先问）。`baocut help mcp` 看这台机器上的版本支不支持；还不支持时用下面的手动接法。
+它开启 MCP 服务（并设为随 BaoCut 的 Runtime 启动），在 BaoCut 里为这个宿主新建一个客户端，把接法与令牌写进宿主的 MCP 配置，然后提示重启宿主。默认写 stdio 形式：宿主拉起 `baocut mcp serve --stdio`，BaoCut 没开时它自己把 Runtime 拉起来；`--transport http` 改写地址，那样 BaoCut 得先开着。令牌的去向：Claude Code 放进它的环境变量段、配置里不写令牌；Codex、Cursor、Gemini CLI 明文写在配置文件里。问用户时把这一点说清楚。宿主配置里已有 `baocut` 条目时它不覆盖，要替换加 `--yes`（同样先问）。`baocut help mcp` 看这台机器上的版本支不支持；还不支持时用下面的手动接法。
 
 手动接法（都是本机管理命令，逐条先问用户）：
 
 1. `baocut services start mcp` 开启 MCP 服务；`baocut services configure mcp --level ask` 设访问等级（`read` 只读；`ask` 写入与任务逐次由用户在 BaoCut 里确认，默认；`auto` 直接执行），`--videos` 限定开放的视频。
 2. `baocut services mcp add-client <名字>` 为这个宿主建令牌（只显示一次，让用户自己保存）。
-3. `baocut services mcp connection <clientId>` 打印地址与可以粘进宿主 MCP 配置的片段（令牌是占位符），请用户填好令牌、重启宿主。
+3. `baocut services mcp connection <clientId>` 打印地址与可以粘进宿主 MCP 配置的片段（令牌是占位符），请用户填好令牌、重启宿主。也可以写 stdio 形式：命令 `baocut mcp serve --stdio`，令牌放进那一项的环境变量 `BAOCUT_MCP_TOKEN`。
 
 服务只监听本机回环地址；令牌一个宿主一个，可以单独吊销。
 
