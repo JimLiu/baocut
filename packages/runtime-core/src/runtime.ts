@@ -1489,13 +1489,23 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       env: toolEnv,
     });
     log.info('Runtime ready', { instanceId, endpoint, home: home.root, launchedBy: info.launchedBy });
-    // 桌面端拉起时，终端里的 `baocut` 若是 BaoCut 放的、还指向移动前的 App，改指向这一个（CLI 独立使用与发布 §3.2）。
+    // 桌面端拉起时，终端里的 `baocut` 若是 BaoCut 放的、还指向移动前的 App，改指向这一个；这个 Home 第一次由桌面端启动、
+    // 那里还什么都没有时装上（CLI 独立使用与发布 §3.2）。首次安装在 Windows 上要改用户 PATH，放到后台，不拖慢启动。
     if (info.launchedBy === null) {
+      const cliEntry = new CliEntryInstaller({ home: home.root });
       try {
-        if (new CliEntryInstaller({ home: home.root }).repair()) log.info('Command line entry repointed to this app');
+        if (cliEntry.repair()) log.info('Command line entry repointed to this app');
       } catch (error) {
         log.warn('Command line entry repair failed', { error: String(error) });
       }
+      void cliEntry.installOnFirstLaunch().then(
+        (result) => {
+          if (result === 'installed') log.info('Command line entry installed on first launch', { path: cliEntry.location() });
+          else if (result === 'pathFailed') log.warn('Command line entry installed on first launch, but the user PATH was not updated', { path: cliEntry.location() });
+          else if (result === 'present') log.info('Command line entry location already taken; first-launch install skipped', { path: cliEntry.location() });
+        },
+        (error: unknown) => log.warn('Command line entry first-launch install failed', { error: String(error) }),
+      );
     }
 
     let closing: Promise<void> | null = null;

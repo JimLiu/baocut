@@ -70,6 +70,7 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 | 8 | 第一版不做开机常驻 | §6.2 |
 | 9 | 项目目录改规则，不迁移已有的视频 | §5.1 |
 | 10 | 钥匙串先用同一签名标识的助手，实测不行再换访问组外壳 | §9.6 |
+| 11 | App 首次启动时自动装上终端里的 `baocut`：每个 Runtime Home 一次，那里已有东西时不动，用户移除后不再装回来 | §3.2 |
 
 第 3 条之下可以加一句提示：桌面端退出、停下自己的 Runtime 时，如果还有 CLI 连接，退出对话框说明这些连接会断开、下一条命令会在后台重新拉起 Runtime。
 
@@ -85,6 +86,7 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 - **已有文件**：`~/.local/bin/baocut` 是指向某个 BaoCut 入口的软链接时改指向；是别的文件或指向别处的链接时不覆盖，报 `foreign`（同 Agent 面设计 §8.2 的规则）。指向独立 CLI 包（§9）的链接 App 不改：那是用户专门装的命令行。
 - **PATH 检查**：以用户的登录交互 shell 读 PATH（`$SHELL -ilc 'printenv PATH'`，只给最小环境、限时 5 秒、只取最后一个非空行，避开 shell 启动时打印的其他内容），再在这个 PATH 里找第一个 `baocut`；Windows 读注册表里系统与用户的 `Path`。查不出（没有 shell、超时）时只说查不出，让用户开新终端自己试。`~/.local/bin` 不在 PATH 上时按用户的 shell 给出要加进配置的那一行（zsh 写 `~/.zshrc`，bash 在 macOS 写 `~/.bash_profile`、Linux 写 `~/.bashrc`，fish 用 `fish_add_path`），不替用户改 shell 配置文件；终端先找到的是别的 `baocut` 时点名它。
 - **状态**：`none`、`current`（指向本 App 的入口）、`stale`（指向另一份 BaoCut 入口，例如移动前的 App）、`broken`（指向的位置不在了）、`foreign`。`install` 时在 `<Runtime Home>/cli-entry.json` 记下位置与目标；App 每次启动检查这条记录，入口还指向记录里的目标（自己装的、之后没人改过）且是 `stale` 或 `broken` 时改指向自己，只改入口、不动 PATH；用户自己建的链接（哪怕指向别的 BaoCut）只在用户显式 `install` 时才改，`foreign` 永不改动。
+- **首次启动**：桌面端拉起的 Runtime 第一次在某个 Home 上启动时，入口位置上什么都没有（`none`）就照 `install` 装上，Windows 同样把目录加进用户 PATH；那里已有东西（任何状态）都不动。做过就在 `<Runtime Home>/cli-entry-first-launch.json` 记下结果（`installed`、`pathFailed`、`present`、`failed`），之后不再做；用户 `remove` 过也记下（`removed`），App 不会再装回来。没有 App 入口的源码 Runtime 不做也不记。这一步不查终端的 PATH、不改 shell 配置，放在后台跑、不拖慢启动；`~/.local/bin` 不在 PATH 上时，终端里仍要用户按 Skills 页给出的那一行加进配置，Agent 按 skill 的启动页会直接看这个位置。CLI 拉起的 Runtime 不做这一步。
 - **入口**：规则放在 Runtime 里，App 与 CLI 共用，Web 只看状态（写用户主目录只在桌面界面与 CLI 里做），与 `agentSkill.*` 的分工相同。协议方法 `cliEntry.status|install|remove`（命令与协议规范 §4.1），CLI 是管理桶的 `baocut cli install|status|remove`；App 在 Skills 页「在终端或其他应用的 Agent 里使用 BaoCut」卡片里加「安装命令行工具」。Runtime 经已有的 `BAOCUT_CLI_ENTRY` 知道 App 入口的位置。
 - **Windows**：在 `%LOCALAPPDATA%\BaoCut\bin\` 放一个 `baocut.cmd`，转发到 App 安装目录里的 `baocut.cmd`（装了独立包时转发到它的当前版本，§9.3），再把这个目录加进用户 PATH（`HKCU\Environment` 的 `Path`，改完广播 `WM_SETTINGCHANGE`），不要管理员权限。这个目录只放这一个文件；状态与 macOS 相同，`foreign` 指那里的 `baocut.cmd` 不是 BaoCut 写的转发脚本。改过的 PATH 只对新开的终端生效，装完提示这一点。
 

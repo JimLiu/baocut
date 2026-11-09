@@ -11,7 +11,7 @@
 3. 仍没有时，只检查桌面包的固定入口，不递归搜索：
    - macOS：`/Applications/BaoCut.app/Contents/MacOS/baocut-cli`，再看 `~/Applications/BaoCut.app/Contents/MacOS/baocut-cli`。
    - Windows：`%LOCALAPPDATA%\Programs\BaoCut\baocut.cmd`，再看 `%ProgramFiles%\BaoCut\baocut.cmd`。
-4. 非标准安装位置让用户给出入口路径或设置 `BAOCUT_CLI`。桌面包的启动器使用包内的 Electron，不需要系统 Node。用入口的完整路径跑通即可；用户想在终端里直接打 `baocut` 时，征得同意后用这个入口跑一次 `cli install`（放到上一步说的位置，不要管理员权限），它会说明还要不要把那个目录加进 PATH。
+4. 非标准安装位置让用户给出入口路径或设置 `BAOCUT_CLI`。桌面包的启动器使用包内的 Electron，不需要系统 Node。用入口的完整路径跑通即可。App 第一次启动时会自己把 `baocut` 装到上一步说的位置，用户移除过或那里原本就有别的文件时不装；用户想在终端里直接打 `baocut` 时，征得同意后用这个入口跑一次 `cli install`（放到上一步说的位置，不要管理员权限），它会说明还要不要把那个目录加进 PATH。
 5. 入口仍不存在：说明所装桌面包没有 CLI，请用户更新到含该入口的桌面包，或使用与 App 匹配的源码 CLI。不要把旧版 Homebrew `bcut` 当成匹配安装方式，不要自己下载安装包或去其他目录翻找。
 
 下文统一写 `baocut`，按找到的实际路径替换。

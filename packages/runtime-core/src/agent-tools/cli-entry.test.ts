@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RpcError } from '@baocut/protocol';
 import {
+  CLI_ENTRY_FIRST_LAUNCH_FILE,
   CLI_ENTRY_RECORD_FILE,
   CliEntryInstaller,
   FORWARDER_MARK,
@@ -136,6 +137,72 @@ describe('cli entry installer', () => {
     expect(fs.existsSync(entry)).toBe(true);
     expect(fs.existsSync(path.join(home, CLI_ENTRY_RECORD_FILE))).toBe(false);
     expect((await installer().remove()).state).toBe('none');
+  });
+
+  describe('首次启动', () => {
+    const marker = () => path.join(home, CLI_ENTRY_FIRST_LAUNCH_FILE);
+    const markerResult = () => (JSON.parse(fs.readFileSync(marker(), 'utf8')) as { result: string }).result;
+
+    it('第一次启动时装上，记下做过；之后再启动什么都不做，也不查终端的 PATH', async () => {
+      expect(await installer().installOnFirstLaunch()).toBe('installed');
+      expect(fs.readlinkSync(link())).toBe(entry);
+      expect(await installer().status()).toMatchObject({ state: 'current', managed: true });
+      expect(markerResult()).toBe('installed');
+      calls = [];
+      expect(await installer().installOnFirstLaunch()).toBe('done');
+      expect(calls).toEqual([]);
+    });
+
+    it('用户移除后不再装回来，没有自动装过也一样', async () => {
+      await installer().installOnFirstLaunch();
+      await installer().remove();
+      expect(await installer().installOnFirstLaunch()).toBe('done');
+      expect(fs.existsSync(link())).toBe(false);
+
+      fs.rmSync(home, { recursive: true });
+      await installer().install();
+      await installer().remove();
+      expect(await installer().installOnFirstLaunch()).toBe('done');
+      expect(fs.existsSync(link())).toBe(false);
+      expect(markerResult()).toBe('removed');
+    });
+
+    it('那里已有东西时一律不动，只记下做过：别人的文件、用户指向另一份 BaoCut 的链接、已经装好的', async () => {
+      fs.mkdirSync(path.dirname(link()), { recursive: true });
+      fs.writeFileSync(link(), '#!/bin/sh\necho mine\n');
+      expect(await installer().installOnFirstLaunch()).toBe('present');
+      expect(fs.readFileSync(link(), 'utf8')).toContain('mine');
+      expect(markerResult()).toBe('present');
+      expect(await installer().installOnFirstLaunch()).toBe('done');
+
+      fs.rmSync(home, { recursive: true });
+      fs.rmSync(link());
+      const standalone = makeApp('Standalone/BaoCut.app');
+      fs.symlinkSync(standalone, link());
+      expect(await installer().installOnFirstLaunch()).toBe('present');
+      expect(fs.readlinkSync(link())).toBe(standalone);
+
+      fs.rmSync(home, { recursive: true });
+      fs.rmSync(link());
+      await installer().install();
+      expect(await installer().installOnFirstLaunch()).toBe('present');
+      expect(fs.readlinkSync(link())).toBe(entry);
+    });
+
+    it('源码 Runtime 没有 App 入口：什么都不做，也不记，留给打包后的 App', async () => {
+      expect(await installer({ SHELL: '/bin/zsh' }).installOnFirstLaunch()).toBe('unavailable');
+      expect(fs.existsSync(link())).toBe(false);
+      expect(fs.existsSync(marker())).toBe(false);
+      expect(await installer().installOnFirstLaunch()).toBe('installed');
+    });
+
+    it('放不进去时报错，也记下做过，不在每次启动重试', async () => {
+      fs.mkdirSync(path.join(user, '.local'), { recursive: true });
+      fs.writeFileSync(path.join(user, '.local', 'bin'), 'not a folder');
+      await expect(installer().installOnFirstLaunch()).rejects.toThrow();
+      expect(markerResult()).toBe('failed');
+      expect(await installer().installOnFirstLaunch()).toBe('done');
+    });
   });
 
   it('PATH 按登录交互 shell 取，只认最后一行；不在 PATH 上时给出要加的一行', async () => {

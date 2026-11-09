@@ -17,12 +17,22 @@ import { RcSkills } from '@baocut/protocol/messages/runtime-core';
  *   `baocut-cli`，或与记录里的目标相同。
  * - 记录：装好后在 `<Runtime Home>/cli-entry.json` 记下位置与目标。App 启动时（`repair`）只修记录里的那个、而且还指向记录里的目标
  *   的入口：指向独立 CLI 包（§9）或用户自己建的链接都不动。
+ * - 首次启动（`installOnFirstLaunch`）：桌面端第一次启动时，位置上什么都没有就装上；已有东西（BaoCut 的或别人的）都不动。每个
+ *   Runtime Home 只做一次，做过（不论结果）记在 `cli-entry-first-launch.json`；用户 `remove` 过也记下，之后不再自动装回来。
  * - PATH：macOS 与 Linux 以用户的登录交互 shell 取 PATH（`$SHELL -ilc 'printenv PATH'`，限时几秒，只认最后一行，rc 文件的输出
  *   在它前面），按它找 `baocut`；不在 PATH 上时给出要加进 shell 配置的一行，不替用户改配置文件。Windows 读注册表里的系统与用户 PATH。
  */
 
 /** 装过的入口记在 Runtime Home 下的这个文件。 */
 export const CLI_ENTRY_RECORD_FILE = 'cli-entry.json';
+/** 首次启动的自动安装做过（或用户移除过）就在 Runtime Home 下写这个文件，之后不再自动安装。 */
+export const CLI_ENTRY_FIRST_LAUNCH_FILE = 'cli-entry-first-launch.json';
+
+/**
+ * 首次启动自动安装的结果：`installed` 装上了；`pathFailed` 装上了，Windows 没能把目录加进用户 PATH；`present` 那里已有东西，没动；
+ * `failed` 放入口失败；`done` 以前做过或用户移除过；`unavailable` 没有 App 入口（源码 Runtime），什么都没做也没记。
+ */
+export type CliEntryFirstLaunch = 'installed' | 'pathFailed' | 'present' | 'failed' | 'done' | 'unavailable';
 /** Windows 转发脚本里的标记行：有它的 `baocut.cmd` 是 BaoCut 写的。 */
 export const FORWARDER_MARK = 'rem BaoCut command line forwarder';
 /** macOS 的 App 入口文件名（`BaoCut.app/Contents/MacOS/baocut-cli`）：软链接指向这个名字的文件时认作 BaoCut 入口。 */
@@ -165,6 +175,8 @@ export class CliEntryInstaller {
     const at = this.location();
     const found = this.inspect(at, this.entry());
     if (found.state === 'foreign') throw taken(at);
+    // 用户移除过：App 之后的首次启动不再装回来。
+    this.markFirstLaunch('removed', at);
     if (found.state !== 'none') {
       fs.rmSync(at, { force: true });
       this.forget();
@@ -194,6 +206,31 @@ export class CliEntryInstaller {
     if ((found.state !== 'stale' && found.state !== 'broken') || !this.isManaged(at, found)) return false;
     this.place(at, entry);
     return true;
+  }
+
+  /**
+   * 桌面端启动时：这个 Runtime Home 还没做过、位置上也什么都没有时装上入口，Windows 再把目录加进用户 PATH。不查终端的 PATH、
+   * 不改 shell 配置；已有的入口（任何状态）都不动，`stale` / `broken` 归 `repair`。做过就记下，之后不再做；没有 App 入口时
+   * 不记，留给打包后的 App 第一次启动。
+   */
+  async installOnFirstLaunch(): Promise<CliEntryFirstLaunch> {
+    const entry = this.entry();
+    if (!entry) return 'unavailable';
+    if (fs.existsSync(path.join(this.home, CLI_ENTRY_FIRST_LAUNCH_FILE))) return 'done';
+    const at = this.location();
+    if (this.inspect(at, entry).state !== 'none') {
+      this.markFirstLaunch('present', at);
+      return 'present';
+    }
+    try {
+      this.place(at, entry);
+    } catch (error) {
+      this.markFirstLaunch('failed', at);
+      throw error;
+    }
+    const result = this.win && !(await this.userPath('add', this.p.dirname(at))) ? 'pathFailed' : 'installed';
+    this.markFirstLaunch(result, at);
+    return result;
   }
 
   // ---- 位置 ----
@@ -270,10 +307,18 @@ export class CliEntryInstaller {
   }
 
   private writeRecord(record: CliEntryRecord): void {
-    const file = path.join(this.home, CLI_ENTRY_RECORD_FILE);
+    this.writeHomeJson(CLI_ENTRY_RECORD_FILE, { ...record, installedAt: new Date().toISOString() });
+  }
+
+  private markFirstLaunch(result: Exclude<CliEntryFirstLaunch, 'done' | 'unavailable'> | 'removed', at: string): void {
+    this.writeHomeJson(CLI_ENTRY_FIRST_LAUNCH_FILE, { result, path: at, at: new Date().toISOString() });
+  }
+
+  private writeHomeJson(name: string, value: unknown): void {
+    const file = path.join(this.home, name);
     fs.mkdirSync(this.home, { recursive: true });
     const temp = `${file}.${process.pid}-${Date.now()}.tmp`;
-    fs.writeFileSync(temp, `${JSON.stringify({ ...record, installedAt: new Date().toISOString() }, null, 2)}\n`);
+    fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`);
     fs.renameSync(temp, file);
   }
 
