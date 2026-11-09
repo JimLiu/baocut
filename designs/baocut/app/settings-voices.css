@@ -118,6 +118,14 @@
 .vlib-land__row > .vlib-cap__lab { width: 96px; }
 .vlib-row__ids { color: var(--gray-600); font-variant-numeric: tabular-nums; }
 
+/* 录音音质（2026-11-08，settings-voice-take.jsx）：电平下面一行——录音中当场提示，停下后判词；授权声明换了麦克风的提醒 */
+.vlib-take { display: flex; align-items: center; gap: 6px; min-height: 20px; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.vlib-take b { font-weight: 600; }
+.vlib-take .ic { flex: none; }
+.vlib-take.is-positive { color: var(--green-1000); }
+.vlib-take.is-notice { color: var(--orange-1000); }
+.vlib-takewarn { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 0; }
+
 /* 模型页（语音合成 › 模型）每只能克隆的模型下一行：克隆音色 · 名字 id · 克隆新音色（settings-voice-capture.jsx ModelVoicesLine） */
 .mvl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 24px; padding: 2px 0 2px 36px; color: var(--gray-600); }
 .lmrow .mvl { padding-left: 32px; }

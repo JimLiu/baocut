@@ -135,6 +135,7 @@
       "app/model-ai-prompt.js",
       "app/model-tts.js",
       "app/model-voices.js",
+      "app/model-voice-take.js",
       "app/model-crop.js",
       "app/model-video.js",
       "app/model-stage-media.js",
@@ -293,6 +294,7 @@
       "app/settings-capability.jsx",
       "app/settings-glossary.jsx",
       "app/settings-voice-clone.jsx",
+      "app/settings-voice-take.jsx",
       "app/settings-voice-capture.jsx",
       "app/settings-voices.jsx",
       "app/settings-update.jsx",
@@ -545,9 +547,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=a89f79898f0b",
-    "css": "generated/app.css?v=9902902fe312",
-    "bytes": 5277328
+    "js": "generated/app.js?v=fcce440ab4b5",
+    "css": "generated/app.css?v=9a78cc7fd5b9",
+    "bytes": 5288932
   },
   "web": {
     "file": "BaoCutWeb.html",

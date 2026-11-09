@@ -79,6 +79,8 @@ const WEB_DENY = [
   /^app\/panel-tts/, /^app\/glossary-tool/, /^app\/agent-/, /^app\/page-/, /^app\/settings-/, /^app\/tool-/, /^app\/tools\.css/,
   /^app\/services\.css/, /^app\/new-/, /^app\/newproject-flow/, /^app\/import-flow/, /^app\/import-panel/, /^app\/help-center/,
   /^app\/main\.jsx/, /^app\/voice-picker/, /^app\/model-openai-api/, /^app\/panel-image-gen/, /^app\/image-gen/, /^app\/image-edit/, /^app\/model-image-edit/, /^app\/model-footage/, /^app\/model-writing/,
+  /* 克隆新音色的录音音质自查（2026-11-08）：只在 App 的设置页 */
+  /^app\/model-voice-take/,
   /^app\/model-settings-nav/, /^app\/model-settings-link/, /^app\/model-app-update/, /^app\/model-models-dir/, /^app\/model-local-check/,
   /* App rail / Home / Space（2026-10-01）：只属于 App 外壳，且全部用 react-spectrum */
   /^app\/apprail/, /^app\/home-/, /^app\/space/, /^app\/model-home/, /^app\/model-space(?!-search\.js)/, /^app\/model-app-ia/,

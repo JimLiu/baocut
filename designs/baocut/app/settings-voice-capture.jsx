@@ -8,7 +8,10 @@
       按钮旁一句外发说明；点了就存本机并开始上传（architecture-design §5.9 voiceClone 任务，进度与诊断在 settings-voice-clone.jsx）。
    从某只云端模型的「克隆一只」过来直接进「录样本」。`base` 是给已有音色录新样本（没建成时「录新样本」）：沿用名字、声明与授权声明。
    `ConsentCapture` 是从行卡 ⋯ 或诊断里「重录授权声明」进来的单步版，存好可一并上传。
-   麦克风在原型里是计时器模拟，试听放的是随包录音；门槛、台词、步骤、种子、落地都在 model-voices.js。 */
+   麦克风在原型里是计时器模拟，试听放的是随包录音；门槛、台词、步骤、种子、落地都在 model-voices.js。
+   2026-11-08 音质自查与同一只麦克风：一段录音（ClipRecorder）拆到 settings-voice-take.jsx，录音中一行当场提示、停下一句判词；
+   麦克风由这里统一拿着，进「授权声明」时换回录样本的那只，换了别的就提醒；保存时两段有爆音、底噪或不是同一只麦克风，
+   在上传按钮上面提醒一次，不拦（门槛在 model-voice-take.js）。 */
 (function () {
   const {useState, useEffect, useRef} = React;
   const TTS = window.BC_TTS;
@@ -16,130 +19,7 @@
   const C = window.BC_CLOUD_TTS;
   const R = window.RSP;
 
-  const clock = (s) => {
-    const n = Math.max(0, +s || 0);
-    const m = Math.floor(n / 60);
-    const sec = n - m * 60;
-    return `${String(m).padStart(2, '0')}:${sec.toFixed(1).padStart(4, '0')}`;
-  };
-
-  function Meter({level, on}) {
-    const bars = Array.from({length: 14}, (_, i) => i);
-    return (
-      <span className={cx('vlib-meter', on && 'is-on')} aria-hidden="true">
-        {bars.map((i) => <i key={i} className={cx(level * 14 > i && 'is-lit')} />)}
-      </span>
-    );
-  }
-
-  /* ---------- 一段录音：麦克风 / 上传 ----------
-     `spec` = {min, target, max, countdown?}；有 `countdown` 的（样本）不显示「/ 上限」、进度条按目标填满，
-     那一句由 BC_VOICES.liveHint 给；`demo` = {file, dur, name} 是上传那条路在原型里假装选中的文件；
-     停下或选好文件后 `onClip({dur, file, via, name})`，重录 / 换文件时 `onClip(null)`。
-     `clip` 是父级已经拿着的那段（上一步 / 下一步回来时照它恢复，不然计时器回到 00:00 而下一步却亮着）。 */
-  function ClipRecorder({spec, demo, label, onClip, hint, clip}) {
-    const app = useApp();
-    const [via, setVia] = useState(clip ? clip.via : 'mic');
-    const [phase, setPhase] = useState(clip ? 'done' : 'idle');     // idle | rec | done
-    const [secs, setSecs] = useState(clip ? clip.dur : 0);
-    const [level, setLevel] = useState(0);
-    const [dev, setDev] = useState(false);
-    const [file, setFile] = useState(clip && clip.via === 'upload' ? {name: clip.name, dur: clip.dur} : null);
-    const timer = useRef(null);
-    const fileInput = useRef(null);
-    useEffect(() => () => clearInterval(timer.current), []);
-    const finish = (n) => { clearInterval(timer.current); timer.current = null; setPhase('done'); setLevel(0); onClip({dur: +n.toFixed(1), file: demo.file, via: 'mic'}); };
-    const stop = () => finish(secs);
-    const start = () => {
-      setSecs(0); setPhase('rec'); onClip(null);
-      timer.current = setInterval(() => setSecs((s) => {
-        const n = +(s + 0.1).toFixed(1);
-        setLevel(0.3 + 0.5 * Math.abs(Math.sin(n * 5.3)) * (n % 3 < 2.4 ? 1 : 0.3));
-        if (n >= spec.max) finish(spec.max);
-        return n;
-      }), 100);
-    };
-    const switchVia = (k) => {
-      if (phase === 'rec') return;
-      setVia(k); setPhase('idle'); setSecs(0); setFile(null); onClip(null);
-    };
-    const pickFile = (f) => {
-      const picked = {name: f ? f.name : demo.name, dur: demo.dur};
-      setFile(picked);
-      onClip({dur: +Math.min(spec.max, picked.dur).toFixed(1), file: demo.file, via: 'upload', name: picked.name});
-    };
-    const live = V.liveHint(secs, spec);
-    const total = spec.countdown ? '' : ` / ${clock(spec.max)}`;
-    const maxLabel = V.secLabel(spec.max);
-    return (
-      <div className="vlib-clip">
-        <div className="vlib-cap__row">
-          <span className="vlib-cap__lab">{label || '怎么给'}</span>
-          <Segmented size="s" value={via} onChange={switchVia}
-            items={[{k: 'mic', label: '用麦克风录', icon: 'mic'}, {k: 'upload', label: '上传一段', icon: 'upload'}]} />
-          {via === 'mic' ? (
-            <>
-              <Picker size="s" icon="mic" value="MacBook Pro 麦克风" open={dev} popWidth={240}
-                onClick={() => setDev((x) => !x)} onClose={() => setDev(false)}>
-                <Menu>
-                  <MenuItem label="MacBook Pro 麦克风" on onClick={() => setDev(false)} />
-                  <MenuItem label="AirPods Pro" sub="蓝牙耳机会压低音质，能用内置就用内置" onClick={() => { setDev(false); app.toast('交互演示 · 已换到 AirPods Pro'); }} />
-                </Menu>
-              </Picker>
-              <Meter level={level} on={phase === 'rec'} />
-            </>
-          ) : null}
-        </div>
-        {via === 'mic' ? (
-          <div className="vlib-rec">
-            {phase === 'idle' ? (
-              <>
-                <Btn variant="accent" size="m" icon="mic" onClick={start}>开始录音</Btn>
-                <span className="vlib-rec__big t-mono">{clock(0)}{total}</span>
-                <span className="t-detail-xs grow">{hint}</span>
-              </>
-            ) : phase === 'rec' ? (
-              <>
-                <Btn variant="negative" size="m" icon="stop" onClick={stop}>停止</Btn>
-                <span className="vlib-rec__big t-mono is-live" role="timer" aria-live="off">{clock(secs)}{total}</span>
-                <Progress value={live.pct} thin className="grow" label="录音进度" />
-                <span className={cx('t-detail-xs vlib-rec__left', spec.countdown && spec.max - secs <= spec.countdown && 'is-ending')}>{live.text}</span>
-              </>
-            ) : (
-              <>
-                <window.VoicePlay v={{file: demo.file}} tip="听一遍刚录的" />
-                <span className="vlib-rec__big t-mono">{clock(secs)}</span>
-                <span className="t-detail-xs grow">{secs >= spec.max ? `到 ${maxLabel}自动停了 · 听一遍，不满意就重录` : hint || '听一遍：有没有噪音、有没有念错。不满意就重录。'}</span>
-                <Btn variant="secondary" size="s" icon="refresh" onClick={start}>重录</Btn>
-              </>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="vlib-drop vlib-drop--tight" onClick={() => fileInput.current.click()} role="button" tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.current.click(); } }}>
-              <Ic n="upload" className="ic--26" />
-              {file ? <b>{file.name}</b> : <b>拖一个音频文件到这里，或点一下选</b>}
-              <span className="t-detail-xs">
-                {file
-                  ? `${V.fmtTime(file.dur)}${file.dur > spec.max ? ` · 超过 ${maxLabel}，会取前 ${maxLabel}` : ''} · 一个人说话、没有音乐`
-                  : `WAV / MP3 / M4A / FLAC · ${spec.min} 秒起，${V.secLabel(spec.target)}最好${spec.countdown ? `，最长 ${maxLabel}` : ''} · 一个人说话、没有音乐`}
-              </span>
-            </div>
-            <input ref={fileInput} type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; pickFile(f || null); }} />
-            {file ? (
-              <div className="vlib-rec">
-                <window.VoicePlay v={{file: demo.file}} tip="听一遍" />
-                <span className="vlib-rec__big t-mono">{clock(Math.min(spec.max, file.dur))}</span>
-                <span className="t-detail-xs grow">{hint}</span>
-                <Btn variant="secondary" size="s" icon="refresh" onClick={() => { setFile(null); onClip(null); }}>换一个</Btn>
-              </div>
-            ) : <BCAction className="viewall vlib-demo" onClick={() => pickFile(null)}>用示例文件试试（{demo.name}）</BCAction>}
-          </>
-        )}
-      </div>
-    );
-  }
+  const ClipRecorder = window.VoiceClipRecorder;
 
   /* ---------- ① 选模型：这只音色要给谁用 ---------- */
   function ModelsStep({targets, picked, onToggle}) {
@@ -174,7 +54,7 @@
   }
 
   /* ---------- ② 样本 ---------- */
-  function SampleStep({lang, setLang, onClip, clip, providers}) {
+  function SampleStep({lang, setLang, onClip, clip, providers, mic, onMic}) {
     const langs = TTS.sampleLangs('indextts2');
     const script = V.sampleScript(lang);
     const verdict = clip ? V.sampleVerdict(clip.dur, providers) : null;
@@ -192,7 +72,7 @@
           {script.lines.map((t, i) => <span key={i} className="vlib-script__line">{t}</span>)}
           <span className="vlib-script__tail t-detail-xs">念完这几句可以接着随便说——介绍一下自己、今天在做什么——说到 {V.SAMPLE.target} 秒左右就够了。</span>
         </blockquote>
-        <ClipRecorder key={lang} spec={V.SAMPLE} label="怎么给" onClip={onClip} clip={clip}
+        <ClipRecorder key={lang} spec={V.SAMPLE} label="怎么给" onClip={onClip} clip={clip} mic={mic} onMic={onMic}
           demo={{file: TTS.defaultBuiltin(lang, '').file, dur: 46.2, name: 'reference_speaker.wav'}}
           hint={verdict ? (verdict.problem || `${verdict.line} · 听一遍，不满意就重录`) : '照着念，或上传一段现成的。'} />
         {verdict && verdict.problem ? <div className="hint hint--warn">{verdict.problem}</div> : null}
@@ -202,7 +82,7 @@
   }
 
   /* ---------- ③ 授权声明（Gemini 要的第二段）：语言 = 常用两种芯片 + 更多语言（官方 30 个地区）+ 自定义一句 ---------- */
-  function ConsentStep({needed, phraseLang, setPhraseLang, custom, setCustom, onClip, clip}) {
+  function ConsentStep({needed, phraseLang, setPhraseLang, custom, setCustom, onClip, clip, sample, mic, onMic}) {
     const [more, setMore] = useState(false);
     const phrase = V.consentPhrase(phraseLang, custom);
     const problem = clip ? V.consentProblem(clip.dur) : null;
@@ -242,6 +122,7 @@
         {phrase.note ? <div className="hint hint--warn">{phrase.note}</div> : null}
         {!phrase.custom && !phrase.verified && !phrase.note ? <p className="t-detail-xs">官方支持 · 没实测过能不能验过；不急就念英文。</p> : null}
         <ClipRecorder key={phraseLang} spec={V.CONSENT_REC} label="怎么给" onClip={onClip} clip={clip}
+          mic={mic} onMic={onMic} sample={sample} needed={needed}
           demo={{file: phraseLang === 'zh-CN' ? 'tts-voice-zh-male.wav' : 'tts-voice-en-male.wav', dur: 7.9, name: 'speaker_consent.wav'}}
           hint={problem || (clip ? '听一遍，念清楚整句就行' : '一口气把整句念完，不用赶')} />
         {problem ? <div className="hint hint--warn">{problem}</div> : null}
@@ -293,6 +174,8 @@
     const [phraseLang, setPhraseLang] = useState(keepClip ? keepClip.lang : 'en-US');
     const [custom, setCustom] = useState(keepClip && keepClip.text ? keepClip.text : '');
     const [consentClip, setConsentClip] = useState(keepClip ? {dur: keepClip.dur, file: keepClip.file} : null);
+    /* 麦克风两步共用：进「授权声明」时还没录就换回录样本的那只（Gemini 核对两段是不是同一个人，同一只麦克风最稳） */
+    const [mic, setMic] = useState(window.VOICE_MICS[0].id);
     const [name, setName] = useState(() => (base ? base.name : V.defaultVoiceName(app.voices)));
     const [consent, setConsent] = useState(!!base && base.consent !== 'unspecified');
     const [seeds, setSeeds] = useState(() => { const o = {}; targets.filter((t) => t.kind === 'local').forEach((t) => { o[t.id] = (base && base.seeds && base.seeds[t.id]) || V.randomSeed(); }); return o; });
@@ -317,6 +200,15 @@
       : step.k === 'consent' ? !!(consentClip && !V.consentProblem(consentClip.dur) && (phraseLang !== 'custom' || custom.trim()))
       : false;
     const needed = step.needed || [];
+    const goTo = (i) => {
+      const to = steps[Math.max(0, Math.min(i, steps.length - 1))];
+      if (to.k === 'consent' && !consentClip && sample && sample.via === 'mic') setMic(sample.mic);
+      setCur(i);
+    };
+    const uploadRows = plan ? plan.rows.filter((r) => r.k === 'upload') : [];
+    const uploadTo = uploadRows.map((r) => r.name);
+    /* 授权声明这次没人要（没传给要它的那家）就不拿它提醒：本机引擎只用样本 */
+    const consentUp = uploadRows.some((r) => chosen.some((t) => t.id === r.id && t.consent));
     const foot = step.k === 'models' ? (chosen.length ? `给 ${chosen.map((t) => t.name).join(' / ')} 用` : '一只都不选也能存，只给本机引擎用')
       : step.k === 'sample' ? (sample ? `样本 ${sample.dur.toFixed(1)} 秒` : '样本是这只音色的底：云端拿它建克隆，本地引擎截前面几秒当参考')
       : step.k === 'consent' ? `跳过也能存，只是这次不上传到 ${needed.join(' / ')}`
@@ -329,18 +221,22 @@
         <h2 className="t-title-sm">{base ? `录新样本 · ${base.name}` : '克隆新音色'}</h2>
         <Steps items={steps} cur={cur} label="克隆步骤" />
         {step.k === 'models' ? <ModelsStep targets={targets} picked={picked} onToggle={(id) => setPicked((p) => (p.indexOf(id) >= 0 ? p.filter((x) => x !== id) : p.concat(id)))} /> : null}
-        {step.k === 'sample' ? <SampleStep lang={lang} setLang={(l) => { setLang(l); setSample(null); }} clip={sample} onClip={setSample} providers={providers} /> : null}
-        {step.k === 'consent' ? <ConsentStep needed={needed} phraseLang={phraseLang} setPhraseLang={setPhraseLang} custom={custom} setCustom={setCustom} clip={consentClip} onClip={setConsentClip} /> : null}
+        {step.k === 'sample' ? <SampleStep lang={lang} setLang={(l) => { setLang(l); setSample(null); }} clip={sample} onClip={setSample} providers={providers} mic={mic} onMic={setMic} /> : null}
+        {step.k === 'consent' ? <ConsentStep needed={needed} phraseLang={phraseLang} setPhraseLang={setPhraseLang} custom={custom} setCustom={setCustom} clip={consentClip} onClip={setConsentClip}
+          sample={sample} mic={mic} onMic={setMic} /> : null}
         {step.k === 'save' ? <SaveStep rows={plan.rows} targets={chosen} name={name} setName={setName} consent={consent} setConsent={setConsent} seeds={seeds} onReseed={(id) => setSeeds((s) => Object.assign({}, s, {[id]: V.randomSeed()}))} /> : null}
+        {step.k === 'save' ? <window.VoiceSaveTakeWarning clips={{sample, consent: consentUp ? consentClip : null}} uploadTo={uploadTo}
+          onRedo={(k) => goTo(steps.findIndex((s) => s.k === k))} /> : null}
         <div className="vlib-save__acts">
-          {cur > 0 ? <Btn variant="secondary" size="s" icon="back" onClick={() => setCur(cur - 1)}>上一步</Btn> : null}
-          {!last ? <Btn variant="accent" size="s" disabled={!canNext} onClick={() => setCur(cur + 1)}>下一步</Btn> : null}
-          {step.k === 'consent' ? <Btn variant="quiet" size="s" onClick={() => { setConsentClip(null); setCur(cur + 1); }}>稍后补，先存</Btn> : null}
+          {cur > 0 ? <Btn variant="secondary" size="s" icon="back" onClick={() => goTo(cur - 1)}>上一步</Btn> : null}
+          {!last ? <Btn variant="accent" size="s" disabled={!canNext} onClick={() => goTo(cur + 1)}>下一步</Btn> : null}
+          {step.k === 'consent' ? <Btn variant="quiet" size="s" onClick={() => { setConsentClip(null); goTo(cur + 1); }}>稍后补，先存</Btn> : null}
           {last ? <Btn variant="accent" size="s" disabled={!name.trim()} onClick={() => onDone(draft, plan.uploads)}>{plan.button}</Btn> : null}
           <Btn variant="secondary" size="s" onClick={onCancel}>取消</Btn>
           <span className="t-detail-xs grow">{foot}</span>
         </div>
         <p className="t-detail-xs vlib-foot">交互演示 · 没有真的开麦克风，试听放的是随包录音；上传不会读文件内容，云端建克隆是计时器模拟。</p>
+        <window.VoiceTakeDemo />
         <window.CloneDemo />
       </div>
     );
@@ -370,6 +266,7 @@
         <h2 className="t-title-sm">{v.consentClip ? '重录' : '补录'}授权声明 · {v.name}</h2>
         <ConsentStep needed={needed.map((p) => p.name)} phraseLang={phraseLang} setPhraseLang={setPhraseLang} custom={custom} setCustom={setCustom} clip={clip} onClip={setClip} />
         {plan && plan.rows.length ? <window.CloneLanding rows={plan.rows} /> : null}
+        <window.VoiceSaveTakeWarning clips={{consent: names.length ? clip : null}} uploadTo={names} />
         <div className="vlib-save__acts">
           {names.length ? (
             <>
@@ -381,6 +278,7 @@
           <span className="t-detail-xs grow">{names.length ? plan.outflow : `要跟样本是同一个人；样本是从视频里取的就得本人来录这段，否则用不了 ${needed.map((p) => p.name).join(' / ') || 'Google Gemini'}。`}</span>
         </div>
         <p className="t-detail-xs vlib-foot">交互演示 · 没有真的开麦克风，试听放的是随包录音。</p>
+        <window.VoiceTakeDemo />
       </div>
     );
   }
@@ -417,5 +315,5 @@
     );
   }
 
-  Object.assign(window, {VoiceCapture, ConsentCapture, ModelVoicesLine, VoiceMeter: Meter});
+  Object.assign(window, {VoiceCapture, ConsentCapture, ModelVoicesLine});
 })();
