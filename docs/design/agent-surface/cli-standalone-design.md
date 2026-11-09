@@ -232,6 +232,15 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 - `baocut version` 报出它们各自的构建；源码 Runtime 发现与源码不一致时在 `version` 与 `status` 里警告，并给出重建命令。
 - 审片页因为 web 构建过期画不出时，提示写明原因。
 
+> 已实现（2026-11-08）：构建脚本在产物旁写构建戳 `baocut-build.json`（`tools/build-stamp.mjs`）：`npm run build:engine` 写在 Worker 所在目录，`npm run build:wasm` 写在两份 WASM 旁，`npm run build:web` 写在 `apps/web/dist`。比对在 `@baocut/runtime-core` 的 `build-freshness.ts`，只有从源码运行的 Runtime（入口不在 `app.asar` 里）比。与上文的出入：
+>
+> - 比的是源文件内容，不是 commit：构建戳除了构建 commit 与协议版本，还记下这次构建读过的每个仓库文件的内容摘要（cargo 的 dep-info、Vite 的模块列表，加上清单与锁文件）。只比 commit 的话，无关的提交、借用主 checkout 产物的 worktree 都会被误报。web 构建另比协议版本，不同就算过期；Worker 有自己的协议，只比源码。
+> - 没有构建戳（旧脚本或直接 `cargo build` 编的）、产物比构建戳新的，报「比不了」（`unverified`），一样警告并给出重建命令。新脚本落地后、各自重建一次之前，每个开发者都会看到这几条。
+> - 结果放在 `runtime.status` 的 `builds`（[命令与协议规范 §4.1](../../spec/command-protocol-spec.md#41-方法)），不进发现信息与 `runtime.info`：要读文件、算摘要，不该在握手时做。`baocut version` 在 `runtime.builds` 与顶层 `warnings` 里报出，`status` 同样；`status` 的 `next` 先给第一个过期的那个的重建命令。
+> - 第三条（审片页的提示）没做。
+>
+> 验证：构建戳与比对的单测，`runtime.status` 带不带 `builds` 的 Runtime 测试；在一个临时 Vite 工程上跑插件，改源文件后报过期、改协议版本后报 `protocol`；用主 checkout 现成的 dep-info 写一份 Worker 构建戳（1034 个仓库文件，冷比对约 90 ms、之后约 5 ms）；源码 CLI 在临时 Home 上 `status` 与 `version` 报出三条 `unverified` 与重建命令。没在仓库里真跑 `build:engine`、`build:wasm` 与 `build:web`（这个 worktree 借用主 checkout 的 cargo 产物目录，也没有 WASM）。
+
 ## 8. 诊断与文案
 
 ### 8.1 `baocut doctor`
@@ -242,7 +251,7 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 - **Runtime**：会用哪个入口拉起（`resolveRuntimeLaunch` 的结果）、哪个 Home、哪个项目目录、哪种凭据后端；正在跑的那个的版本与拉起者。
 - **凭据**：后端可用吗。钥匙串经助手对一个不存在的键做一次 `has`，不读任何密钥；SSH 等没有图形会话的环境里钥匙串可能拒绝访问（`denied`），给出说明。
 - **完全磁盘访问**：`runtime.access` 的结果；缺失时说明系统会算在谁头上（App 拉起时是 BaoCut.app，从终端拉起时可能是终端，见架构设计 §12.11）与系统设置里的位置。
-- **构建**（开发态）：§7.4 的各项。原生程序与数据的位置复用 Runtime 的 `--self-check --probe`。随 §7.4 在第二批做，第一批的 `doctor` 没有这一项。
+- **构建**（开发态，不从打包的 App 拉起时才有）：用拉起 Runtime 的同一条命令跑 `--self-check --probe`（不启动 Runtime，只把各原生程序启动一次），报出它找到的问题与 §7.4 的比对结果。视频引擎、各 Worker、web、`editor.wasm`、内置模板与技能缺了或起不来是 `fail`，其余（本地语音、Electron 宿主、凭据助手等）是 `warn`；构建比源码旧或比不了是 `warn`。补救是对应的构建命令。这一项要把每个原生程序启动一次，要十几秒；从打包的 App 拉起时是 `skip`。
 
 `status` 回答这台机器能做什么，`doctor` 回答为什么起不来、为什么读不到。
 

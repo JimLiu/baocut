@@ -10,6 +10,7 @@ export const de: DoctorMessages = {
     'wo es einen gibt; next ist die Behebung des ersten Problems. Nur lesend: startet nie eine Runtime und liest',
     'nie einen Schlüssel (die Prüfung des Schlüsselbunds fragt nur, ob ein erfundener Schlüssel existiert). Fragen',
     'Sie den Benutzer, bevor Sie die Behebungen ausführen.',
+    'Aus einem Repository-Checkout führt er außerdem den Selbsttest der Runtime aus, der jedes native Programm einmal startet und die Builds mit dem Quellcode vergleicht.',
     '',
     'Flags: --json',
   ].join('\n'),
@@ -18,6 +19,7 @@ export const de: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Anmeldedaten',
     fullDiskAccess: 'Festplattenvollzugriff',
+    build: 'Build',
   },
   remedyLabel: 'Behebung',
 
@@ -52,4 +54,11 @@ export const de: DoctorMessages = {
   fdaMissingCli: (app) =>
     `Festplattenvollzugriff ist für die Runtime deaktiviert, die die Befehlszeile gestartet hat; macOS richtet sich dabei nach der Berechtigung von ${app ?? 'der App, die den Befehl ausgeführt hat (Ihrem Terminal oder der App, in der der Agent läuft)'}. Aktivieren Sie diese App unter Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff und öffnen Sie sie neu, oder beenden Sie diese Runtime (baocut runtime stop) und öffnen Sie die BaoCut-App; führen Sie danach baocut doctor erneut aus.`,
   fdaNotRunning: 'Wird nur geprüft, während eine Runtime läuft',
+  buildOk: (count) => `Die nativen Programme starten, und die ${count} Builds passen zum Quellcode`,
+  buildNotSource: 'Wird geprüft, wenn die Runtime aus einem Repository-Checkout läuft',
+  buildFailed: (reason) => `Der Selbsttest der Runtime wurde nicht fertig: ${reason}`,
+  buildTimedOut: (seconds) => `keine Antwort innerhalb von ${seconds} s`,
+  buildProblems: (count, first) =>
+    count === 1 ? `Der Selbsttest der Runtime hat ein Problem gefunden: ${first}` : `Der Selbsttest der Runtime hat ${count} Probleme gefunden, zuerst: ${first}`,
+  buildMore: (first, more) => `${first} (und ${more} weitere)`,
 };

@@ -10,6 +10,7 @@ export const nl: DoctorMessages = {
     'herstelopdracht voor het eerste probleem. Alleen-lezen: start nooit een Runtime en leest nooit een',
     'sleutel (de sleutelhangercontrole vraagt alleen of een verzonnen sleutel bestaat). Vraag de gebruiker',
     'om toestemming voordat je de herstelopdrachten uitvoert.',
+    'Vanuit een kopie van de repository voert het ook de zelftest van de Runtime uit, die elk native programma één keer start en de builds met de broncode vergelijkt.',
     '',
     'Opties: --json',
   ].join('\n'),
@@ -18,6 +19,7 @@ export const nl: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Inloggegevens',
     fullDiskAccess: 'Volledige schijftoegang',
+    build: 'Build',
   },
   remedyLabel: 'oplossing',
 
@@ -52,4 +54,11 @@ export const nl: DoctorMessages = {
   fdaMissingCli: (app) =>
     `Volledige schijftoegang staat uit voor de Runtime die de opdrachtregel heeft gestart; macOS rekent die toe aan ${app ?? 'de app die de opdracht uitvoerde (je terminal, of de app waarin de agent draait)'}. Zet die app aan bij Systeeminstellingen › Privacy en beveiliging › Volledige schijftoegang en open hem opnieuw, of stop deze Runtime (baocut runtime stop) en open de BaoCut-app; voer daarna baocut doctor opnieuw uit.`,
   fdaNotRunning: 'Wordt alleen gecontroleerd terwijl een Runtime draait',
+  buildOk: (count) => `De native programma’s starten en de ${count} builds komen overeen met de broncode`,
+  buildNotSource: 'Wordt gecontroleerd als de Runtime vanuit een kopie van de repository draait',
+  buildFailed: (reason) => `De zelftest van de Runtime is niet afgerond: ${reason}`,
+  buildTimedOut: (seconds) => `geen antwoord binnen ${seconds} s`,
+  buildProblems: (count, first) =>
+    count === 1 ? `De zelftest van de Runtime vond een probleem: ${first}` : `De zelftest van de Runtime vond ${count} problemen, eerste: ${first}`,
+  buildMore: (first, more) => `${first} (en nog ${more})`,
 };

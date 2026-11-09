@@ -117,4 +117,7 @@ export const zhHant: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `未完成的工作 ${jobs} 個，桌面端連線 ${desktop} 條，其他 CLI 連線 ${cli} 條`,
   replaceWhenIdle: (busy: string | null) => `那個 Runtime 是由命令列啟動的${busy ? `，仍有人在使用（${busy}）` : ''}。等它閒置後再執行這個指令，會自動換成新的。`,
   notCliLaunched: '那個 Runtime 是由 BaoCut 應用程式或手動啟動的，CLI 不會替換它。',
+  buildStale: (component: string, changed: number, rebuild: string) => `${component} 的建置比原始碼舊（${changed} 個檔案變了）。重新建置：${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `${component} 的建置是協定 ${built ?? '未知'}，原始碼是 ${current}。重新建置：${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `${component} 的建置沒有建置指令留下的記錄，無法與原始碼比對。重新建置後再看：${rebuild}`,
 };

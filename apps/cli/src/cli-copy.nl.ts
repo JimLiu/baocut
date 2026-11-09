@@ -15,4 +15,7 @@ export const nl: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `onafgemaakte taken: ${jobs}, verbindingen van de desktopapp: ${desktop}, andere CLI-verbindingen: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Die runtime is vanaf de opdrachtregel gestart${busy ? ` en is nog in gebruik (${busy})` : ''}. Voer de opdracht opnieuw uit zodra hij inactief is, dan wordt hij automatisch vervangen.`,
   notCliLaunched: 'Die runtime is door de BaoCut-app of handmatig gestart, dus de CLI vervangt hem niet.',
+  buildStale: (component: string, changed: number, rebuild: string) => `De ${component}-build is ouder dan de broncode (${changed} gewijzigde bestanden). Opnieuw bouwen: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `De ${component}-build is voor protocol ${built ?? 'onbekend'}, de broncode voor ${current}. Opnieuw bouwen: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `De ${component}-build heeft geen registratie van het buildcommando en kan niet met de broncode worden vergeleken. Bouw opnieuw om te controleren: ${rebuild}`,
 };

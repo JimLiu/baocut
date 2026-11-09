@@ -9,6 +9,7 @@ export const es: DoctorMessages = {
     'Cada comprobación es ok, warn, fail o skip, con un comando de solución cuando lo hay; next es la solución',
     'del primer problema. Solo lectura: nunca inicia un Runtime ni lee ninguna clave (la comprobación del Llavero',
     'solo pregunta si existe una clave inventada). Pregunta al usuario antes de ejecutar las soluciones.',
+    'Desde una copia del repositorio también ejecuta la autocomprobación del Runtime, que inicia cada programa nativo una vez y compara las compilaciones con el código fuente.',
     '',
     'Opciones: --json',
   ].join('\n'),
@@ -17,6 +18,7 @@ export const es: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Credenciales',
     fullDiskAccess: 'Acceso total al disco',
+    build: 'Compilación',
   },
   remedyLabel: 'solución',
 
@@ -51,4 +53,11 @@ export const es: DoctorMessages = {
   fdaMissingCli: (app) =>
     `El Acceso total al disco está desactivado para el Runtime que inició la línea de comandos; macOS se lo atribuye a ${app ?? 'la app que ejecutó el comando (tu terminal o la app que aloja al agente)'}. Activa esa app en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco y vuelve a abrirla, o detén este Runtime (baocut runtime stop) y abre la app de BaoCut; después vuelve a ejecutar baocut doctor.`,
   fdaNotRunning: 'Solo se comprueba con un Runtime en ejecución',
+  buildOk: (count) => `Los programas nativos se inician y las ${count} compilaciones coinciden con el código fuente`,
+  buildNotSource: 'Se comprueba cuando el Runtime se ejecuta desde una copia del repositorio',
+  buildFailed: (reason) => `La autocomprobación del Runtime no terminó: ${reason}`,
+  buildTimedOut: (seconds) => `sin respuesta en ${seconds} s`,
+  buildProblems: (count, first) =>
+    count === 1 ? `La autocomprobación del Runtime encontró un problema: ${first}` : `La autocomprobación del Runtime encontró ${count} problemas; el primero: ${first}`,
+  buildMore: (first, more) => `${first} (y ${more} más)`,
 };

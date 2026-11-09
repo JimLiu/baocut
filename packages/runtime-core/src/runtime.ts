@@ -134,6 +134,7 @@ import { openServices, type RuntimeServices, type ServicesOptions } from './serv
 import { detectCookieBrowsers, FileLinkSources, isTerminal, resolveSpeechWorkerCommand, type HostLookup } from '@baocut/jobs';
 import { LegacyUpgrade } from './legacy-upgrade.ts';
 import { RuntimeActivity, type IdleExitOptions } from './runtime-activity.ts';
+import { runtimeBuilds } from './self-check.ts';
 import { ExternalToolService, toolsDownloadEndpoint, type ExternalToolServiceOptions } from './external-tools/external-tool-service.ts';
 import { linkImportDefinition, pruneLinkSources } from './external-tools/link-import-wiring.ts';
 import { upscaleImageDefinition } from './external-tools/upscale-image-wiring.ts';
@@ -302,6 +303,10 @@ export interface StartRuntimeOptions {
    * 替换（§4.2）。入口按自己的位置算好传进来（`installEntryOf`、`installBuild`）；不给时都是 null。
    */
   install?: { entry: string | null; build: string | null };
+  /**
+   * 从源码运行时 Runtime 所在的仓库根：`runtime.status` 按它比对构建产物与源码（CLI 独立使用与发布 §7.4）。打包的 Runtime 不给。
+   */
+  sourceRoot?: string | null;
 }
 
 export interface RunningRuntime {
@@ -1407,6 +1412,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       agentSkillHome: home.root,
       activity,
       requestStop: options.requestStop ?? null,
+      builds: options.sourceRoot ? () => runtimeBuilds(options.sourceRoot!) : null,
       legacyUpgrade,
       schedules,
       bot: botService,

@@ -9,6 +9,7 @@ export const pl: DoctorMessages = {
     'macOS. Każde sprawdzenie daje ok, warn, fail lub skip, z poleceniem naprawy, jeśli istnieje; next to naprawa',
     'pierwszego problemu. Tylko odczyt: nigdy nie uruchamia Runtime i nie odczytuje kluczy (sprawdzenie pęku',
     'kluczy pyta tylko, czy istnieje zmyślony klucz). Zapytaj użytkownika przed uruchomieniem napraw.',
+    'Przy uruchomieniu z repozytorium wykonuje też autotest Runtime, który raz uruchamia każdy natywny program i porównuje kompilacje z kodem źródłowym.',
     '',
     'Flagi: --json',
   ].join('\n'),
@@ -17,6 +18,7 @@ export const pl: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Poświadczenia',
     fullDiskAccess: 'Pełny dostęp do dysku',
+    build: 'Kompilacja',
   },
   remedyLabel: 'naprawa',
 
@@ -51,4 +53,11 @@ export const pl: DoctorMessages = {
   fdaMissingCli: (app) =>
     `Pełny dostęp do dysku jest wyłączony dla Runtime uruchomionego z wiersza poleceń; macOS bierze pod uwagę uprawnienia tej aplikacji: ${app ?? 'aplikacja, która uruchomiła polecenie (twój terminal lub aplikacja, w której działa agent)'}. Włącz tę aplikację w Ustawienia systemowe › Prywatność i ochrona › Pełny dostęp do dysku i otwórz ją ponownie albo zatrzymaj ten Runtime (baocut runtime stop) i otwórz aplikację BaoCut; potem ponownie uruchom baocut doctor.`,
   fdaNotRunning: 'Sprawdzane tylko, gdy działa Runtime',
+  buildOk: (count) => `Natywne programy się uruchamiają, a kompilacje (${count}) zgadzają się z kodem źródłowym`,
+  buildNotSource: 'Sprawdzane, gdy Runtime działa z repozytorium',
+  buildFailed: (reason) => `Autotest Runtime nie dobiegł końca: ${reason}`,
+  buildTimedOut: (seconds) => `brak odpowiedzi w ciągu ${seconds} s`,
+  buildProblems: (count, first) =>
+    count === 1 ? `Autotest Runtime znalazł problem: ${first}` : `Autotest Runtime znalazł problemy (${count}), pierwszy: ${first}`,
+  buildMore: (first, more) => `${first} (i jeszcze ${more})`,
 };

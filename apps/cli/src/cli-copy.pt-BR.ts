@@ -16,4 +16,7 @@ export const ptBR: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `trabalhos não concluídos: ${jobs}, conexões do aplicativo de desktop: ${desktop}, outras conexões de CLI: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Esse Runtime foi iniciado pela linha de comando${busy ? ` e ainda está em uso (${busy})` : ''}. Execute o comando de novo quando ele estiver ocioso e ele será substituído automaticamente.`,
   notCliLaunched: 'Esse Runtime foi iniciado pelo aplicativo BaoCut ou manualmente, então o CLI não o substitui.',
+  buildStale: (component: string, changed: number, rebuild: string) => `O build de ${component} é mais antigo que o código-fonte (${changed} arquivos alterados). Recompile: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `O build de ${component} é para o protocolo ${built ?? 'desconhecido'}; o código-fonte usa ${current}. Recompile: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `O build de ${component} não tem o registro do comando de build, então não dá para compará-lo com o código-fonte. Recompile para verificar: ${rebuild}`,
 };

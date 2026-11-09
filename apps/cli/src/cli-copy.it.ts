@@ -33,4 +33,7 @@ Opzioni: --json  --no-start (ensure: termina con codice di uscita 3 anziché avv
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `lavori non finiti: ${jobs}, connessioni dell’app desktop: ${desktop}, altre connessioni della CLI: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Quel Runtime è stato avviato dalla riga di comando${busy ? ` ed è ancora in uso (${busy})` : ''}. Esegui di nuovo il comando quando è inattivo e verrà sostituito automaticamente.`,
   notCliLaunched: 'Quel Runtime è stato avviato dall’app BaoCut o a mano, quindi la CLI non lo sostituisce.',
+  buildStale: (component: string, changed: number, rebuild: string) => `La build di ${component} è più vecchia del codice sorgente (${changed} file modificati). Ricompila: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `La build di ${component} è per il protocollo ${built ?? 'sconosciuto'}, il codice sorgente per ${current}. Ricompila: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `La build di ${component} non ha la registrazione del comando di build, quindi non si può confrontare con il codice sorgente. Ricompila per verificare: ${rebuild}`,
 };

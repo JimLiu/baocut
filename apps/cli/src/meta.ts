@@ -1,4 +1,4 @@
-import { localizeToolStatus, MCP_INTERFACE_VERSION, RUNTIME_VERSION, type ExternalToolStatus } from '@baocut/protocol';
+import { localizeToolStatus, MCP_INTERFACE_VERSION, RUNTIME_VERSION, type ComponentBuild, type ExternalToolStatus } from '@baocut/protocol';
 import { M } from './cli-copy.ts';
 import { CliError, type ExitCode, type Output } from './envelope.ts';
 import { findRuntime, openClient, type Session } from './runtime/connection.ts';
@@ -16,7 +16,13 @@ export async function version(output: Output, home: string): Promise<ExitCode> {
   try {
     const { client, info } = await openClient(discovery);
     try {
-      const catalog = await client.request('catalog.list', {});
+      const [catalog, state] = await Promise.all([
+        client.request('catalog.list', {}),
+        // 从源码运行的 Runtime 带上各构建产物与源码比对的结果（§7.4）；旧版 Runtime 也有这个方法，只是没有 `builds`。
+        client.request('runtime.status', {}).catch(() => null),
+      ]);
+      const builds = state?.builds;
+      const warnings = buildWarnings(builds, info.protocolVersion);
       return output.raw({
         cli,
         runtime: {
@@ -24,8 +30,11 @@ export async function version(output: Output, home: string): Promise<ExitCode> {
           protocolVersion: info.protocolVersion,
           interfaceVersion: catalog.interfaceVersion,
           pid: info.pid,
+          ...(info.build !== undefined ? { build: info.build } : {}),
+          ...(builds ? { builds } : {}),
         },
         compatible: catalog.interfaceVersion === MCP_INTERFACE_VERSION,
+        ...(warnings.length > 0 ? { warnings } : {}),
       });
     } finally {
       client.close();
@@ -46,14 +55,17 @@ export async function status(output: Output, session: Session, cwd: string, opti
     const result = await client.request('catalog.call', { name, args: {}, cwd });
     return result.ok ? result.result : { error: result.error };
   };
-  const [capabilities, localModels, tools] = await Promise.all([
+  const [capabilities, localModels, tools, state] = await Promise.all([
     call('models_capabilities'),
     call('models_list'),
     client.request('externalTools.list', {}).then(
       (result) => result.tools.map(externalTool),
       (error: unknown) => ({ error: String(error) }),
     ),
+    client.request('runtime.status', {}).catch(() => null),
   ]);
+  const builds = state?.builds;
+  const warnings = buildWarnings(builds, info.protocolVersion);
   return output.success(
     {
       runtime: {
@@ -64,13 +76,34 @@ export async function status(output: Output, session: Session, cwd: string, opti
         pid: info.pid,
         home: info.home,
         launchedBy: info.launchedBy,
+        ...(builds ? { builds } : {}),
       },
+      ...(warnings.length > 0 ? { warnings } : {}),
       capabilities: options.full ? capabilities : capabilitySummary(capabilities),
       localModels: options.full ? localModels : bundleSummary(localModels),
       externalTools: tools,
     },
-    options.full ? null : M.statusFullNext,
+    buildNext(builds) ?? (options.full ? null : M.statusFullNext),
   );
+}
+
+/**
+ * 构建产物与源码不一致时的警告（CLI 独立使用与发布 §7.4）：过期的写明原因与重建命令，比不了的（没有构建戳、产物不是用构建命令
+ * 编的）建议重建一次。
+ */
+export function buildWarnings(builds: readonly ComponentBuild[] | undefined, protocolVersion: string): string[] {
+  return (builds ?? []).flatMap((build) => {
+    if (build.state === 'fresh') return [];
+    if (build.state === 'unverified') return [M.buildUnverified(build.component, build.rebuild)];
+    if (build.reason === 'protocol') return [M.buildProtocol(build.component, build.protocolVersion, protocolVersion, build.rebuild)];
+    return [M.buildStale(build.component, build.changedCount ?? 0, build.rebuild)];
+  });
+}
+
+/** 第一个要重建的（先过期的，再比不了的）的重建命令；都一致时 null。 */
+export function buildNext(builds: readonly ComponentBuild[] | undefined): string | null {
+  const list = builds ?? [];
+  return (list.find((build) => build.state === 'stale') ?? list.find((build) => build.state === 'unverified'))?.rebuild ?? null;
 }
 
 /** 能力的摘要：此刻用哪个、哪些服务能用、下一步；不带各服务的模型清单与参数。取不到时原样（`{ error }`）。 */

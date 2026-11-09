@@ -8,6 +8,7 @@ export const zhHant: DoctorMessages = {
     '憑證儲存區有沒有回應，以及 macOS 上的完整磁碟取用權限。每一項是 ok、warn、fail 或 skip，有補救命令的會附上；',
     'next 是第一個問題的補救。',
     '唯讀：不啟動 Runtime，也不讀任何金鑰（鑰匙圈那一項只問一個編出來的鍵在不在）。補救命令先徵得使用者同意再執行。',
+    '從儲存庫執行時還會跑一遍 Runtime 自我檢查：每個原生程式啟動一次，並比對建置與原始碼。',
     '',
     '旗標：--json',
   ].join('\n'),
@@ -16,6 +17,7 @@ export const zhHant: DoctorMessages = {
     runtime: 'Runtime',
     credentials: '憑證',
     fullDiskAccess: '完整磁碟取用權限',
+    build: '建置',
   },
   remedyLabel: '補救',
 
@@ -45,4 +47,10 @@ export const zhHant: DoctorMessages = {
   fdaMissingCli: (app) =>
     `命令列啟動的 Runtime 沒有完整磁碟取用權限；macOS 把它算在${app ?? '執行命令的那個應用程式（終端機，或執行 Agent 的應用程式）'}頭上。在「系統設定 › 隱私權與安全性 › 完整磁碟取用權限」中打開那個應用程式並重新開啟它，或停止這個 Runtime（baocut runtime stop）再開啟 BaoCut 應用程式；之後執行 baocut doctor 重新檢查。`,
   fdaNotRunning: 'Runtime 執行中才會檢查',
+  buildOk: (count) => `原生程式都能啟動，${count} 份建置與原始碼一致`,
+  buildNotSource: 'Runtime 從儲存庫執行時才檢查',
+  buildFailed: (reason) => `Runtime 自我檢查沒有跑完：${reason}`,
+  buildTimedOut: (seconds) => `${seconds} 秒內沒有回應`,
+  buildProblems: (count, first) => (count === 1 ? `Runtime 自我檢查發現一個問題：${first}` : `Runtime 自我檢查發現 ${count} 個問題，第一個：${first}`),
+  buildMore: (first, more) => `${first}（另有 ${more} 項）`,
 };

@@ -24,6 +24,8 @@ const en = {
     'ok, warn, fail or skip, with a remedy command where there is one; next is the remedy of the first problem.',
     'Read-only: never starts a Runtime and never reads a key (the keychain check only asks whether a made-up key',
     'exists). Ask the user before running the remedies.',
+    'From a repository checkout it also runs the Runtime self-check, which starts each native program once and compares',
+    'the builds with the source.',
     '',
     'Flags: --json',
   ].join('\n'),
@@ -32,7 +34,8 @@ const en = {
     runtime: 'Runtime',
     credentials: 'Credentials',
     fullDiskAccess: 'Full Disk Access',
-  } as Record<'entry' | 'runtime' | 'credentials' | 'fullDiskAccess', string>,
+    build: 'Build',
+  } as Record<'entry' | 'runtime' | 'credentials' | 'fullDiskAccess' | 'build', string>,
   remedyLabel: 'fix',
 
   // 入口
@@ -71,6 +74,14 @@ const en = {
   fdaMissingCli: (app: string | null) =>
     `Full Disk Access is off for the Runtime the command line started; macOS counts it against ${app ?? 'the app that ran the command (your terminal, or the app hosting the agent)'}. Turn that app on in System Settings › Privacy & Security › Full Disk Access and reopen it, or stop this Runtime (baocut runtime stop) and open the BaoCut app; then run baocut doctor again.`,
   fdaNotRunning: 'Checked while a Runtime is running',
+  // 构建（开发态）
+  buildOk: (count: number) => `The native programs start, and the ${count} builds match the source`,
+  buildNotSource: 'Checked when the Runtime runs from a repository checkout',
+  buildFailed: (reason: string) => `The Runtime self-check didn't finish: ${reason}`,
+  buildTimedOut: (seconds: number) => `no answer within ${seconds} s`,
+  buildProblems: (count: number, first: string) =>
+    count === 1 ? `The Runtime self-check found a problem: ${first}` : `The Runtime self-check found ${count} problems, first: ${first}`,
+  buildMore: (first: string, more: number) => `${first} (${more} more)`,
 };
 
 export type DoctorMessages = typeof en;

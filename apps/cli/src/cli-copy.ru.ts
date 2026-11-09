@@ -110,4 +110,7 @@ export const ru: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `незавершённых заданий: ${jobs}, подключений приложения: ${desktop}, других подключений CLI: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Этот Runtime запущен из командной строки${busy ? ` и ещё используется (${busy})` : ''}. Запустите команду снова, когда он освободится, — он будет заменён автоматически.`,
   notCliLaunched: 'Этот Runtime запущен приложением BaoCut или вручную, поэтому CLI его не заменяет.',
+  buildStale: (component: string, changed: number, rebuild: string) => `Сборка ${component} старее исходного кода (изменено файлов: ${changed}). Пересоберите: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `Сборка ${component} сделана для протокола ${built ?? 'неизвестно'}, а исходный код — для ${current}. Пересоберите: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `У сборки ${component} нет записи команды сборки, поэтому её нельзя сравнить с исходным кодом. Чтобы проверить, пересоберите: ${rebuild}`,
 };

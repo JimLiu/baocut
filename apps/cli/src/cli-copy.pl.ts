@@ -110,4 +110,7 @@ export const pl: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `niedokończone operacje: ${jobs}, połączenia aplikacji: ${desktop}, inne połączenia CLI: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Ten Runtime został uruchomiony z wiersza poleceń${busy ? ` i nadal jest używany (${busy})` : ''}. Uruchom polecenie ponownie, gdy będzie bezczynny, a zostanie automatycznie zastąpiony.`,
   notCliLaunched: 'Ten Runtime uruchomiła aplikacja BaoCut lub został uruchomiony ręcznie, więc CLI go nie zastępuje.',
+  buildStale: (component: string, changed: number, rebuild: string) => `Kompilacja ${component} jest starsza niż kod źródłowy (zmienione pliki: ${changed}). Przebuduj: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `Kompilacja ${component} jest dla protokołu ${built ?? 'nieznany'}, a kod źródłowy dla ${current}. Przebuduj: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `Kompilacja ${component} nie ma zapisu polecenia budowania, więc nie da się jej porównać z kodem źródłowym. Aby sprawdzić, przebuduj: ${rebuild}`,
 };

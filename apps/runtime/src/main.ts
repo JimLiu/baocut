@@ -11,6 +11,14 @@ import { createParentChannel } from './parent-channel.ts';
 declare const __BAOCUT_CREDENTIAL_STORE__: string | undefined;
 const BUILT_CREDENTIAL_STORE = typeof __BAOCUT_CREDENTIAL_STORE__ === 'string' ? __BAOCUT_CREDENTIAL_STORE__ : 'file';
 
+/**
+ * 从仓库运行时（源码入口，或开发态桌面端编出的 `out/main/runtime.js`）的仓库根：构建产物按它比对源码（CLI 独立使用与发布 §7.4）。
+ * 在 `app.asar` 里时是打包的 App，null。
+ */
+function sourceRootOf(script: string): string | null {
+  return script.split(/[\\/]/).includes('app.asar') ? null : installEntryOf(script);
+}
+
 function credentialStoreKind(value: string): 'file' | 'keychain' {
   if (value === 'file' || value === 'keychain') return value;
   throw new Error(`Unknown credential store: ${value}`);
@@ -49,7 +57,7 @@ async function main(): Promise<void> {
   if (launchedBy !== undefined && launchedBy !== 'cli') throw new Error(`Unknown --launched-by: ${launchedBy}`);
 
   if (values['self-check']) {
-    const report = await runtimeSelfCheck({ probe: values.probe });
+    const report = await runtimeSelfCheck({ probe: values.probe, sourceRoot: sourceRootOf(fileURLToPath(import.meta.url)) });
     // 不直接 exit：写进管道的输出要先送出去。
     process.exitCode = report.problems.length > 0 ? 1 : 0;
     process.stdout.write(`${JSON.stringify(report)}\n`);
@@ -67,6 +75,7 @@ async function main(): Promise<void> {
   // 这份安装与构建（CLI 独立使用与发布 §4.1）：写进发现信息，对方不连接就能判断要不要替换。
   const entry = installEntryOf(fileURLToPath(import.meta.url));
   const install = { entry, build: await installBuild(entry) };
+  const sourceRoot = sourceRootOf(fileURLToPath(import.meta.url));
 
   let runtime: Awaited<ReturnType<typeof startRuntime>>;
   // 空闲退出在 Runtime 起好之后才可能触发：那时 `stop` 已经定义好。
@@ -83,6 +92,7 @@ async function main(): Promise<void> {
       idleExit: values['idle-exit'] ? { onIdle: () => onIdle() } : null,
       requestStop: () => onStopRequest(),
       install,
+      sourceRoot,
     });
   } catch (error) {
     if (error instanceof RuntimeAlreadyRunningError) {

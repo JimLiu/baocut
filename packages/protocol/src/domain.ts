@@ -1199,6 +1199,35 @@ export interface RuntimeStatus {
   runningServices: string[];
   /** 空闲退出（只有 CLI 拉起的 Runtime 有）：设置的分钟数，与从什么时候起空闲（不空闲时 null）。 */
   idleExit: { minutes: number; idleSince: string | null } | null;
+  /**
+   * 从源码运行的 Runtime 用的构建产物与源码是否一致（CLI 独立使用与发布 §7.4）：各 Worker、两份 WASM 与 Web 客户端。打包的
+   * Runtime 与旧版 Runtime 没有。
+   */
+  builds?: ComponentBuild[];
+}
+
+export type ComponentBuildKind = 'workers' | 'editor-wasm' | 'preview-wasm' | 'web';
+
+/** 一份构建产物与源码比对的结果（`tools/build-stamp.mjs` 写的构建戳 `baocut-build.json`）。 */
+export interface ComponentBuild {
+  component: ComponentBuildKind;
+  /** 产物与构建戳所在的目录。 */
+  path: string;
+  /**
+   * `fresh` 与源码一致；`stale` 源码变了（`reason: 'inputs'`）或协议版本不同（`'protocol'`，只比 Web 客户端）；`unverified`
+   * 比不了：没有构建戳（`'no-stamp'`），或产物比构建戳新、不是用构建命令编的（`'output-newer'`）。
+   */
+  state: 'fresh' | 'stale' | 'unverified';
+  reason?: 'inputs' | 'protocol' | 'no-stamp' | 'output-newer';
+  /** 构建时的 commit 短号（有未提交改动时加 `-dirty`）、协议版本与构建时间；没有构建戳时 null。 */
+  build: string | null;
+  protocolVersion: string | null;
+  builtAt: string | null;
+  /** `reason: 'inputs'` 时：变了或不在了的源文件（仓库相对路径，最多 5 个）与总数。 */
+  changed?: string[];
+  changedCount?: number;
+  /** 在仓库根运行的重建命令。 */
+  rebuild: string;
 }
 
 /** 任务中心的一行（产品设计 §2.1）：从会话里的任务卡片派生，不另存。 */

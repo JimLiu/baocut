@@ -17,4 +17,7 @@ jobCancelling: (jobId) => `${jobId} iptal ediliyor… (beklemeyi hemen durdurmak
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `bitmemiş işler: ${jobs}, masaüstü uygulaması bağlantıları: ${desktop}, diğer CLI bağlantıları: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Bu Runtime komut satırından başlatıldı${busy ? ` ve hâlâ kullanılıyor (${busy})` : ''}. Boşa çıktıktan sonra komutu yeniden çalıştırın; otomatik olarak değiştirilir.`,
   notCliLaunched: 'Bu Runtime BaoCut uygulaması tarafından veya elle başlatıldı; bu yüzden CLI onu değiştirmez.',
+  buildStale: (component: string, changed: number, rebuild: string) => `${component} derlemesi kaynak koddan eski (${changed} dosya değişti). Yeniden derleyin: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `${component} derlemesi ${built ?? 'bilinmeyen'} protokolü için, kaynak kod ${current}. Yeniden derleyin: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `${component} derlemesinde derleme komutunun kaydı yok, bu yüzden kaynak kodla karşılaştırılamıyor. Kontrol etmek için yeniden derleyin: ${rebuild}`,
 };

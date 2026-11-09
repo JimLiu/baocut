@@ -114,4 +114,7 @@ export const zhHans: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `没做完的任务 ${jobs} 个，桌面端连接 ${desktop} 条，别的 CLI 连接 ${cli} 条`,
   replaceWhenIdle: (busy: string | null) => `那个 Runtime 是命令行拉起的${busy ? `，还有人在用（${busy}）` : ''}。等它空闲后再运行这条命令，会自动换成新的。`,
   notCliLaunched: '那个 Runtime 是 BaoCut 应用拉起的或手动启动的，CLI 不替换它。',
+  buildStale: (component: string, changed: number, rebuild: string) => `${component} 的构建比源码旧（${changed} 个文件变了）。重建：${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `${component} 的构建是协议 ${built ?? '未知'}，源码是 ${current}。重建：${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `${component} 的构建没有构建命令留下的记录，无法与源码比对。重建后再看：${rebuild}`,
 };

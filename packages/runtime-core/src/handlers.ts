@@ -2,6 +2,7 @@ import { RcBot, RcWeb } from '@baocut/protocol/messages/runtime-core';
 import path from 'node:path';
 import {
   type CodeBundleManifest,
+  type ComponentBuild,
   RpcError,
   SETTING_MANAGED_BY,
   parseVideoTopic,
@@ -176,6 +177,8 @@ export interface HandlerDeps {
   activity: RuntimeActivity;
   /** `runtime.stop` 的去处（入口停下 Runtime）；嵌入式的 Runtime（测试）没有。 */
   requestStop: (() => void) | null;
+  /** 从源码运行时比对构建产物与源码（`runtime.status` 的 `builds`，CLI 独立使用与发布 §7.4）；打包的 Runtime 没有。 */
+  builds?: (() => Promise<ComponentBuild[]>) | null;
   /** 历史版本的启动迁移（§2.7）：旧版项目的导入询问（`legacyImport.*` 与 `legacy-import` 主题）。 */
   legacyUpgrade: LegacyUpgrade;
   /** 定时任务（产品设计 §6.1「定时任务」）：网关与 Web 服务共用同一个服务。 */
@@ -263,6 +266,7 @@ export function createHandlers({
   agentSkillHome,
   activity,
   requestStop,
+  builds = null,
   legacyUpgrade,
   semantic,
   schedules,
@@ -372,9 +376,12 @@ export function createHandlers({
         const fullDiskAccess = await probeFullDiskAccess();
         return { platform: process.platform, ...(fullDiskAccess ? { fullDiskAccess } : {}) };
       },
-      'runtime.status': (_p, principal) => {
+      'runtime.status': async (_p, principal) => {
         if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.statusLocalOnly());
-        return activity.status();
+        const status = activity.status();
+        // 比对出错（读不了构建戳以外的意外）不影响状态本身。
+        const checked = builds ? await builds().catch(() => null) : null;
+        return checked ? { ...status, builds: checked } : status;
       },
       // 只停 CLI 拉起的、没有别人在用的（§2.2）：排队或运行中的任务都算在用。CLI 发起时桌面端与调用者之外的 CLI 连接算在用；
       // 桌面端发起（替换成自己的 Runtime，CLI 独立使用与发布 §4.2、§4.3）时桌面端的连接都是它自己的，不算，CLI 连接算在用。

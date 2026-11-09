@@ -10,6 +10,7 @@ export const fr: DoctorMessages = {
     'il y en a une ; next est la correction du premier problème. Lecture seule : ne démarre jamais de Runtime et',
     'ne lit aucune clé (la vérification du trousseau demande seulement si une clé inventée existe). Demandez à',
     'l’utilisateur avant d’exécuter les corrections.',
+    'Depuis une copie du dépôt, il lance aussi l’autovérification du Runtime, qui démarre une fois chaque programme natif et compare les compilations aux sources.',
     '',
     'Options : --json',
   ].join('\n'),
@@ -18,6 +19,7 @@ export const fr: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Identifiants',
     fullDiskAccess: 'Accès complet au disque',
+    build: 'Compilation',
   },
   remedyLabel: 'correctif',
 
@@ -52,4 +54,11 @@ export const fr: DoctorMessages = {
   fdaMissingCli: (app) =>
     `L’Accès complet au disque est désactivé pour le Runtime démarré par la ligne de commande ; macOS l’attribue à ${app ?? 'l’app qui a lancé la commande (votre terminal, ou l’app qui héberge l’agent)'}. Activez cette app dans Réglages Système › Confidentialité et sécurité › Accès complet au disque et rouvrez-la, ou arrêtez ce Runtime (baocut runtime stop) et ouvrez l’app BaoCut ; puis relancez baocut doctor.`,
   fdaNotRunning: 'Vérifié seulement quand un Runtime est actif',
+  buildOk: (count) => `Les programmes natifs démarrent et les ${count} compilations correspondent aux sources`,
+  buildNotSource: 'Vérifié quand le Runtime s’exécute depuis une copie du dépôt',
+  buildFailed: (reason) => `L’autovérification du Runtime ne s’est pas terminée : ${reason}`,
+  buildTimedOut: (seconds) => `pas de réponse en ${seconds} s`,
+  buildProblems: (count, first) =>
+    count === 1 ? `L’autovérification du Runtime a trouvé un problème : ${first}` : `L’autovérification du Runtime a trouvé ${count} problèmes, le premier : ${first}`,
+  buildMore: (first, more) => `${first} (et ${more} de plus)`,
 };

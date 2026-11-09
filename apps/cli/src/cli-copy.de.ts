@@ -129,4 +129,7 @@ export const de: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `offene Aufträge: ${jobs}, Verbindungen der Desktop-App: ${desktop}, andere CLI-Verbindungen: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Diese Runtime wurde über die Befehlszeile gestartet${busy ? ` und wird noch verwendet (${busy})` : ''}. Führen Sie den Befehl erneut aus, sobald sie untätig ist; dann wird sie automatisch ersetzt.`,
   notCliLaunched: 'Diese Runtime wurde von der BaoCut-App oder manuell gestartet, daher ersetzt die CLI sie nicht.',
+  buildStale: (component: string, changed: number, rebuild: string) => `Der ${component}-Build ist älter als der Quellcode (${changed} geänderte Dateien). Neu bauen: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `Der ${component}-Build ist für Protokoll ${built ?? 'unbekannt'}, der Quellcode für ${current}. Neu bauen: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `Der ${component}-Build hat keinen Eintrag des Build-Befehls und lässt sich nicht mit dem Quellcode vergleichen. Zum Prüfen neu bauen: ${rebuild}`,
 };

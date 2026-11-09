@@ -1716,6 +1716,19 @@ describe('CLI 拉起的 Runtime（§2.2）', () => {
     }
   }
 
+  it('runtime.status：从源码运行（给了 sourceRoot）时带上各构建产物与源码是否一致，打包的不带', async () => {
+    runtime = await boot({ sourceRoot: dir });
+    const status = await (await connect('cli')).request('runtime.status', {});
+    expect(Array.isArray(status.builds)).toBe(true);
+    for (const build of status.builds!) {
+      expect(['fresh', 'stale', 'unverified']).toContain(build.state);
+      expect(build.rebuild).toMatch(/^npm run build:/);
+    }
+    await runtime.close();
+    runtime = await boot({});
+    expect((await (await connect('cli')).request('runtime.status', {})).builds).toBeUndefined();
+  });
+
   it('runtime.stop：调用者之外还有 CLI 或桌面端连着时 RUNTIME_IN_USE，只剩自己时停', async () => {
     const requestStop = vi.fn();
     runtime = await boot({ requestStop });

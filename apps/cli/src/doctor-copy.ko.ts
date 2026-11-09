@@ -9,6 +9,7 @@ export const ko: DoctorMessages = {
     '해결 명령이 있으면 함께 보여 줍니다. next는 첫 번째 문제의 해결 명령입니다.',
     '읽기 전용: Runtime을 시작하지 않고 키도 읽지 않습니다(키체인 검사는 지어낸 키가 있는지만 묻습니다).',
     '해결 명령은 실행하기 전에 사용자에게 먼저 물어보세요.',
+    '저장소에서 실행 중이면 Runtime 자체 점검도 실행해 각 네이티브 프로그램을 한 번씩 시작하고 빌드를 소스와 비교합니다.',
     '',
     '플래그: --json',
   ].join('\n'),
@@ -17,6 +18,7 @@ export const ko: DoctorMessages = {
     runtime: 'Runtime',
     credentials: '자격 증명',
     fullDiskAccess: '전체 디스크 접근 권한',
+    build: '빌드',
   },
   remedyLabel: '해결',
 
@@ -50,4 +52,11 @@ export const ko: DoctorMessages = {
   fdaMissingCli: (app) =>
     `명령줄이 시작한 Runtime의 전체 디스크 접근 권한이 꺼져 있습니다. macOS는 이를 ${app ?? '명령을 실행한 앱(터미널 또는 Agent를 실행하는 앱)'}의 권한으로 봅니다. 시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한에서 그 앱을 켜고 다시 열거나, 이 Runtime을 중지하고(baocut runtime stop) BaoCut 앱을 여세요. 그런 다음 baocut doctor를 다시 실행하세요.`,
   fdaNotRunning: 'Runtime이 실행 중일 때만 확인합니다',
+  buildOk: (count) => `네이티브 프로그램이 모두 시작되고 빌드 ${count}개가 소스와 일치합니다`,
+  buildNotSource: 'Runtime을 저장소에서 실행할 때 점검합니다',
+  buildFailed: (reason) => `Runtime 자체 점검이 끝나지 않았습니다: ${reason}`,
+  buildTimedOut: (seconds) => `${seconds}초 안에 응답이 없었습니다`,
+  buildProblems: (count, first) =>
+    count === 1 ? `Runtime 자체 점검에서 문제를 발견했습니다: ${first}` : `Runtime 자체 점검에서 문제 ${count}개를 발견했습니다. 첫 번째: ${first}`,
+  buildMore: (first, more) => `${first} (외 ${more}개)`,
 };

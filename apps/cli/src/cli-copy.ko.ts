@@ -118,4 +118,7 @@ export const ko: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `끝나지 않은 작업 ${jobs}개, 데스크톱 앱 연결 ${desktop}개, 다른 CLI 연결 ${cli}개`,
   replaceWhenIdle: (busy: string | null) => `그 Runtime은 명령줄에서 시작되었습니다${busy ? `. 아직 사용 중입니다(${busy})` : ''}. 유휴 상태가 된 뒤 이 명령을 다시 실행하면 자동으로 교체됩니다.`,
   notCliLaunched: '그 Runtime은 BaoCut 앱이나 수동으로 시작되었으므로 CLI가 교체하지 않습니다.',
+  buildStale: (component: string, changed: number, rebuild: string) => `${component} 빌드가 소스보다 오래되었습니다(변경된 파일 ${changed}개). 다시 빌드: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `${component} 빌드는 프로토콜 ${built ?? '알 수 없음'}용이고 소스는 ${current}입니다. 다시 빌드: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `${component} 빌드에 빌드 명령의 기록이 없어 소스와 비교할 수 없습니다. 확인하려면 다시 빌드: ${rebuild}`,
 };

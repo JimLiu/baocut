@@ -9,6 +9,7 @@ export const tr: DoctorMessages = {
     'Erişimi. Her denetimin sonucu ok, warn, fail veya skip olur; varsa bir çözüm komutu da verilir. next ilk',
     'sorunun çözümüdür. Salt okunur: hiçbir zaman Runtime başlatmaz ve anahtar okumaz (anahtar zinciri denetimi',
     'yalnızca uydurma bir anahtarın var olup olmadığını sorar). Çözümleri çalıştırmadan önce kullanıcıya sorun.',
+    'Depo kopyasından çalışırken Runtime öz denetimini de çalıştırır: her yerel programı bir kez başlatır ve derlemeleri kaynak kodla karşılaştırır.',
     '',
     'Seçenekler: --json',
   ].join('\n'),
@@ -17,6 +18,7 @@ export const tr: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Kimlik bilgileri',
     fullDiskAccess: 'Tam Disk Erişimi',
+    build: 'Derleme',
   },
   remedyLabel: 'çözüm',
 
@@ -51,4 +53,11 @@ export const tr: DoctorMessages = {
   fdaMissingCli: (app) =>
     `Komut satırının başlattığı Runtime için Tam Disk Erişimi kapalı; macOS bunu şu uygulamanın iznine göre değerlendirir: ${app ?? 'komutu çalıştıran uygulama (terminaliniz veya ajanı barındıran uygulama)'}. O uygulamayı Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi bölümünde açıp yeniden başlatın ya da bu Runtime'ı durdurup (baocut runtime stop) BaoCut uygulamasını açın; ardından baocut doctor komutunu yeniden çalıştırın.`,
   fdaNotRunning: 'Yalnızca bir Runtime çalışırken denetlenir',
+  buildOk: (count) => `Yerel programlar başlıyor ve ${count} derleme kaynak kodla eşleşiyor`,
+  buildNotSource: 'Runtime depo kopyasından çalışırken denetlenir',
+  buildFailed: (reason) => `Runtime öz denetimi bitmedi: ${reason}`,
+  buildTimedOut: (seconds) => `${seconds} sn içinde yanıt yok`,
+  buildProblems: (count, first) =>
+    count === 1 ? `Runtime öz denetimi bir sorun buldu: ${first}` : `Runtime öz denetimi ${count} sorun buldu, ilki: ${first}`,
+  buildMore: (first, more) => `${first} (${more} tane daha)`,
 };

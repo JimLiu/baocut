@@ -16,4 +16,7 @@ export const es: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `trabajos sin terminar: ${jobs}, conexiones de la app de escritorio: ${desktop}, otras conexiones de CLI: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Ese Runtime se inició desde la línea de comandos${busy ? ` y todavía está en uso (${busy})` : ''}. Vuelve a ejecutar el comando cuando esté inactivo y se reemplazará automáticamente.`,
   notCliLaunched: 'Ese Runtime lo inició la app de BaoCut o se inició a mano, así que la CLI no lo reemplaza.',
+  buildStale: (component: string, changed: number, rebuild: string) => `La compilación de ${component} es más antigua que el código fuente (${changed} archivos cambiados). Recompila: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `La compilación de ${component} es para el protocolo ${built ?? 'desconocido'}; el código fuente usa ${current}. Recompila: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `La compilación de ${component} no tiene el registro del comando de compilación, así que no se puede comparar con el código fuente. Recompila para comprobarlo: ${rebuild}`,
 };

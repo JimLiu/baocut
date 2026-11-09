@@ -9,6 +9,7 @@ export const vi: DoctorMessages = {
     'macOS. Mỗi mục kiểm tra là ok, warn, fail hoặc skip, kèm lệnh khắc phục nếu có; next là cách khắc phục cho',
     'vấn đề đầu tiên. Chỉ đọc: không bao giờ khởi chạy Runtime và không đọc khóa nào (mục chuỗi khóa chỉ hỏi một',
     'khóa bịa ra có tồn tại không). Hỏi người dùng trước khi chạy các lệnh khắc phục.',
+    'Khi chạy từ bản sao kho, lệnh còn chạy tự kiểm tra của Runtime: khởi động mỗi chương trình gốc một lần và so các bản dựng với mã nguồn.',
     '',
     'Cờ: --json',
   ].join('\n'),
@@ -17,6 +18,7 @@ export const vi: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Thông tin xác thực',
     fullDiskAccess: 'Quyền truy cập toàn bộ ổ đĩa',
+    build: 'Bản dựng',
   },
   remedyLabel: 'khắc phục',
 
@@ -51,4 +53,11 @@ export const vi: DoctorMessages = {
   fdaMissingCli: (app) =>
     `Quyền truy cập toàn bộ ổ đĩa đang tắt cho Runtime do dòng lệnh khởi chạy; macOS tính quyền này theo ${app ?? 'ứng dụng đã chạy lệnh (terminal của bạn, hoặc ứng dụng chạy Agent)'}. Bật ứng dụng đó trong Cài đặt hệ thống › Quyền riêng tư & Bảo mật › Quyền truy cập toàn bộ ổ đĩa rồi mở lại nó, hoặc dừng Runtime này (baocut runtime stop) rồi mở ứng dụng BaoCut; sau đó chạy lại baocut doctor.`,
   fdaNotRunning: 'Chỉ kiểm tra khi có Runtime đang chạy',
+  buildOk: (count) => `Các chương trình gốc đều khởi động được, ${count} bản dựng khớp với mã nguồn`,
+  buildNotSource: 'Chỉ kiểm tra khi Runtime chạy từ bản sao kho',
+  buildFailed: (reason) => `Tự kiểm tra của Runtime chưa xong: ${reason}`,
+  buildTimedOut: (seconds) => `không phản hồi trong ${seconds} giây`,
+  buildProblems: (count, first) =>
+    count === 1 ? `Tự kiểm tra của Runtime thấy một vấn đề: ${first}` : `Tự kiểm tra của Runtime thấy ${count} vấn đề, đầu tiên: ${first}`,
+  buildMore: (first, more) => `${first} (còn ${more} mục)`,
 };

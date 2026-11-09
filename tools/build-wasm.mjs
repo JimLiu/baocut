@@ -8,16 +8,17 @@
 
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BUILD_STAMP_FILE, cargoDepInfo, cargoTargetDir, withCargoManifests, writeBuildStamp } from './build-stamp.mjs';
 import { ensureCargo } from './cargo-path.mjs';
 
 ensureCargo();
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outputs = [
-  { crate: 'preview-wasm', file: 'preview_wasm.wasm', output: 'packages/ui/src/render/generated/preview.wasm', label: '预览 WASM' },
-  { crate: 'editor-wasm', file: 'editor_wasm.wasm', output: 'packages/editor-wasm/src/generated/editor.wasm', label: '编辑语义 WASM' },
+  { crate: 'preview-wasm', file: 'preview_wasm.wasm', output: 'packages/ui/src/render/generated/preview.wasm', label: '预览 WASM', component: 'preview-wasm' },
+  { crate: 'editor-wasm', file: 'editor_wasm.wasm', output: 'packages/editor-wasm/src/generated/editor.wasm', label: '编辑语义 WASM', component: 'editor-wasm' },
 ];
 
 // 打开 WASM 的 SIMD（tiny-skia 的 f32x4 等走 simd128）：预览逐帧光栅化快好几倍。Chromium、Electron 与 Node 都支持。
@@ -44,12 +45,12 @@ if (!run('cargo', cargo)) {
 }
 
 // target 目录可能被 .cargo/config.local.toml 挪到别处，向 cargo 要真实位置。
-const metadata = spawnSync('cargo', ['metadata', '--format-version', '1', '--no-deps'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-if (metadata.status !== 0) {
-  console.error(metadata.stderr);
+const targetDir = cargoTargetDir(root);
+if (!targetDir) {
+  console.error('cargo metadata failed');
   process.exit(1);
 }
-const builtDir = join(JSON.parse(metadata.stdout).target_directory, 'wasm32-unknown-unknown/wasm');
+const builtDir = join(targetDir, 'wasm32-unknown-unknown/wasm');
 
 const features = [
   '--enable-bulk-memory',
@@ -83,3 +84,18 @@ for (const name of fonts) {
   fontBytes += statSync(join(fontOutput, name)).size;
 }
 console.log(`预览字体：${fontOutput}（${fonts.length} 份，${Math.round(fontBytes / 2 ** 20)} MB）`);
+
+// 构建戳（CLI 独立使用与发布 §7.4）：每个输出目录一份，输入取 cargo 的 dep-info；预览另带拷过去的字体。
+for (const { file, output: relative, component } of outputs) {
+  const inputs = cargoDepInfo(join(builtDir, file.replace(/\.wasm$/, '.d')));
+  if (component === 'preview-wasm') inputs.push(...fonts.map((name) => join(fontSource, name)));
+  const output = join(root, relative);
+  writeBuildStamp({
+    root,
+    file: join(dirname(output), BUILD_STAMP_FILE),
+    component,
+    inputs: withCargoManifests(root, inputs),
+    outputs: [basename(output)],
+    exclude: [targetDir],
+  });
+}

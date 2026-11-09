@@ -146,6 +146,14 @@ const en = {
   jobRemaining: (clock: string) => `${clock} left`,
   waitTimeout: (seconds: number, jobId: string) => `Stopped waiting after ${seconds} s; job ${jobId} keeps running.`,
 
+  // 构建产物与源码（CLI 独立使用与发布 §7.4）
+  buildStale: (component: string, changed: number, rebuild: string) =>
+    `The ${component} build is older than the source (${changed} changed files). Rebuild: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) =>
+    `The ${component} build is for protocol ${built ?? 'unknown'}, the source is ${current}. Rebuild: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) =>
+    `The ${component} build has no record from the build command, so it can't be compared with the source. Rebuild to check: ${rebuild}`,
+
   // 管理桶（admin/context.ts）
   noRuntimeClient: "This command doesn't connect to the Runtime",
 };

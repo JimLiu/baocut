@@ -121,4 +121,7 @@ export const ja: CliMessages = {
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `未完了のジョブ ${jobs} 件、デスクトップアプリの接続 ${desktop} 本、ほかの CLI の接続 ${cli} 本`,
   replaceWhenIdle: (busy: string | null) => `その Runtime はコマンドラインから起動されたもので${busy ? `、まだ使われています（${busy}）` : 'す'}。空いてからもう一度このコマンドを実行すると、自動で置き換わります。`,
   notCliLaunched: 'その Runtime は BaoCut アプリか手動で起動されたものなので、CLI は置き換えません。',
+  buildStale: (component: string, changed: number, rebuild: string) => `${component} のビルドがソースより古くなっています（変更されたファイル ${changed} 件）。再ビルド：${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `${component} のビルドはプロトコル ${built ?? '不明'} 用で、ソースは ${current} です。再ビルド：${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `${component} のビルドにはビルドコマンドの記録がないため、ソースと比較できません。確認するには再ビルド：${rebuild}`,
 };

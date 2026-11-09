@@ -17,4 +17,7 @@ jobCancelling: (jobId) => `Đang hủy ${jobId}… (nhấn Ctrl-C lần nữa đ
   runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `công việc chưa xong: ${jobs}, kết nối của ứng dụng máy tính: ${desktop}, kết nối CLI khác: ${cli}`,
   replaceWhenIdle: (busy: string | null) => `Runtime đó được khởi chạy từ dòng lệnh${busy ? ` và vẫn đang được dùng (${busy})` : ''}. Chạy lại lệnh khi nó rảnh, nó sẽ tự được thay thế.`,
   notCliLaunched: 'Runtime đó do ứng dụng BaoCut hoặc khởi chạy thủ công, nên CLI không thay thế nó.',
+  buildStale: (component: string, changed: number, rebuild: string) => `Bản dựng ${component} cũ hơn mã nguồn (${changed} tệp đã thay đổi). Dựng lại: ${rebuild}`,
+  buildProtocol: (component: string, built: string | null, current: string, rebuild: string) => `Bản dựng ${component} dành cho giao thức ${built ?? 'không rõ'}, mã nguồn là ${current}. Dựng lại: ${rebuild}`,
+  buildUnverified: (component: string, rebuild: string) => `Bản dựng ${component} không có bản ghi của lệnh dựng nên không so được với mã nguồn. Dựng lại để kiểm tra: ${rebuild}`,
 };

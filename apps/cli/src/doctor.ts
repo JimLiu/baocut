@@ -2,11 +2,12 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { MCP_INTERFACE_VERSION, type RuntimeInfo } from '@baocut/protocol';
+import { MCP_INTERFACE_VERSION, PROTOCOL_VERSION, type ComponentBuild, type RuntimeInfo } from '@baocut/protocol';
 import { cliInstallCommand } from './admin/cli-entry.ts';
 import { M } from './cli-copy.ts';
 import { D } from './doctor-copy.ts';
 import { CliError, type ExitCode, type Output } from './envelope.ts';
+import { buildNext, buildWarnings } from './meta.ts';
 import {
   findRuntime,
   launchCredentialStore,
@@ -23,12 +24,12 @@ import {
  * `baocut doctor`（CLI 独立使用与发布 §8.1）：为什么起不来、为什么读不到。逐项给出 ok / warn / fail（查不了时 skip）与补救命令。
  * 只读：不拉起 Runtime，不读密钥（钥匙串只对一个编出来的键问一次 `has`）。`status` 回答这台机器能做什么，`doctor` 回答为什么不行。
  *
- * 分两层：`gatherDoctor` 收集事实（PATH、App、拉起方式、正在跑的 Runtime、凭据助手），`doctorReport` 是纯函数，把事实写成检查项。
- * 开发态的构建检查（§7.4）留到第二批。
+ * 分两层：`gatherDoctor` 收集事实（PATH、App、拉起方式、正在跑的 Runtime、凭据助手，从仓库拉起时还有 Runtime 的自检），
+ * `doctorReport` 是纯函数，把事实写成检查项。
  */
 
 export type DoctorLevel = 'ok' | 'warn' | 'fail' | 'skip';
-export type DoctorCheckId = 'entry' | 'runtime' | 'credentials' | 'fullDiskAccess';
+export type DoctorCheckId = 'entry' | 'runtime' | 'credentials' | 'fullDiskAccess' | 'build';
 
 export interface DoctorCheck {
   id: DoctorCheckId;
@@ -60,6 +61,11 @@ export type DoctorRuntime =
       access: { platform: string; fullDiskAccess?: 'granted' | 'missing' } | null;
     };
 
+/** Runtime 的 `--self-check --probe`（各原生程序启动一次，比对构建与源码）的结论；没跑完时说为什么。 */
+export type DoctorBuild =
+  | { state: 'done'; problems: string[]; builds: ComponentBuild[] }
+  | { state: 'failed'; message: string };
+
 export interface DoctorInputs {
   platform: NodeJS.Platform;
   home: string;
@@ -75,12 +81,15 @@ export interface DoctorInputs {
   credentials: { store: 'keychain' | 'file' | null; helper: string | null; probe: HelperProbe | null };
   /** 运行这条命令的终端（`TERM_PROGRAM`），给完全磁盘访问的说明用。 */
   terminalProgram: string | null;
+  /** 开发态的构建检查（§7.4）：不从打包的 App 拉起时才跑，否则 null。 */
+  build: DoctorBuild | null;
 }
 
 /** 把收集到的事实写成检查项（纯函数）。 */
 export function doctorReport(inputs: DoctorInputs): DoctorResult {
   const checks = [entryCheck(inputs), runtimeCheck(inputs), credentialsCheck(inputs)];
   if (inputs.platform === 'darwin') checks.push(fullDiskAccessCheck(inputs));
+  checks.push(buildCheck(inputs));
   return { ok: checks.every((check) => check.level !== 'fail'), checks };
 }
 
@@ -189,6 +198,47 @@ function fullDiskAccessCheck({ runtime, terminalProgram }: DoctorInputs): Doctor
   return { id: 'fullDiskAccess', level: 'warn', message, details: { ...details, terminal: terminalProgram } };
 }
 
+/** 少了就做不了事的组件：缺了或起不来算 fail；其余（本地语音、Electron 宿主、凭据助手等）算 warn。 */
+const CORE_COMPONENTS = new Set(['engine-host', 'export-worker', 'model-worker', 'speech-worker', 'web', 'editor.wasm', 'templates', 'skills', 'agentSkills']);
+
+/** 自检的一条问题（`<组件>: <说明>`）由哪条命令补上。 */
+export function selfCheckRemedy(problem: string): string {
+  const component = problem.slice(0, problem.indexOf(':'));
+  if (['engine-host', 'export-worker', 'model-worker', 'speech-worker'].includes(component)) return 'npm run build:engine';
+  if (component === 'web') return 'npm run build:web';
+  if (component === 'editor.wasm') return 'npm run build:wasm';
+  if (component.startsWith('audiocpp')) return 'npm run build:audiocpp';
+  if (component === 'litertlm-runtime') return 'npm run build:litertlm-runtime';
+  if (component === 'credential-helper') return 'cargo build -p credential-helper';
+  if (component === 'electron' || component === 'composition-host') return 'npm install';
+  return 'npm run setup';
+}
+
+function buildCheck({ build, launch }: DoctorInputs): DoctorCheck {
+  if (!build || !launch) return { id: 'build', level: 'skip', message: D.buildNotSource, details: {} };
+  const details: Record<string, unknown> = { entry: launchEntry(launch) };
+  if (build.state === 'failed') return { id: 'build', level: 'fail', message: D.buildFailed(build.message), details };
+  const { problems, builds } = build;
+  Object.assign(details, { problems, builds });
+  if (problems.length > 0) {
+    const first = problems.find((problem) => CORE_COMPONENTS.has(problem.slice(0, problem.indexOf(':')))) ?? null;
+    const shown = first ?? problems[0]!;
+    return {
+      id: 'build',
+      level: first ? 'fail' : 'warn',
+      message: D.buildProblems(problems.length, shown),
+      remedy: selfCheckRemedy(shown),
+      details,
+    };
+  }
+  const warnings = buildWarnings(builds, PROTOCOL_VERSION);
+  if (warnings.length > 0) {
+    const message = warnings.length === 1 ? warnings[0]! : D.buildMore(warnings[0]!, warnings.length - 1);
+    return { id: 'build', level: 'warn', message, ...(buildNext(builds) ? { remedy: buildNext(builds)! } : {}), details };
+  }
+  return { id: 'build', level: 'ok', message: D.buildOk(builds.length), details };
+}
+
 /** `TERM_PROGRAM` → 系统设置里看到的应用名；认不出时 null（文案说「运行命令的那个应用」）。 */
 export function terminalAppName(program: string | null): string | null {
   if (!program) return null;
@@ -213,9 +263,13 @@ export interface DoctorDeps {
   platform?: NodeJS.Platform;
   /** 凭据助手的期限。 */
   helperTimeoutMs?: number;
+  /** 跑 Runtime 自检（测试替换）。 */
+  selfCheck?: (launch: LaunchSpec, env: NodeJS.ProcessEnv, home: string) => Promise<DoctorBuild>;
 }
 
 const HELPER_TIMEOUT_MS = 5_000;
+/** 自检要把每个原生程序启动一次，Intel Mac 上 model-worker 首次编译 Metal 要一分钟。 */
+const SELF_CHECK_TIMEOUT_MS = 120_000;
 
 export async function gatherDoctor(
   env: NodeJS.ProcessEnv,
@@ -228,9 +282,11 @@ export async function gatherDoctor(
   const app = appEntry(env, platform);
   const store = launch ? launchCredentialStore(launch) : null;
   const helper = store === 'keychain' ? credentialHelper(env, launch!, platform) : null;
-  const [runtime, probe] = await Promise.all([
+  const [runtime, probe, build] = await Promise.all([
     runningRuntime(home),
     store === 'keychain' ? (helper ? probeCredentialHelper({ command: helper }, deps.helperTimeoutMs) : null) : null,
+    // 打包的产物与代码同一次构建，不比；只在从仓库或 BAOCUT_RUNTIME_ENTRY 拉起时跑（列出来，以后加的安装方式默认不跑）。
+    launch && (launch.source === 'repo' || launch.source === 'env') ? (deps.selfCheck ?? runSelfCheck)(launch, env, home) : null,
   ]);
   return {
     platform,
@@ -243,7 +299,58 @@ export async function gatherDoctor(
     runtime,
     credentials: { store, helper, probe },
     terminalProgram: env.TERM_PROGRAM || null,
+    build,
   };
+}
+
+/**
+ * 用拉起 Runtime 的同一条命令跑 `--self-check --probe`：不启动 Runtime，只把各原生程序启动一次、比对构建与源码（`runtimeSelfCheck`），
+ * 写一行 JSON。有问题时它以 1 退出，照样读那一行。限时，超时就杀掉。
+ */
+export function runSelfCheck(launch: LaunchSpec, env: NodeJS.ProcessEnv, home: string, timeoutMs = SELF_CHECK_TIMEOUT_MS): Promise<DoctorBuild> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let out = '';
+    let err = '';
+    const child = spawn(launch.command, [...launch.args, '--self-check', '--probe'], {
+      env: { ...env, ...launch.env, BAOCUT_HOME: home },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const finish = (result: DoctorBuild) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      resolve(result);
+    };
+    const timer = setTimeout(() => finish({ state: 'failed', message: D.buildTimedOut(Math.round(timeoutMs / 1000)) }), timeoutMs);
+    child.once('error', (error) => finish({ state: 'failed', message: error.message }));
+    child.stdout.on('data', (chunk: Buffer) => {
+      if (out.length < 1024 * 1024) out += chunk.toString('utf8');
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      err = (err + chunk.toString('utf8')).slice(-4096);
+    });
+    child.once('close', (code) => {
+      const line = out.trim().split('\n').reverse().find((text) => text.startsWith('{'));
+      let report: { problems?: unknown; builds?: unknown } | null = null;
+      try {
+        report = line ? JSON.parse(line) : null;
+      } catch {
+        report = null;
+      }
+      if (report && Array.isArray(report.problems)) {
+        return finish({
+          state: 'done',
+          problems: report.problems.filter((problem): problem is string => typeof problem === 'string'),
+          builds: Array.isArray(report.builds) ? (report.builds as ComponentBuild[]) : [],
+        });
+      }
+      const tail = err.trim().split('\n').slice(-1)[0]?.slice(0, 300);
+      finish({ state: 'failed', message: tail || M.exitedWith(code) });
+    });
+  });
 }
 
 /** 正在跑的 Runtime：版本、接口版本与完全磁盘访问；连不上时说为什么。不拉起。 */

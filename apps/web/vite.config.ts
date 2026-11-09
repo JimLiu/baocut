@@ -3,6 +3,7 @@ import optimizeLocales from '@react-aria/optimize-locales-plugin';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { LOCALE_TAGS } from '../../packages/protocol/src/i18n.ts';
+import { buildStampPlugin } from '../../tools/build-stamp.mjs';
 import { pdfLicenses } from '../../tools/pdf-licenses.ts';
 import { thirdPartyNotices } from '../../tools/third-party-notices.ts';
 import { lazyLocales } from '../../tools/lazy-locales.ts';
@@ -27,6 +28,12 @@ export default defineConfig({
     // 开发服务器只载入当前语言的译文（见 tools/lazy-locales.ts）；生产构建照常打进全部语言。
     ...lazyLocales(),
     { ...optimizeLocales.vite({ locales: Object.values(LOCALE_TAGS) }), enforce: 'pre' },
+    // 构建戳（CLI 独立使用与发布 §7.4）：源码 Runtime 据此判断 dist 是否比源码旧。
+    buildStampPlugin({
+      root: resolve(import.meta.dirname, '../..'),
+      component: 'web',
+      extraInputs: [resolve(import.meta.dirname, '../../package-lock.json'), resolve(import.meta.dirname, 'vite.config.ts')],
+    }),
   ],
   build: {
     target: 'es2022',

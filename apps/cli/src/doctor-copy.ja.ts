@@ -9,6 +9,7 @@ export const ja: DoctorMessages = {
     'いずれかで、対処コマンドがあれば添えます。next は最初の問題への対処です。',
     '読み取り専用：Runtime を起動せず、キーも読みません（キーチェーンのチェックは架空のキーがあるかを尋ねるだけ）。',
     '対処コマンドを実行する前にユーザーの同意を得てください。',
+    'リポジトリから実行しているときは Runtime のセルフチェックも行い、各ネイティブプログラムを一度起動してビルドをソースと比較します。',
     '',
     'フラグ：--json',
   ].join('\n'),
@@ -17,6 +18,7 @@ export const ja: DoctorMessages = {
     runtime: 'Runtime',
     credentials: '資格情報',
     fullDiskAccess: 'フルディスクアクセス',
+    build: 'ビルド',
   },
   remedyLabel: '対処',
 
@@ -50,4 +52,11 @@ export const ja: DoctorMessages = {
   fdaMissingCli: (app) =>
     `コマンドラインが起動した Runtime のフルディスクアクセスがオフです。macOS はこれを${app ?? 'コマンドを実行したアプリ（ターミナル、または Agent を動かしているアプリ）'}の権限として扱います。「システム設定 › プライバシーとセキュリティ › フルディスクアクセス」でそのアプリをオンにして開き直すか、この Runtime を停止（baocut runtime stop）して BaoCut アプリを開いてください。そのあと baocut doctor をもう一度実行してください。`,
   fdaNotRunning: 'Runtime の実行中にのみ確認します',
+  buildOk: (count) => `ネイティブプログラムはすべて起動し、${count} 件のビルドがソースと一致しています`,
+  buildNotSource: 'Runtime をリポジトリから実行しているときにチェックします',
+  buildFailed: (reason) => `Runtime のセルフチェックが完了しませんでした：${reason}`,
+  buildTimedOut: (seconds) => `${seconds} 秒以内に応答がありませんでした`,
+  buildProblems: (count, first) =>
+    count === 1 ? `Runtime のセルフチェックで問題が見つかりました：${first}` : `Runtime のセルフチェックで ${count} 件の問題が見つかりました。最初の問題：${first}`,
+  buildMore: (first, more) => `${first}（ほか ${more} 件）`,
 };

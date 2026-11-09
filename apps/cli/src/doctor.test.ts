@@ -2,10 +2,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
-import { MCP_INTERFACE_VERSION, setLocale, type RuntimeInfo } from '@baocut/protocol';
+import { MCP_INTERFACE_VERSION, PROTOCOL_VERSION, setLocale, type ComponentBuild, type RuntimeInfo } from '@baocut/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminBucket } from './admin/index.ts';
 import { runCli } from './cli.ts';
+import { M } from './cli-copy.ts';
 import {
   appBundleOf,
   doctorNext,
@@ -13,6 +14,8 @@ import {
   findOnPath,
   forwarderTarget,
   probeCredentialHelper,
+  runSelfCheck,
+  selfCheckRemedy,
   terminalAppName,
   type DoctorInputs,
 } from './doctor.ts';
@@ -64,6 +67,7 @@ function inputs(overrides: Partial<DoctorInputs> = {}): DoctorInputs {
     runtime: { state: 'stopped' },
     credentials: { store: 'keychain', helper: '/Applications/BaoCut.app/Contents/Resources/bin/credential-helper', probe: { ok: true } },
     terminalProgram: 'Apple_Terminal',
+    build: null,
     ...overrides,
   };
 }
@@ -79,6 +83,7 @@ describe('doctorReport（CLI 独立使用与发布 §8.1）', () => {
       ['runtime', 'ok'],
       ['credentials', 'ok'],
       ['fullDiskAccess', 'skip'],
+      ['build', 'skip'],
     ]);
     expect(check(result, 'entry').message).toContain('3.16.4');
     expect(check(result, 'runtime').message).toContain('/Applications/BaoCut.app/Contents/MacOS/BaoCut');
@@ -156,6 +161,46 @@ describe('doctorReport（CLI 独立使用与发布 §8.1）', () => {
     expect(terminalAppName('something-else')).toBeNull();
   });
 
+  it('构建（开发态）：自检的核心组件有问题是 fail、其余是 warn，各带重建命令；构建比源码旧是 warn；都好是 ok', () => {
+    const fresh = (component: ComponentBuild['component'], rebuild: string, extra: Partial<ComponentBuild> = {}): ComponentBuild => ({
+      component,
+      path: `/repo/${component}`,
+      state: 'fresh',
+      build: 'abc1234',
+      protocolVersion: PROTOCOL_VERSION,
+      builtAt: '2026-11-08T10:00:00.000Z',
+      rebuild,
+      ...extra,
+    });
+    const builds = [fresh('workers', 'npm run build:engine'), fresh('web', 'npm run build:web')];
+    const repo = (build: DoctorInputs['build']) => check(doctorReport(inputs({ launch: REPO, credentials: { store: 'file', helper: null, probe: null }, build })), 'build');
+
+    expect(repo({ state: 'done', problems: [], builds })).toMatchObject({ level: 'ok', message: D.buildOk(2), details: { entry: '/repo/apps/runtime/src/main.ts' } });
+    expect(repo({ state: 'done', problems: ['audiocpp-cli: did not resolve to an existing file (null)'], builds })).toMatchObject({
+      level: 'warn',
+      remedy: 'npm run build:audiocpp',
+    });
+    // 先点名核心组件的问题：没有它做不了事。
+    const core = repo({ state: 'done', problems: ['credential-helper: did not resolve to an existing file (null)', 'engine-host: does not start (exit 1)'], builds });
+    expect(core).toMatchObject({ level: 'fail', remedy: 'npm run build:engine', message: D.buildProblems(2, 'engine-host: does not start (exit 1)') });
+
+    const stale = fresh('web', 'npm run build:web', { state: 'stale', reason: 'inputs', changed: ['apps/web/src/main.tsx'], changedCount: 3 });
+    expect(repo({ state: 'done', problems: [], builds: [builds[0]!, stale] })).toMatchObject({
+      level: 'warn',
+      message: M.buildStale('web', 3, 'npm run build:web'),
+      remedy: 'npm run build:web',
+    });
+    const unverified = fresh('workers', 'npm run build:engine', { state: 'unverified', reason: 'no-stamp', build: null });
+    const both = repo({ state: 'done', problems: [], builds: [unverified, stale] });
+    // 先给过期的那个的重建命令，比不了的排在后面。
+    expect(both).toMatchObject({ level: 'warn', remedy: 'npm run build:web', message: D.buildMore(M.buildUnverified('workers', 'npm run build:engine'), 1) });
+
+    expect(repo({ state: 'failed', message: 'boom' })).toMatchObject({ level: 'fail', message: D.buildFailed('boom') });
+    expect(selfCheckRemedy('editor.wasm: failed to load (null): x')).toBe('npm run build:wasm');
+    expect(selfCheckRemedy('composition-host: does not start (x)')).toBe('npm install');
+    expect(selfCheckRemedy('modelAssets: did not resolve to an existing directory (null)')).toBe('npm run setup');
+  });
+
   it('next 先取 fail 的补救，再取 warn 的', () => {
     const result = doctorReport(
       inputs({
@@ -219,6 +264,38 @@ describe('收集事实', () => {
     expect(await probeCredentialHelper(helper(`process.exit(1)`))).toMatchObject({ ok: false, error: 'unavailable' });
     expect(await probeCredentialHelper(helper(`setTimeout(()=>{},60000)`), 200)).toMatchObject({ ok: false, error: 'timeout' });
     expect(await probeCredentialHelper({ command: path.join(dir, 'no-helper') })).toMatchObject({ ok: false, error: 'missing' });
+  });
+});
+
+describe('runSelfCheck', () => {
+  /** 一个假的 Runtime 入口：记下参数与 BAOCUT_HOME，再照 `body` 回答。 */
+  const fakeRuntime = (body: string): LaunchSpec => {
+    const file = path.join(dir, `runtime-${Math.random().toString(36).slice(2)}.mjs`);
+    const seen = path.join(dir, 'self-check-seen.json');
+    fs.writeFileSync(
+      file,
+      `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ args: process.argv.slice(2), home: process.env.BAOCUT_HOME, extra: process.env.FROM_LAUNCH }));\n${body}\n`,
+    );
+    return { command: process.execPath, args: [file], env: { FROM_LAUNCH: 'yes' }, source: 'repo' };
+  };
+  const seen = () => JSON.parse(fs.readFileSync(path.join(dir, 'self-check-seen.json'), 'utf8'));
+
+  it('用拉起 Runtime 的命令加 --self-check --probe，读最后一行 JSON；有问题时以 1 退出也照读', async () => {
+    const launch = fakeRuntime(
+      `console.log('noise');\nconsole.log(JSON.stringify({ problems: ['speech-worker: does not start (x)'], builds: [{ component: 'web', state: 'fresh' }] }));\nprocess.exitCode = 1;`,
+    );
+    const result = await runSelfCheck(launch, { PATH: process.env.PATH }, path.join(dir, 'home'));
+    expect(result).toEqual({ state: 'done', problems: ['speech-worker: does not start (x)'], builds: [{ component: 'web', state: 'fresh' }] });
+    expect(seen()).toEqual({ args: ['--self-check', '--probe'], home: path.join(dir, 'home'), extra: 'yes' });
+  });
+
+  it('没有报告时给出 stderr 的最后一行或退出码；超时就杀掉', async () => {
+    expect(await runSelfCheck(fakeRuntime(`console.error('first');\nconsole.error('Cannot find module x');\nprocess.exit(3);`), {}, dir)).toEqual({
+      state: 'failed',
+      message: 'Cannot find module x',
+    });
+    expect(await runSelfCheck(fakeRuntime(`process.exit(3);`), {}, dir)).toEqual({ state: 'failed', message: M.exitedWith(3) });
+    expect(await runSelfCheck(fakeRuntime(`setTimeout(() => {}, 60000);`), {}, dir, 300)).toEqual({ state: 'failed', message: D.buildTimedOut(0) });
   });
 });
 

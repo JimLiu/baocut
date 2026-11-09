@@ -15,6 +15,8 @@ import {
   resolveModelAssetsDir,
 } from '@baocut/models';
 import { findBundledToolDir } from '@baocut/process-host';
+import type { ComponentBuild } from '@baocut/protocol';
+import { buildTargets, checkBuilds } from './build-freshness.ts';
 import { resolveCredentialHelperCommand } from './credentials.ts';
 import { resolveExportWorkerCommand } from './exports/video-export.ts';
 import { resolveAudioCppCli } from './models/model-jobs.ts';
@@ -51,6 +53,8 @@ export interface SelfCheckReport {
   probes: Record<string, SelfCheckProbe>;
   /** 不对的项；空表示通过。 */
   problems: string[];
+  /** 从源码运行时（给了 `sourceRoot`）：各构建产物与源码是否一致（CLI 独立使用与发布 §7.4）。过期不算 `problems`。 */
+  builds?: ComponentBuild[];
 }
 
 const PROBE_TIMEOUT_MS = 20_000;
@@ -134,7 +138,24 @@ function hasResult(reply: unknown): boolean {
   return typeof reply === 'object' && reply !== null && 'result' in reply && !('error' in reply && (reply as { error?: unknown }).error);
 }
 
-export async function runtimeSelfCheck(options: { probe?: boolean; env?: NodeJS.ProcessEnv } = {}): Promise<SelfCheckReport> {
+/**
+ * 从源码运行的 Runtime 用的构建产物与源码是否一致（CLI 独立使用与发布 §7.4）：用 Runtime 找这些产物的同一批解析函数，按构建戳比对
+ * `root`（Runtime 所在的仓库根）里的源码。`runtime.status` 与自检共用。
+ */
+export function runtimeBuilds(root: string, env: NodeJS.ProcessEnv = process.env): Promise<ComponentBuild[]> {
+  const engineHost = resolveEngineHostCommand(env);
+  const workers = [
+    engineHost,
+    resolveExportWorkerCommand(engineHost, env),
+    resolveSpeechWorkerCommand(engineHost, env),
+    resolveModelWorkerCommand(env)?.command ?? null,
+  ];
+  return checkBuilds(root, buildTargets(root, { workers, editorWasm: locateEditorWasm(), web: resolveWebDist(env) }));
+}
+
+export async function runtimeSelfCheck(
+  options: { probe?: boolean; env?: NodeJS.ProcessEnv; sourceRoot?: string | null } = {},
+): Promise<SelfCheckReport> {
   const env = options.env ?? process.env;
   const engineHost = resolveEngineHostCommand(env);
   const audioCpp = resolveAudioCppCli(env);
@@ -218,7 +239,8 @@ export async function runtimeSelfCheck(options: { probe?: boolean; env?: NodeJS.
     if (!host.ok) problems.push(`composition-host: does not start (${host.detail})`);
   }
 
-  return { platform: process.platform, arch: process.arch, binaries, dirs, editorWasm, probes, problems };
+  const builds = options.sourceRoot ? await runtimeBuilds(options.sourceRoot, env) : null;
+  return { platform: process.platform, arch: process.arch, binaries, dirs, editorWasm, probes, problems, ...(builds ? { builds } : {}) };
 }
 
 function isFile(file: string): boolean {
