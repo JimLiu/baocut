@@ -1,4 +1,7 @@
+import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,15 +9,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { packagedResourceEnv as desktopResourceEnv, packagedResources } from '../../../desktop/src/main/packaged-resources.ts';
 import { isDiscoveryLive, isEndpointRefused as storageEndpointRefused } from '../../../../packages/runtime-storage/src/discovery.ts';
 import { installEntryOf } from '../../../../packages/runtime-storage/src/install-identity.ts';
-import { CliError, EXIT, exitCodeFor } from '../envelope.ts';
+import type { RuntimeDiscovery } from '@baocut/protocol';
+import { CliError, EXIT, Output, exitCodeFor } from '../envelope.ts';
+import { runtimeCommand } from './runtime-command.ts';
 import {
+  ProtocolMismatchError,
   checkInterfaceVersion,
   checkRuntimeNode,
   ensureRuntime,
   findRuntime,
   interfaceMismatch,
   isEndpointRefused,
+  isProcessAlive,
   launchRuntime,
+  openClient,
   lockHolderAlive,
   nodeSatisfies,
   ownCliCommand,
@@ -224,6 +232,86 @@ describe('过期的发现文件与实例锁（架构设计 §2.2）', () => {
       fs.rmSync(home, { recursive: true, force: true });
     }
   });
+});
+
+describe('协议版本不同、握手被拒（CLI 独立使用与发布 §4.3）', () => {
+  // 升级过的连接不归 http 服务端管，关服务端之前先断开。
+  const sockets = new Set<net.Socket>();
+  afterEach(() => {
+    for (const socket of sockets) socket.destroy();
+    sockets.clear();
+  });
+
+  /** 最小的 WebSocket 服务端：一连上就以 protocol-mismatch 拒绝，带着 `details`（同网关的拒绝）。 */
+  async function mismatching(details: Record<string, unknown>): Promise<string> {
+    const server = http.createServer();
+    server.on('connection', (socket) => sockets.add(socket));
+    server.on('upgrade', (request, socket) => {
+      socket.on('error', () => undefined);
+      const accept = crypto.createHash('sha1').update(`${request.headers['sec-websocket-key']}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64');
+      socket.write(['HTTP/1.1 101 Switching Protocols', 'Upgrade: websocket', 'Connection: Upgrade', `Sec-WebSocket-Accept: ${accept}`, '', ''].join('\r\n'));
+      const payload = Buffer.from(
+        JSON.stringify({ type: 'fatal', error: { code: 'protocol-mismatch', message: 'client 0.6, runtime 0.5', details: { runtime: '0.5', ...details } } }),
+      );
+      const header = payload.length < 126 ? Buffer.from([0x81, payload.length]) : Buffer.from([0x81, 126, payload.length >> 8, payload.length & 255]);
+      // 同网关：拒绝之后发关闭帧（1008）并断开。
+      socket.end(Buffer.concat([header, payload, Buffer.from([0x88, 2, 0x03, 0xf0])]));
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    return `ws://127.0.0.1:${(server.address() as net.AddressInfo).port}`;
+  }
+
+  const discoveryOf = (endpoint: string, pid = process.pid): RuntimeDiscovery =>
+    ({ instanceId: 'rt_old', pid, startedAt: new Date().toISOString(), endpoint, token: 'fixture-token', launchedBy: 'cli' }) as RuntimeDiscovery;
+  const IDLE = { desktop: 0, cli: 0, agent: 0 };
+
+  it('拒绝里报了拉起者与忙闲：写进消息与 details；旧版 Runtime 什么都不报时只报版本门', async () => {
+    const busy = await openClient(discoveryOf(await mismatching({ launchedBy: 'cli', activeJobs: 1, connections: IDLE }))).catch((error: unknown) => error);
+    expect(busy).toBeInstanceOf(ProtocolMismatchError);
+    const error = busy as ProtocolMismatchError;
+    expect(error.code).toBe('PROTOCOL_MISMATCH');
+    expect(exitCodeFor(error.code)).toBe(EXIT.runtimeUnavailable);
+    expect(error.extra).toEqual({ launchedBy: 'cli', activeJobs: 1, connections: IDLE });
+    expect(error.facts.activity).toEqual({ activeJobs: 1, connections: IDLE });
+    expect(error.plain().message.length).toBeLessThan(error.message.length);
+
+    const old = (await openClient(discoveryOf(await mismatching({}))).catch((caught: unknown) => caught)) as ProtocolMismatchError;
+    expect(old).toBeInstanceOf(ProtocolMismatchError);
+    expect(old.launchedBy).toBeUndefined();
+    expect(old.facts).toEqual({ activeJobs: null, activity: null });
+    expect(old.extra).toEqual({});
+    expect(old.message).toBe(old.plain().message);
+  });
+
+  it('runtime stop 发信号停下 CLI 拉起的、空闲的那个；还有别的 CLI 连接时照版本门报，不停', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-mismatch-'));
+    const runtime = spawn(process.execPath, ['-e', "process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)"], { stdio: 'ignore' });
+    try {
+      await new Promise((resolve) => runtime.once('spawn', resolve));
+      const pid = runtime.pid!;
+      const chunks: string[] = [];
+      const sink = { write: (chunk: string) => chunks.push(String(chunk)) > 0 } as unknown as NodeJS.WritableStream;
+      const output = new Output({ json: true, stdout: sink, stderr: sink });
+      const write = (connections: typeof IDLE) => fs.writeFileSync(path.join(home, 'runtime.json'), JSON.stringify(discoveryOf(endpoint(connections), pid)));
+      const endpoints = new Map<number, string>();
+      const endpoint = (connections: typeof IDLE) => endpoints.get(connections.cli)!;
+      endpoints.set(1, await mismatching({ launchedBy: 'cli', activeJobs: 0, connections: { ...IDLE, cli: 1 } }));
+      endpoints.set(0, await mismatching({ launchedBy: 'cli', activeJobs: 0, connections: IDLE }));
+
+      write({ ...IDLE, cli: 1 });
+      await expect(runtimeCommand(output, home, ['stop'], false)).rejects.toMatchObject({ code: 'PROTOCOL_MISMATCH', extra: { connections: { cli: 1 } } });
+      expect(isProcessAlive(pid)).toBe(true);
+
+      write(IDLE);
+      await expect(runtimeCommand(output, home, ['stop'], false)).resolves.toBe(EXIT.ok);
+      expect(JSON.parse(chunks.at(-1)!).result).toEqual({ stopped: true, pid, signalled: true });
+      expect(isProcessAlive(pid)).toBe(false);
+    } finally {
+      runtime.kill('SIGKILL');
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  }, 30_000);
 });
 
 function catchError(fn: () => void): CliError {

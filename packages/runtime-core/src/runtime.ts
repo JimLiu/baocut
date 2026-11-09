@@ -1461,7 +1461,11 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         activity.connected(principal);
       },
       onRequest: (principal, method) => activity.requested(principal, method),
-      mismatchDetails: () => ({ launchedBy: info.launchedBy, activeJobs: activity.status().activeJobs }),
+      // 协议版本不同、握不上手的一方据此判断能不能替换它（CLI 独立使用与发布 §4.3、`mismatchFacts`）。
+      mismatchDetails: () => {
+        const { activeJobs, connections } = activity.status();
+        return { launchedBy: info.launchedBy, activeJobs, connections };
+      },
       onDisconnect: (principal) => {
         activity.disconnected(principal);
         present.delete(principal.connectionId);

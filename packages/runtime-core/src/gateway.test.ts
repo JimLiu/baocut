@@ -299,10 +299,11 @@ describe('网关', () => {
     }
   });
 
-  it('tells a client with another protocol version who launched it and how many jobs it has (CLI standalone §4.2)', async () => {
+  it('tells a client with another protocol version who launched it, how many jobs and connections it has (CLI standalone §4.2, §4.3)', async () => {
+    const connections = { desktop: 0, cli: 1, agent: 0 };
     const gateway = new Gateway({
       token: 'token', runtime, handlers: {} as RpcHandlers, log: silentLogger,
-      mismatchDetails: () => ({ launchedBy: 'cli', activeJobs: 2 }),
+      mismatchDetails: () => ({ launchedBy: 'cli', activeJobs: 2, connections }),
     });
     const endpoint = await gateway.listen();
     const client = await rawClient(endpoint);
@@ -310,7 +311,7 @@ describe('网关', () => {
       client.socket.write(maskedFrame(hello('token', PROTOCOL_VERSION + 1)));
       expect(JSON.parse((await client.nextFrame()).payload.toString())).toMatchObject({
         type: 'fatal',
-        error: { code: 'protocol-mismatch', details: { runtime: PROTOCOL_VERSION, launchedBy: 'cli', activeJobs: 2 } },
+        error: { code: 'protocol-mismatch', details: { runtime: PROTOCOL_VERSION, launchedBy: 'cli', activeJobs: 2, connections } },
       });
     } finally {
       client.socket.destroy();

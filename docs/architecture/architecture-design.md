@@ -176,7 +176,8 @@ Electron Main
 
 - **版本相同就复用**。桌面端比 `runtimeVersion` 与 `build`（自己的 `build` 查不出时只比前者，对方没有 `build` 算不同）；CLI 比 `interfaceVersion`，接口版本相同而 `runtimeVersion` 不同照样复用。自己起的 Runtime 总是复用。
 - **版本不同、对方是 CLI 拉起的、空闲**（按 `runtime.status`，空闲的口径同 `runtime.stop` 的拒绝条件）：请它停下（`runtime.stop`），等它退出、放开实例锁，再拉起和自己同一份安装的 Runtime。CLI 只在它会拉起的是自己所在的那份安装（同一个仓库，或包着它的 App）时这样做；`--no-start`、`BAOCUT_RUNTIME_ENTRY` 或会拉起别处装的 App 时照版本门拒绝。
-- **版本不同、对方忙着或不是 CLI 拉起的**：CLI 照版本门以退出码 3 报 `INTERFACE_VERSION_MISMATCH`，消息与 details 写明对方的 `launchedBy`、任务数与连接数，CLI 拉起的再说明它空闲后重跑会自动替换。桌面端在协议版本相同时先连上用，Runtime 卡写明它由命令行拉起、与应用版本不同，之后每分钟问一次，它没有任务、也没有 CLI 连着时请它停下、换成自己的（替换期间界面来要连接的，等替换做完拿到新的端点）；请它停下被拒绝时照旧用着、过一会儿再看。协议版本不同时桌面端问不了 `runtime.status`（握手被拒）：对方是 CLI 拉起的就不连，界面说明后台有一个由命令行拉起的旧版 Runtime 在做 N 个任务（新版 Runtime 拒绝握手时在 details 里带 `launchedBy` 与 `activeJobs`，旧版没有就不写数目），等它做完、空闲退出后再来要连接时拉起自己的；不给「现在停止它」。不是 CLI 拉起的照旧交给界面，握手被拒后显示协议不兼容（§13.3）。
+- **版本不同、对方忙着或不是 CLI 拉起的**：CLI 照版本门以退出码 3 报 `INTERFACE_VERSION_MISMATCH`，消息与 details 写明对方的 `launchedBy`、任务数与连接数，CLI 拉起的再说明它空闲后重跑会自动替换。桌面端在协议版本相同时先连上用，Runtime 卡写明它由命令行拉起、与应用版本不同，之后每分钟问一次，它没有任务、也没有 CLI 连着时请它停下、换成自己的（替换期间界面来要连接的，等替换做完拿到新的端点）；请它停下被拒绝时照旧用着、过一会儿再看。不是 CLI 拉起的、协议版本又不同时，桌面端照旧交给界面，握手被拒后显示协议不兼容（§13.3）。
+- **协议版本不同**：握手被拒，两边都问不了 `runtime.status`、发不了 `runtime.stop`。Runtime 拒绝握手时（令牌对了才给）在 `protocol-mismatch` 的 details 里报 `launchedBy`、`activeJobs` 与 `connections`，对方按它判断空闲（`mismatchFacts`）：没握上手的一方不在连接数里，所以 CLI 发起时一条 CLI 连接也算在用，桌面端发起时口径同上。CLI 拉起的、空闲的，请它停下改发 `SIGTERM`（它按 §2.4 收尾；Windows 上等于直接结束进程），等那个进程退出再拉起自己的：CLI 照上面替换的条件这样做，`baocut runtime stop` 也这样停（输出带 `signalled: true`）；开着对外服务、不会空闲退出的旧版也换得掉。忙着或问不到时，CLI 以退出码 3 报 `PROTOCOL_MISMATCH`，消息与 details 带对方报的那几项；桌面端不连，界面说明后台有一个由命令行拉起的旧版 Runtime 还在做 N 个任务（不知道数目、或只是有 CLI 连着时说它还在运行），等它做完、空闲退出后再来要连接时拉起自己的。更早的版本拒绝握手时不报这些：自动替换不动它，`baocut runtime stop` 按用户要停的意思照停。
 
 ### 2.3 Engine Host 的所有权屏障
 

@@ -12,14 +12,17 @@ import {
   RUNTIME_VERSION,
   STANDALONE_MANIFEST_FILE,
   STANDALONE_PACKAGE_KIND,
+  RpcError,
   decideRuntimeReuse,
   isLanguagePreference,
+  mismatchFacts,
   parseStandaloneManifest,
   standaloneLayout,
   processLanguageTags,
   resolveLanguage,
   setLocale,
   type CatalogListResult,
+  type MismatchFacts,
   type RuntimeDiscovery,
   type RuntimeInfo,
   type StandaloneManifest,
@@ -586,7 +589,7 @@ export async function openClient(
   } catch (error) {
     const state = client.state;
     client.close();
-    if (state.status === 'incompatible') throw new CliError('PROTOCOL_MISMATCH', M.protocolMismatch(state.reason));
+    if (state.status === 'incompatible') throw new ProtocolMismatchError(state.reason, error instanceof RpcError ? error.details : undefined);
     throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeConnectFailed(error instanceof Error ? error.message : String(error)), {
       endpoint: discovery.endpoint,
     });
@@ -605,6 +608,63 @@ async function applyRuntimeLanguage(client: BaoCutClient): Promise<void> {
   } catch {
     // 忽略：保持系统语言。
   }
+}
+
+/**
+ * 握手因协议版本不同被拒（CLI 独立使用与发布 §4.3）。对方在拒绝里报了拉起者与忙闲（新版 Runtime 会报）时，同 `interfaceMismatch`
+ * 写进消息与 details；`launchedBy` 与 `facts` 留给调用方决定替换还是停下它。
+ */
+export class ProtocolMismatchError extends CliError {
+  readonly reason: string;
+  readonly launchedBy: RuntimeInfo['launchedBy'] | undefined;
+  readonly facts: MismatchFacts;
+
+  constructor(reason: string, details: unknown) {
+    const wire = typeof details === 'object' && details !== null ? (details as Record<string, unknown>) : {};
+    const launchedBy = wire.launchedBy === 'cli' || wire.launchedBy === null ? wire.launchedBy : undefined;
+    const facts = mismatchFacts(details);
+    const { activity } = facts;
+    const busy = activity ? M.runtimeBusyDetail(activity.activeJobs, activity.connections.desktop, activity.connections.cli) : null;
+    const detail = launchedBy === undefined ? '' : launchedBy === 'cli' ? M.replaceWhenIdle(busy) : M.notCliLaunched;
+    super('PROTOCOL_MISMATCH', `${M.protocolMismatch(reason)}${detail ? ` ${detail}` : ''}`, {
+      ...(launchedBy !== undefined ? { launchedBy } : {}),
+      ...(facts.activeJobs !== null ? { activeJobs: facts.activeJobs } : {}),
+      ...(activity ? { connections: activity.connections } : {}),
+    });
+    this.reason = reason;
+    this.launchedBy = launchedBy;
+    this.facts = facts;
+  }
+
+  /** 只报版本门本身：空闲却没替换（`--no-start`，或这个 CLI 拉起的会是别处的 Runtime）时。 */
+  plain(): CliError {
+    return new CliError('PROTOCOL_MISMATCH', M.protocolMismatch(this.reason), this.extra);
+  }
+}
+
+/**
+ * 请一个握不上手的 Runtime 停下（§4.3）：协议版本不同，发不了 `runtime.stop`，只能发 SIGTERM，它照架构设计 §2.4 的顺序收尾
+ * （`apps/runtime/src/main.ts`）。调用方先按握手拒绝里报的忙闲确认它空闲；报完到发信号之间刚好来的任务会被它的停止顺序打断。
+ * Windows 上 SIGTERM 等于直接结束进程、来不及收尾，留下的发现文件由下一次查找认出它已经不在。发出了或它已经不在时 true。
+ */
+export function signalStop(discovery: RuntimeDiscovery): boolean {
+  if (!isRecordedProcessAlive(discovery.pid, discovery.startedAt)) return true;
+  try {
+    process.kill(discovery.pid, 'SIGTERM');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 发过信号的那个进程退出了。 */
+export async function exited(discovery: RuntimeDiscovery, timeoutMs = REPLACE_TIMEOUT_MS): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (isRecordedProcessAlive(discovery.pid, discovery.startedAt)) {
+    if (Date.now() > deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+  }
+  return true;
 }
 
 export interface Session {
@@ -642,7 +702,13 @@ async function openSession(
   { discovery, started }: { discovery: RuntimeDiscovery; started: boolean },
   options: { home: string; replace: boolean; env?: NodeJS.ProcessEnv },
 ): Promise<Session> {
-  const { client, info } = await openClient(discovery);
+  let opened: Awaited<ReturnType<typeof openClient>>;
+  try {
+    opened = await openClient(discovery);
+  } catch (error) {
+    return await replaceMismatched(error, discovery, options);
+  }
+  const { client, info } = opened;
   try {
     let catalog: CatalogListResult;
     try {
@@ -680,6 +746,29 @@ async function openSession(
     client.close();
     throw error;
   }
+}
+
+/**
+ * 协议版本不同、握手被拒（§4.3）：同接口版本不同时的规则，只是忙闲取自握手拒绝里报的 `activeJobs` 与 `connections`，请它停下
+ * 靠信号。CLI 拉起的、没有任务也没有别的连接时停下它，拉起自己的再连；其余照版本门报。
+ */
+async function replaceMismatched(
+  error: unknown,
+  discovery: RuntimeDiscovery,
+  options: { home: string; replace: boolean; env?: NodeJS.ProcessEnv },
+): Promise<Session> {
+  if (!(error instanceof ProtocolMismatchError)) throw error;
+  const decision = decideRuntimeReuse({
+    seeker: 'cli',
+    own: OWN_IDENTITY,
+    found: { ...discovery, launchedBy: error.launchedBy ?? discovery.launchedBy ?? null },
+    activity: error.launchedBy === 'cli' ? error.facts.activity : null,
+    seekerCounted: false,
+  });
+  if (decision.action !== 'replace') throw error;
+  if (!options.replace || !signalStop(discovery) || !(await exited(discovery))) throw error.plain();
+  const next = await ensureRuntime(options.home, { start: true, env: options.env });
+  return openSession(next, { ...options, replace: false });
 }
 
 /** 请停下的那个 Runtime 放开了实例锁、撤掉了发现文件（或换成了别人刚拉起的）。 */

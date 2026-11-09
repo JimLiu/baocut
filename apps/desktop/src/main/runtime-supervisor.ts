@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
-import { decideRuntimeReuse, sameRuntimeVersion, type MessageRef, type RuntimeDiscovery, type RuntimeIdentity } from '@baocut/protocol';
+import { decideRuntimeReuse, idleExceptSeeker, sameRuntimeVersion, type MessageRef, type RuntimeDiscovery, type RuntimeIdentity } from '@baocut/protocol';
 import { isDiscoveryLive, isRecordedProcessAlive, readDiscovery, type RuntimeHome } from '@baocut/runtime-storage';
 import { clientProbe, type FoundRuntimeProbe } from './found-runtime.ts';
 import { M } from './main-copy.ts';
@@ -144,11 +144,15 @@ export class RuntimeSupervisor {
       if (action === 'wait') {
         // 不是 CLI 拉起的：照旧交给界面，握手被拒后界面显示协议不兼容（架构设计 §13.3）。
         if (found.launchedBy !== 'cli') return target;
-        // CLI 拉起的旧版在做事：不连，界面按重连退避再来要连接；它做完、空闲退出后这里拉起自己的。
-        throw new Error(M.runtimeOlderCliBusy(found.runtimeVersion, await this.#probe.mismatchJobs(target)));
-      }
-      // 替换：请它停下，等它退出，再拉起自己的。停不下（刚好有人连上或有了任务）时先连上用，过一会儿再看。
-      if (!(await this.#replace(found))) {
+        // CLI 拉起的、协议版本不同（§4.3）：忙闲取自握手的拒绝。空闲时发信号请它停下，等它退出再拉起自己的。在做事或问不到时
+        // 不连，界面按重连退避再来要连接；它做完、空闲退出后这里拉起自己的。
+        const facts = await this.#probe.mismatch(target);
+        const idle = facts.activity !== null && idleExceptSeeker('desktop', facts.activity);
+        if (!idle || !(await this.#replace(found, async () => this.#probe.signal(found.pid, found.startedAt)))) {
+          throw new Error(M.runtimeOlderCliBusy(found.runtimeVersion, facts.activeJobs || null));
+        }
+      } else if (!(await this.#replace(found))) {
+        // 替换：请它停下，等它退出，再拉起自己的。停不下（刚好有人连上或有了任务）时先连上用，过一会儿再看。
         this.#scheduleRecheck();
         return target;
       }
@@ -185,9 +189,9 @@ export class RuntimeSupervisor {
     return decideRuntimeReuse({ seeker: 'desktop', own: identity.own, found, activity }).action;
   }
 
-  /** 请找到的 Runtime 停下并等它退出。它不答应或等不到它退出时 false。 */
-  async #replace(found: RuntimeDiscovery): Promise<boolean> {
-    if (!(await this.#probe.stop(targetOf(found)))) return false;
+  /** 请找到的 Runtime 停下（缺省 `runtime.stop`）并等它退出。它不答应或等不到它退出时 false。 */
+  async #replace(found: RuntimeDiscovery, ask = () => this.#probe.stop(targetOf(found))): Promise<boolean> {
+    if (!(await ask())) return false;
     const deadline = Date.now() + RELEASE_TIMEOUT_MS;
     while (isRecordedProcessAlive(found.pid, found.startedAt)) {
       if (Date.now() > deadline) return false;

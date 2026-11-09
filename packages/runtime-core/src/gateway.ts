@@ -61,8 +61,8 @@ export interface GatewayOptions {
    */
   authorize?: (method: RpcMethod, params: unknown, principal: TrustedPrincipal) => RpcError | null;
   /**
-   * 协议版本不同、拒绝握手时一并告诉对方的情况（CLI 独立使用与发布 §4.2）：谁拉起的、手上有几个任务。对方连不上来问
-   * `runtime.status`，据此说明要等多久。只在令牌对了之后给。
+   * 协议版本不同、拒绝握手时一并告诉对方的情况（CLI 独立使用与发布 §4.2、§4.3）：谁拉起的、手上有几个任务、各种连接数。
+   * 对方连不上来问 `runtime.status`，据此说明要等多久，空闲时请它停下。只在令牌对了之后给。
    */
   mismatchDetails?: () => Record<string, unknown>;
 }

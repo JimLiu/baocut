@@ -135,7 +135,8 @@ App 的「重启并更新」在安装前除了自己的 Runtime，还要处理�
 > - CLI 只在它会拉起的是自己这份安装时替换，`--no-start`、`BAOCUT_RUNTIME_ENTRY` 或会拉起别处装的 App 时照版本门拒绝，免得替换后起的仍是另一个版本。
 > - 桌面端替换的时机是每分钟问一次 `runtime.status`；空闲的口径同 `runtime.stop`：桌面端发起时它自己的连接都不算（一个 Home 只有一个桌面端，含 Bot 后台服务），有 CLI 连着算在用。
 > - 有任务的 CLI Runtime 本来就由界面连着，它的任务已在屏障里；装之前（「重启并更新」与退出即安装）桌面端请它停下并等它退出，它还有 CLI 连着而拒绝时照旧安装。
-> - 已知缺口：协议版本不同、CLI 拉起、没有任务但开着对外服务（Web、MCP）的旧版 Runtime 不会空闲退出，桌面端又握不上手、停不了它，界面会一直等；要用户先 `baocut runtime stop` 或关掉服务。macOS 与 Windows 上「App 更新时有一个 CLI Runtime 在跑」未实测。
+> - 协议版本不同时握手被拒，`runtime.status` 与 `runtime.stop` 都用不了（上文 3. 的「不给『现在停止它』」随之不再成立）：Runtime 拒绝握手时在 details 里报 `launchedBy`、`activeJobs` 与 `connections`，桌面端与 CLI 据此判断空闲（`mismatchFacts`，没握上手的一方不在连接数里），空闲就改发 `SIGTERM` 请它停下、等进程退出，再拉起自己的。这样开着对外服务（Web、MCP）、不会空闲退出的旧版 CLI Runtime 也换得掉；`baocut runtime stop` 走同一条路。只有带上这一改动的版本会报连接数，更早的版本自动替换不动它，`baocut runtime stop` 照停。
+> - 未实测：macOS 与 Windows 上「App 更新时有一个 CLI Runtime 在跑」；跨协议的替换只在单测与假的握手服务上验证过（还没有两个协议版本的真实构建）。Windows 上 `SIGTERM` 等于直接结束进程，旧版来不及按停止顺序收尾。
 
 ## 5. CLI 拉起的 Runtime 与桌面端一致
 
@@ -432,7 +433,7 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 **第二批（让 CLI 真正独立）**：§4，§6.1，§7.1，§7.2，§7.4。
 
 - 验收：§4.2 的组合（版本同或不同、空闲或忙、拉起者）各有单测；App 更新时有一个 CLI Runtime 在跑，macOS 与 Windows 各实测一次；链接账号能读、改密钥被拒、移除只解除链接，钥匙串条目还在（用 `security find-generic-password` 只查条目在不在，不读密钥）；Claude Code 与 Codex 各以 stdio 形式接上 MCP，Runtime 不在时能自己拉起。
-- 状态（2026-11-08）：已实现，各节的「已实现」写了与方案的出入与验证。验收没做到的：App 更新时有 CLI Runtime 在跑，macOS 与 Windows 都没实测；链接账号经假助手读，没经 App 的助手真读一次钥匙串里的密钥；Codex 只确认读得懂写进去的条目，没在它的会话里实际调用（Claude Code 实测连上）；Windows 上的入口、链接账号与 `sandbox create` 都没实测；§7.4 审片页的提示没做。已知缺口见 §4.3 的说明（协议版本不同、开着对外服务的旧版 CLI Runtime 不会空闲退出）。
+- 状态（2026-11-08）：已实现，各节的「已实现」写了与方案的出入与验证。验收没做到的：App 更新时有 CLI Runtime 在跑，macOS 与 Windows 都没实测；链接账号经假助手读，没经 App 的助手真读一次钥匙串里的密钥；Codex 只确认读得懂写进去的条目，没在它的会话里实际调用（Claude Code 实测连上）；Windows 上的入口、链接账号与 `sandbox create` 都没实测；§7.4 审片页的提示没做。协议版本不同时靠握手拒绝里报的忙闲与 `SIGTERM` 替换，只对带上这一改动之后的版本有效，见 §4.3 的说明。
 
 **第三批**：§9 独立包；之后再做按需组件（§9.7）。
 

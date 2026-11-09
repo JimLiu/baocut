@@ -222,7 +222,8 @@ const OWN_DISCOVERY = { ...DISCOVERY, endpoint: 'ws://127.0.0.1:3', token: 'own-
 function fakeProbe(overrides: Partial<FoundRuntimeProbe> = {}) {
   return {
     activity: vi.fn<FoundRuntimeProbe['activity']>().mockResolvedValue(IDLE),
-    mismatchJobs: vi.fn<FoundRuntimeProbe['mismatchJobs']>().mockResolvedValue(null),
+    mismatch: vi.fn<FoundRuntimeProbe['mismatch']>().mockResolvedValue({ activeJobs: null, activity: null }),
+    signal: vi.fn<FoundRuntimeProbe['signal']>().mockReturnValue(true),
     stop: vi.fn<FoundRuntimeProbe['stop']>().mockResolvedValue(true),
     ...overrides,
   };
@@ -286,16 +287,51 @@ it('waits for a CLI Runtime with another protocol version instead of connecting'
   const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-wait-home') });
   const older = { ...OLD_CLI, protocolVersion: '0.5', runtimeVersion: '0.4.0' };
   mocks.readDiscovery.mockResolvedValue(older);
-  const probe = fakeProbe({ mismatchJobs: vi.fn<FoundRuntimeProbe['mismatchJobs']>().mockResolvedValue(2) });
+  const probe = fakeProbe({
+    mismatch: vi.fn<FoundRuntimeProbe['mismatch']>().mockResolvedValue({ activeJobs: 2, activity: { ...IDLE, activeJobs: 2 } }),
+  });
   const supervisor = supervisorFor(home, false, { identity: IDENTITY, probe });
   await expect(supervisor.connection()).rejects.toThrow(M.runtimeOlderCliBusy('0.4.0', 2));
   expect(probe.activity).not.toHaveBeenCalled();
   expect(probe.stop).not.toHaveBeenCalled();
+  expect(probe.signal).not.toHaveBeenCalled();
   // 它做完、空闲退出了：下一次要连接时拉起自己的。
   mocks.readDiscovery.mockResolvedValueOnce(null).mockResolvedValue(OWN_DISCOVERY);
   mocks.spawn.mockImplementation(() => fakeRuntime().child);
   await expect(supervisor.connection()).resolves.toEqual({ endpoint: OWN_DISCOVERY.endpoint, token: OWN_DISCOVERY.token });
   await supervisor.stop();
+});
+
+it('signals an idle CLI Runtime with another protocol version to stop and starts its own (CLI standalone §4.3)', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-mismatch-replace-home') });
+  const older = { ...OLD_CLI, protocolVersion: '0.5', runtimeVersion: '0.4.0' };
+  mocks.readDiscovery.mockResolvedValueOnce(older).mockResolvedValue(OWN_DISCOVERY);
+  mocks.isRecordedProcessAlive.mockReturnValueOnce(true).mockReturnValue(false);
+  mocks.spawn.mockImplementation(() => fakeRuntime().child);
+  // 握手的拒绝里只有桌面端的连接（界面连过它）：不算在用。
+  const probe = fakeProbe({
+    mismatch: vi.fn<FoundRuntimeProbe['mismatch']>().mockResolvedValue({ activeJobs: 0, activity: { ...IDLE, connections: { ...IDLE.connections, desktop: 1 } } }),
+  });
+  const supervisor = supervisorFor(home, false, { identity: IDENTITY, probe });
+  await expect(supervisor.connection()).resolves.toEqual({ endpoint: OWN_DISCOVERY.endpoint, token: OWN_DISCOVERY.token });
+  expect(probe.signal).toHaveBeenCalledWith(older.pid, older.startedAt);
+  expect(probe.stop).not.toHaveBeenCalled();
+  expect(mocks.spawn).toHaveBeenCalledTimes(1);
+  await supervisor.stop();
+});
+
+it('does not stop a CLI Runtime with another protocol version that another CLI still uses, nor report it as 0 tasks', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-mismatch-busy-home') });
+  mocks.readDiscovery.mockResolvedValue({ ...OLD_CLI, protocolVersion: '0.5', runtimeVersion: '0.4.0' });
+  const mismatch = vi.fn<FoundRuntimeProbe['mismatch']>().mockResolvedValue({ activeJobs: 0, activity: { ...IDLE, connections: { ...IDLE.connections, cli: 1 } } });
+  const probe = fakeProbe({ mismatch });
+  const supervisor = supervisorFor(home, false, { identity: IDENTITY, probe });
+  await expect(supervisor.connection()).rejects.toThrow(M.runtimeOlderCliBusy('0.4.0', null));
+  // 问不到忙闲（旧版没报）时也不停。
+  mismatch.mockResolvedValue({ activeJobs: null, activity: null });
+  await expect(supervisor.connection()).rejects.toThrow(M.runtimeOlderCliBusy('0.4.0', null));
+  expect(probe.signal).not.toHaveBeenCalled();
+  expect(mocks.spawn).not.toHaveBeenCalled();
 });
 
 it('hands a Runtime with another protocol version that the CLI did not launch to the interface as before', async () => {

@@ -22,6 +22,25 @@ export type FoundRuntime = Pick<RuntimeInfo, 'runtimeVersion' | 'protocolVersion
 export type FoundActivity = Pick<RuntimeStatus, 'connections' | 'activeJobs'>;
 
 /**
+ * 协议版本不同的 Runtime 在握手的拒绝里报的忙闲（`protocol-mismatch` 的 `details`，命令与协议规范 §2）。`activeJobs` 是有排队或运行中
+ * 的任务数，`activity` 是 `activeJobs` 与 `connections` 都在时的忙闲；连接数不含发起方自己的（它没握上手）。旧版 Runtime 缺哪一项，
+ * 哪一项就是 null：问不到忙不忙时不替换。
+ */
+export interface MismatchFacts {
+  activeJobs: number | null;
+  activity: FoundActivity | null;
+}
+
+export function mismatchFacts(details: unknown): MismatchFacts {
+  const wire = typeof details === 'object' && details !== null ? (details as Record<string, unknown>) : {};
+  const count = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  const activeJobs = count(wire.activeJobs) ? wire.activeJobs : null;
+  const raw = typeof wire.connections === 'object' && wire.connections !== null ? (wire.connections as Record<string, unknown>) : null;
+  const connections = raw && count(raw.desktop) && count(raw.cli) && count(raw.agent) ? { desktop: raw.desktop, cli: raw.cli, agent: raw.agent } : null;
+  return { activeJobs, activity: activeJobs !== null && connections ? { activeJobs, connections } : null };
+}
+
+/**
  * - `reuse`：版本相同，照常连。
  * - `replace`：版本不同、对方是 CLI 拉起的并且空闲：请它停下（`runtime.stop`），等它放开实例锁，再拉起自己的。
  * - `refuse`（CLI）：版本不同，对方忙着或不是 CLI 拉起的，或问不到它忙不忙：照版本门拒绝，说明对方是谁拉起的、有几个任务。
@@ -47,26 +66,29 @@ export function sameRuntimeVersion(seeker: RuntimeSeeker, own: RuntimeIdentity, 
 
 /**
  * 发起方之外没有人在用：与 `runtime.stop` 的拒绝条件相同。CLI 发起时它自己那条 CLI 连接不算，桌面端连接算在用；桌面端发起时
- * 桌面端的连接都是它自己的（一个 Home 只有一个桌面端），不算，CLI 连接算在用。排队或运行中的任务都算在用。
+ * 桌面端的连接都是它自己的（一个 Home 只有一个桌面端），不算，CLI 连接算在用。排队或运行中的任务都算在用。`seekerCounted` 为
+ * false 时 `connections` 里没有发起方自己的那条（协议版本不同，没握上手），CLI 发起时一条 CLI 连接也不许有。
  */
-export function idleExceptSeeker(seeker: RuntimeSeeker, activity: FoundActivity): boolean {
+export function idleExceptSeeker(seeker: RuntimeSeeker, activity: FoundActivity, seekerCounted = true): boolean {
   if (activity.activeJobs > 0) return false;
   const { desktop, cli } = activity.connections;
-  return seeker === 'cli' ? desktop === 0 && cli <= 1 : cli === 0;
+  return seeker === 'cli' ? desktop === 0 && cli <= (seekerCounted ? 1 : 0) : cli === 0;
 }
 
 /**
- * 决定复用还是替换。`activity` 是对方的 `runtime.status`；问不到（协议版本不同，或还没问）时 null，这时不替换。
+ * 决定复用还是替换。`activity` 是对方的 `runtime.status`，协议版本不同时是握手拒绝里报的忙闲（`mismatchFacts`，这时
+ * `seekerCounted` 为 false）；问不到时 null，这时不替换。
  */
 export function decideRuntimeReuse(input: {
   seeker: RuntimeSeeker;
   own: RuntimeIdentity;
   found: FoundRuntime;
   activity: FoundActivity | null;
+  seekerCounted?: boolean;
 }): RuntimeReuse {
-  const { seeker, own, found, activity } = input;
+  const { seeker, own, found, activity, seekerCounted = true } = input;
   if (sameRuntimeVersion(seeker, own, found)) return { action: 'reuse' };
-  if (found.launchedBy === 'cli' && activity && idleExceptSeeker(seeker, activity)) return { action: 'replace' };
+  if (found.launchedBy === 'cli' && activity && idleExceptSeeker(seeker, activity, seekerCounted)) return { action: 'replace' };
   if (seeker === 'cli') return { action: 'refuse' };
   return found.protocolVersion === own.protocolVersion ? { action: 'reuse-until-idle' } : { action: 'wait' };
 }
