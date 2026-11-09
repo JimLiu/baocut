@@ -48,8 +48,8 @@ test('顶层 chip 恰好四格：全部 / 贴纸 / 形状 / 可视化', () => {
 
 test('目录页只保留有实现或有第三方来源的分节', () => {
   assert.deepStrictEqual(P.SECTIONS.map((s) => s.k),
-    ['st', 'gif', 'sh', 'viz', 'cta', 'fr']);
-  assert.deepStrictEqual(P.SECTIONS.filter((s) => s.bao).map((s) => s.k), ['fr']);
+    ['st', 'gif', 'sh', 'viz', 'cta', 'host', 'fr']);
+  assert.deepStrictEqual(P.SECTIONS.filter((s) => s.bao).map((s) => s.k), ['host', 'fr']);
   // 2026-09-14：这一段只剩模板，组用二级 chip 切
   assert.strictEqual(P.sectionOf('fr').title, '模板');
   assert.strictEqual(P.sectionOf('fr').subs, 'tpl');

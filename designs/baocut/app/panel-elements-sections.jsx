@@ -289,6 +289,54 @@
     );
   }
 
+  /* ---------- 虚拟主播（2026-11-09） ---------- */
+
+  /** 一个内置主播：缩略图（头与上半身）＋ 名字。角色是竖版半身立绘，格子只露上面那一截，认脸靠它。 */
+  function HostTile({it, onAdd}) {
+    const h = it.host;
+    return (
+      <div className="hosttile">
+        <BCAction className="stile stile--host" onClick={onAdd} title={h.zh + ' · ' + h.name} aria-label={h.zh + ' ' + h.name}>
+          <img src={it.src} alt="" draggable="false" loading="lazy" />
+        </BCAction>
+        <span className="hostcap"><b>{h.zh}</b><span>{h.name}</span></span>
+      </div>
+    );
+  }
+
+  function HostGrid({list, onAdd}) {
+    return (
+      <div className="stgrid stgrid--host">
+        {list.map((it) => <HostTile key={it.id} it={it} onAdd={() => onAdd('sticker', it)} />)}
+      </div>
+    );
+  }
+
+  /** 目录页那一屏：前四个角色。 */
+  function HostPeek({onAdd}) {
+    return <HostGrid list={SK.hosts().slice(0, P.TILES)} onAdd={onAdd} />;
+  }
+
+  /** 子页：按画风 chip 摆全部角色；检索按名字（中英文）与画风。底下一句说清放上去会怎样动。 */
+  function HostSection({cat, q, onAdd}) {
+    const k = String(q || '').trim().toLowerCase();
+    const label = (st) => (P.HOST_CATS.filter((c) => c.k === st)[0] || {}).label || '';
+    const list = SK.hosts(cat).filter((it) => !k
+      || (it.host.zh + ' ' + it.host.name + ' ' + label(it.host.style) + ' 虚拟主播 主播 角色 host').toLowerCase().indexOf(k) >= 0);
+    const S = window.BC_SURFACE;
+    return (
+      <>
+        {list.length ? <HostGrid list={list} onAdd={onAdd} />
+          : <Empty icon="search" title="没有匹配的角色">换个词，或者清空搜索看全部角色</Empty>}
+        <div className="signpost">
+          {'放上去就会眨眼、呼吸、轻轻晃动。'}
+          {S.ai ? '要跟着旁白说话、换表情，在对话里让 BaoCut 给它配口型。' : S.aiElsewhere('跟着旁白配口型')}
+        </div>
+      </>
+    );
+  }
+
   Object.assign(window, {StickerPackChips, PackGrid, StickerPeek, StickerSection, BrandStickerGrid,
-    AnimPackPeek, AnimPackSection, ConfettiGrid, WhiteboardGrid, VizPeek, VizSection, vizKind});
+    AnimPackPeek, AnimPackSection, ConfettiGrid, WhiteboardGrid, VizPeek, VizSection, vizKind,
+    HostPeek, HostSection});
 })();

@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { BUILTIN_HOSTS } from '@baocut/protocol';
 import { ACTS, actAt, buildTrack, facesOf, fineTimeline, levelsOf, MOUTH, OPEN_RANGE, quantize, STEP, TRACK_FPS, unitsFromWords } from '../skills/baocut/built-in-skills/virtual-host/scripts/lipsync.mjs';
 import { readPng, writePng } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/png.mjs';
 import { keyOut } from '../skills/baocut/built-in-skills/virtual-host/scripts/puppet/seg.mjs';
@@ -1625,5 +1626,16 @@ describe('virtual-host bangs fill', () => {
     let worst = 0;
     for (let y = 25; y < 35; y++) for (let x = 20; x < 76; x++) worst = Math.max(worst, Math.abs(im.d[4 * (y * w + x) + 1] - ref.d[4 * (y * w + x) + 1]));
     expect(worst).toBeLessThan(6);
+  });
+});
+
+describe('virtual-host built-in hosts table', () => {
+  it('lists every built-in host in catalog order, with the catalog gender, age and style', () => {
+    const table = fs.readFileSync(path.join(skill, 'references/hosts.md'), 'utf8');
+    const rows = [...table.matchAll(/^\| ([^|]+) \| `([a-z]+)` \| ([^|]+) \| ([^|]+) \| ([^|]+) \|/gm)].map((m) => m.slice(1).map((cell) => cell.trim()));
+    const gender = { female: '女', male: '男', androgynous: '中性' };
+    const age = { child: '孩子气', teen: '十几岁', twenties: '二十多岁', thirties: '三十多岁' };
+    const style = { anime: '半身动漫', chibi: 'Q 版' };
+    expect(rows).toEqual(BUILTIN_HOSTS.map((host) => [`${host.zh} ${host.name}`, host.id, gender[host.gender], age[host.age], style[host.style]]));
   });
 });

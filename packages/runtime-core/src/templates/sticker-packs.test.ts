@@ -3,7 +3,18 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ANIMATED_STICKER_PACKS, PACK_STICKER_COUNT, STICKER_PACKS, packStickers, type EditOperation } from '@baocut/protocol';
+import {
+  ANIMATED_STICKER_PACKS,
+  BUILTIN_HOSTS,
+  HOST_STICKER_PACK,
+  PACK_STICKER_COUNT,
+  STICKER_PACKS,
+  hostStickerId,
+  hostThumbnailPath,
+  packSticker,
+  packStickers,
+  type EditOperation,
+} from '@baocut/protocol';
 import type { TrustedPrincipal } from '../gateway.ts';
 import type { MediaRegistry } from '../media.ts';
 import type { OnlineAsset, OnlineAssets } from '../online-assets.ts';
@@ -13,10 +24,10 @@ import { StickerPacks, resolveStickerPacksDir } from './sticker-packs.ts';
 const dir = resolveStickerPacksDir({})!;
 const prototype = path.join(dir, '../designs/baocut/assets/stickers');
 
-const filesIn = (root: string, sub = ''): string[] =>
+const filesIn = (root: string, sub = '', ext = /\.(svg|json)$/): string[] =>
   fs
     .readdirSync(path.join(root, sub))
-    .filter((name) => /\.(svg|json)$/.test(name) && name !== 'provenance.json')
+    .filter((name) => ext.test(name) && name !== 'provenance.json')
     .map((name) => (sub ? `${sub}/${name}` : name))
     .sort();
 
@@ -26,17 +37,35 @@ describe('随包贴纸', () => {
     expect(resolveStickerPacksDir({ BAOCUT_STICKERS_DIR: '/opt/x/stickers' })).toBe('/opt/x/stickers');
   });
 
-  it('目录与 stickers/ 里的文件一一对应：301 张 SVG、81 份 Lottie', () => {
-    const listed = [...STICKER_PACKS, ...ANIMATED_STICKER_PACKS].flatMap((pack) => packStickers(pack).map((s) => s.path)).sort();
-    expect(listed).toEqual([...filesIn(dir), ...filesIn(dir, 'anim')].sort());
+  it('目录与 stickers/ 里的文件一一对应：301 张 SVG、81 份 Lottie、19 个内置主播', () => {
+    const listed = [...STICKER_PACKS, ...ANIMATED_STICKER_PACKS, HOST_STICKER_PACK].flatMap((pack) => packStickers(pack).map((s) => s.path)).sort();
+    expect(listed).toEqual([...filesIn(dir), ...filesIn(dir, 'anim'), ...filesIn(dir, 'hosts', /\.bcpuppet$/)].sort());
     expect(STICKER_PACKS.flatMap((pack) => pack.files)).toHaveLength(301);
     expect(ANIMATED_STICKER_PACKS.flatMap((pack) => pack.files)).toHaveLength(81);
-    expect(PACK_STICKER_COUNT).toBe(382);
+    expect(BUILTIN_HOSTS).toHaveLength(19);
+    expect(PACK_STICKER_COUNT).toBe(401);
+  });
+
+  it('内置主播：每个角色一个角色包、一张缩略图，清单记着两者的大小与 sha256', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'hosts/provenance.json'), 'utf8'));
+    const expected = BUILTIN_HOSTS.flatMap((host) => [`hosts/${hostStickerId(host)}`, hostThumbnailPath(host)]).sort();
+    expect(fs.readdirSync(path.join(dir, 'hosts')).filter((name) => name !== 'provenance.json').map((name) => `hosts/${name}`).sort()).toEqual(expected);
+    expect(Object.keys(manifest).map((name) => `hosts/${name}`).sort()).toEqual(expected);
+    for (const file of expected) {
+      const bytes = fs.readFileSync(path.join(dir, file));
+      expect(manifest[path.basename(file)], file).toMatchObject({ bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), license: 'MIT' });
+    }
+    for (const host of BUILTIN_HOSTS) {
+      expect(packSticker(hostStickerId(host)), host.id).toMatchObject({ host: true, animated: false, mediaType: 'application/x-baocut-puppet+zip' });
+    }
   });
 
   it('与原型那一份逐字节相同', () => {
-    const files = [...filesIn(dir), ...filesIn(dir, 'anim'), 'provenance.json', 'anim/provenance.json'];
+    // 原型只带主播的缩略图与清单：角色包不进原型。
+    const hostFiles = [...filesIn(dir, 'hosts', /\.webp$/), 'hosts/provenance.json'];
+    const files = [...filesIn(dir), ...filesIn(dir, 'anim'), 'provenance.json', 'anim/provenance.json', ...hostFiles];
     expect(filesIn(prototype)).toEqual(filesIn(dir));
+    expect(fs.readdirSync(path.join(prototype, 'hosts')).map((name) => `hosts/${name}`).sort()).toEqual(hostFiles.sort());
     for (const file of files) {
       expect(fs.readFileSync(path.join(dir, file)).equals(fs.readFileSync(path.join(prototype, file))), file).toBe(true);
     }
@@ -84,6 +113,36 @@ describe('随包贴纸', () => {
       await expect(
         new StickerPacks({ dir: bundled, online: null, videos: {} as VideoService }).locate('dyn-emoji-01.json'),
       ).rejects.toMatchObject({
+        code: 'not-found',
+      });
+    } finally {
+      fs.rmSync(bundled, { recursive: true, force: true });
+    }
+  });
+
+  it('打包的应用只带主播的缩略图与清单：角色包按清单从素材 CDN 取', async () => {
+    const bundled = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-stickers-'));
+    try {
+      fs.mkdirSync(path.join(bundled, 'hosts'));
+      for (const file of ['hosts/provenance.json', 'hosts/host-rin.webp']) fs.copyFileSync(path.join(dir, file), path.join(bundled, file));
+      const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'hosts/provenance.json'), 'utf8'));
+      const wanted: OnlineAsset[] = [];
+      const online = {
+        cacheDir: '/cache',
+        ensure: async (asset: OnlineAsset) => (wanted.push(asset), path.join('/cache', asset.path)),
+      } as unknown as OnlineAssets;
+      const packs = new StickerPacks({ dir: bundled, online, videos: {} as VideoService });
+      expect(await packs.locate('host-rin.bcpuppet')).toMatchObject({ root: '/cache', file: 'stickers/hosts/host-rin.bcpuppet' });
+      expect(wanted).toEqual([
+        {
+          path: 'stickers/hosts/host-rin.bcpuppet',
+          bytes: manifest['host-rin.bcpuppet'].bytes,
+          sha256: manifest['host-rin.bcpuppet'].sha256,
+        },
+      ]);
+      expect(packs.bundledFile('hosts/host-rin.webp')).toBe(path.join(bundled, 'hosts/host-rin.webp'));
+      expect(packs.bundledFile('hosts/host-ren.webp')).toBeNull();
+      await expect(new StickerPacks({ dir: bundled, online: null, videos: {} as VideoService }).locate('host-rin.bcpuppet')).rejects.toMatchObject({
         code: 'not-found',
       });
     } finally {

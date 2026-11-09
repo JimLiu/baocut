@@ -410,10 +410,16 @@ try {
     cpSync(metallib, path.join(bin, 'mlx.metallib'));
   }
   cpSync(path.join(ROOT, 'templates'), path.join(resDir, RESOURCE_DIRS.templates), { recursive: true });
-  // 动态贴纸（`anim/` 下的 Lottie）不随包，用到时从素材 CDN 取；只带清单 `anim/provenance.json`（大小与 sha256）。
+  // 动态贴纸（`anim/` 下的 Lottie）与内置主播的角色包（`hosts/*.bcpuppet`）不随包，用到时从素材 CDN 取；只带清单
+  // `anim/provenance.json`、`hosts/provenance.json`（大小与 sha256），主播缩略图随包。
   cpSync(path.join(ROOT, 'stickers'), path.join(resDir, RESOURCE_DIRS.stickers), {
     recursive: true,
-    filter: (source) => path.dirname(source) !== path.join(ROOT, 'stickers', 'anim') || path.basename(source) === 'provenance.json',
+    filter: (source) => {
+      const dir = path.dirname(source);
+      if (dir === path.join(ROOT, 'stickers', 'anim')) return path.basename(source) === 'provenance.json';
+      if (dir === path.join(ROOT, 'stickers', 'hosts')) return !source.endsWith('.bcpuppet');
+      return true;
+    },
   });
   cpSync(path.join(ROOT, 'skills'), path.join(resDir, RESOURCE_DIRS.skills), { recursive: true });
   // 给外部 Agent 装的说明书（Agent 面设计 §8.2）：打包时按 CLI 面渲染好，软链接指向它，随 App 一起更新。

@@ -2645,6 +2645,12 @@ div.blkw { display: inline; }
 .petbox { display: block; aspect-ratio: 192 / 208; background-repeat: no-repeat; }
 .stile--pet { padding: 4px; }
 .stile--pet .petbox { height: 100%; width: auto; }
+.hosttile { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* 内置主播（2026-11-09）：竖版半身立绘铺满方格、顶端对齐，只露头与上半身 */
+.stile--host { padding: 0; overflow: hidden; align-items: flex-start; }
+.stile--host img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; object-position: 50% 0; }
+.hostcap { display: flex; align-items: baseline; justify-content: center; gap: 4px; min-width: 0; font-size: 11px; color: var(--gray-600); white-space: nowrap; overflow: hidden; }
+.hostcap b { font-size: 12px; font-weight: 700; color: var(--gray-900); }
 .pettile { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pettile .stile { width: 100%; }
 .petcap { display: flex; flex-direction: column; min-width: 0; padding: 0 2px; }
