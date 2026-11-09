@@ -295,6 +295,11 @@ export class PreviewEngine {
   #sentSpeech: SpeechTranscript[] = [];
   /** 从媒体元素读像素用的画布。 */
   #scratch: CanvasRenderingContext2D | null = null;
+  /**
+   * 图片元素读出的画面，按读出的尺寸记（播放与停住各一份）：图片不会变，不用每帧重读（播放中两张 1254² 的
+   * 静态图每帧要读掉约 5 ms）。图片换了地址就作废。
+   */
+  readonly #stills = new WeakMap<HTMLImageElement, { src: string; pictures: Map<string, ImageData> }>();
   #stats: PlaybackStats = emptyStats();
   /**
    * 这一层的画面还在来：在载入或定位，或还没有元素（地址还在取、Runtime 在备兼容副本）。载入失败的元素与取不到的素材字节
@@ -1646,6 +1651,15 @@ export class PreviewEngine {
     const fit = Math.min(1, Math.max(width / sourceWidth, height / sourceHeight));
     const w = Math.max(1, Math.round(sourceWidth * fit));
     const h = Math.max(1, Math.round(sourceHeight * fit));
+    const still = element instanceof HTMLImageElement ? element : null;
+    const size = `${w}x${h}`;
+    let kept = still ? this.#stills.get(still) : undefined;
+    if (still && kept?.src !== still.currentSrc) {
+      kept = { src: still.currentSrc, pictures: new Map() };
+      this.#stills.set(still, kept);
+    }
+    const known = kept?.pictures.get(size);
+    if (known) return known;
     this.#scratch ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
     const scratch = this.#scratch;
     if (!scratch) return null;
@@ -1655,7 +1669,13 @@ export class PreviewEngine {
     }
     scratch.clearRect(0, 0, w, h);
     scratch.drawImage(element, 0, 0, w, h);
-    return scratch.getImageData(0, 0, w, h);
+    const picture = scratch.getImageData(0, 0, w, h);
+    if (kept) {
+      // 只留最近的两个尺寸（播放与停住）：改了窗口大小，旧尺寸的不再留着
+      if (kept.pictures.size >= 2) kept.pictures.delete(kept.pictures.keys().next().value!);
+      kept.pictures.set(size, picture);
+    }
+    return picture;
   }
 
   #ready(): PreviewStatus {

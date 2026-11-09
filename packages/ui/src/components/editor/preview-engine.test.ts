@@ -2,7 +2,7 @@ import type { AssetRecord, DocumentRecord, FontFaceQuery, Sequence } from '@baoc
 import { expect, test, vi } from 'vitest';
 import type { LoadedFace, LocalFont } from '../../render/local-fonts.ts';
 import { PlanFailure, type CaptionHit, type RenderPlanner } from '../../render/render-planner.ts';
-import { PreviewEngine, audioKey, videoKey, type PreviewStatus } from './preview-engine.ts';
+import { PreviewEngine, audioKey, imageKey, videoKey, type PreviewStatus } from './preview-engine.ts';
 
 /** 内核转述来的提示（没有自己的引用）：`frameRender.itemNote` 前面写上实例，原话嵌在里面。 */
 function kernelNote(item: string, note: string) {
@@ -735,6 +735,78 @@ test('停着定位：视频还在定位时先用它上一张画面马上画，�
     vi.stubGlobal('ImageData', function (data: Uint8ClampedArray, width: number, height: number) {
       return { data, width, height };
     });
+  }
+});
+
+test('静态图片的像素按尺寸只读一次：拖动与停住各读一份，图片换了地址再读', async () => {
+  fakeMedia();
+  let reads = 0;
+  const scratch = {
+    canvas: { width: 0, height: 0 },
+    clearRect: () => {},
+    drawImage: () => {},
+    getImageData: (_x: number, _y: number, width: number, height: number) => (reads++, { data: new Uint8ClampedArray(4), width, height }),
+  };
+  vi.stubGlobal('document', { createElement: () => ({ getContext: () => scratch }) });
+  const asset = { id: 'asset_png', revision: 'r1' };
+  const Image = globalThis.HTMLImageElement as unknown as new () => object;
+  const image = Object.assign(new Image(), {
+    complete: true,
+    naturalWidth: 1254,
+    naturalHeight: 1254,
+    currentSrc: 'blob:a',
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  });
+  const planAt = (seconds: number) => ({
+    sequenceId: 'seq',
+    sequenceRevision: 'r1',
+    frame: Math.floor(seconds * 30 + 1e-6),
+    canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 },
+    layers: [{ kind: 'image', itemId: 'chair', asset, matrix: [1, 0, 0, 1, 0, 0], opacity: 1 }],
+    voices: [],
+  });
+  const sent: number[] = [];
+  const planner = {
+    ...fakePlanner(),
+    planAt,
+    setDocuments: () => {},
+    clearPictures: () => {},
+    setPicture: (_: string, _data: Uint8ClampedArray, width: number) => sent.push(width),
+    render: (seconds: number) => ({ plan: planAt(seconds), warnings: [], skipped: [], spectra: [], fonts: [] }),
+    frame: () => new Uint8ClampedArray(4),
+  } as unknown as RenderPlanner;
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner));
+  const canvas = { width: 0, height: 0, getContext: () => ({ canvas, putImageData: () => {} }) };
+  engine.attachCanvas(canvas as unknown as HTMLCanvasElement, 1);
+  engine.register(imageKey(asset), image as unknown as HTMLImageElement);
+  engine.setVideo(sequence, {});
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(sent.at(-1)).toBe(1254);
+  expect(reads).toBe(1);
+
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  try {
+    // 拖动按播放的分辨率画（图片读成 960²），停下画回原尺寸：每个尺寸各读一次，之后照用
+    for (const round of [1, 2]) {
+      for (const seconds of [3, 4, 5]) {
+        engine.seek(seconds + round * 10);
+        await vi.advanceTimersByTimeAsync(50);
+      }
+      await vi.advanceTimersByTimeAsync(300);
+    }
+    expect(sent).toContain(960);
+    expect(sent.at(-1)).toBe(1254);
+    expect(reads).toBe(2);
+    // 图片换了地址：重新读
+    image.currentSrc = 'blob:b';
+    engine.seek(30);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(reads).toBe(3);
+  } finally {
+    vi.useRealTimers();
+    engine.dispose();
+    restoreGlobals();
   }
 });
 
