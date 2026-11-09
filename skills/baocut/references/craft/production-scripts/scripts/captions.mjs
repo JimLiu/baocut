@@ -22,6 +22,9 @@
 // 写成 setCaptionStyle 的 textMotion.karaoke.color（Runtime 同时把当前词换成 none，textMotion 里原有的入场、出场保留）。
 // 两个颜色都从这期的色板取：浅底上 fontColor 取浅一档、sungColor 取墨色；深底上 fontColor 取暗一点的中间调、
 // sungColor 取更亮或更暖的强调色。
+// 默认样式的黑描边与黑投影是给实拍上的白字用的：fontColor 或 sungColor 是深色（和黑色的对比度不到 4.5:1，浅底上取的
+// 墨色就是）时，黑边会把字糊成一团。这时配置里没写 textOutline、dropShadow 的，脚本按关掉算（{ on: false }）；
+// 要描边就在配置里写出来（例如浅色描边）。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems } from './lib.mjs';
@@ -93,7 +96,7 @@ const STYLE_KEYS = ['y', 'verticalAlign', 'x', 'width', 'fontSize', 'fontWeight'
 const NESTED = new Set(['textOutline', 'dropShadow']);
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
 
-// 配置里旁白字幕的样式：captions.style，没给时 null
+// 配置里旁白字幕的样式：captions.style，没给时 null。字色或扫色是深色时补上关掉的描边与投影（darkEdges）
 export function styleOf(cfg) {
   const s = cfg.captions?.style;
   if (s == null) return null;
@@ -102,7 +105,27 @@ export function styleOf(cfg) {
   const bad = Object.keys(s).filter(k => !STYLE_KEYS.includes(k));
   if (bad.length) throw new Error(`captions.style: unknown key ${bad.join(', ')}; use ${STYLE_KEYS.join(', ')}`);
   if ('sungColor' in s && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s.sungColor)) throw new Error(`captions.style.sungColor: give #RRGGBB or #RRGGBBAA, not ${JSON.stringify(s.sungColor)}`);
-  return s;
+  return { ...s, ...darkEdges(s) };
+}
+
+// 和黑色的 WCAG 对比度；认不出的颜色给 null。只看 RGB，不看透明度
+export function contrastWithBlack(color) {
+  const m = typeof color === 'string' && color.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, c => c + c) : m[1].slice(0, 6);
+  const lin = v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [0, 2, 4].map(i => lin(parseInt(h.slice(i, i + 2), 16) / 255));
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05) / 0.05;
+}
+
+// 默认样式的黑描边、黑投影压在深色字上会糊：fontColor 或 sungColor 和黑色的对比度不到 4.5:1 时，配置里没写的
+// textOutline、dropShadow 记成关掉。返回要补的键（不用补时为空对象）
+export function darkEdges(s) {
+  const dark = ['fontColor', 'sungColor'].some(k => (contrastWithBlack(s[k]) ?? Infinity) < 4.5);
+  if (!dark) return {};
+  const out = {};
+  for (const k of ['textOutline', 'dropShadow']) if (!(k in s)) out[k] = { on: false };
+  return out;
 }
 
 // 当前词效果的 setCaptionStyle 键：不逐字高亮；给了 sungColor 时开 KTV 扫色（Runtime 把当前词一起换成 none）
@@ -197,6 +220,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const bc = flags.dry ? null : makeBc(cfg);
   const segs = readJson(cfg.abs('timeline.json'), {}).segments || {};
   const style = styleOf(cfg);
+  const plain = style ? Object.keys(darkEdges(cfg.captions.style)) : [];
+  if (plain.length) console.log(`caption text is dark, so ${plain.join(' and ')} off: the default black edges smear it (set them in captions.style to keep an edge)`);
   if (flags.dry && style) console.log('caption style', JSON.stringify(style));
 
   // 1. 每段的字与旁白片段，和记录对一下，找出要重建的段
