@@ -1,6 +1,7 @@
 import {
   newId,
   type AgentSkillStatus,
+  type CliEntryStatus,
   type AgentSkillTarget,
   type AgentSkillInstallMode,
   type Id,
@@ -200,6 +201,23 @@ export function installAgentSkill(
 /** 移除这些位置的 BaoCut 那份：软链接只删链接，副本连文件一起删。 */
 export function removeAgentSkill(session: Session, targets: AgentSkillTarget[]): Promise<AgentSkillStatus> {
   return session.client.request('agentSkill.remove', { targets });
+}
+
+/* ---------- 终端里的 `baocut`（CLI 独立使用与发布 §3.2） ---------- */
+
+/** 放入口的位置与状态、终端里实际找到的 `baocut`。浏览器里也能看。 */
+export function cliEntryStatus(session: Session): Promise<CliEntryStatus> {
+  return session.client.request('cliEntry.status', {});
+}
+
+/** 装上或改指向本 App（Windows 连同用户 PATH）；不是 BaoCut 放的东西拒绝。只有桌面应用与 CLI 能写。 */
+export function installCliEntry(session: Session): Promise<CliEntryStatus> {
+  return session.client.request('cliEntry.install', {});
+}
+
+/** 移除 BaoCut 放的入口。 */
+export function removeCliEntry(session: Session): Promise<CliEntryStatus> {
+  return session.client.request('cliEntry.remove', {});
 }
 
 /** 测试用：清掉进行中的请求。 */

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentSkillLocation, AgentSkillStatus, Project } from '@baocut/protocol';
+import type { AgentSkillLocation, AgentSkillStatus, CliEntryStatus, Project } from '@baocut/protocol';
 import {
   agentSkillOverview,
   cliEntryDir,
+  cliEntryRow,
   compareVersions,
   isInstalled,
   locationAction,
@@ -111,13 +112,9 @@ describe('安装到目录的候选', () => {
 });
 
 describe('杂项', () => {
-  it('版本按段比较；Windows 入口取所在目录', () => {
+  it('版本按段比较', () => {
     expect(compareVersions('1.10.0', '1.9.3')).toBeGreaterThan(0);
     expect(compareVersions('1.2', '1.2.0')).toBe(0);
-    expect(cliEntryDir('C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\baocut.cmd')).toBe(
-      'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut',
-    );
-    expect(cliEntryDir('/Applications/BaoCut.app/Contents/MacOS/baocut-cli')).toBe('/Applications/BaoCut.app/Contents/MacOS');
   });
   it('显示用的路径：主目录写成 ~，文件夹里的相对那个文件夹', () => {
     const st = status([loc(null, '.agents/skills'), loc('/w/a', '.claude/skills')]);
@@ -128,5 +125,51 @@ describe('杂项', () => {
     expect(tildePath('C:\\Users\\a\\x', 'C:\\Users\\a')).toBe('~\\x');
     expect(pathInDir(st.locations[1]!)).toBe('.claude/skills/baocut');
     expect(userHomeOf(status([]))).toBeNull();
+  });
+});
+
+describe('命令行 baocut 那一行', () => {
+  const app = '/Applications/BaoCut.app/Contents/MacOS/baocut-cli';
+  const link = '/Users/a/.local/bin/baocut';
+  const entry = (extra: Partial<CliEntryStatus> = {}): CliEntryStatus => ({
+    entry: app,
+    path: link,
+    state: 'current',
+    target: app,
+    managed: true,
+    shell: { found: link, dirOnPath: true },
+    pathHint: null,
+    ...extra,
+  });
+  const kind = (e: CliEntryStatus, onPath: AgentSkillStatus['cli']['onPath'] = null) => cliEntryRow(e, onPath);
+
+  it('没装给「安装」；开发版没有入口不给按钮；终端已有指向本 App 的 baocut 时不催装', () => {
+    expect(kind(entry({ state: 'none', target: null, managed: false }))).toEqual({ kind: 'none', action: 'install', removable: false, command: null });
+    expect(kind(entry({ state: 'none', entry: null, target: null })).action).toBeNull();
+    expect(kind(entry({ state: 'none', entry: null, target: null })).kind).toBe('unavailable');
+    const cask = { path: '/opt/homebrew/bin/baocut', target: app, fromApp: true };
+    expect(kind(entry({ state: 'none', target: null }), cask)).toMatchObject({ kind: 'elsewhere', action: null });
+  });
+
+  it('装好后：终端找得到、查不出、目录不在 PATH 上（给那一行）、先找到别的', () => {
+    expect(kind(entry())).toMatchObject({ kind: 'ready', action: null, removable: true });
+    expect(kind(entry({ shell: null })).kind).toBe('unchecked');
+    const line = 'export PATH="$HOME/.local/bin:$PATH"';
+    expect(kind(entry({ shell: { found: null, dirOnPath: false }, pathHint: { line, file: '~/.zshrc' } }))).toMatchObject({
+      kind: 'not-on-path',
+      command: line,
+    });
+    expect(kind(entry({ shell: { found: '/opt/homebrew/bin/baocut', dirOnPath: true } })).kind).toBe('shadowed');
+  });
+
+  it('指向别的 BaoCut 或失效给「修复」并能移除；不是 BaoCut 放的不给按钮、不能移除', () => {
+    expect(kind(entry({ state: 'stale', target: '/Volumes/old/BaoCut.app/Contents/MacOS/baocut-cli' }))).toMatchObject({ action: 'repair', removable: true });
+    expect(kind(entry({ state: 'broken' }))).toMatchObject({ kind: 'broken', action: 'repair', removable: true });
+    expect(kind(entry({ state: 'foreign', target: null, managed: false }))).toEqual({ kind: 'foreign', action: null, removable: false, command: null });
+  });
+
+  it('入口所在的目录', () => {
+    expect(cliEntryDir(entry())).toBe('/Users/a/.local/bin');
+    expect(cliEntryDir(entry({ path: 'C:\\Users\\a\\AppData\\Local\\BaoCut\\bin\\baocut.cmd' }))).toBe('C:\\Users\\a\\AppData\\Local\\BaoCut\\bin');
   });
 });

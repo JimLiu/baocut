@@ -4,7 +4,8 @@
      所以装到的是「目录」：BaoCut 的项目只是可选的一种，最近在用的那个默认勾上（currentDir）。
    - skill 跟 App 一起打包发布，就在 App 目录里（source）。默认安装是指向它的软链接（symlink；Windows 用目录联接），不复制文件：
      App 更新，skill 跟着更新，永远是 App 自带的版本；也可以复制一份，副本停在复制那一刻的版本，比 App 旧时提示更新。
-   - 命令行 `baocut` 同样随 App 发布：PATH 里放一个指向 App 内 bin/baocut 的软链接（cliState）。
+   - 命令行 `baocut` 同样随 App 发布：「安装命令行工具」在 ~/.local/bin/baocut 放一个指向 App 入口的软链接，不要管理员权限
+     （Windows 在 %LOCALAPPDATA%\BaoCut\bin 放转发脚本并加进用户 PATH；CLI 独立使用与发布 §3.2，cliRow）。
    安装位置是一张表 path → {mode, ver, issue?}；状态判定与写操作都是纯函数，视图不碰磁盘。 */
 (function () {
   /* 按「谁会读它」标名：用户认的是自己用的 Agent，不是目录名 */
@@ -14,8 +15,9 @@
   ];
   const folders = HOSTS.map((h) => h.folder);
   const source = '/Applications/BaoCut.app/Contents/Resources/skills/baocut';
-  const cliSource = '/Applications/BaoCut.app/Contents/Resources/bin/baocut';
-  const cliPath = '/usr/local/bin/baocut';
+  const cliSource = '/Applications/BaoCut.app/Contents/MacOS/baocut-cli';
+  const cliPath = '~/.local/bin/baocut';
+  const cliDir = '~/.local/bin';
   const GLOBAL = '~';
 
   function parseRoots(text) {
@@ -170,14 +172,29 @@
   }
 
   /* ---------- 命令行 baocut ----------
-     cli = {path, target?, ver?} | null：PATH 里找到的 baocut、它软链接到哪里、报的版本。
-     none 没找到 / app 指向这个 App（版本永远一致）/ other 是别处装的 baocut（版本可能不同，BaoCut 不替换它）。 */
-  function cliState(cli, appVer) {
-    if (!cli) return {kind: 'none', tone: undefined, text: '没有在 PATH 里找到 baocut', cta: '安装命令行'};
-    if (cli.target === cliSource) return {kind: 'app', tone: 'positive', text: `v${appVer} · 软链接到 App，随 App 更新`, cta: null};
-    const old = cli.ver && cmpVer(cli.ver, appVer) < 0;
-    return {kind: 'other', tone: 'notice', text: `v${cli.ver || '?'} · 不是这个 App 装的${old ? `，比 App 的 v${appVer} 旧` : ''}`, cta: null};
+     cli = {state, target?, shell: {found, dirOnPath} | null, pathHint?: {line, file}}：Runtime 的 cliEntry.status。
+     state：none 没装 / current 指向本 App / stale 指向别的 BaoCut / broken 指向的位置不在了 / foreign 不是 BaoCut 放的。
+     装好之后还要看终端找不找得到：目录不在 PATH 上给出要加的那一行（不替用户改 shell 配置），先找到别的 baocut 时点名它。
+     onPath 是终端里已有的 baocut（如 Homebrew cask），指向本 App 时不催装。 */
+  function cliRow(cli, onPath) {
+    const c = cli || {state: 'none'};
+    const removable = c.state === 'current' || c.state === 'stale' || c.state === 'broken';
+    const r = (kind, tone, text, cta, command) => ({kind, tone, text, cta: cta || null, removable, command: command || null});
+    if (c.state === 'foreign') return r('foreign', 'notice', '那里已有一个不是 BaoCut 放的 baocut，BaoCut 不会替换它。移走或改名后再安装。');
+    if (c.state === 'stale') return r('stale', 'notice', `指向另一个 BaoCut（${c.target}）。修复后改为指向这个 App。`, '修复');
+    if (c.state === 'broken') return r('broken', 'notice', `指向 ${c.target}，那里已经没有了（App 被移动过）。修复后改为指向这个 App。`, '修复');
+    if (c.state === 'none') {
+      if (onPath && onPath.fromApp) return r('elsewhere', 'positive', `终端里找到的是 ${onPath.path}，它指向这个 App`);
+      return r('none', undefined, '终端里还找不到 baocut。装上之后在任何终端里都能直接输入 baocut，不要管理员权限。', '安装命令行工具');
+    }
+    if (!c.shell) return r('unchecked', undefined, '已安装。查不出终端的 PATH：新开一个终端，运行 baocut version 看看');
+    if (c.pathHint) return r('not-on-path', 'notice', `已安装，但 ${cliDir} 还不在终端的 PATH 上。把下面这一行加进 ${c.pathHint.file || 'shell 的配置文件'}，再新开一个终端：`, null, c.pathHint.line);
+    if (c.shell.found && c.shell.found !== cliPath) return r('shadowed', 'notice', `已安装，但终端会先找到 ${c.shell.found}，用的是那一个。把它移除，或把 ${cliDir} 放到 PATH 里更靠前的位置。`);
+    return r(c.shell.found ? 'ready' : 'unchecked', c.shell.found ? 'positive' : undefined,
+      c.shell.found ? '已安装 · 终端里用的是这个 App 自带的 baocut，随 App 更新' : '已安装。查不出终端的 PATH：新开一个终端，运行 baocut version 看看');
   }
+  /** 装上之后（演示）：指向本 App，终端找得到。 */
+  const cliInstalled = () => ({state: 'current', target: cliSource, shell: {found: cliPath, dirOnPath: true}});
 
   /* ---------- 原型演示场景 ---------- */
   const SCENARIOS = [
@@ -187,6 +204,7 @@
     {k: 'broken', label: '链接失效'},
     {k: 'foreign', label: '位置被占用'},
     {k: 'moved', label: 'App 不在应用程序'},
+    {k: 'cli-path', label: '命令行不在 PATH 上'},
     {k: 'cli-other', label: '另有一个 baocut'},
   ];
   function scenarioInstalls(k) {
@@ -202,16 +220,19 @@
     return {[agents]: link, [claude]: link, [proj]: link};
   }
   function scenarioCli(k) {
-    if (k === 'fresh' || k === 'moved') return null;
-    if (k === 'cli-other') return {path: '/opt/homebrew/bin/baocut', target: '/opt/homebrew/Cellar/baocut/2.0.4/bin/baocut', ver: '2.0.4'};
-    return {path: cliPath, target: cliSource};
+    if (k === 'fresh' || k === 'moved') return {state: 'none', shell: {found: null, dirOnPath: true}};
+    if (k === 'broken') return {state: 'broken', target: '/Volumes/旧盘/BaoCut.app/Contents/MacOS/baocut-cli', shell: {found: null, dirOnPath: true}};
+    if (k === 'cli-path') return {state: 'current', target: cliSource, shell: {found: null, dirOnPath: false},
+      pathHint: {line: 'export PATH="$HOME/.local/bin:$PATH"', file: '~/.zshrc'}};
+    if (k === 'cli-other') return {state: 'current', target: cliSource, shell: {found: '/opt/homebrew/bin/baocut', dirOnPath: true}};
+    return cliInstalled();
   }
   const scenarioAppPath = (k) => (k === 'moved' ? '/Users/me/Downloads/BaoCut.app/Contents/Resources/skills/baocut' : source);
 
   window.BC_SKILL_INSTALL = {
-    HOSTS, folders, source, cliSource, cliPath, GLOBAL, parseRoots, destination, host, reader, globalPaths, parsePath, dirRoots, cmpVer,
+    HOSTS, folders, source, cliSource, cliPath, cliDir, GLOBAL, parseRoots, destination, host, reader, globalPaths, parsePath, dirRoots, cmpVer,
     MODES, modeLabel, locationState, stateCopy, removalDeletesFiles, installedPaths, overview, whereLine,
-    put, remove, repair, repairAll, installDirs, removeRoot, currentDir, sourceWarning, cliState,
+    put, remove, repair, repairAll, installDirs, removeRoot, currentDir, sourceWarning, cliRow, cliInstalled,
     SCENARIOS, scenarioInstalls, scenarioCli, scenarioAppPath,
   };
 })();

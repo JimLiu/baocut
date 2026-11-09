@@ -8,6 +8,7 @@ import {
   type AgentSkillLocation,
   type AgentSkillStatus,
   type AgentSkillTarget,
+  type CliEntryStatus,
 } from '@baocut/protocol';
 import {
   ActionButton,
@@ -50,11 +51,11 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
   agentSkillOverview,
   cliEntryDir,
+  cliEntryRow,
   compareVersions,
   pathInDir,
   tildePath,
   userHomeOf,
-  cliLinkCommand,
   isInstalled,
   locationAction,
   locationsIn,
@@ -63,9 +64,17 @@ import {
   removalDeletesFiles,
   trimSlash,
   type AgentSkillOverview,
+  type CliEntryRow,
 } from '../../model/agent-skill-install.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { agentSkillStatus, installAgentSkill, removeAgentSkill } from '../../runtime/skill-commands.ts';
+import {
+  agentSkillStatus,
+  cliEntryStatus,
+  installAgentSkill,
+  installCliEntry,
+  removeAgentSkill,
+  removeCliEntry,
+} from '../../runtime/skill-commands.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useServices } from '../../state/services-store.ts';
@@ -246,6 +255,7 @@ export function ExternalAgentsCard({ open, onOpenChange }: { open: boolean; onOp
   const web = runtime.host.platform === 'web';
   const connected = useConnection((s) => s.state.status === 'connected');
   const [status, setStatus] = useState<AgentSkillStatus | null>(null);
+  const [cli, setCli] = useState<CliEntryStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<AgentSkillInstallMode>('link');
@@ -255,6 +265,8 @@ export function ExternalAgentsCard({ open, onOpenChange }: { open: boolean; onOp
   const load = useCallback(() => {
     setError(null);
     agentSkillStatus(runtime).then(setStatus, (e: unknown) => setError(errorText(e)));
+    // 查不出就不显示安装按钮，那一行退回只列 App 入口。
+    cliEntryStatus(runtime).then(setCli, () => setCli(null));
   }, [runtime]);
 
   // 折叠着也要知道装没装、是不是最新：连上就取一次，展开时再取一次（用户可能在外面动过）。
@@ -276,6 +288,24 @@ export function ExternalAgentsCard({ open, onOpenChange }: { open: boolean; onOp
     } finally {
       setBusy(false);
     }
+  };
+
+  const runCli = async (pending: Promise<CliEntryStatus>, done: (next: CliEntryStatus) => string) => {
+    setBusy(true);
+    try {
+      const next = await pending;
+      setCli(next);
+      ToastQueue.positive(done(next), { timeout: 5000 });
+    } catch (e) {
+      ToastQueue.negative(errorText(e), { timeout: 8000 });
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const cliActions: CliActions = {
+    install: () => void runCli(installCliEntry(runtime), (next) => (cliEntryRow(next).command ? C().cliInstalledAddLine : C().cliInstalled)),
+    remove: () => void runCli(removeCliEntry(runtime), () => C().cliRemoved),
   };
 
   const install = (targets: (AgentSkillTarget & { mode: AgentSkillInstallMode })[], done: string) =>
@@ -351,7 +381,14 @@ export function ExternalAgentsCard({ open, onOpenChange }: { open: boolean; onOp
           ) : null}
           {status ? (
             <>
-              <BundledRows status={status} home={home} onReveal={web ? null : actions.reveal} />
+              <BundledRows
+                status={status}
+                cli={cli}
+                home={home}
+                busy={busy}
+                onReveal={web ? null : actions.reveal}
+                cliActions={web ? null : cliActions}
+              />
               {status.appOutsideApplications ? (
                 <InlineAlert variant="notice">
                   <Heading>{C().outsideTitle}</Heading>
@@ -465,34 +502,30 @@ interface RowActions {
   reveal(path: string): void;
 }
 
-/** App 自带的三样：skill 本体、命令行、MCP 服务。都随 App 发布，这里只说在哪、什么版本、开没开。 */
+interface CliActions {
+  install(): void;
+  remove(): void;
+}
+
+/** App 自带的三样：skill 本体、命令行、MCP 服务。都随 App 发布，这里只说在哪、什么版本、开没开；命令行可以装进终端。 */
 function BundledRows({
   status,
+  cli,
   home,
+  busy,
   onReveal,
+  cliActions,
 }: {
   status: AgentSkillStatus;
+  cli: CliEntryStatus | null;
   home: string | null;
+  busy: boolean;
   onReveal: ((path: string) => void) | null;
+  /** 浏览器里没有（只看状态）。 */
+  cliActions: CliActions | null;
 }) {
   const go = useShell((s) => s.go);
   const mcp = useServices((s) => (s.ready ? (s.services.find((x) => x.serviceId === 'mcp') ?? null) : null));
-  const cli = status.cli;
-  const windows = !!cli.entry && (/\.cmd$/i.test(cli.entry) || /^[A-Za-z]:\\/.test(cli.entry));
-  const revealButton = (p: string) =>
-    onReveal ? (
-      <ActionButton isQuiet size="S" aria-label={C().revealOf(p)} onPress={() => onReveal(p)}>
-        <FolderOpen />
-      </ActionButton>
-    ) : null;
-  let cliState: { text: string; tone?: Tone };
-  if (!cli.entry) cliState = { text: C().cliNoEntry };
-  else if (cli.onPath?.fromApp) cliState = { text: C().cliOnPathApp, tone: 'positive' };
-  else if (cli.onPath) cliState = { text: C().cliOnPathOther, tone: 'notice' };
-  else cliState = { text: windows ? C().cliAddToPath : C().cliNotOnPath, tone: 'notice' };
-  const shownCli = cli.onPath
-    ? `${tildePath(cli.onPath.path, home)}${cli.onPath.target ? ` → ${tildePath(cli.onPath.target, home)}` : ''}`
-    : cli.entry && tildePath(cli.entry, home);
   return (
     <div className={block}>
       <h3 className={h3}>{C().bundledTitle}</h3>
@@ -505,22 +538,9 @@ function BundledRows({
             {status.bundled ? C().skillShipped(status.version ?? '?') : C().skillDev(status.version ?? '?')}
           </span>
         </div>
-        {revealButton(status.source)}
+        {revealButton(status.source, onReveal)}
       </div>
-      <div className={row}>
-        <div className={rowText}>
-          <span className={reader}>{C().cliName}</span>
-          {shownCli ? <code className={path}>{shownCli}</code> : null}
-          <span className={state({ tone: cliState.tone })}>{cliState.text}</span>
-        </div>
-        {cli.onPath ? revealButton(cli.onPath.path) : cli.entry ? revealButton(cli.entry) : null}
-      </div>
-      {cli.entry && !cli.onPath ? (
-        <CommandBlock
-          value={windows ? cliEntryDir(cli.entry) : cliLinkCommand(cli.entry)}
-          copyLabel={windows ? C().pathLabel : C().commandLabel}
-        />
-      ) : null}
+      <CliRow status={status} cli={cli} home={home} busy={busy} onReveal={onReveal} actions={cliActions} />
       <div className={row}>
         <div className={rowText}>
           <span className={reader}>{C().mcpName}</span>
@@ -535,6 +555,112 @@ function BundledRows({
       </div>
     </div>
   );
+}
+
+/** 「命令行 baocut」那一行的一句状态（CLI 独立使用与发布 §3.2）。 */
+function cliLine(r: CliEntryRow, cli: CliEntryStatus, onPath: AgentSkillStatus['cli']['onPath'], home: string | null): { text: string; tone?: Tone } {
+  const t = (p: string | null | undefined) => (p ? tildePath(p, home) : '?');
+  const dir = t(cliEntryDir(cli));
+  switch (r.kind) {
+    case 'unavailable':
+      return { text: C().cliNoEntry };
+    case 'none':
+      return { text: C().cliNone };
+    case 'elsewhere':
+      return { text: C().cliElsewhere(t(onPath?.path)), tone: 'positive' };
+    case 'ready':
+      return { text: C().cliReady, tone: 'positive' };
+    case 'unchecked':
+      return { text: C().cliUnchecked };
+    case 'not-on-path':
+      return { text: C().cliNotOnPath(dir, cli.pathHint?.file ?? null), tone: 'notice' };
+    case 'shadowed':
+      return { text: C().cliShadowed(t(cli.shell?.found), dir), tone: 'notice' };
+    case 'stale':
+      return { text: C().cliStale(t(cli.target)), tone: 'notice' };
+    case 'broken':
+      return { text: C().cliBroken(t(cli.target)), tone: 'notice' };
+    case 'foreign':
+      return { text: C().cliForeign, tone: 'notice' };
+  }
+}
+
+function CliRow({
+  status,
+  cli,
+  home,
+  busy,
+  onReveal,
+  actions,
+}: {
+  status: AgentSkillStatus;
+  cli: CliEntryStatus | null;
+  home: string | null;
+  busy: boolean;
+  onReveal: ((path: string) => void) | null;
+  actions: CliActions | null;
+}) {
+  const onPath = status.cli.onPath;
+  const r = cli ? cliEntryRow(cli, onPath) : null;
+  const line = r && cli ? cliLine(r, cli, onPath, home) : status.cli.entry ? null : { text: C().cliNoEntry };
+  const placed = !!cli && cli.state !== 'none';
+  const shown = placed
+    ? `${tildePath(cli.path, home)}${cli.target ? ` → ${tildePath(cli.target, home)}` : ''}`
+    : r?.kind === 'elsewhere' && onPath
+      ? `${tildePath(onPath.path, home)}${onPath.target ? ` → ${tildePath(onPath.target, home)}` : ''}`
+      : status.cli.entry && tildePath(status.cli.entry, home);
+  const revealAt = placed && cli.state !== 'broken' ? cli.path : status.cli.entry;
+  return (
+    <>
+      <div className={row}>
+        <div className={rowText}>
+          <span className={reader}>{C().cliName}</span>
+          {shown ? <code className={path}>{shown}</code> : null}
+          {line ? <span className={state({ tone: line.tone })}>{line.text}</span> : null}
+        </div>
+        {r?.action && actions ? (
+          <Button variant="secondary" size="S" isPending={busy} onPress={actions.install}>
+            {r.action === 'repair' ? C().cliRepair : C().cliInstall}
+          </Button>
+        ) : null}
+        {r?.removable && actions && onReveal ? (
+          <MenuTrigger align="end">
+            <ActionButton isQuiet size="S" aria-label={C().more(cli!.path)}>
+              <More />
+            </ActionButton>
+            <Menu
+              aria-label={C().more(cli!.path)}
+              disabledKeys={[...(busy ? ['remove'] : []), ...(cli!.state === 'broken' ? ['reveal'] : [])]}
+              onAction={(key) => {
+                if (key === 'reveal') onReveal(cli!.path);
+                else if (key === 'remove') actions.remove();
+              }}>
+              <MenuItem id="reveal" textValue={C().reveal}>
+                <FolderOpen />
+                <Text slot="label">{C().reveal}</Text>
+              </MenuItem>
+              <MenuItem id="remove" textValue={C().remove}>
+                <Delete />
+                <Text slot="label">{C().remove}</Text>
+                <Text slot="description">{C().cliRemoveHint}</Text>
+              </MenuItem>
+            </Menu>
+          </MenuTrigger>
+        ) : revealAt ? (
+          revealButton(revealAt, onReveal)
+        ) : null}
+      </div>
+      {r?.command ? <CommandBlock value={r.command} copyLabel={C().commandLabel} /> : null}
+    </>
+  );
+}
+
+function revealButton(p: string, onReveal: ((path: string) => void) | null) {
+  return onReveal ? (
+    <ActionButton isQuiet size="S" aria-label={C().revealOf(p)} onPress={() => onReveal(p)}>
+      <FolderOpen />
+    </ActionButton>
+  ) : null;
 }
 
 /** 一处位置：谁会读它 / 路径 / 版本与状态 / 一颗对症的按钮，其余收进行尾菜单。 */

@@ -24,14 +24,25 @@
     return {tone: 'positive', chip: `v${ver} · 最新`, line: where};
   }
 
-  /** App 自带的三样：skill 本体、命令行、MCP。都跟 App 一起发布，这里只说在哪、什么版本、开没开。 */
+  /** App 自带的三样：skill 本体、命令行、MCP。都跟 App 一起发布，这里只说在哪、什么版本、开没开；命令行可以装进终端
+      （CLI 独立使用与发布 §3.2：~/.local/bin 放软链接，不要管理员权限，不替用户改 shell 配置）。 */
   function BundledRows({cli, setCli, appPath}) {
     const app = useApp();
     const ver = D.app.skillVersion;
-    const cs = M.cliState(cli, D.app.version);
+    const [menu, setMenu] = useState(false);
+    const cr = M.cliRow(cli);
+    const placed = cli && cli.state !== 'none';
     const mcpOn = !!(app.svcStates && app.svcStates.mcp && app.svcStates.mcp.on);
     const reveal = (p) => app.toast('原型演示：在文件夹中显示 ' + p);
-    const installCli = () => { setCli({path: M.cliPath, target: M.cliSource}); app.toast(`已把 baocut 软链接到 ${M.cliPath}（演示）· 新开终端后可用`, 'positive'); };
+    const installCli = () => {
+      setCli(M.cliInstalled());
+      app.toast(cr.kind === 'none' ? '已安装（演示）。新开一个终端就能用 baocut。' : '已修复（演示）。现在指向这个 App。', 'positive');
+    };
+    const removeCli = () => { setCli({state: 'none', shell: {found: null, dirOnPath: true}}); app.toast('已移除（演示）。新开的终端里找不到这个 App 的 baocut 了。'); };
+    const copyLine = async (text) => {
+      try { await navigator.clipboard.writeText(text); app.toast('命令已复制', 'positive'); }
+      catch (e) { app.toast('复制失败，请选中文字后复制'); }
+    };
     return <div className="ags-location ags-location--first">
       <h3 className="t-title-sm">BaoCut 自带</h3>
       <p>skill 和命令行都在 App 里，跟 App 一起发布、一起更新。下面的安装默认只是在 Agent 找得到的位置放一个指向它们的软链接，不复制文件。</p>
@@ -42,12 +53,22 @@
       </div>
       <div className="ags-link-row">
         <div className="grow"><span className="ags-reader">命令行 baocut</span>
-          {cli ? <code>{cli.path}{cli.target ? ' → ' + cli.target : ''}</code> : null}
-          <span className={cx('ags-link-state', cs.tone && 'is-' + cs.tone)}>{cs.text}</span></div>
-        {cs.cta ? <Btn size="s" onClick={installCli}>{cs.cta}</Btn>
-          : <IconBtn size="s" icon="folder" tip="在文件夹中显示" onClick={() => reveal(cli.path)} />}
+          <code>{placed ? `${M.cliPath}${cli.target ? ' → ' + cli.target : ''}` : M.cliSource}</code>
+          <span className={cx('ags-link-state', cr.tone && 'is-' + cr.tone)}>{cr.text}</span></div>
+        {cr.cta ? <Btn size="s" onClick={installCli}>{cr.cta}</Btn> : null}
+        {cr.removable ? <div className="ags-more">
+          <IconBtn size="s" icon="more" tip="命令行 baocut 的更多操作" aria-expanded={menu} onClick={() => setMenu((v) => !v)} />
+          <Popover open={menu} onClose={() => setMenu(false)} align="right" width={224}>
+            <Menu>
+              <MenuItem label="在文件夹中显示" disabled={cli.state === 'broken'} onClick={() => { setMenu(false); reveal(M.cliPath); }} />
+              <MenuRule /><MenuItem tone="negative" icon="trash" label="移除" sub="只删 BaoCut 放的那一个，App 自带的命令行还在"
+                onClick={() => { setMenu(false); removeCli(); }} />
+            </Menu>
+          </Popover>
+        </div> : <IconBtn size="s" icon="folder" tip="在文件夹中显示" onClick={() => reveal(M.cliSource)} />}
       </div>
-      {cs.kind === 'other' ? <p className="hint">{`终端里的 baocut 会用这一个。想换成 App 自带的，先移除它，再回到这里安装命令行。`}</p> : null}
+      {cr.command ? <div className="agset-command"><code className="agset-path">{cr.command}</code>
+        <IconBtn icon="copy" size="s" tip={'复制 ' + cr.command} onClick={() => copyLine(cr.command)} /></div> : null}
       <div className="ags-link-row">
         <div className="grow"><span className="ags-reader">MCP 服务</span>
           <span className="t-detail">不装 skill 也行：让其他 AI 应用直接连接 BaoCut，调用它的工具。</span>

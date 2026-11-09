@@ -1,4 +1,4 @@
-import type { AgentSkillHostFolder, AgentSkillLocation, AgentSkillStatus, Project } from '@baocut/protocol';
+import type { AgentSkillHostFolder, AgentSkillLocation, AgentSkillStatus, CliEntryStatus, Project } from '@baocut/protocol';
 
 /**
  * 给外部 Agent 装的 baocut skill（Agent 面设计 §8.2；原型 model-skill-install.js）：Skills 页最上面那张卡片用的纯函数。
@@ -106,15 +106,67 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** macOS 上让终端里的 `baocut` 指向 App 自带的入口（与 CLI `skill status` 给的同一条；要管理员权限，BaoCut 不替用户做）。 */
-export function cliLinkCommand(entry: string): string {
-  return `sudo mkdir -p /usr/local/bin && sudo ln -sf '${entry}' /usr/local/bin/baocut`;
+/**
+ * 「命令行 baocut」那一行（CLI 独立使用与发布 §3.2；原型 model-skill-install.js `cliRow`）：按 `cliEntry.status` 与终端里找到的
+ * `baocut`（`agentSkill.status` 的 `cli.onPath`）归纳成一种情况、一颗对症的按钮、要不要给加进 PATH 的那一行。
+ * - unavailable 开发版没有 App 入口 / none 还没装 / elsewhere 没装，但终端已经能找到指向本 App 的 baocut（如 Homebrew cask）
+ * - ready 装好且终端找得到 / unchecked 装好但查不出终端的 PATH / not-on-path 装好但目录不在 PATH 上（给那一行）
+ * - shadowed 装好但终端先找到别的 baocut / stale 指向别的 BaoCut / broken 指向的位置不在了 / foreign 不是 BaoCut 放的
+ */
+export type CliEntryRowKind =
+  | 'unavailable'
+  | 'none'
+  | 'elsewhere'
+  | 'ready'
+  | 'unchecked'
+  | 'not-on-path'
+  | 'shadowed'
+  | 'stale'
+  | 'broken'
+  | 'foreign';
+
+export interface CliEntryRow {
+  kind: CliEntryRowKind;
+  action: 'install' | 'repair' | null;
+  /** 行尾菜单里能不能「移除」：BaoCut 放的入口（含失效的）。 */
+  removable: boolean;
+  /** 要加进 shell 配置的那一行（只在 not-on-path）。 */
+  command: string | null;
 }
 
-/** Windows 上把安装目录加进用户 PATH 时要加的那个目录。 */
-export function cliEntryDir(entry: string): string {
-  const i = Math.max(entry.lastIndexOf('\\'), entry.lastIndexOf('/'));
-  return i > 0 ? entry.slice(0, i) : entry;
+export function cliEntryRow(entry: CliEntryStatus, onPath: AgentSkillStatus['cli']['onPath'] = null): CliEntryRow {
+  const row = (kind: CliEntryRowKind, action: CliEntryRow['action'] = null, command: string | null = null): CliEntryRow => ({
+    kind,
+    action,
+    removable: entry.state === 'current' || entry.state === 'stale' || entry.state === 'broken',
+    command,
+  });
+  switch (entry.state) {
+    case 'foreign':
+      return row('foreign');
+    case 'stale':
+    case 'broken':
+      return row(entry.state, entry.entry ? 'repair' : null);
+    case 'none':
+      if (!entry.entry) return row('unavailable');
+      return onPath?.fromApp ? row('elsewhere') : row('none', 'install');
+    case 'current':
+      if (!entry.shell) return row('unchecked');
+      if (entry.pathHint) return row('not-on-path', null, entry.pathHint.line);
+      if (entry.shell.found && !samePath(entry.shell.found, entry.path)) return row('shadowed');
+      return row(entry.shell.found ? 'ready' : 'unchecked');
+  }
+}
+
+/** 放入口的那个目录（`~/.local/bin`、`%LOCALAPPDATA%\\BaoCut\\bin`）。 */
+export function cliEntryDir(entry: CliEntryStatus): string {
+  const i = Math.max(entry.path.lastIndexOf('\\'), entry.path.lastIndexOf('/'));
+  return i > 0 ? entry.path.slice(0, i) : entry.path;
+}
+
+function samePath(a: string, b: string): boolean {
+  const norm = (p: string) => p.replace(/[\\/]+$/, '');
+  return a.includes('\\') ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
 }
 
 /** 用户主目录：从全局那一处的路径倒推（Runtime 不另给），拿不到时 null。 */

@@ -56,12 +56,23 @@ test('App 不在「应用程序」里运行时先提醒软链接会失效', () =
   assert.equal(M.sourceWarning(M.source), null);
   assert.ok(M.sourceWarning(M.scenarioAppPath('moved')).title);
 });
-test('命令行：指向 App 的是同版本；别处装的只提示，不替换', () => {
-  assert.equal(M.cliState(null, V).kind, 'none');
-  assert.deepEqual([M.cliState(M.scenarioCli('default'), V).kind, M.cliState(M.scenarioCli('default'), V).text], ['app', 'v1.4.2 · 软链接到 App，随 App 更新']);
-  const other = M.cliState({path: '/opt/homebrew/bin/baocut', target: '/x/baocut', ver: '1.2.0'}, V);
-  assert.deepEqual([other.kind, other.cta], ['other', null]);
-  assert.match(other.text, /比 App 的 v1.4.2 旧/);
+test('命令行：没装给「安装命令行工具」；不在 PATH 上给那一行；别处的 baocut 只点名；失效给「修复」；占用不给按钮', () => {
+  const none = M.cliRow(M.scenarioCli('fresh'));
+  assert.deepEqual([none.kind, none.cta, none.removable], ['none', '安装命令行工具', false]);
+  assert.equal(M.cliRow(M.scenarioCli('fresh'), {path: '/opt/homebrew/bin/baocut', fromApp: true}).kind, 'elsewhere');
+  const ready = M.cliRow(M.scenarioCli('default'));
+  assert.deepEqual([ready.kind, ready.cta, ready.removable, ready.tone], ['ready', null, true, 'positive']);
+  const path = M.cliRow(M.scenarioCli('cli-path'));
+  assert.deepEqual([path.kind, path.command], ['not-on-path', 'export PATH="$HOME/.local/bin:$PATH"']);
+  assert.match(path.text, /~\/\.zshrc/);
+  const other = M.cliRow(M.scenarioCli('cli-other'));
+  assert.equal(other.kind, 'shadowed');
+  assert.match(other.text, /\/opt\/homebrew\/bin\/baocut/);
+  const broken = M.cliRow(M.scenarioCli('broken'));
+  assert.deepEqual([broken.kind, broken.cta, broken.removable], ['broken', '修复', true]);
+  const taken = M.cliRow({state: 'foreign'});
+  assert.deepEqual([taken.cta, taken.removable], [null, false]);
+  assert.ok(Object.values(M.cliRow(M.cliInstalled())).every((v) => !String(v).includes('sudo')));
 });
 test('折叠行：装在哪、几处可更新；占用的位置不进「全部更新」', () => {
   assert.equal(M.overview({}, V).kind, 'none');

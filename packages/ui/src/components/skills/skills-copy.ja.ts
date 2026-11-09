@@ -337,12 +337,25 @@ export const ja: SkillsPageMessages = {
     skillDev: (version: string) => `v${version} · この開発ビルド用に生成`,
     cliName: 'コマンドライン baocut',
     cliNoEntry: 'このビルドにはコマンドラインが付属していません。ソースのチェックアウトから実行してください。',
-    cliOnPathApp: 'PATH にあります · このアプリを指し、アプリと一緒に更新されます',
-    cliOnPathOther:
-      'PATH にありますが、このアプリのものではありません。ターミナルではそちらが使われます。このアプリのものを使うには、先にそれを削除してください。',
-    cliNotOnPath:
-      'まだ PATH にありません。ターミナルで次のコマンドを一度実行すると、baocut がアプリを指すようになります（パスワードの入力を求められます）：',
-    cliAddToPath: 'まだ PATH にありません。このフォルダをユーザーの PATH に追加してから、新しいターミナルを開いてください：',
+    cliNone: 'ターミナルはまだ baocut を見つけられません。インストールすると、どのターミナルでも baocut と入力して使えます。管理者権限は不要です。',
+    cliElsewhere: (path: string) => `ターミナルが見つける baocut は ${path} にあり、このアプリを指しています`,
+    cliReady: 'インストール済み · ターミナルではこのアプリの baocut が使われ、アプリと一緒に更新されます',
+    cliUnchecked: 'インストール済み。ターミナルの PATH を確認できませんでした：新しいターミナルを開いて baocut version を実行してください',
+    cliNotOnPath: (dir: string, file: string | null) =>
+      `インストール済みですが、${dir} はまだターミナルの PATH に入っていません。次の行を ${file ?? 'シェルの設定ファイル'} に追加してから、新しいターミナルを開いてください：`,
+    cliShadowed: (found: string, dir: string) =>
+      `インストール済みですが、ターミナルは先に ${found} を見つけてそちらを使います。それを削除するか、PATH で ${dir} をより前に置いてください。`,
+    cliStale: (target: string) => `別の BaoCut（${target}）を指しています。修復するとこのアプリを指すようになります。`,
+    cliBroken: (target: string) =>
+      `${target} を指していますが、そこにはもうありません（アプリが移動されました）。修復するとこのアプリを指すようになります。`,
+    cliForeign:
+      'そこには BaoCut 以外が置いた baocut がすでにあります。BaoCut はそれを置き換えません。移動するか名前を変えてからインストールしてください。',
+    cliInstall: 'コマンドラインツールをインストール',
+    cliRepair: '修復',
+    cliRemoveHint: 'BaoCut が置いたものだけを削除します。アプリのコマンドラインはそのまま残ります',
+    cliInstalled: 'インストールしました。新しいターミナルを開くと baocut を使えます。',
+    cliInstalledAddLine: 'インストールしました。表示された行をシェルの設定ファイルに追加してから、新しいターミナルを開いてください。',
+    cliRemoved: '削除しました。新しく開いたターミナルでは、このアプリの baocut は見つからなくなります。',
     mcpName: 'MCP サービス',
     mcpBody: 'Skill がなくても使えます。ほかの AI アプリから BaoCut に直接接続して、ツールを呼び出せます。',
     mcpOn: '実行中',

@@ -342,11 +342,25 @@ export const ptBR: SkillsPageMessages = {
     skillDev: (version: string) => `v${version} · gerada para este build de desenvolvimento`,
     cliName: 'Linha de comando baocut',
     cliNoEntry: 'Este build não inclui a linha de comando. Execute-a a partir do checkout do código-fonte.',
-    cliOnPathApp: 'No PATH · aponta para este aplicativo e é atualizada junto com ele',
-    cliOnPathOther: 'No PATH, mas não é a deste aplicativo: os terminais usam aquela. Remova-a para usar a deste aplicativo.',
-    cliNotOnPath:
-      'Ainda não está no PATH. Execute isto uma vez no terminal para que baocut aponte para o aplicativo (sua senha será solicitada):',
-    cliAddToPath: 'Ainda não está no PATH. Adicione esta pasta ao PATH do seu usuário e abra um novo terminal:',
+    cliNone: 'Os terminais ainda não encontram baocut. Instale para digitar baocut em qualquer terminal; não precisa de permissão de administrador.',
+    cliElsewhere: (path: string) => `Os terminais encontram baocut em ${path}, que aponta para este aplicativo`,
+    cliReady: 'Instalada · os terminais usam o baocut deste aplicativo, que é atualizado junto com ele',
+    cliUnchecked: 'Instalada. Não foi possível verificar o PATH do seu terminal: abra um novo terminal e execute baocut version',
+    cliNotOnPath: (dir: string, file: string | null) =>
+      `Instalada, mas ${dir} ainda não está no PATH do seu terminal. Adicione esta linha a ${file ?? 'sua configuração do shell'} e abra um novo terminal:`,
+    cliShadowed: (found: string, dir: string) =>
+      `Instalada, mas os terminais encontram ${found} primeiro e usam esse. Remova-o ou coloque ${dir} antes no PATH.`,
+    cliStale: (target: string) => `Aponta para outro BaoCut (${target}). Repare para que aponte para este aplicativo.`,
+    cliBroken: (target: string) =>
+      `Aponta para ${target}, que não existe mais (o aplicativo foi movido). Repare para que aponte para este aplicativo.`,
+    cliForeign:
+      'Já existe ali um baocut que não foi colocado pelo BaoCut. O BaoCut não vai substituí-lo; mova ou renomeie esse item e depois instale.',
+    cliInstall: 'Instalar ferramenta de linha de comando',
+    cliRepair: 'Reparar',
+    cliRemoveHint: 'Apaga só o que o BaoCut colocou ali; o aplicativo mantém sua linha de comando',
+    cliInstalled: 'Instalada. Abra um novo terminal para usar baocut.',
+    cliInstalledAddLine: 'Instalada. Adicione a linha mostrada à configuração do seu shell e abra um novo terminal.',
+    cliRemoved: 'Removida. Novos terminais não vão encontrar o baocut deste aplicativo.',
     mcpName: 'Serviço MCP',
     mcpBody: 'Sem precisar de skill: deixe outros aplicativos de IA se conectarem ao BaoCut e chamarem as ferramentas dele diretamente.',
     mcpOn: 'Em execução',

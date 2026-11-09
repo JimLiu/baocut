@@ -347,12 +347,26 @@ export const de: SkillsPageMessages = {
     skillDev: (version: string) => `v${version} · für diesen Entwicklungs-Build erzeugt`,
     cliName: 'Befehlszeile baocut',
     cliNoEntry: 'Dieser Build enthält keine Befehlszeile. Führen Sie sie aus dem Quellcode-Checkout aus.',
-    cliOnPathApp: 'Im PATH · zeigt auf diese App und wird mit ihr aktualisiert',
-    cliOnPathOther:
-      'Im PATH, aber nicht die aus dieser App: Terminals verwenden jene. Entfernen Sie sie, um die aus dieser App zu verwenden.',
-    cliNotOnPath:
-      'Noch nicht im PATH. Führen Sie dies einmal im Terminal aus, damit baocut auf die App zeigt (Sie werden nach Ihrem Passwort gefragt):',
-    cliAddToPath: 'Noch nicht im PATH. Fügen Sie diesen Ordner Ihrem Benutzer-PATH hinzu und öffnen Sie dann ein neues Terminal:',
+    cliNone:
+      'Terminals finden baocut noch nicht. Installieren Sie es, um baocut in jedem Terminal eingeben zu können; Administratorrechte sind nicht nötig.',
+    cliElsewhere: (path: string) => `Terminals finden baocut unter ${path}, das auf diese App zeigt`,
+    cliReady: 'Installiert · Terminals verwenden das baocut aus dieser App, und es wird mit der App aktualisiert',
+    cliUnchecked: 'Installiert. Der PATH Ihres Terminals ließ sich nicht prüfen: Öffnen Sie ein neues Terminal und führen Sie baocut version aus',
+    cliNotOnPath: (dir: string, file: string | null) =>
+      `Installiert, aber ${dir} ist noch nicht im PATH Ihres Terminals. Fügen Sie diese Zeile zu ${file ?? 'Ihrer Shell-Konfiguration'} hinzu und öffnen Sie dann ein neues Terminal:`,
+    cliShadowed: (found: string, dir: string) =>
+      `Installiert, aber Terminals finden zuerst ${found} und verwenden dieses. Entfernen Sie es, oder stellen Sie ${dir} im PATH weiter nach vorne.`,
+    cliStale: (target: string) => `Zeigt auf ein anderes BaoCut (${target}). Reparieren Sie es, damit es auf diese App zeigt.`,
+    cliBroken: (target: string) =>
+      `Zeigt auf ${target}, das nicht mehr existiert (die App wurde verschoben). Reparieren Sie es, damit es auf diese App zeigt.`,
+    cliForeign:
+      'Dort liegt bereits ein baocut, das nicht von BaoCut stammt. BaoCut ersetzt es nicht; verschieben Sie es oder benennen Sie es um, und installieren Sie dann.',
+    cliInstall: 'Befehlszeilentool installieren',
+    cliRepair: 'Reparieren',
+    cliRemoveHint: 'Löscht nur, was BaoCut dort abgelegt hat; die App behält ihre Befehlszeile',
+    cliInstalled: 'Installiert. Öffnen Sie ein neues Terminal, um baocut zu verwenden.',
+    cliInstalledAddLine: 'Installiert. Fügen Sie die angezeigte Zeile zu Ihrer Shell-Konfiguration hinzu und öffnen Sie dann ein neues Terminal.',
+    cliRemoved: 'Entfernt. Neue Terminals finden das baocut dieser App nicht mehr.',
     mcpName: 'MCP-Dienst',
     mcpBody: 'Ganz ohne Skill: Andere KI-Apps verbinden sich mit BaoCut und rufen seine Tools direkt auf.',
     mcpOn: 'Läuft',
