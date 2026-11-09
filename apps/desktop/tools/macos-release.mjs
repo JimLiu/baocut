@@ -8,6 +8,7 @@ import { fileHash } from './windows-release.mjs';
 import { runMac, verifyMacIdentity } from './macos-distribution.mjs';
 import { validateReleaseRef } from './desktop-release-rules.mjs';
 import { validateReleaseNotes } from './release-notes.mjs';
+import { CASK_FILE, renderHomebrewCask } from './homebrew-cask.mjs';
 
 const TARGET = 'aarch64-apple-darwin';
 const FEED = feedFileName(TARGET, null);
@@ -174,14 +175,20 @@ async function publishCandidate(directory, env) {
   command('git', ['fetch', 'origin', 'main']);
   command('git', ['checkout', '--detach', 'origin/main']);
   const pin = path.join('apps/desktop/releases', FEED);
-  if (!existsSync(pin) || readFileSync(pin, 'utf8') !== item.feedText) {
-    if (existsSync(pin)) ensure(JSON.parse(readFileSync(pin, 'utf8')).build < report.build, 'Do not replace a different same/newer Mac feed');
+  // The Homebrew cask follows the feed in the same commit (CLI standalone design §3.3).
+  const cask = path.join('apps/desktop/releases', CASK_FILE);
+  const caskText = renderHomebrewCask(item.feed);
+  const feedChanged = !existsSync(pin) || readFileSync(pin, 'utf8') !== item.feedText;
+  if (feedChanged || !existsSync(cask) || readFileSync(cask, 'utf8') !== caskText) {
+    if (feedChanged && existsSync(pin)) ensure(JSON.parse(readFileSync(pin, 'utf8')).build < report.build, 'Do not replace a different same/newer Mac feed');
     writeFileSync(pin, item.feedText);
+    mkdirSync(path.dirname(cask), { recursive: true });
+    writeFileSync(cask, caskText);
     command('git', ['config', 'user.name', 'github-actions[bot]']);
     command('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com']);
-    command('git', ['add', '--', pin]);
+    command('git', ['add', '--', pin, cask]);
     command('git', ['diff', '--cached', '--check']);
-    command('git', ['commit', '-m', `Publish macOS ${report.version} build ${report.build} update feed`]);
+    command('git', ['commit', '-m', `Publish macOS ${report.version} build ${report.build} update feed and Homebrew cask`]);
     command('gh', ['auth', 'setup-git']);
     command('git', ['push', 'origin', 'HEAD:main']);
   }
