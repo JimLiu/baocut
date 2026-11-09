@@ -223,13 +223,15 @@ fn frame_of<'a>(item: &ItemGeometry<'a>) -> Frame<'a> {
     };
     // 贴纸与占位框只在素材是图片或视频时按媒体摆。
     let visual_asset = matches!(item.asset.map(|a| a.kind), Some(AssetKind::Image | AssetKind::Video));
-    // 角色贴纸也按媒体摆：框高按角色画布（导入时记在 `video` 里），与帧光栅画角色的框同一份；不知道角色画布时照旧按贴纸摆。
-    let puppet = item.asset.is_some_and(|a| a.kind == AssetKind::Puppet && a.display.is_some());
+    // 角色与 Lottie 贴纸也按媒体摆：框高按导入时记在 `video` 里的角色画布或动画宽高，与帧光栅画它们的框同一份；
+    // 记不着时照旧按贴纸摆。
+    let sized_asset =
+        item.asset.is_some_and(|a| matches!(a.kind, AssetKind::Puppet | AssetKind::Lottie) && a.display.is_some());
     match item.kind {
         VisualKind::Video => media(ElementKind::Video, cropped_size(display, item.crop)),
         VisualKind::Image => media(ElementKind::Image, cropped_size(display, item.crop)),
         VisualKind::Whiteboard => media(ElementKind::Whiteboard, display),
-        VisualKind::Sticker if visual_asset || puppet => media(ElementKind::Sticker, display),
+        VisualKind::Sticker if visual_asset || sized_asset => media(ElementKind::Sticker, display),
         VisualKind::Sticker => Frame::Static {
             kind: ElementKind::Sticker,
             geometry: ElementGeometry {
@@ -679,6 +681,41 @@ mod tests {
             CANVAS,
         );
         assert_eq!(unknown, plain);
+    }
+
+    #[test]
+    fn lottie_stickers_use_the_animation_box() {
+        // 品牌库放 Lottie 的位置（画面中央、宽 18%）：横幅动画 800×400 的框是 2:1。
+        let place = Place {
+            x: Some(50.0),
+            y: Some(50.0),
+            w: Some(18.0),
+            ..Place::default()
+        };
+        let props = StickerProps::new("asset");
+        let lottie = |display| ItemGeometry {
+            sticker: Some(&props),
+            asset: Some(AssetFacts {
+                kind: AssetKind::Lottie,
+                display,
+            }),
+            ..geometry(VisualKind::Sticker, &place)
+        };
+        let banner = lottie(Some((800.0, 400.0)));
+        let b = item_box(&banner, CANVAS);
+        assert!((b.width - 345.6).abs() < 1e-9);
+        assert!((b.height - 172.8).abs() < 1e-9);
+        assert_eq!(place_from_box(&banner, pose(b), CANVAS), PlaceChange::default());
+        // 正方的动画（内置的 Noto 都是）与动画宽高记不着时，都和贴纸的静态盒一样。
+        let plain = item_box(
+            &ItemGeometry {
+                sticker: Some(&props),
+                ..geometry(VisualKind::Sticker, &place)
+            },
+            CANVAS,
+        );
+        assert_eq!(item_box(&lottie(Some((1024.0, 1024.0))), CANVAS), plain);
+        assert_eq!(item_box(&lottie(None), CANVAS), plain);
     }
 
     #[test]

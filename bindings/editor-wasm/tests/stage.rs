@@ -38,6 +38,19 @@ fn a_character_sticker_takes_its_canvas_aspect() {
     assert!((b["h"].as_f64().unwrap() - 864.0).abs() < 1e-9);
 }
 
+/// Lottie 贴纸的框高按动画声明的宽高（导入时记在 `video` 里），与帧光栅画动画的框同一个。
+#[test]
+fn a_lottie_sticker_takes_its_animation_aspect() {
+    let request = json!({
+        "item": { "type": "sticker", "place": { "x": 50, "y": 50, "w": 18 }, "sticker": { "source": "asset" } },
+        "asset": { "kind": "lottie", "video": { "displayWidth": 800, "displayHeight": 400, "pixelAspectRatio": { "num": 1, "den": 1 } } },
+        "canvas": CANVAS(),
+    });
+    let b = call(stage_box, request);
+    assert!((b["w"].as_f64().unwrap() - 345.6).abs() < 1e-9);
+    assert!((b["h"].as_f64().unwrap() - 172.8).abs() < 1e-9);
+}
+
 #[test]
 fn moving_a_box_writes_only_the_changed_fields() {
     let request = json!({

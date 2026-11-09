@@ -56,9 +56,17 @@ const assets = {
     currentRevision: 1,
     revisions: { 1: { video: { displayWidth: 1024, displayHeight: 1536, pixelAspectRatio: { num: 1, den: 1 } } } },
   },
+  banner: {
+    id: 'banner',
+    kind: 'lottie',
+    name: 'banner.json',
+    currentRevision: 1,
+    revisions: { 1: { video: { displayWidth: 800, displayHeight: 400, pixelAspectRatio: { num: 1, den: 1 } } } },
+  },
 } as unknown as Assets;
 const tallRef = { id: 'tall', revision: 1 };
 const hostRef = { id: 'host', revision: 1 };
+const bannerRef = { id: 'banner', revision: 1 };
 /** `place` 叠上 `placeFields` 的结果（引擎落盘之后的样子）。 */
 const applied = (it: PlacedItem, fields: Record<string, unknown>) => ({ ...it, place: { ...it.place, ...fields } }) as PlacedItem;
 
@@ -134,6 +142,16 @@ describe('place ↔ 盒', () => {
     expect(placeFields(host, pose, canvas, assets)).toEqual({});
     const bigger = placeFields(host, { ...pose, w: 768, h: 1152 }, canvas, assets);
     expect(bigger).toEqual({ w: 40 });
+  });
+
+  it('Lottie 贴纸的框高按动画声明的宽高：横幅动画的选中框是横的，拖角换回 place 不写 scaleY', () => {
+    const banner = placed({ type: 'sticker', sticker: { source: 'asset' }, assetRef: bannerRef, place: { x: 50, y: 50, w: 18 } });
+    const pose = poseOf(banner, canvas, assets);
+    expect(pose).toMatchObject({ cx: 960, cy: 540, rotation: 0 });
+    expect(pose.w).toBeCloseTo(345.6);
+    expect(pose.h).toBeCloseTo(172.8);
+    expect(placeFields(banner, pose, canvas, assets)).toEqual({});
+    expect(placeFields(banner, { ...pose, w: 384, h: 192 }, canvas, assets)).toEqual({ w: 20 });
   });
 
   it('还没量到排版高的文字：框按框宽兜底成正方，左右拉边时高写进 scaleY；换回来高不变（取三位小数之内）', () => {
