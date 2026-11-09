@@ -1,6 +1,10 @@
 //! CPU 三角形光栅：代替 LivLiv 的 WebGL2 着色器，规则与 GL 相同——顶点吸附到 1/256 像素、像素中心在 (i + 0.5,
 //! j + 0.5)、共享边按左上规则只算一次；贴图坐标线性插值，按三角形求 LOD 做三线性 mipmap（CLAMP_TO_EDGE）；
 //! 预乘混合 dst = src·α + dst·(1 − src.a·α)，每次混合后舍入到 8 位。
+//!
+//! 缩小画时可以换成 [`Filter::Supersample`]：每个像素在 2×2 个子像素上各采一次、取平均，每次采样的 LOD 按子像素
+//! 的跨度（比整像素小一级）求。三线性在 1–2 倍缩小之间会把下一级 mip 混进来一半左右，线稿发虚；超采样只在真正
+//! 缩到一半以下时才用到下一级。分层角色用它；mesh-avatar 要和上游 wgpu 渲染器对拍，保持三线性。
 
 use crate::package::{Level, Texture};
 
@@ -47,6 +51,18 @@ struct Lod {
     f: f32,
 }
 
+/// 缩小时怎么取样：见模块说明。放大（LOD ≤ 0）时两种都是一次双线性。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Filter {
+    /// 同 GL：按像素的跨度求 LOD，两级 mip 之间线性混合。
+    Trilinear,
+    /// 2×2 子像素各采一次（LOD 按子像素的跨度求）再平均。
+    Supersample,
+}
+
+/// 2×2 超采样的子像素中心（相对像素中心，像素）。
+const SUBPIXELS: [(f64, f64); 4] = [(-0.25, -0.25), (0.25, -0.25), (-0.25, 0.25), (0.25, 0.25)];
+
 /// 设好的三角形：吸附后的顶点（1/256 像素）、包围盒（像素）、u / v 的平面方程与 LOD。
 #[derive(Clone, Copy, Debug)]
 struct Tri {
@@ -61,6 +77,8 @@ struct Tri {
     u: [f64; 3],
     v: [f64; 3],
     lod: Lod,
+    /// 缩小时（LOD > 0）按子像素跨度求的 LOD，给 [`Filter::Supersample`] 用；放大时没有。
+    fine: Option<Lod>,
     /// 哪几条边是网格的外边（第 k 位是 k→k+1 那条）：外边按 4 个采样点算覆盖（同 GL 的 4× MSAA），
     /// 共享的内边只看像素中心，相邻两个三角形不留缝也不重叠。
     aa: u8,
@@ -85,11 +103,15 @@ pub(crate) fn boundary_edges(tri: &[u32]) -> Vec<u8> {
         .collect()
 }
 
-fn lod_of(tex: &Texture, du: [f64; 2], dv: [f64; 2]) -> Lod {
+/// 一个像素在贴图上的跨度（贴图像素）的 log2：GL 的 λ。
+fn lambda(tex: &Texture, du: [f64; 2], dv: [f64; 2]) -> f64 {
     let (tw, th) = (f64::from(tex.width()), f64::from(tex.height()));
     let rx = (du[0] * tw).hypot(dv[0] * th);
     let ry = (du[1] * tw).hypot(dv[1] * th);
-    let lambda = rx.max(ry).log2();
+    rx.max(ry).log2()
+}
+
+fn lod_at(tex: &Texture, lambda: f64) -> Lod {
     let max = tex.levels.len() - 1;
     if !lambda.is_finite() || lambda <= 0.0 {
         return Lod { l0: 0, l1: 0, f: 0.0 };
@@ -157,7 +179,10 @@ fn setup(view: View, verts: &[f32], uv: &[f32], abc: [usize; 3], aa: u8, tex: &T
     };
     let u = plane(idx.map(|i| f64::from(uv[2 * i])));
     let v = plane(idx.map(|i| f64::from(uv[2 * i + 1])));
-    let lod = lod_of(tex, [u[0], u[1]], [v[0], v[1]]);
+    let lam = lambda(tex, [u[0], u[1]], [v[0], v[1]]);
+    let lod = lod_at(tex, lam);
+    // 子像素边长是像素的一半，跨度也小一半：λ − 1
+    let fine = (lam.is_finite() && lam > 0.0).then(|| lod_at(tex, lam - 1.0));
     Some(Tri {
         x,
         y,
@@ -169,6 +194,7 @@ fn setup(view: View, verts: &[f32], uv: &[f32], abc: [usize; 3], aa: u8, tex: &T
         u,
         v,
         lod,
+        fine,
         aa,
     })
 }
@@ -331,13 +357,14 @@ fn bin(view: View, verts: &[f32], uv: &[f32], tri: &[u32], aa: &[u8], tex: &Text
 /// 的预乘颜色（0–255）。mesh-avatar 角色的脸（画出来的嘴、腮红）、眼珠（被眼睑裁）与半闭的眼睛用它代替直接采样。
 pub(crate) type Shade<'a> = &'a (dyn Fn(f64, f64, &dyn Fn(f64, f64) -> [f32; 4]) -> [f32; 4] + Sync);
 
-/// 一次绘制：贴图、不透明度，眼珠的眼白遮罩（遮罩与它的 soft：0 时按 alpha 0.5 一刀切，1 时乘 alpha），以及可选的
-/// 逐像素着色。
+/// 一次绘制：贴图、不透明度，眼珠的眼白遮罩（遮罩与它的 soft：0 时按 alpha 0.5 一刀切，1 时乘 alpha），可选的
+/// 逐像素着色，以及缩小时的取样方式。
 pub(crate) struct Paint<'a> {
     pub tex: &'a Texture,
     pub alpha: f32,
     pub mask: Option<(&'a Coverage, f32)>,
     pub shade: Option<Shade<'a>>,
+    pub filter: Filter,
 }
 
 fn for_bands(frame: &mut Frame, f: impl Fn(usize, &mut [u8]) + Sync + Send) {
@@ -386,10 +413,25 @@ fn blend(frame: &mut Frame, view: View, verts: &[f32], uv: &[f32], tri: &[u32], 
         let y1 = (y0 + BAND as i64).min(h as i64);
         for &ti in &bins.list[bins.start[b]..bins.start[b + 1]] {
             let t = &bins.tris[ti as usize];
+            let one = |lod: Lod, u: f64, v: f64| match paint.shade {
+                Some(shade) => shade(u, v, &|su, sv| sample(paint.tex, lod, su, sv)),
+                None => sample(paint.tex, lod, u, v),
+            };
             scan(t, y0, y1, |x, y, u, v, n| {
-                let mut c = match paint.shade {
-                    Some(shade) => shade(u, v, &|su, sv| sample(paint.tex, t.lod, su, sv)),
-                    None => sample(paint.tex, t.lod, u, v),
+                let mut c = match (paint.filter, t.fine) {
+                    (Filter::Supersample, Some(fine)) => {
+                        let mut acc = [0f32; 4];
+                        for (ox, oy) in SUBPIXELS {
+                            let su = u + ox * t.u[0] + oy * t.u[1];
+                            let sv = v + ox * t.v[0] + oy * t.v[1];
+                            let s = one(fine, su, sv);
+                            for i in 0..4 {
+                                acc[i] += s[i];
+                            }
+                        }
+                        acc.map(|a| a * 0.25)
+                    }
+                    _ => one(t.lod, u, v),
                 };
                 let mut k = if n == 4 { alpha } else { alpha * n as f32 / 4.0 };
                 if let Some((cov, soft)) = paint.mask {
@@ -526,6 +568,7 @@ mod tests {
                 alpha: 1.0,
                 mask: None,
                 shade: None,
+                filter: Filter::Trilinear,
             },
         );
         let mut alphas = std::collections::BTreeSet::new();
@@ -535,6 +578,55 @@ mod tests {
         assert_eq!(alphas.into_iter().collect::<Vec<_>>(), vec![0, 128]);
         // 像素中心 x 1.5..9.5、y 1.5..8.5 在方块里：9 列 × 8 行
         assert_eq!(px.chunks_exact(4).filter(|p| p[3] == 128).count(), 9 * 8);
+    }
+
+    /// 缩小到 0.75 倍：三线性混进四成多的下一级 mip，线稿糊开；超采样只用原图，离理想结果（每个像素盖住的面积）
+    /// 近得多。放大时两种取样逐字节相同。
+    #[test]
+    fn supersampling_keeps_minified_lines_sharp() {
+        // 64×8 的线稿：每 5 列里 2 列不透明的白，其余透明，线不对齐偶数列
+        const PERIOD: usize = 5;
+        let opaque = |x: usize| x % PERIOD < 2;
+        let px: Vec<u8> = (0..64 * 8)
+            .flat_map(|i| if opaque(i % 64) { [255u8; 4] } else { [0u8; 4] })
+            .collect();
+        let tex = Texture::from_rgba(64, 8, px);
+        let verts = [0f32, 0.0, 64.0, 0.0, 0.0, 8.0, 64.0, 8.0];
+        let uv = [0f32, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+        let tri = [0u32, 1, 2, 1, 3, 2];
+        let paint = |filter: Filter, s: f64| -> (usize, Vec<u8>) {
+            let (w, h) = ((64.0 * s).ceil() as usize + 2, (8.0 * s).ceil() as usize + 2);
+            let mut px = vec![0u8; w * h * 4];
+            let mut f = Frame { w, h, px: &mut px };
+            let paint = Paint {
+                tex: &tex,
+                alpha: 1.0,
+                mask: None,
+                shade: None,
+                filter,
+            };
+            draw(&mut f, View { s, ox: 0.0, oy: 0.0 }, &verts, &uv, &tri, &[], &paint);
+            (w, px)
+        };
+        // 第 3 行和理想结果（每个输出像素盖住的纹理面积里不透明的比例）差多少
+        let s = 0.75;
+        let ideal = |x: usize| -> f64 {
+            let (a, b) = (x as f64 / s, (x + 1) as f64 / s);
+            let steps = 64;
+            (0..steps)
+                .filter(|i| opaque((a + (b - a) * (*i as f64 + 0.5) / steps as f64) as usize))
+                .count() as f64
+                / steps as f64
+        };
+        let error = |(w, px): (usize, Vec<u8>)| -> f64 {
+            (2..46)
+                .map(|x| (f64::from(px[4 * (3 * w + x) + 3]) / 255.0 - ideal(x)).powi(2))
+                .sum::<f64>()
+        };
+        let (tri_err, ss_err) = (error(paint(Filter::Trilinear, s)), error(paint(Filter::Supersample, s)));
+        assert!(ss_err < 0.7 * tri_err, "supersampled error {ss_err:.3}, trilinear {tri_err:.3}");
+        // 放大时两种采样一样
+        assert_eq!(paint(Filter::Supersample, 2.0), paint(Filter::Trilinear, 2.0));
     }
 
     #[test]
@@ -560,6 +652,7 @@ mod tests {
                 alpha: 0.5,
                 mask: None,
                 shade: None,
+                filter: Filter::Trilinear,
             },
         );
         // 0.5 白在预乘 (0, 0, 200, 200) 上：rgb = 127.5 + c·0.5，a = 127.5 + 200·0.5
@@ -589,6 +682,7 @@ mod tests {
                 alpha: 1.0,
                 mask: None,
                 shade: None,
+                filter: Filter::Trilinear,
             },
         );
         let a = |x: usize, y: usize| px[4 * (y * 10 + x) + 3];
@@ -624,6 +718,7 @@ mod tests {
             alpha: 1.0,
             mask: Some((&cov, 1.0)),
             shade: None,
+            filter: Filter::Trilinear,
         };
         draw_replace(&mut f, view, &verts, &uv, &tri, &[], &paint);
         assert_eq!(&px[0..4], &[0, 0, 0, 0]);

@@ -850,8 +850,15 @@ impl FrameRenderer {
                     f64::from(h)
                 };
                 // moveX / moveY 挪整个框，不在框里挪：跳起来时头顶不会被框切掉。整像素挪框（框在画面上的取样相位不变，
-                // 不会一帧清楚一帧糊），不到一像素的余数由角色自己画
-                let (moved, rest) = box_shift(&geom, player.shift(clock, w, h, frame_bottom), (w, h));
+                // 不会一帧清楚一帧糊），不到一像素的余数由角色自己画。框没转、没缩放时画好的缓冲 1:1 贴上去，框左上角
+                // 本来不在整像素上的零头也一并挪掉、交给角色画：贴的时候不再被双线性重采样一遍，角色的线条不发虚
+                let unscaled = probe.place.scale.unwrap_or(1.0) == 1.0 && probe.place.scale_y.unwrap_or(1.0) == 1.0;
+                let corner = if geom.rotation == 0.0 && unscaled {
+                    [geom.cx - f64::from(w) / 2.0, geom.cy - f64::from(h) / 2.0]
+                } else {
+                    [0.0, 0.0]
+                };
+                let (moved, rest) = box_shift(&geom, player.shift(clock, w, h, frame_bottom), (w, h), corner);
                 let mut px = vec![0u8; w as usize * h as usize * 4];
                 player.render_shifted(clock, w, h, rest, &mut px);
                 if moved != [0.0, 0.0] {
@@ -2367,9 +2374,10 @@ mod font_source_tests {
     }
 }
 
-/// 角色在 `buf` 大小的缓冲里的平移 `shift`（缓冲像素，框自己的方向）分成两份：整像素的一份挪框（输出像素，画面方向），
-/// 剩下不到一像素的一份（缓冲像素）交给角色自己画。框的镜像与旋转照着框来。
-fn box_shift(geom: &BoxGeom, shift: [f64; 2], buf: (u32, u32)) -> ([f64; 2], [f64; 2]) {
+/// 角色在 `buf` 大小的缓冲里的平移 `shift`（缓冲像素，框自己的方向）分成两份：一份挪框（输出像素，画面方向），挪完
+/// 框的左上角 `corner + 挪的量` 落在整像素上；剩下不到一像素的一份（缓冲像素）交给角色自己画。`corner` 是缓冲 1:1 贴上去
+/// 时框左上角在画面上的位置，贴的时候反正要重采样（框转了、缩放了）给 0，只挪整像素。框的镜像与旋转照着框来。
+fn box_shift(geom: &BoxGeom, shift: [f64; 2], buf: (u32, u32), corner: [f64; 2]) -> ([f64; 2], [f64; 2]) {
     let (kx, ky) = (geom.w / f64::from(buf.0.max(1)), geom.h / f64::from(buf.1.max(1)));
     let flip = |v: [f64; 2]| [if geom.flip_x { -v[0] } else { v[0] }, if geom.flip_y { -v[1] } else { v[1] }];
     let (sin, cos) = geom.rotation.to_radians().sin_cos();
@@ -2378,7 +2386,8 @@ fn box_shift(geom: &BoxGeom, shift: [f64; 2], buf: (u32, u32)) -> ([f64; 2], [f6
     if !(screen[0].is_finite() && screen[1].is_finite()) {
         return ([0.0, 0.0], [0.0, 0.0]);
     }
-    let moved = [screen[0].round(), screen[1].round()];
+    let phase = corner.map(|c| if c.is_finite() { c.rem_euclid(1.0) } else { 0.0 });
+    let moved = [(phase[0] + screen[0]).round() - phase[0], (phase[1] + screen[1]).round() - phase[1]];
     let left = [screen[0] - moved[0], screen[1] - moved[1]];
     let back = flip([left[0] * cos + left[1] * sin, -left[0] * sin + left[1] * cos]);
     (moved, [back[0] / kx, back[1] / ky])

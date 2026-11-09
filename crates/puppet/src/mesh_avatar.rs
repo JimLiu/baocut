@@ -16,7 +16,7 @@ use mesh_avatar_core::{Avatar, AvatarOptions, DrawLayer, FaceUniforms, Frame as 
 
 use crate::model::{CANVAS_MAX, CANVAS_MIN};
 use crate::package::{MAX_TEXELS, Texture};
-use crate::raster::{self, Frame, Paint, View};
+use crate::raster::{self, Filter, Frame, Paint, View};
 use crate::{Error, ErrorKind, Params, draw};
 
 /// 表情的权重到这么多才换成它（mesh-avatar 一次只显示一张表情，自己缓动过去）。
@@ -316,6 +316,7 @@ fn draw_frame(
             alpha: l.alpha.min(1.0) as f32,
             mask: None,
             shade: if matches!(kind, Kind::Plain) { None } else { Some(&shade) },
+            filter: Filter::Trilinear,
         };
         raster::draw(&mut frame, view, &l.positions, &l.uvs, &l.indices, edges, &paint);
     }

@@ -4,7 +4,7 @@
 //! 睫毛下滑、眼珠被裁，见 [`Puppet::draw_own_eye`]；没有遮罩的压扁）；表情淡入淡出时它们和补丁先合成一组，再按表情
 //! 的不透明度叠上去。
 
-use crate::raster::{self, Coverage, Frame, Paint, View};
+use crate::raster::{self, Coverage, Filter, Frame, Paint, View};
 use crate::rig::{Layer, Puppet};
 use crate::smooth;
 
@@ -56,6 +56,7 @@ impl Puppet {
                     alpha: alpha as f32,
                     mask,
                     shade: None,
+                    filter: Filter::Supersample,
                 };
                 raster::draw(frame, view, verts.unwrap_or(&l.out), &l.mesh.uv, &l.mesh.tri, &l.mesh.aa, &paint);
             };
@@ -272,6 +273,7 @@ impl Puppet {
                 alpha: alpha as f32,
                 mask: None,
                 shade: None,
+                filter: Filter::Supersample,
             };
             raster::draw(frame, view, &l.out, &m.uv, &m.tri, &m.aa, &paint);
         };
@@ -309,6 +311,7 @@ impl Puppet {
             alpha: 1.0,
             mask: None,
             shade: None,
+            filter: Filter::Supersample,
         };
         raster::draw(&mut sub, sub_view, &l.out, &m.uv, &m.tri, &m.aa, &shut);
         let cov = raster::coverage(w, h, sub_view, &l.out, &m.uv, &m.tri, mask);
@@ -317,6 +320,7 @@ impl Puppet {
             alpha: 1.0,
             mask: Some((&cov, 1.0)),
             shade: None,
+            filter: Filter::Supersample,
         };
         raster::draw_replace(&mut sub, sub_view, open_v, &m.uv, &m.tri, &m.aa, &opened);
         raster::composite_at(frame, &px, bx0 as usize, by0 as usize, w, h, alpha as f32);

@@ -1130,6 +1130,31 @@ fn a_character_boxed_past_the_frame_bottom_can_hop_up() {
     assert_eq!(top(50.0, 0.1), top(50.0, 0.0));
 }
 
+/// 框的左上角不在整像素上时，零头交给角色自己画、框落在整像素上（视频格式规范 §3.7）：画出来和「框在整像素上、
+/// 角色往右挪同样的零头」逐字节相同，画好的角色贴上去时没有再被双线性重采样一遍。
+#[test]
+fn a_character_box_off_the_pixel_grid_is_pasted_without_resampling() {
+    let frame = |x: f64, move_x: f64| {
+        let body = json!({
+            "type": "sticker", "sticker": { "source": "asset" }, "place": { "x": x, "y": 50, "w": 30 },
+            "span": { "fromFrame": 0, "durationFrames": 90 },
+            "assetRef": { "id": "a_host", "revision": "rev_1" },
+            "motionRef": { "id": "a_talk", "revision": "rev_1" },
+        });
+        let video = video(vec![item("host", 0, 90, body)], puppet_assets(), json!({}));
+        let mut media = Media::default();
+        media.assets.insert("a_host".into(), puppet::testing::package_zip());
+        let track = json!({ "format": "baocut-puppet-track", "version": 1, "fps": 30, "duration": 3.0, "offsets": { "moveX": [move_x] } });
+        media.assets.insert("a_talk".into(), serde_json::to_vec(&track).unwrap());
+        render(&video, at(30.0), &mut media)
+    };
+    // 框 48 像素宽：x = 50 时左边在第 56 列；x 往右 0.375 像素（0.234375%）与角色往右 0.375 像素（框宽的 1/128）
+    let off_grid = frame(50.234375, 0.0);
+    assert!(painted(&off_grid) > 300, "painted {}", painted(&off_grid));
+    assert_eq!(off_grid, frame(50.0, 0.375 / 48.0));
+    assert_ne!(off_grid, frame(50.0, 0.0));
+}
+
 #[test]
 fn split_character_halves_meet_at_the_seam() {
     // 整段 [0, 90) 与拆开的两段 [0, 45) + [45, 90)（后一段从角色时钟的 1.5 秒开始、lineage 指向前一段）：

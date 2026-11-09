@@ -838,7 +838,7 @@ interface CompositionItem extends VisualItemBase {
   - 字在帧计划里按整帧求好，写进文字层，预览与导出画同一串。章节改了（`upsertChapter`、`setChapters`、剪口带着章节走）实例不用改：从第 0 帧铺到片尾的一个实例就是随章节换的副标题。
   - 章节文字沿用普通文字的 `style`、`place` 与 `animate`；入场与退场按实例自己的区间播，换章时直接换字，所以同计时一样不能用 `typewriter`、`riseWords`。
 - **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频、Lottie 或分层角色素材。`loop` 只对视频、Lottie 与动图（GIF、APNG）素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 与 APNG 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的动图按自己的总时长循环。APNG 只按 `.apng` 扩展名认（`mediaType` 为 `image/apng`），扩展名是 `.png` 的动画 PNG 记成 `image/png`，按第一帧的静态图画。
-- **角色贴纸**。`assetRef` 指向 `puppet` 素材的素材贴纸是角色贴纸，按[角色格式规范](puppet-format-spec.md) §5 出帧：实例局部时间 `e` 画角色时钟 `motionIn + e` 那一刻，角色按画布等比缩放、居中画进框里。角色的 `moveX` `moveY`（轻跳、动作）挪整个框（按框的方向、镜像与旋转，整像素挪框，不到一像素的余数由角色在框里画），框里的角色不被框边切掉；框伸出画面底边时，半身角色往上最多跳到切口齐着画面底边，框转了或上下翻了时只往下。`loop` 与 `fillOverrides` 不读。
+- **角色贴纸**。`assetRef` 指向 `puppet` 素材的素材贴纸是角色贴纸，按[角色格式规范](puppet-format-spec.md) §5 出帧：实例局部时间 `e` 画角色时钟 `motionIn + e` 那一刻，角色按画布等比缩放、居中画进框里。角色的 `moveX` `moveY`（轻跳、动作）挪整个框（按框的方向、镜像与旋转，整像素挪框，不到一像素的余数由角色在框里画；框没转、没缩放时角色按框的像素大小画好后 1:1 贴上去，框左上角不在整像素上的零头也交给角色画，贴的时候不再重采样），框里的角色不被框边切掉；框伸出画面底边时，半身角色往上最多跳到切口齐着画面底边，框转了或上下翻了时只往下。`loop` 与 `fillOverrides` 不读。
   - `motionRef` 是一个动作轨素材（`kind: 'other'`，`mediaType` 为 `application/x-baocut-puppet-track+json`）；没有时角色只做待机动作。`motionRef` 与 `motionIn` 只能写在角色贴纸上，`motionRef` 指向别的素材时拒绝（`INVALID_OPERATION`）。
   - 待机动作的种子是实例 lineage 的 `originItemId`（没有 lineage 时是实例 ID）的 32 位 FNV-1a 摘要：拆开的各段种子相同，复制出来的实例各不相同。
   - 拆分时右半的 `motionIn` 加上拆分点的局部时间；裁掉开头时加上起点后移的时间，往前拉长时减去；结果为 0 时省略。所以拆开的两段在接缝处接得上（角色格式规范 §5）。合并（`joinItems`）要求靠后那件的 `motionIn` 等于靠前那件的 `motionIn` 加它的长度，否则是 `source-gap`（`details.field: 'motionIn'`）；留下靠前那件的。
