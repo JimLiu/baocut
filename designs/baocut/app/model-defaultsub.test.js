@@ -51,7 +51,7 @@ test('键集与目录涂装逐字段一致——三处共用同一个涂装函�
 
 test('逐字段对着种子（core 的 default_style）', () => {
   const L = DS.LOOK;
-  assert.equal(L.color, '#FFFFFF');
+  assert.equal(L.color, '#FFE14D', '黄字（视频格式规范 §5.6）');
   assert.equal(L.bold, true);
   assert.equal(L.italic, false);
   assert.equal(L.align, 'center');
@@ -119,6 +119,7 @@ test('Shorts 涂装：键集同目录涂装，粗体、描边 ＋ 投影、无�
   assert.equal(L.opacity, 0, '没有底板');
   assert.match(L.activeColor, /^#[0-9A-F]{6}$/);
   assert.notEqual(L.activeColor, L.color);
+  assert.equal(L.color, '#FFFFFF', 'Shorts 仍是白字，念到的词才变黄');
   assert.ok(D.fonts.all.some((f) => f.n === L.font));
 });
 

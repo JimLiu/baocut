@@ -128,21 +128,22 @@ export function lookStyle(look: DesignLook): Json {
   });
 }
 
-/** 经典：新建项目的种子涂装（旧版 `classic_look`，去掉字号 34——字号是落位）。 */
+/** 经典：新建项目的种子涂装（旧版 `classic_look`，去掉字号 34——字号是落位）。黄字 `#FFE14D`（规范 §5.6「默认预设」）。 */
 export const CLASSIC_PAINT: Json = completePaint({
   fontFamily: 'system',
   fontWeight: 700,
   bold: true,
   italic: false,
-  fontColor: '#FFFFFF',
+  fontColor: '#FFE14D',
   backgroundColor: '#000000B3',
   textOutline: { on: true, color: '#000000', width: 14 },
   dropShadow: { on: true, blur: 0.12, distance: 0.08, rotation: 45, color: '#000000', opacity: 0.9 },
 });
 
-/** Shorts：经典之上改字重、行高、描边与投影（旧版 `shorts_look`）。 */
+/** Shorts：经典之上改字重、行高、描边与投影（旧版 `shorts_look`）；仍是白字，念到的词抬起并变黄 `#FFE14D`。 */
 export const SHORTS_PAINT: Json = {
   ...CLASSIC_PAINT,
+  fontColor: '#FFFFFF',
   fontWeight: 800,
   lineHeight: 1.1,
   textOutline: { on: true, color: '#000000', width: 17.5 },

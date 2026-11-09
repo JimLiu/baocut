@@ -354,10 +354,11 @@
     },
     "app/model-defaultsub.js": {
       "#18E1D6": "默认字幕样式（新建项目种下的那一份）的当前词高亮色，是**画进视频画面**的内容色，不是 S2 表面。这份涂装与核心的种子逐字段一致（`bcut-workspace::studio::projection::default_style` 的 `wordAnimation.active.color`），换成 token 那张卡就不是那张卡了——同 app/model-subpresets.js / app/model-textpresets.js 那一条。",
-      "#FFE14D": "内置「Shorts」字幕样式的当前词高亮色（念到的词变成的强调色），是**画进视频画面**的内容色，不是 S2 表面——同本文件 #18E1D6 那一条。"
+      "#FFE14D": "默认字幕样式（经典）的字色，也是内置「Shorts」字幕样式的当前词高亮色（念到的词变成的强调色），是**画进视频画面**的内容色，不是 S2 表面——同本文件 #18E1D6 那一条。"
     },
     "app/model-defaultsub.test.js": {
-      "#18E1D6": "默认字幕样式（新建项目种下的那一份）的当前词高亮色，是**画进视频画面**的内容色，不是 S2 表面。这份涂装与核心的种子逐字段一致（`bcut-workspace::studio::projection::default_style` 的 `wordAnimation.active.color`），换成 token 那张卡就不是那张卡了——同 app/model-subpresets.js / app/model-textpresets.js 那一条。 单测逐字段对着种子钉这份涂装，同一个值在这里再出现一次。"
+      "#18E1D6": "默认字幕样式（新建项目种下的那一份）的当前词高亮色，是**画进视频画面**的内容色，不是 S2 表面。这份涂装与核心的种子逐字段一致（`bcut-workspace::studio::projection::default_style` 的 `wordAnimation.active.color`），换成 token 那张卡就不是那张卡了——同 app/model-subpresets.js / app/model-textpresets.js 那一条。 单测逐字段对着种子钉这份涂装，同一个值在这里再出现一次。",
+      "#FFE14D": "默认字幕样式（经典）的字色（视频格式规范 §5.6「默认预设」），是**画进视频画面**的内容色，不是 S2 表面。单测逐字段对着种子钉这份涂装，同一个值在这里再出现一次——同本文件 #18E1D6 那一条。"
     },
     "app/model-wordanim.js": {
       "#131313": "word-animation frame table — ink colour drawn on a highlight chip inside the exported video frame",

@@ -420,14 +420,14 @@ describe.skipIf(!ready)('建字幕层工具（真实引擎）', () => {
     const readStyle = async () => (await tool(session, 'documents_read', { video: videoPath, documentId: styleId })).body.body;
     const first = await readStyle();
     expect(first.schema).toBe('baocut.legacy-studio-style/0.1');
-    // 补丁之外照默认样式：描边只关开关、颜色与粗细留着，白字与标点投影不变。
+    // 补丁之外照默认样式：描边只关开关、颜色与粗细留着，黄字与标点投影不变。
     expect(first.style).toMatchObject({
       y: 75,
       verticalAlign: 'bottom',
       width: 84,
       background: true,
       textOutline: { on: false, color: '#000000', width: 14 },
-      fontColor: '#FFFFFF',
+      fontColor: '#FFE14D',
       punct: true,
     });
 
