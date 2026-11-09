@@ -55,6 +55,6 @@ it('损坏的持久化字段不带入字幕内容或非有限数值', async () =
 it('单语原文的外观修改也单独记住，不染到下次的译文', () => {
   const before = asObject(DEFAULT_CAPTION_STYLE.style);
   useCaptionPreferences.getState().remember(before, { ...before, fontColor: '#FF0000', fontSize: 40 }, 'original');
-  expect(newCaptionStyle().style).toMatchObject({ fontColor: '#FFE14D', origStyle: { fontColor: '#FF0000', fontSize: 40 } });
+  expect(newCaptionStyle().style).toMatchObject({ fontColor: '#FFFFFF', origStyle: { fontColor: '#FF0000', fontSize: 40 } });
   expect(asObject(newCaptionStyle().style)).not.toHaveProperty('transStyle');
 });

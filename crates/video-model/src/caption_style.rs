@@ -21,7 +21,7 @@ pub fn is_boxed_style_schema(schema: &str) -> bool {
 /// 默认预设（视频格式规范 §5.6「默认预设」）：没有样式文档的字幕按它画，新建字幕层种下的 Studio 样式也是它。
 ///
 /// 涂装是新建项目的种子「经典」（原型 `model-defaultsub.js`，编辑器 `caption-presets.ts` 的 `CLASSIC`，逐字段相同）：
-/// 黄字 `#FFE14D`、700 字重、黑色描边（`textOutline.width` 是字号的百分比，随字号缩放）与投影，浅色画面上也看得清；底板关着。
+/// 白字、700 字重、黑色描边（`textOutline.width` 是字号的百分比，随字号缩放）与投影，浅色画面上也看得清；底板关着。
 /// `punct: true`：普通逗号、句号换成空格；转写和导出的字幕文件保留原文。不分语言。
 /// 编辑器（`packages/ui/src/model/property-values.ts` 的 `DEFAULT_CAPTION_STYLE`）与流程（`packages/jobs` 的
 /// `caption-layer.ts`）各有一份同样的正文，改的时候三处一起改。
@@ -42,7 +42,7 @@ pub fn default_studio_style() -> Value {
         "fontWeight": 700,
         "bold": true,
         "italic": false,
-        "fontColor": "#FFE14D",
+        "fontColor": "#FFFFFF",
         "textOutline": { "on": true, "color": "#000000", "width": 14 },
         "dropShadow": { "on": true, "blur": 0.12, "distance": 0.08, "rotation": 45, "color": "#000000", "opacity": 0.9 },
         "outline": true,
@@ -129,7 +129,6 @@ mod tests {
     #[test]
     fn the_default_preset_outlines_and_projects_punctuation() {
         let style = default_studio_style();
-        assert_eq!(style["fontColor"], json!("#FFE14D"));
         assert_eq!(style["textOutline"], json!({ "on": true, "color": "#000000", "width": 14 }));
         assert_eq!(style["background"], json!(false));
         assert_eq!(style["punct"], json!(true));

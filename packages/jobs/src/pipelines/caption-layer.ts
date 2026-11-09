@@ -89,7 +89,7 @@ export const DEFAULT_CAPTION_STYLE_BODY: Json = {
     fontWeight: 700,
     bold: true,
     italic: false,
-    fontColor: '#FFE14D',
+    fontColor: '#FFFFFF',
     textOutline: { on: true, color: '#000000', width: 14 },
     dropShadow: { on: true, blur: 0.12, distance: 0.08, rotation: 45, color: '#000000', opacity: 0.9 },
     outline: true,

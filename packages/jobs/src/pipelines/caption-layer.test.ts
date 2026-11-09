@@ -367,10 +367,10 @@ describe('planCaptionLayer：智能体的 captions_create', () => {
     const seq = sequence([video('a', 0, 90), caption('o1', 's1', 'orig')], tracks);
     const created = await plan(seq, translation(true));
     expect(types(created)).toEqual(['addTrack', 'putDocument', 'putDocument', 'setCaptionStyle', 'insertItems']);
-    // 新建的样式是默认预设（规范 §5.6）：经典涂装（黄字、黑色描边、投影），普通逗号句号换成空格。
+    // 新建的样式是默认预设（规范 §5.6）：经典涂装（黑色描边、投影），普通逗号句号换成空格。
     expect(created.operations[2]).toMatchObject({ kind: 'caption-style', body: DEFAULT_CAPTION_STYLE_BODY });
     expect(DEFAULT_CAPTION_STYLE_BODY.style).toMatchObject({
-      fontColor: '#FFE14D',
+      fontColor: '#FFFFFF',
       textOutline: { on: true, color: '#000000', width: 14 },
       background: false,
       wordAnimation: { catalogId: 'colourHighlight', active: { color: '#18E1D6' } },

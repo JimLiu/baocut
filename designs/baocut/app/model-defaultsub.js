@@ -39,8 +39,7 @@
     weight: 400,
     bold: true,
     italic: false,
-    // 黄字（视频格式规范 §5.6「默认预设」）；当前词仍是青色 `activeColor`
-    color: '#FFE14D',
+    color: '#FFFFFF',
     align: 'center',
     lh: 120,
     spacing: 0,
@@ -70,8 +69,6 @@
      不在涂装里——涂装会被原样抄到译文轨上，落位要按画面上有几条轨一起算
      （`BC_SHORTS.captionLayout`，卡上的 `layout: 'shorts'` 是记号，`stagePreset` 见到就落）。 */
   const SHORTS_LOOK = Object.assign({}, LOOK, {
-    // 经典是黄字；Shorts 仍是白字，念到的词才变黄
-    color: '#FFFFFF',
     weight: 800,
     lh: 110,
     outlineW: 14,

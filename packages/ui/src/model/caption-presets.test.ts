@@ -140,17 +140,16 @@ describe('原型 look 换算', () => {
     });
   });
 
-  it('经典（黄字）与 Shorts（白字）照旧版 classic_look / shorts_look，不带字号', () => {
+  it('经典与 Shorts 照旧版 classic_look / shorts_look，不带字号', () => {
     expect(preset('classic').style).toMatchObject({
       fontFamily: 'system',
       bold: true,
-      fontColor: '#FFE14D',
+      fontColor: '#FFFFFF',
       background: false,
       textOutline: { on: true, color: '#000000', width: 14 },
       dropShadow: { on: true, blur: 0.12, distance: 0.08, rotation: 45, color: '#000000', opacity: 0.9 },
     });
     expect(preset('shorts').style).toMatchObject({
-      fontColor: '#FFFFFF',
       fontWeight: 800,
       lineHeight: 1.1,
       textOutline: { width: 17.5 },

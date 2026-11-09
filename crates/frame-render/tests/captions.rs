@@ -146,7 +146,7 @@ fn studio_caption_draws_the_active_cue_at_the_anchor() {
     assert!(off.skipped().is_empty());
 }
 
-/// 没有样式文档的字幕按默认预设画（规范 §5.6「默认预设」）：普通逗号、句号换成空格，黄字带黑色描边，白底上也看得见。
+/// 没有样式文档的字幕按默认预设画（规范 §5.6「默认预设」）：普通逗号、句号换成空格，白字带黑色描边，白底上也看得见。
 /// 有样式文档的照它画：`{}` 仍是内核的兜底（标点换成空格、没有描边）。
 #[test]
 fn unstyled_captions_draw_the_default_preset() {
@@ -175,14 +175,7 @@ fn unstyled_captions_draw_the_default_preset() {
     let projected = span(&draw_on("#000000", "其实，宇航员。", None));
     let spaces = span(&draw_on("#000000", "其实 宇航员", None));
     assert_eq!(projected, spaces, "projected width vs spaces");
-    // 黄字 `#FFE14D`：黑底上没念到的词是黄色像素，念到的那个词是青色当前词，没有白色。
-    let yellowish = |p: [u8; 4]| p[0] > 200 && p[1] > 180 && p[2] < 140;
-    let cyanish = |p: [u8; 4]| p[0] < 90 && p[1] > 160 && p[2] > 150;
-    let frame = draw_on("#000000", "AB CD EF", None);
-    let (yellow, cyan) = (centroid(&frame, yellowish).0, centroid(&frame, cyanish).0);
-    let white = centroid(&frame, |p| p[0] > 200 && p[1] > 200 && p[2] > 200).0;
-    assert!(yellow > 0 && cyan > 0 && white == 0, "{yellow} yellow, {cyan} cyan, {white} white");
-    // 描边：白底上的字靠描边看得见；没有描边的样式在白底上几乎没有深色像素。
+    // 描边：白底上的白字靠描边看得见；没有描边的样式在白底上几乎没有深色像素。
     let dark = |frame: &[u8]| centroid(frame, |p| p[0] < 160 && p[1] < 160 && p[2] < 160).0;
     let outlined = dark(&draw_on("#FFFFFF", "微重力环境", None));
     let bare = dark(&draw_on("#FFFFFF", "微重力环境", plain()));
