@@ -6,7 +6,7 @@ use frame_render::{Documents, FrameRenderer, RenderOptions};
 use preview_wasm::{
     add_font, bc_alloc, bc_frame_len, bc_frame_ptr, bc_free, bc_measure_text, bc_output_len, bc_output_ptr, bc_plan, bc_render,
     bc_set_video, bc_spectrum_begin, bc_spectrum_finish, bc_spectrum_push, clear_audio_spectra, clear_pictures, font_files, frame, plan,
-    render, set_audio_spectrum, set_picture, set_speech, set_video, spectrum_push,
+    keep_picture, render, set_audio_spectrum, set_picture, set_speech, set_video, spectrum_push,
 };
 use serde_json::{Value, json};
 
@@ -114,6 +114,17 @@ fn frames_render_through_the_same_core_with_injected_fonts_and_pictures() {
             .all(|p| p[0] >= 250 && p[1] == 0 && p[2] == 0),
         "非预乘"
     );
+    // 下一帧接着用上一帧送进来的那一份：画出来一样。只接得上上一帧送过的键，接过就不在上一帧里了；隔一帧没送的接不上。
+    let logo = frame().to_vec();
+    clear_pictures();
+    assert!(keep_picture("item_logo"));
+    assert!(!keep_picture("item_logo"));
+    assert!(!keep_picture("item_missing"));
+    assert_eq!(bc_render(1.5, 160, 90, 3), 0);
+    assert_eq!(frame().to_vec(), logo);
+    clear_pictures();
+    clear_pictures();
+    assert!(!keep_picture("item_logo"));
     // 再画不透明的一帧，画面回到渲染器自己的。
     assert_eq!(bc_render(1.5, 160, 90, 1), 0);
     assert!(frame().chunks_exact(4).all(|p| p[3] == 255));

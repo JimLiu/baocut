@@ -17,6 +17,7 @@ interface PreviewExports {
   bc_set_speech(ptr: number, len: number): number;
   bc_set_picture(keyPtr: number, keyLen: number, ptr: number, len: number, width: number, height: number): number;
   bc_clear_pictures(): void;
+  bc_keep_picture(keyPtr: number, keyLen: number): number;
   bc_set_asset(keyPtr: number, keyLen: number, ptr: number, len: number): void;
   bc_set_spectrum(keyPtr: number, keyLen: number, ptr: number, len: number): void;
   bc_clear_spectra(): void;
@@ -298,6 +299,15 @@ export class RenderPlanner {
   /** 清掉上一帧送进来的画面。 */
   clearPictures(): void {
     this.#call((exports) => (exports.bc_clear_pictures(), 0));
+  }
+
+  /**
+   * 清掉之后接着用上一帧送进来的这个实例的画面（同一份，不再送、不再预乘；内核按这块画面缓存的缩小结果也接着用）。
+   * 上一帧没送过它（或 WASM 重启过）时返回 false，调用方照常 {@link setPicture}。
+   */
+  keepPicture(itemId: Id): boolean {
+    const key = encoder.encode(itemId);
+    return this.#call((exports) => withBytes(exports, key, (keyPtr, keyLen) => exports.bc_keep_picture(keyPtr, keyLen))) === 'true';
   }
 
   /** 素材的原始字节（Lottie 要读）。 */

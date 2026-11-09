@@ -136,12 +136,17 @@ pub struct RenderOptions {
     pub captions: bool,
 }
 
+/// 层里非零像素的外包框：`(left, top, right, bottom)`，像素、右下开区间。
+type ContentRect = (usize, usize, usize, usize);
+
 /// 画好的一层：与输出等大的透明层，与它的框（转场按框画；模板层没有框）。
 struct DrawnLayer {
     pixmap: Pixmap,
     geom: Option<BoxGeom>,
     /// 确知整幅不透明（宿主声明不透明的画面原样贴满了这一层）：叠的时候不用再扫一遍 alpha。
     opaque: bool,
+    /// 确知非零像素都在这个框里（内核给的媒体元素外包框，`RenderedOverlayFrame::bounds`）：叠的时候只看框里。
+    bounds: Option<ContentRect>,
 }
 
 /// 渲染器排出来的文字实例块框（序列画布像素），绕块中心旋转；与 [`CaptionHit`] 同一套口径。
@@ -596,7 +601,7 @@ impl FrameRenderer {
                 continue;
             };
             let Some(tr) = transition else {
-                self.composite(own.pixmap, own.opaque);
+                self.composite(own.pixmap, own.opaque, own.bounds);
                 continue;
             };
             let partner = match tr.partner.as_deref() {
@@ -616,7 +621,7 @@ impl FrameRenderer {
             };
             let mut out = Pixmap::new(self.options.width, self.options.height).expect("尺寸在构造时检查过");
             compose(&tr.kind, &tr.params, a.map(|l| &l.pixmap), Some(&b.pixmap), b.geom, e, &mut out);
-            self.composite(out, false);
+            self.composite(out, false, None);
         }
         self.paint_background();
         Ok(self.frame.data())
@@ -648,8 +653,8 @@ impl FrameRenderer {
 
     /// 把一层叠到帧上。帧上还只有没铺的底、这一层又整幅不透明时，叠出来就是这一层本身：直接接管它，省掉铺底与整帧拷贝
     /// （导出每帧的整幅视频）。用完的那一幅（接管时是原来的帧，否则是这一层）还给内核当下一层的画布。
-    /// `opaque` 是调用方确知这一层整幅不透明，省一遍整幅扫描。
-    fn composite(&mut self, layer: Pixmap, opaque: bool) {
+    /// `opaque` 是调用方确知这一层整幅不透明，省一遍整幅扫描；`bounds` 是调用方确知的非零像素外包框，叠的时候只看框里。
+    fn composite(&mut self, layer: Pixmap, opaque: bool, bounds: Option<ContentRect>) {
         if self.background.is_some()
             && (layer.width(), layer.height()) == (self.frame.width(), self.frame.height())
             && (opaque || render_raster::raster::is_opaque(layer.data()))
@@ -661,7 +666,7 @@ impl FrameRenderer {
             return;
         }
         self.paint_background();
-        if !over(&mut self.frame, &layer, self.frame_plain) {
+        if !over(&mut self.frame, &layer, self.frame_plain, bounds) {
             self.frame_plain = false;
         }
         self.recycle(layer);
@@ -728,6 +733,7 @@ impl FrameRenderer {
                 pixmap,
                 geom: None,
                 opaque: false,
+                bounds: None,
             }));
         }
         let Some(item) = context.items.get(layer.item_id.as_str()).copied() else {
@@ -891,13 +897,17 @@ impl FrameRenderer {
         }
 
         let has_source = injected.is_some();
-        let (mut pixmap, opaque) = self.render_element(context, &mut element, injected, opaque_source, eval, &layer.item_id)?;
+        let (mut pixmap, opaque, mut bounds) =
+            self.render_element(context, &mut element, injected, opaque_source, eval, &layer.item_id)?;
         if let Some(fx) = &fx {
+            // 作用在整层上的效果（光晕、阴影会往框外画）之后框不再确知。
             if !has_source {
                 apply_to_source(fx, &mut pixmap, short_edge);
+                bounds = None;
             }
             if needs_layer_pass(fx) {
                 apply_to_layer(fx, &mut pixmap, short_edge).map_err(RenderError::render)?;
+                bounds = None;
             }
         }
         element.keyframe_place(eval);
@@ -906,12 +916,13 @@ impl FrameRenderer {
             pixmap,
             geom: Some(geom),
             opaque,
+            bounds,
         }))
     }
 
     /// 用内核把一个元素画成整幅画布大小的一层。`source` 是注入的源画面（视频、图片、Lottie 的一帧），内核按 `element.id`
     /// 取它。
-    /// 画一个实例，连同这一层是否确知整幅不透明。`opaque_source`：`source` 确知整幅不透明。
+    /// 画一个实例，连同这一层是否确知整幅不透明、确知的非零像素外包框。`opaque_source`：`source` 确知整幅不透明。
     fn render_element(
         &mut self,
         context: &SequenceContext,
@@ -920,7 +931,7 @@ impl FrameRenderer {
         opaque_source: bool,
         eval: f64,
         item_id: &str,
-    ) -> Result<(Pixmap, bool), RenderError> {
+    ) -> Result<(Pixmap, bool, Option<ContentRect>), RenderError> {
         let size = (self.options.width, self.options.height);
         let duration = context.duration;
         let fps = context.fps;
@@ -981,7 +992,7 @@ impl FrameRenderer {
             IntSize::from_wh(size.0, size.1).ok_or_else(|| RenderError::new("INVALID_PARAMS", "输出尺寸不可用"))?,
         )
         .ok_or_else(|| RenderError::new("EXPORT_RENDER_FAILED", "内核画出的层尺寸不对"))?;
-        Ok((pixmap, rendered.opaque))
+        Ok((pixmap, rendered.opaque, rendered.bounds))
     }
 
     /// 分屏视频（格式规范 §3.5）：每一格把源画面里自己的那块（帧计划的 `sourceRect`，已含裁剪）按画中画摆进格子，各格叠成
@@ -1026,8 +1037,8 @@ impl FrameRenderer {
                 opacity: element.place.opacity,
                 ..Default::default()
             };
-            let (pixmap, _) = self.render_element(context, &mut cell, Some(source), false, eval, &layer.item_id)?;
-            over(&mut out, &pixmap, false);
+            let (pixmap, _, bounds) = self.render_element(context, &mut cell, Some(source), false, eval, &layer.item_id)?;
+            over(&mut out, &pixmap, false, bounds);
             self.recycle(pixmap);
         }
         if let Some(fx) = fx
@@ -1048,6 +1059,7 @@ impl FrameRenderer {
             pixmap: out,
             geom: Some(geom),
             opaque: false,
+            bounds: None,
         })
     }
 
@@ -2069,7 +2081,24 @@ fn without(fx: &Fx, skipped: &HashSet<String>) -> Fx {
 
 /// 把一层叠到 `target` 上。`plain` 是调用方确知 `target` 没有发光分量（省一遍整幅扫描）。返回 true 时只照拷了不透明像素：
 /// `target` 原来没有发光分量，叠完也没有。
-fn over(target: &mut Pixmap, layer: &Pixmap, plain: bool) -> bool {
+fn over(target: &mut Pixmap, layer: &Pixmap, plain: bool, bounds: Option<ContentRect>) -> bool {
+    // 知道非零像素都在哪个框里（一个媒体元素的层）：下面每一步都只看框里，与整幅逐字节相同（框外全零：不透明照拷
+    // 时不动、没有发光分量、src-over 不改底下）。
+    if let Some(rect) = bounds {
+        if render_raster::raster::copy_over_within(target, layer.as_ref(), rect) {
+            return true;
+        }
+        if render_raster::emissive::has_emissive_components_within(layer.data(), layer.width() as usize, rect)
+            || (!plain && render_raster::emissive::has_emissive_components(target.data()))
+        {
+            render_raster::emissive::composite_associated(target, layer.as_ref(), 1.0, [1., 0., 0., 1., 0., 0.], None)
+                .expect("identity associated composition uses valid surfaces");
+            return false;
+        }
+        if render_raster::plan::composite_bounded_rect(target, layer.as_ref(), rect, 1.0, BlendMode::SourceOver).is_some() {
+            return false;
+        }
+    }
     // 整幅不透明的层（整幅视频）原样拷过去：只有不透明与全零像素时，发光的叠法也是不透明的照拷、全零的不动，
     // 先走这条就不必为发光把两幅图整幅扫一遍（导出每帧都要叠整幅视频）。
     if render_raster::raster::copy_over(target, layer.as_ref(), Transform::identity()) {

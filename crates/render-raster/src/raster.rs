@@ -268,6 +268,57 @@ pub fn is_opaque(data: &[u8]) -> bool {
 /// 视频帧整幅不透明：整幅视频层（预览画的与导出画的）由此省掉逐像素的浮点管线（Pattern 着色器只有 highp 实现）。
 /// 全零的行按整行与零比较，透明的大片几乎不花时间。
 pub fn copy_over(out: &mut Pixmap, src: PixmapRef, transform: Transform) -> bool {
+    let Some((dx, dy)) = integer_translate(transform) else {
+        return false;
+    };
+    let Some(span) = overlap(out, src, (dx, dy), (0, 0, src.width() as usize, src.height() as usize)) else {
+        return false;
+    };
+    copy_opaque_rows(out, src, (dx, dy), span)
+}
+
+/// [`copy_over`] 的恒等版，只看 `src` 里 `(left, top, right, bottom)` 那一块（像素、右下开区间）：调用方确知框外的
+/// 像素全零（元素层只在自己的框里有像素），框外的行列不必再与零比较。与整幅的 [`copy_over`] 逐字节相同、返回值也相同；
+/// 框是空的（整层全零）时什么都不用画，返回 true。
+pub fn copy_over_within(
+    out: &mut Pixmap,
+    src: PixmapRef,
+    (left, top, right, bottom): (usize, usize, usize, usize),
+) -> bool {
+    match overlap(out, src, (0, 0), (left, top, right, bottom)) {
+        Some(span) => copy_opaque_rows(out, src, (0, 0), span),
+        None => true,
+    }
+}
+
+/// `out` 全零时 `out.draw_pixmap(0, 0, src, &PixmapPaint { opacity: 1.0, blend_mode: SourceOver, quality: 任意 }, transform, None)`
+/// 的捷径：`transform` 是整数平移（含恒等）时 tiny-skia 按最近邻取，src-over 叠到全零上就是原样拷贝（预乘不合法的
+/// 像素也照拷），于是逐行拷贝盖到的那一块，不走逐像素的浮点管线。不是整数平移时返回 false、不动 `out`。
+///
+/// 调用方保证 `out` 全零（刚新建的画布）。角色贴纸按框画好后整像素贴上去，每帧都走这条
+/// （`copy_over_tests::copy_onto_clear_matches_draw_pixmap` 与 `draw_pixmap` 对拍）。
+pub fn copy_onto_clear(out: &mut Pixmap, src: PixmapRef, transform: Transform) -> bool {
+    let Some((dx, dy)) = integer_translate(transform) else {
+        return false;
+    };
+    let Some((x0, y0, x1, y1)) = overlap(out, src, (dx, dy), (0, 0, src.width() as usize, src.height() as usize))
+    else {
+        return true;
+    };
+    let (src_w, out_w) = (i64::from(src.width()), i64::from(out.width()));
+    let width = ((x1 - x0) * 4) as usize;
+    let src_data = src.data();
+    let out_data = out.data_mut();
+    for y in y0..y1 {
+        let from = (((y - dy) * src_w + (x0 - dx)) * 4) as usize;
+        let to = ((y * out_w + x0) * 4) as usize;
+        out_data[to..to + width].copy_from_slice(&src_data[from..from + width]);
+    }
+    true
+}
+
+/// 整数平移（含恒等）的平移量；别的变换为 `None`。NaN 与无穷的 fract 是 NaN，不等于 0。
+fn integer_translate(transform: Transform) -> Option<(i64, i64)> {
     let Transform {
         sx,
         kx,
@@ -276,18 +327,35 @@ pub fn copy_over(out: &mut Pixmap, src: PixmapRef, transform: Transform) -> bool
         tx,
         ty,
     } = transform;
-    // NaN 与无穷的 fract 是 NaN，不等于 0。
-    if sx != 1.0 || sy != 1.0 || kx != 0.0 || ky != 0.0 || tx.fract() != 0.0 || ty.fract() != 0.0 {
-        return false;
-    }
-    let (dx, dy) = (tx as i64, ty as i64);
-    let (src_w, src_h) = (i64::from(src.width()), i64::from(src.height()));
-    let (out_w, out_h) = (i64::from(out.width()), i64::from(out.height()));
-    let (x0, x1) = (dx.max(0), (dx + src_w).min(out_w));
-    let (y0, y1) = (dy.max(0), (dy + src_h).min(out_h));
-    if x0 >= x1 || y0 >= y1 {
-        return false;
-    }
+    (sx == 1.0 && sy == 1.0 && kx == 0.0 && ky == 0.0 && tx.fract() == 0.0 && ty.fract() == 0.0)
+        .then_some((tx as i64, ty as i64))
+}
+
+/// `src` 里 `(left, top, right, bottom)` 那一块平移 `(dx, dy)` 后落在 `out` 上的部分（`out` 坐标，右下开区间）；
+/// 落不到为 `None`。
+fn overlap(
+    out: &Pixmap,
+    src: PixmapRef,
+    (dx, dy): (i64, i64),
+    (left, top, right, bottom): (usize, usize, usize, usize),
+) -> Option<(i64, i64, i64, i64)> {
+    let right = right.min(src.width() as usize) as i64;
+    let bottom = bottom.min(src.height() as usize) as i64;
+    let (x0, x1) = ((dx + left as i64).max(0), (dx + right).min(i64::from(out.width())));
+    let (y0, y1) = ((dy + top as i64).max(0), (dy + bottom).min(i64::from(out.height())));
+    (x0 < x1 && y0 < y1).then_some((x0, y0, x1, y1))
+}
+
+/// [`copy_over`] 的实体：`src` 平移 `(dx, dy)` 后盖到 `out` 上 `(x0, y0, x1, y1)` 那一块，只有不透明与全零像素时
+/// 拷过去、返回 true；有别的像素时什么都不改、返回 false。
+fn copy_opaque_rows(
+    out: &mut Pixmap,
+    src: PixmapRef,
+    (dx, dy): (i64, i64),
+    (x0, y0, x1, y1): (i64, i64, i64, i64),
+) -> bool {
+    let src_w = i64::from(src.width());
+    let out_w = i64::from(out.width());
     let src_data = src.data();
     let row_of = |y: i64| {
         let start = (((y - dy) * src_w + (x0 - dx)) * 4) as usize;
@@ -668,8 +736,36 @@ pub fn opaque_cover(
     height: u32,
     media: &mut (impl FrameMedia + ?Sized),
 ) -> Option<Arc<Pixmap>> {
+    let (_, picture) = sole_picture(frame, width, height, media)?;
+    media.is_known_opaque(&picture).then_some(picture)
+}
+
+/// 指令流画出来是不是就是一幅与画布同尺寸的画面的字节：清屏加一条恒等的整幅 `DrawMedia`，而且清屏是透明的（画实例的
+/// 内核给一个元素画的一层：中间层已经按元素的位置画好），或者那幅画面确知不透明（[`opaque_cover`]，盖满清屏的颜色）。
+/// 恒等变换下 tiny-skia 按最近邻取，src-over 到全零上原样写回每个字节（不合法的预乘像素也一样，见
+/// `sole_cover_tests`），所以照拷就与照常光栅逐字节相同，省掉一遍整幅的浮点管线。
+pub fn sole_cover(
+    frame: &FrameOps,
+    width: u32,
+    height: u32,
+    media: &mut (impl FrameMedia + ?Sized),
+) -> Option<Arc<Pixmap>> {
+    let (clear, picture) = sole_picture(frame, width, height, media)?;
+    // 透明清屏预乘后是全零（alpha 不大于 0；NaN 不算）。
+    let transparent = clear[3] <= 0.0 && !clear.iter().any(|c| c.is_nan());
+    (transparent || media.is_known_opaque(&picture)).then_some(picture)
+}
+
+/// [`sole_cover`] 与 [`opaque_cover`] 的形状：清屏加一条恒等、整幅源、不指定媒体时刻的 `DrawMedia`，没有静态前缀，
+/// 那幅画面与画布同尺寸。返回清屏的颜色与那幅画面。
+fn sole_picture(
+    frame: &FrameOps,
+    width: u32,
+    height: u32,
+    media: &mut (impl FrameMedia + ?Sized),
+) -> Option<([f32; 4], Arc<Pixmap>)> {
     let [
-        DrawOp::Clear { .. },
+        DrawOp::Clear { color },
         DrawOp::DrawMedia {
             asset,
             media_ms,
@@ -690,8 +786,7 @@ pub fn opaque_cover(
     }
     let id = frame.strings.get(*asset as usize)?;
     let picture = media.frame_for_target(id, *media_ms, None).ok()?;
-    ((picture.width(), picture.height()) == (width, height) && media.is_known_opaque(&picture))
-        .then_some(picture)
+    ((picture.width(), picture.height()) == (width, height)).then_some((*color, picture))
 }
 
 /// 同 [`rasterize_with_media`]，画在调用方给的旧画布 `canvas` 上（用过的，内容不要紧；尺寸不对时不用），
@@ -704,7 +799,7 @@ pub fn rasterize_with_media_into(
     canvas: Option<Pixmap>,
     media: &mut (impl FrameMedia + ?Sized),
 ) -> Result<Pixmap> {
-    if let Some(picture) = opaque_cover(frame, width, height, media) {
+    if let Some(picture) = sole_cover(frame, width, height, media) {
         return Ok(
             match canvas.filter(|canvas| (canvas.width(), canvas.height()) == (width, height)) {
                 Some(mut canvas) => {
@@ -1581,6 +1676,59 @@ mod opaque_cover_tests {
         };
         assert!(opaque_cover(&cover(), W, H, &mut smaller).is_none());
     }
+
+    /// 透明清屏加一条恒等的整幅贴图，画面有半透明、全零与不合法的预乘像素（颜色大于 alpha）时，照拷与 tiny-skia
+    /// 照常画到全零的画布上逐字节相同，画布是新的还是脏的都一样。清屏不透明时只有确知不透明的画面才照拷。
+    #[test]
+    fn a_transparent_clear_and_one_identity_picture_is_the_picture() {
+        let (width, height) = (61, 17);
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        let mut next = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 24) as u8
+        };
+        let mut picture = Pixmap::new(width, height).unwrap();
+        for (index, pixel) in picture.data_mut().chunks_exact_mut(4).enumerate() {
+            let alpha = [0, 255, next()][index % 3];
+            pixel.copy_from_slice(&[next(), next(), next(), alpha]);
+        }
+        picture.data_mut()[..8].fill(0);
+        let mut expected = Pixmap::new(width, height).unwrap();
+        expected.draw_pixmap(
+            0,
+            0,
+            picture.as_ref(),
+            &PixmapPaint {
+                quality: FilterQuality::Bilinear,
+                ..Default::default()
+            },
+            Transform::identity(),
+            None,
+        );
+        assert_eq!(expected.data(), picture.data());
+        let mut media = Media {
+            picture: Arc::new(picture),
+            known: false,
+        };
+        assert!(sole_cover(&cover(), width, height, &mut media).is_some());
+        let mut dirty = Pixmap::new(width, height).unwrap();
+        dirty.data_mut().fill(0x5A);
+        for canvas in [None, Some(dirty)] {
+            let drawn = rasterize_with_media_into(&cover(), width, height, canvas, &mut media).unwrap();
+            assert_eq!(drawn.data(), expected.data());
+        }
+        let grey = ops(vec![
+            DrawOp::Clear {
+                color: [0.5, 0.5, 0.5, 1.0],
+            },
+            draw(-1, [0.0; 4], IDENTITY),
+        ]);
+        assert!(sole_cover(&grey, width, height, &mut media).is_none());
+        media.known = true;
+        assert!(sole_cover(&grey, width, height, &mut media).is_some());
+    }
 }
 
 #[cfg(test)]
@@ -1706,6 +1854,104 @@ mod copy_over_tests {
         check(&soft, Transform::identity(), false);
         let invalid = pixmap(8, 8, |x, _| if x == 3 { [9, 0, 0, 0] } else { [0; 4] });
         check(&invalid, Transform::identity(), false);
+    }
+
+    /// 框外全零的层：只看框的 [`copy_over_within`] 与整幅的 [`copy_over`] 结果、返回值都相同；框比内容大、
+    /// 超出画面都不要紧。整层全零（框是空的）时什么都不画，返回 true。
+    #[test]
+    fn copy_over_within_matches_copy_over() {
+        let mut bytes = Bytes(7);
+        let (width, height) = (37u32, 23u32);
+        let content = (6usize, 4usize, 29usize, 17usize);
+        let inside = |x: u32, y: u32| {
+            (content.0..content.2).contains(&(x as usize)) && (content.1..content.3).contains(&(y as usize))
+        };
+        let opaque_block = pixmap(width, height, |x, y| if inside(x, y) { pixel(&mut bytes, 255) } else { [0; 4] });
+        let speckled = pixmap(width, height, |x, y| {
+            if inside(x, y) && (x + y) % 3 != 0 { pixel(&mut bytes, 255) } else { [0; 4] }
+        });
+        let soft = pixmap(width, height, |x, y| {
+            if inside(x, y) {
+                let alpha = bytes.next();
+                pixel(&mut bytes, alpha)
+            } else {
+                [0; 4]
+            }
+        });
+        let empty = Pixmap::new(width, height).unwrap();
+        let base = pixmap(width, height, |_, _| {
+            let alpha = bytes.next();
+            pixel(&mut bytes, alpha)
+        });
+        for layer in [&opaque_block, &speckled, &soft] {
+            let mut whole = base.clone();
+            let expected = copy_over(&mut whole, layer.as_ref(), Transform::identity());
+            for rect in [content, (0, 0, width as usize, height as usize), (5, 2, 30, 20), (6, 4, 500, 900)] {
+                let mut bounded = base.clone();
+                assert_eq!(copy_over_within(&mut bounded, layer.as_ref(), rect), expected, "{rect:?}");
+                assert!(bounded.data() == whole.data(), "{rect:?}");
+            }
+        }
+        let mut whole = base.clone();
+        assert!(copy_over(&mut whole, empty.as_ref(), Transform::identity()));
+        for rect in [(0, 0, 0, 0), (9, 9, 9, 12), (40, 0, 50, 5)] {
+            let mut bounded = base.clone();
+            assert!(copy_over_within(&mut bounded, empty.as_ref(), rect), "{rect:?}");
+            assert!(bounded.data() == base.data(), "{rect:?}");
+        }
+    }
+
+    /// 全零的画布上：整数平移时 [`copy_onto_clear`] 与两种滤波的 `draw_pixmap` 逐字节相同（随机字节，含预乘不合法
+    /// 的像素；部分或整个落在画面外）；不是整数平移时不走捷径、什么都不动。
+    #[test]
+    fn copy_onto_clear_matches_draw_pixmap() {
+        let mut bytes = Bytes(0x2545_f491_4f6c_dd1d);
+        let src = pixmap(19, 13, |x, _| match x % 3 {
+            0 => [bytes.next(), bytes.next(), bytes.next(), 0],
+            1 => [bytes.next(), bytes.next(), bytes.next(), 255],
+            _ => [bytes.next(), bytes.next(), bytes.next(), bytes.next()],
+        });
+        let (width, height) = (31, 17);
+        for quality in [FilterQuality::Bilinear, FilterQuality::Nearest] {
+            for (tx, ty) in [
+                (0.0, 0.0),
+                (6.0, 2.0),
+                (-7.0, -3.0),
+                (20.0, 9.0),
+                (-15.0, 12.0),
+                (25.0, -11.0),
+                (31.0, 0.0),
+                (0.0, -13.0),
+                (-400.0, 900.0),
+            ] {
+                let transform = Transform::from_translate(tx, ty);
+                let mut slow = Pixmap::new(width, height).unwrap();
+                slow.draw_pixmap(
+                    0,
+                    0,
+                    src.as_ref(),
+                    &PixmapPaint {
+                        quality,
+                        ..Default::default()
+                    },
+                    transform,
+                    None,
+                );
+                let mut fast = Pixmap::new(width, height).unwrap();
+                assert!(copy_onto_clear(&mut fast, src.as_ref(), transform), "{transform:?}");
+                assert!(fast.data() == slow.data(), "{quality:?} {transform:?}");
+            }
+        }
+        for transform in [
+            Transform::from_translate(0.5, 0.0),
+            Transform::from_translate(3.0, f32::NAN),
+            Transform::from_scale(2.0, 1.0),
+            Transform::from_row(1.0, 0.0, 0.2, 1.0, 0.0, 0.0),
+        ] {
+            let mut fast = Pixmap::new(width, height).unwrap();
+            assert!(!copy_onto_clear(&mut fast, src.as_ref(), transform), "{transform:?}");
+            assert!(fast.data().iter().all(|&byte| byte == 0), "{transform:?}");
+        }
     }
 }
 

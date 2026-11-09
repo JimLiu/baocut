@@ -19,7 +19,9 @@
 //!   区间（`speaker_activity`）给声波的 `speaker`，与导出同一份。一份转写都没有时声波当作视频里没有转写。字幕的词也从这里
 //!   取（字幕文档的 `sourceDocumentId` 指向的转写，与导出冻结的同一份），不另送一遍；
 //! - `bc_set_picture(key_ptr, key_len, ptr, len, width, height)`：实例这一刻的画面（非预乘 RGBA，键是实例 ID）；
-//!   `bc_clear_pictures()` 清掉上一帧的；
+//!   `bc_clear_pictures()` 清掉上一帧的；`bc_keep_picture(key_ptr, key_len)`：清掉之后接着用上一帧送进来的那一份
+//!   （静态图片不再每帧送、每帧预乘，内核按同一块画面缓存的缩小结果也接着用），输出区是 `true`；上一帧没有这个键时是
+//!   `false`，宿主照常送；
 //! - `bc_set_asset(key_ptr, key_len, ptr, len)`：素材字节（键是 `素材ID@版本`，Lottie 与 SVG 图片要读）；
 //! - `bc_set_spectrum(key_ptr, key_len, ptr, len)`：声波实例现成的整轨频谱（BCS1，键是实例 ID，缩略图用）；
 //!   `bc_clear_spectra()` 全清；
@@ -93,6 +95,8 @@ struct SetVideo {
 #[derive(Default)]
 struct Media {
     pictures: HashMap<String, Arc<Pixmap>>,
+    /// 上一帧的画面：清掉时挪到这里，留到下一次清掉，`keep_picture` 从这里拿回来。
+    previous_pictures: HashMap<String, Arc<Pixmap>>,
     assets: HashMap<String, Vec<u8>>,
     spectra: HashMap<String, Vec<u8>>,
     audio_spectra: HashMap<String, Vec<u8>>,
@@ -374,7 +378,15 @@ pub fn set_picture(key: &str, rgba: Vec<u8>, width: u32, height: u32) -> Result<
 }
 
 pub fn clear_pictures() {
-    STATE.with_borrow_mut(|state| state.media.pictures.clear());
+    STATE.with_borrow_mut(|state| state.media.previous_pictures = std::mem::take(&mut state.media.pictures));
+}
+
+/// 清掉之后接着用上一帧送进来的这个实例的画面（同一块，不复制）。上一帧没有它时返回 false。
+pub fn keep_picture(key: &str) -> bool {
+    STATE.with_borrow_mut(|state| {
+        let media = &mut state.media;
+        media.previous_pictures.remove(key).map(|picture| media.pictures.insert(key.to_string(), picture)).is_some()
+    })
 }
 
 /// 送进素材字节（键是 `素材ID@版本`）。
@@ -724,6 +736,14 @@ pub unsafe extern "C" fn bc_set_picture(key_ptr: *const u8, key_len: usize, ptr:
 #[unsafe(no_mangle)]
 pub extern "C" fn bc_clear_pictures() {
     clear_pictures();
+}
+
+/// # Safety
+/// `key_ptr` 指向 `key_len` 个已写入的字节。
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn bc_keep_picture(key_ptr: *const u8, key_len: usize) -> u32 {
+    let key = String::from_utf8_lossy(unsafe { bytes(key_ptr, key_len) }).into_owned();
+    finish(Ok(if keep_picture(&key) { b"true".to_vec() } else { b"false".to_vec() }))
 }
 
 /// # Safety

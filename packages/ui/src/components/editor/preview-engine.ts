@@ -300,6 +300,8 @@ export class PreviewEngine {
    * 静态图每帧要读掉约 5 ms）。图片换了地址就作废。
    */
   readonly #stills = new WeakMap<HTMLImageElement, { src: string; pictures: Map<string, ImageData> }>();
+  /** 计划器里现在各实例的画面是哪一份（上一帧送的或接着用的）：同一份不再送，让 WASM 接着用（`keepPicture`）。 */
+  #sentPictures = new Map<Id, ImageData>();
   #stats: PlaybackStats = emptyStats();
   /**
    * 这一层的画面还在来：在载入或定位，或还没有元素（地址还在取、Runtime 在备兼容副本）。载入失败的元素与取不到的素材字节
@@ -1620,6 +1622,8 @@ export class PreviewEngine {
     height: number,
   ): void {
     planner.clearPictures();
+    const before = this.#sentPictures;
+    this.#sentPictures = new Map();
     const read = new Map<SourceElement, ImageData | null>();
     for (const layer of layers) {
       if (!isMediaLayer(layer) || this.#kernelDecoded(layer)) continue;
@@ -1633,7 +1637,12 @@ export class PreviewEngine {
         }
         pixels = read.get(element) ?? null;
       }
-      if (pixels) planner.setPicture(layer.itemId, pixels.data, pixels.width, pixels.height);
+      if (!pixels || this.#sentPictures.get(layer.itemId) === pixels) continue;
+      // 还是上一帧那一份（静态图片按尺寸只读一次）：WASM 接着用，不再送一遍、预乘一遍。
+      if (before.get(layer.itemId) !== pixels || !planner.keepPicture(layer.itemId)) {
+        planner.setPicture(layer.itemId, pixels.data, pixels.width, pixels.height);
+      }
+      this.#sentPictures.set(layer.itemId, pixels);
     }
   }
 

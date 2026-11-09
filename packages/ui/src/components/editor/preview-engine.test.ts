@@ -26,7 +26,7 @@ const sequence = {
 } as unknown as Sequence;
 
 function fakePlanner(): RenderPlanner {
-  return { onRecovered: null, setVideo: () => {}, planAt: () => ({ layers: [], voices: [] }) } as unknown as RenderPlanner;
+  return { onRecovered: null, setVideo: () => {}, planAt: () => ({ layers: [], voices: [] }), keepPicture: () => false } as unknown as RenderPlanner;
 }
 
 test('停用之后接回来的引擎照常出计划：开发模式下效果会多跑一轮清理与建立', async () => {
@@ -738,7 +738,7 @@ test('停着定位：视频还在定位时先用它上一张画面马上画，�
   }
 });
 
-test('静态图片的像素按尺寸只读一次：拖动与停住各读一份，图片换了地址再读', async () => {
+test('静态图片的像素按尺寸只读一次：拖动与停住各读一份，同一份不再送，图片换了地址再读', async () => {
   fakeMedia();
   let reads = 0;
   const scratch = {
@@ -767,12 +767,14 @@ test('静态图片的像素按尺寸只读一次：拖动与停住各读一份�
     voices: [],
   });
   const sent: number[] = [];
+  let kept = 0;
   const planner = {
     ...fakePlanner(),
     planAt,
     setDocuments: () => {},
     clearPictures: () => {},
     setPicture: (_: string, _data: Uint8ClampedArray, width: number) => sent.push(width),
+    keepPicture: () => (kept++, true),
     render: (seconds: number) => ({ plan: planAt(seconds), warnings: [], skipped: [], spectra: [], fonts: [] }),
     frame: () => new Uint8ClampedArray(4),
   } as unknown as RenderPlanner;
@@ -798,6 +800,9 @@ test('静态图片的像素按尺寸只读一次：拖动与停住各读一份�
     expect(sent).toContain(960);
     expect(sent.at(-1)).toBe(1254);
     expect(reads).toBe(2);
+    // 同一个尺寸接连画：WASM 接着用上一帧那一份，只在换尺寸时送（每轮拖动一次 960²、停下一次 1254²）
+    expect(kept).toBeGreaterThan(0);
+    expect(sent.filter((width) => width === 960)).toHaveLength(2);
     // 图片换了地址：重新读
     image.currentSrc = 'blob:b';
     engine.seek(30);

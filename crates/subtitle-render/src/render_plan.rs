@@ -369,6 +369,44 @@ pub fn element_view(element: &TimelineVisualElement) -> element_draw::ElementDra
     }
 }
 
+/// `width × height` 的局部画布按 `transform` 摆到 `canvas_width × canvas_height` 的画布上会盖到的像素外包框
+/// （`(left, top, right, bottom)`，右下开区间）。`draw_pixmap` 不抗锯齿，只画中心落在变换后矩形里的像素；四角取整后
+/// 再外扩一像素，吸收浮点误差与预滤波后的那份（同一块区域）的差。变换不是有限值时为 `None`。
+fn placed_bounds(
+    transform: Transform,
+    width: u32,
+    height: u32,
+    canvas_width: u32,
+    canvas_height: u32,
+) -> Option<(usize, usize, usize, usize)> {
+    let mut corners = [
+        tiny_skia::Point::from_xy(0.0, 0.0),
+        tiny_skia::Point::from_xy(width as f32, 0.0),
+        tiny_skia::Point::from_xy(0.0, height as f32),
+        tiny_skia::Point::from_xy(width as f32, height as f32),
+    ];
+    transform.map_points(&mut corners);
+    let (mut left, mut top) = (f32::INFINITY, f32::INFINITY);
+    let (mut right, mut bottom) = (f32::NEG_INFINITY, f32::NEG_INFINITY);
+    for point in corners {
+        if !point.x.is_finite() || !point.y.is_finite() {
+            return None;
+        }
+        left = left.min(point.x);
+        top = top.min(point.y);
+        right = right.max(point.x);
+        bottom = bottom.max(point.y);
+    }
+    let clamp = |value: f32, limit: u32| (f64::from(value).clamp(0.0, f64::from(limit))) as usize;
+    let (left, right) = (clamp(left.floor() - 1.0, canvas_width), clamp(right.ceil() + 1.0, canvas_width));
+    let (top, bottom) = (clamp(top.floor() - 1.0, canvas_height), clamp(bottom.ceil() + 1.0, canvas_height));
+    Some(if left < right && top < bottom {
+        (left, top, right, bottom)
+    } else {
+        (0, 0, 0, 0)
+    })
+}
+
 /// 「按屏幕上的实际大小光栅」这条规则的唯一判据：`ratio` ＝ 屏幕尺寸 ÷ 自然
 /// 尺寸，返回要用的目标像素（`None` ＝ 照自然尺寸）。
 ///
@@ -1493,6 +1531,7 @@ impl OverlayRenderPlan {
             whiteboard_cache: HashMap::new(),
             whiteboard_sources: HashMap::new(),
             media_prefilter: render_raster::resample::PrefilterCache::default(),
+            media_bounds: HashMap::new(),
             blank_frame: None,
             subtitle_rasters: 0,
             effect_scratch: None,
@@ -5726,6 +5765,19 @@ impl OverlayRenderPlan {
         time: f64,
         pose: timeline::AnimationPose,
     ) -> Result<Option<Arc<Pixmap>>> {
+        Ok(self
+            .render_media_layer(element, time, pose)?
+            .map(|(pixmap, _)| pixmap))
+    }
+
+    /// [`Self::render_media_element`]，连同合成层非零像素的外包框（`(left, top, right, bottom)`，像素、右下开区间）：
+    /// 局部画布按仿射摆到画布上盖到的那一块，外扩一像素。平铺、整幅直通与姿态模糊不给框（`None`）。
+    fn render_media_layer(
+        &mut self,
+        element: &TimelineVisualElement,
+        time: f64,
+        pose: timeline::AnimationPose,
+    ) -> Result<Option<(Arc<Pixmap>, Option<(usize, usize, usize, usize)>)>> {
         let Some(source_id) = element.src_id.as_deref() else {
             if element.kind == ElementKind::Sticker {
                 self.warn_once(message_ref::msg!(
@@ -5943,9 +5995,12 @@ impl OverlayRenderPlan {
         let dy = pose.dy * short;
         let opacity = (element.place.opacity.unwrap_or(1.0) * pose.opacity).clamp(0.0, 1.0);
         if opacity <= 0.001 {
-            return Ok(Some(Arc::new(
-                Pixmap::new(self.width, self.height)
-                    .ok_or_else(|| anyhow!("无法创建媒体元素合成层"))?,
+            return Ok(Some((
+                Arc::new(
+                    Pixmap::new(self.width, self.height)
+                        .ok_or_else(|| anyhow!("无法创建媒体元素合成层"))?,
+                ),
+                Some((0, 0, 0, 0)),
             )));
         }
         // 镜像是几何（ADR-E01）：只进仿射的 `post_scale`，不参与盒子尺寸与
@@ -5960,6 +6015,7 @@ impl OverlayRenderPlan {
             * element.place.scale_y.unwrap_or(1.0)
             * pose.scale_y;
         let mut field: Arc<Pixmap>;
+        let mut bounds = None;
         if let Some(tile) = element.tile.as_ref().filter(|tile| tile.on) {
             let mut stamped = Pixmap::new(self.width, self.height)
                 .ok_or_else(|| anyhow!("无法创建媒体元素合成层"))?;
@@ -6039,24 +6095,29 @@ impl OverlayRenderPlan {
             } else {
                 let mut placed = Pixmap::new(self.width, self.height)
                     .ok_or_else(|| anyhow!("无法创建媒体元素合成层"))?;
-                // `place.scale` 或动画把盒子缩到一半以下时，局部画布同样先按面积平均。
-                let prefiltered =
-                    render_raster::resample::prefilter_for((*local).as_ref(), transform);
-                let (drawn, transform) = match &prefiltered {
-                    Some((small, transform)) => (small.as_ref(), *transform),
-                    None => ((*local).as_ref(), transform),
-                };
-                placed.draw_pixmap(
-                    0,
-                    0,
-                    drawn,
-                    &PixmapPaint {
-                        quality: FilterQuality::Bilinear,
-                        ..Default::default()
-                    },
-                    transform,
-                    None,
-                );
+                bounds = placed_bounds(transform, local_width, local_height, self.width, self.height);
+                // 整像素平移（角色贴纸按框画好、1:1 贴上去）贴到全透明的合成层上就是逐行拷贝，与下面的
+                // `draw_pixmap` 逐字节相同（`render_raster::raster::copy_onto_clear`）；不缩放，也就没有预滤波。
+                if !render_raster::raster::copy_onto_clear(&mut placed, (*local).as_ref(), transform) {
+                    // `place.scale` 或动画把盒子缩到一半以下时，局部画布同样先按面积平均。
+                    let prefiltered =
+                        render_raster::resample::prefilter_for((*local).as_ref(), transform);
+                    let (drawn, transform) = match &prefiltered {
+                        Some((small, transform)) => (small.as_ref(), *transform),
+                        None => ((*local).as_ref(), transform),
+                    };
+                    placed.draw_pixmap(
+                        0,
+                        0,
+                        drawn,
+                        &PixmapPaint {
+                            quality: FilterQuality::Bilinear,
+                            ..Default::default()
+                        },
+                        transform,
+                        None,
+                    );
+                }
                 field = Arc::new(placed);
             }
         }
@@ -6109,12 +6170,14 @@ impl OverlayRenderPlan {
                 None,
                 &external,
             )?);
+            // 模糊把像素往框外推。
+            bounds = None;
         }
         // 满不透明是恒等变换（不写任何字节），不为它把共享的源画面复制一份。
         if opacity.is_nan() || opacity < 1.0 {
             multiply_premultiplied_alpha(Arc::make_mut(&mut field).data_mut(), opacity);
         }
-        Ok(Some(field))
+        Ok(Some((field, bounds)))
     }
 
     pub fn render_overlay_frame(&mut self, time: f64) -> Result<RenderedOverlayFrame> {
@@ -6907,6 +6970,19 @@ impl OverlayRenderPlan {
         let opaque =
             render_raster::raster::opaque_cover(&frame_ops, self.width, self.height, &mut self.media)
                 .is_some();
+        // 这一帧就是一个媒体元素的合成层本身（`sole_cover`）时，框就是那一层记下的框。
+        let bounds = match frame_ops.ops.as_slice() {
+            [_, DrawOp::DrawMedia { asset, .. }] => frame_ops
+                .strings
+                .get(*asset as usize)
+                .and_then(|name| self.media_bounds.get(name))
+                .copied(),
+            _ => None,
+        }
+        .filter(|_| {
+            render_raster::raster::sole_cover(&frame_ops, self.width, self.height, &mut self.media)
+                .is_some()
+        });
         // 折叠 FramePlan：执行器对这个形状直接调 `rasterize_with_media`，
         // 与旧路径同一个函数调用、逐字节相同。
         let plan = render_raster::FramePlan::single_draw(
@@ -6925,6 +7001,7 @@ impl OverlayRenderPlan {
             rgba: pixmap.take(),
             next_change,
             opaque,
+            bounds,
         })
     }
 
@@ -6941,6 +7018,7 @@ impl OverlayRenderPlan {
         parts: OverlayParts,
     ) -> Result<(FrameOps, Option<f64>)> {
         self.media.dynamic.clear();
+        self.media_bounds.clear();
         let mut builder = FrameBuilder::default();
         builder.push(DrawOp::Clear {
             color: [0.0, 0.0, 0.0, 0.0],
@@ -7016,10 +7094,13 @@ impl OverlayRenderPlan {
                 | ElementKind::Sticker
                 | ElementKind::Placeholder
                 | ElementKind::Whiteboard => {
-                    if let Some(pixmap) = self.render_media_element(&element, time, pose)? {
+                    if let Some((pixmap, bounds)) = self.render_media_layer(&element, time, pose)? {
                         let asset_name =
                             self.dynamic_asset_name("media", &element.id, pixmap.data(), slot);
                         slot += 1;
+                        if let Some(bounds) = bounds {
+                            self.media_bounds.insert(asset_name.clone(), bounds);
+                        }
                         self.media.dynamic.insert(asset_name.clone(), pixmap);
                         let asset = builder.string_id(&asset_name);
                         builder.push(DrawOp::DrawMedia {

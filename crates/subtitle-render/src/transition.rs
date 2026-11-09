@@ -265,6 +265,10 @@ pub struct RenderedOverlayFrame {
     /// 这一帧确知整幅不透明：只是把宿主声明不透明的画面原样贴满了画布（[`OverlayFrameMedia::declare_opaque`]）。
     /// `false` 不代表有透明，只是没有确知。
     pub opaque: bool,
+    /// 确知这一帧的非零像素都在这个框里（`(left, top, right, bottom)`，像素、右下开区间）：这一帧只画了一个媒体元素
+    /// （图片、角色贴纸），框就是它摆到画布上的外包矩形。叠的时候只看框里（`render_raster::plan::composite_bounded_rect`），
+    /// 不必把整幅再扫一遍。`None` 不代表铺满，只是没有确知。
+    pub bounds: Option<(usize, usize, usize, usize)>,
 }
 
 #[derive(Clone)]
@@ -821,6 +825,9 @@ pub struct OverlayRenderPlan {
     /// 媒体元素的源画面缩到一半以下时按面积平均缩小的那份，按源 ID 留着（见
     /// [`render_raster::resample::PrefilterCache`]）：导出里同一张静态图每帧只缩一次。
     pub media_prefilter: render_raster::resample::PrefilterCache,
+    /// 这一帧画好的媒体元素合成层（`media.dynamic` 里的资源名）→ 它的非零像素的外包框（见
+    /// [`RenderedOverlayFrame::bounds`]）。与 `media.dynamic` 一起每帧清空；框不确知的层不记。
+    pub media_bounds: HashMap<String, (usize, usize, usize, usize)>,
     pub definition_key: String,
     pub style: Value,
     pub mode: StudioMode,
