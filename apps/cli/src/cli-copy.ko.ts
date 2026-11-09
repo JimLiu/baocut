@@ -92,6 +92,8 @@ export const ko: CliMessages = {
   },
 
   runtimeNotRunning: (home) => `${home}에 대해 실행 중인 BaoCut Runtime이 없고 --no-start가 지정되었습니다.`,
+  runtimeEnsureNext: (entry, store) =>
+    `baocut runtime ensure(이 홈용으로 ${entry} 시작${store === 'keychain' ? ', 키는 시스템 키체인에서' : store === 'file' ? ', 키는 이 홈의 파일에서' : ''}. 무슨 일이 일어날지는 baocut doctor가 설명합니다)`,
   runtimeNoEntry:
     '실행 중인 BaoCut Runtime이 없고 시작할 수도 없습니다: BaoCut 앱을 설치하거나, 저장소에서 실행하거나, BAOCUT_RUNTIME_ENTRY를 Runtime 진입점으로 설정하세요.',
   runtimeStartFailed: (reason, log) => `BaoCut Runtime을 시작하지 못했습니다(${reason}). ${log} 파일을 확인하세요.`,

@@ -91,6 +91,8 @@ export const zhHant: CliMessages = {
   },
 
   runtimeNotRunning: (home) => `${home} 沒有正在執行的 BaoCut Runtime，且指定了 --no-start。`,
+  runtimeEnsureNext: (entry, store) =>
+    `baocut runtime ensure（為這個主目錄啟動 ${entry}${store === 'keychain' ? '，金鑰取自系統鑰匙圈' : store === 'file' ? '，金鑰取自這個主目錄裡的檔案' : ''}；baocut doctor 會說明將發生什麼）`,
   runtimeNoEntry:
     '沒有正在執行的 BaoCut Runtime，也無法啟動：請安裝 BaoCut 應用程式、從儲存庫執行，或將 BAOCUT_RUNTIME_ENTRY 設為 Runtime 的進入點。',
   runtimeStartFailed: (reason, log) => `無法啟動 BaoCut Runtime（${reason}）。請見 ${log}。`,

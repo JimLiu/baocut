@@ -85,6 +85,8 @@ export const pl: CliMessages = {
   },
 
   runtimeNotRunning: (home) => `Brak działającego Runtime BaoCut dla ${home}, podano --no-start.`,
+  runtimeEnsureNext: (entry, store) =>
+    `baocut runtime ensure (uruchamia ${entry} dla tego katalogu${store === 'keychain' ? ', klucze z systemowego pęku kluczy' : store === 'file' ? ', klucze z pliku w tym katalogu' : ''}; baocut doctor wyjaśnia, co by się stało)`,
   runtimeNoEntry:
     "Runtime BaoCut nie działa i nie można uruchomić: zainstaluj aplikację, uruchom z repozytorium lub ustaw punkt wejścia przez BAOCUT_RUNTIME_ENTRY.",
   runtimeStartFailed: (reason, log) => `Nie można uruchomić Runtime BaoCut (${reason}). Zobacz ${log}.`,

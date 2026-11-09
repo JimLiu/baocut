@@ -232,6 +232,7 @@ export --video V --kind subtitles --format srt --bilingual
 | `baocut status` | Runtime 在不在、版本、此刻能做什么：每种能力的默认 Provider 与可用性、本地模型包、外部工具（yt-dlp、ffmpeg）；不可用的带补救命令。能力与模型包默认是摘要（每种能力此刻用哪个、哪些 Provider 能用；每个包的状态），`--full` 时是 `models_capabilities` 与 `models_list` 的完整结果（各 Provider 的模型、参数与限制）。替代 v2 的 `doctor --quick` |
 | `baocut runtime ensure|status|stop` | §5.6 |
 | `baocut version` | CLI、Runtime 与接口版本 |
+| `baocut doctor` | 只读诊断，不拉起 Runtime：终端里的 `baocut` 入口、会怎样拉起 Runtime（入口、Home、凭据后端）或正在跑的那个、凭据后端可不可用、完全磁盘访问；逐项 `ok` / `warn` / `fail` / `skip` 带补救命令（[CLI 独立使用与发布 §8.1](cli-standalone-design.md#81-baocut-doctor)） |
 
 `spec` 与 `version` 输出裸 JSON；其余命令按 §5.1 的信封。
 

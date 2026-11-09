@@ -100,6 +100,8 @@ export const de: CliMessages = {
 
   // Runtime 的归属（§5.6）
   runtimeNotRunning: (home: string) => `Keine BaoCut-Runtime läuft für ${home}, und --no-start wurde angegeben.`,
+  runtimeEnsureNext: (entry: string, store: 'keychain' | 'file' | null) =>
+    `baocut runtime ensure (startet ${entry} für dieses Verzeichnis${store === 'keychain' ? ', Schlüssel aus dem Schlüsselbund des Systems' : store === 'file' ? ', Schlüssel aus der Datei in diesem Verzeichnis' : ''}; baocut doctor erklärt, was passieren würde)`,
   runtimeNoEntry:
     "Keine BaoCut-Runtime läuft und keine konnte gestartet werden: Installieren Sie die BaoCut-App, führen Sie den Befehl aus dem Repository aus oder setzen Sie BAOCUT_RUNTIME_ENTRY auf den Runtime-Einstiegspunkt.",
   runtimeStartFailed: (reason: string, log: string) => `Die BaoCut-Runtime ließ sich nicht starten (${reason}). Siehe ${log}.`,

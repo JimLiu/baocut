@@ -27,6 +27,9 @@ import { CliError } from '../envelope.ts';
  * 连上之后的版本门：`catalog.list` 的接口版本与 CLI 的 `MCP_INTERFACE_VERSION` 不同时以退出码 3 拒绝，不按旧参数解释。
  */
 
+/** 起不来、找不到 Runtime 时的下一步（CLI 独立使用与发布 §8.2）。 */
+const DOCTOR = 'baocut doctor';
+
 /** 一次请求的上限：工具调用（取帧、读大文档）可能久；等任务走 `jobs` 主题，不占请求。 */
 const REQUEST_TIMEOUT_MS = 30 * 60_000;
 /** 拉起之后等发现文件的上限。 */
@@ -140,6 +143,21 @@ export interface LaunchSpec {
   nodeRange?: string;
 }
 
+/** 给人看的入口：打包的写 App 的可执行文件，其余写入口文件（是可执行文件时写它）。 */
+export function launchEntry(spec: LaunchSpec): string {
+  return spec.source === 'packaged' ? spec.command : (spec.args.find((arg) => !arg.startsWith('-')) ?? spec.command);
+}
+
+/**
+ * 拉起的 Runtime 把密钥放哪（架构设计 §6.8）：打包的入口带 `--credential-store`；仓库入口是开发构建的默认（文件）；
+ * `BAOCUT_RUNTIME_ENTRY` 由那个入口自己定，这里不知道（null）。
+ */
+export function launchCredentialStore(spec: LaunchSpec): 'keychain' | 'file' | null {
+  const flag = spec.args.indexOf('--credential-store');
+  if (flag >= 0) return spec.args[flag + 1] === 'keychain' ? 'keychain' : 'file';
+  return spec.source === 'repo' ? 'file' : null;
+}
+
 /** 用来跑源码 Runtime 的 Node：版本，以及不带旗标时会不会去掉类型标注。 */
 export interface NodeInfo {
   version: string;
@@ -187,6 +205,7 @@ export function checkRuntimeNode(spec: LaunchSpec, version: string = process.ver
     throw new CliError('RUNTIME_START_FAILED', M.runtimeNodeUnsupported(version, spec.nodeRange), {
       node: version,
       required: spec.nodeRange,
+      next: DOCTOR,
     });
   }
 }
@@ -329,14 +348,22 @@ export async function launchRuntime(
     const child = spawnRuntime(home, spec, log);
     for (;;) {
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-      if (child.error) throw new CliError('RUNTIME_START_FAILED', M.runtimeStartFailed(child.error.message, log), { log });
+      if (child.error) throw new CliError('RUNTIME_START_FAILED', M.runtimeStartFailed(child.error.message, log), { log, next: DOCTOR });
       const discovery = await findRuntime(home);
       if (discovery && (discovery.pid === child.pid || child.exitCode === 3)) return { discovery, started: discovery.pid === child.pid };
       if (child.exitCode !== undefined && child.exitCode !== 3) {
-        throw new CliError('RUNTIME_START_FAILED', M.runtimeStartFailed(M.exitedWith(child.exitCode), log), { log, tail: tail(log) });
+        throw new CliError('RUNTIME_START_FAILED', M.runtimeStartFailed(M.exitedWith(child.exitCode), log), {
+          log,
+          tail: tail(log),
+          next: DOCTOR,
+        });
       }
       if (Date.now() >= deadline) {
-        throw new CliError('RUNTIME_START_FAILED', M.runtimeStartTimeout(Math.round(timeoutMs / 1000), log), { log, tail: tail(log) });
+        throw new CliError('RUNTIME_START_FAILED', M.runtimeStartTimeout(Math.round(timeoutMs / 1000), log), {
+          log,
+          tail: tail(log),
+          next: DOCTOR,
+        });
       }
       if (child.exitCode === 3 && !respawned && !lockHolderAlive(home)) {
         respawned = true;
@@ -392,9 +419,14 @@ export interface EnsureOptions {
 export async function ensureRuntime(home: string, options: EnsureOptions): Promise<{ discovery: RuntimeDiscovery; started: boolean }> {
   const running = await findRuntime(home);
   if (running) return { discovery: running, started: false };
-  if (!options.start) throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeNotRunning(home), { home, next: 'baocut runtime ensure' });
   const spec = resolveRuntimeLaunch(options.env);
-  if (!spec) throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeNoEntry, { home });
+  if (!options.start) {
+    // 说明 `runtime ensure` 会拉起哪一个（CLI 独立使用与发布 §8.2）：哪个入口、哪个主目录、密钥放哪。
+    const launch = spec ? { entry: launchEntry(spec), credentialStore: launchCredentialStore(spec) } : {};
+    const next = spec ? M.runtimeEnsureNext(launchEntry(spec), launchCredentialStore(spec)) : DOCTOR;
+    throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeNotRunning(home), { home, ...launch, next });
+  }
+  if (!spec) throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeNoEntry, { home, next: DOCTOR });
   checkRuntimeNode(spec);
   return launchRuntime(home, spec);
 }

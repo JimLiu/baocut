@@ -15,14 +15,16 @@ import { renderCommandHelp, renderGroupHelp, renderMainHelp, type AdminEntry } f
 import { runTool } from './catalog/run.ts';
 import { SNAPSHOT_COMMAND, loadSnapshot } from './catalog/snapshot.ts';
 import { findTool, specOf } from './catalog/spec.ts';
+import { doctor } from './doctor.ts';
+import { D } from './doctor-copy.ts';
 import { status, version } from './meta.ts';
-import { connectRuntime, findRuntime, openClient, runtimeHome, type Session } from './runtime/connection.ts';
+import { connectRuntime, findRuntime, openClient, resolveRuntimeLaunch, runtimeHome, type Session } from './runtime/connection.ts';
 import { runtimeCommand } from './runtime/runtime-command.ts';
 
 /**
  * `baocut` 的分发（Agent 面设计 §4、§5）：元命令 → 管理桶 → 由目录派生的命令。
  *
- * - 元命令：`help`、`spec`、`version`、`status`、`runtime`，以及不带命令或带 `--help`。
+ * - 元命令：`help`、`spec`、`version`、`status`、`doctor`、`runtime`，以及不带命令或带 `--help`。
  * - 管理桶（§7）：手写的、只给人用的命令，按名词与子命令精确匹配（`models configure`），先于派生命令。
  * - 其余按目录：连上 Runtime（必要时拉起），以 `catalog.list` 为准找命令、解析参数、执行。
  */
@@ -52,9 +54,9 @@ export interface CliIo {
   input?: InputSource;
 }
 
-const META = new Set(['help', 'spec', 'version', 'status', 'runtime']);
+const META = new Set(['help', 'spec', 'version', 'status', 'doctor', 'runtime']);
 
-function isMeta(word: string): word is 'help' | 'spec' | 'version' | 'status' | 'runtime' {
+function isMeta(word: string): word is 'help' | 'spec' | 'version' | 'status' | 'doctor' | 'runtime' {
   return META.has(word);
 }
 
@@ -111,6 +113,11 @@ export async function runCli(argv: readonly string[], admin: AdminBucket, io: Cl
       return await spec(output, home, cwd, tail[0]);
     }
     if (first === 'version') return await version(output, home);
+    // `doctor` 只读，不拉起 Runtime（CLI 独立使用与发布 §8.1）；不带参数。
+    if (first === 'doctor') {
+      if (tail.length > 0) throw new CliError('INVALID_ARGUMENTS', M.unknownCommand(`doctor ${tail.join(' ')}`));
+      return await doctor(output, env, home, resolveRuntimeLaunch(env));
+    }
     if (first === 'runtime') return await runtimeCommand(output, home, tail, globals.noStart);
 
     // 没有正在跑的 Runtime 时先按快照看命令：拼错的命令（含已知名词后不认识的动词）不必为此拉起 Runtime，只给名词时
@@ -209,7 +216,7 @@ async function readCatalog(
 
 async function help(output: Output, home: string, cwd: string, admin: AdminBucket, target: readonly string[]): Promise<ExitCode> {
   const topic = target[0];
-  if (topic !== undefined && isMeta(topic)) return output.text(M.metaHelp[topic]);
+  if (topic !== undefined && isMeta(topic)) return output.text(topic === 'doctor' ? D.help : M.metaHelp[topic]);
   const { catalog } = await readCatalog(home, cwd, false);
   if (target.length === 0) return output.text(renderMainHelp(catalog.tools, admin.entries));
   const found = lookup(buildTree(catalog.tools), target);

@@ -94,6 +94,8 @@ export const fr: CliMessages = {
   } as Record<'help' | 'spec' | 'version' | 'status' | 'runtime', string>,
 
   runtimeNotRunning: (home: string) => `Aucun Runtime BaoCut actif pour ${home}, et --no-start a été indiqué.`,
+  runtimeEnsureNext: (entry: string, store: 'keychain' | 'file' | null) =>
+    `baocut runtime ensure (démarre ${entry} pour ce dossier${store === 'keychain' ? ', clés du trousseau du système' : store === 'file' ? ', clés du fichier de ce dossier' : ''} ; baocut doctor explique ce qui se passerait)`,
   runtimeNoEntry:
     "Aucun Runtime BaoCut actif et démarrage impossible : installez l’application BaoCut, exécutez depuis le dépôt ou définissez BAOCUT_RUNTIME_ENTRY sur le point d’entrée du Runtime.",
   runtimeStartFailed: (reason: string, log: string) => `Impossible de démarrer le Runtime BaoCut (${reason}). Voir ${log}.`,

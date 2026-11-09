@@ -57,9 +57,11 @@ baocut status
 
 ## 5. Runtime 起不来时
 
+起不来、连不上、钥匙串报错或读不到受保护位置的文件时，先跑 `baocut doctor`：只读，不拉起 Runtime，逐项给出 `ok` / `warn` / `fail` / `skip` 与补救命令，`next` 是第一个问题的补救。
+
 | 现象 | 处理 |
 | --- | --- |
-| 退出码 3，`RUNTIME_START_FAILED` | 把 `error.message` 原样告诉用户；请用户打开一次 BaoCut 桌面端看是否正常，不要自己去改 `BAOCUT_HOME` 里的文件 |
+| 退出码 3，`RUNTIME_START_FAILED` | 跑 `baocut doctor`，把 `error.message` 与 `fail`、`warn` 的项连同补救告诉用户；补救命令征得同意再跑。只有 doctor 指向只能在桌面端做的事（例如在系统设置里给 BaoCut.app 完全磁盘访问权限）时才请用户打开桌面端；不要自己去改 `BAOCUT_HOME` 里的文件 |
 | 退出码 3，`RUNTIME_UNAVAILABLE` | 没带 `--no-start` 时重试一次；仍不行按上一行处理 |
 | 退出码 3，`CATALOG_UNAVAILABLE` | 离线时既没有快照也没有 Runtime：CLI 安装不完整，请用户重新安装 |
 | 退出码 3，版本不一致 | 见第 2 节 |

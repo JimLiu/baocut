@@ -1,0 +1,268 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { PassThrough } from 'node:stream';
+import { MCP_INTERFACE_VERSION, setLocale, type RuntimeInfo } from '@baocut/protocol';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { adminBucket } from './admin/index.ts';
+import { runCli } from './cli.ts';
+import {
+  appBundleOf,
+  doctorNext,
+  doctorReport,
+  findOnPath,
+  forwarderTarget,
+  probeCredentialHelper,
+  terminalAppName,
+  type DoctorInputs,
+} from './doctor.ts';
+import { D } from './doctor-copy.ts';
+import type { LaunchSpec } from './runtime/connection.ts';
+
+let dir: string;
+beforeEach(() => {
+  setLocale('en');
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-doctor-'));
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+const APP = '/Applications/BaoCut.app/Contents/MacOS/baocut-cli';
+const PACKAGED: LaunchSpec = {
+  command: '/Applications/BaoCut.app/Contents/MacOS/BaoCut',
+  args: ['/Applications/BaoCut.app/Contents/Resources/app.asar/out/main/runtime.js', '--credential-store', 'keychain'],
+  env: { BAOCUT_BIN_DIR: '/Applications/BaoCut.app/Contents/Resources/bin' },
+  source: 'packaged',
+};
+const REPO: LaunchSpec = { command: '/usr/bin/node', args: ['/repo/apps/runtime/src/main.ts'], env: {}, source: 'repo', nodeRange: '^22.18.0 || >=24.6.0' };
+
+function info(overrides: Partial<RuntimeInfo> = {}): RuntimeInfo {
+  return {
+    runtimeVersion: '0.5.0',
+    protocolVersion: '0.6',
+    home: '/Users/me/.baocut',
+    projectsDir: '/Users/me/BaoCut',
+    logsDir: '/Users/me/.baocut/logs',
+    pid: 4242,
+    startedAt: '2026-11-08T10:00:00.000Z',
+    launchedBy: null,
+    ...overrides,
+  } as RuntimeInfo;
+}
+
+function inputs(overrides: Partial<DoctorInputs> = {}): DoctorInputs {
+  return {
+    platform: 'darwin',
+    home: '/Users/me/.baocut',
+    terminal: { found: '/Users/me/.local/bin/baocut', target: APP },
+    app: { entry: APP, version: '3.16.4' },
+    terminalApp: { root: '/Applications/BaoCut.app', version: '3.16.4' },
+    launch: PACKAGED,
+    node: '24.6.0',
+    runtime: { state: 'stopped' },
+    credentials: { store: 'keychain', helper: '/Applications/BaoCut.app/Contents/Resources/bin/credential-helper', probe: { ok: true } },
+    terminalProgram: 'Apple_Terminal',
+    ...overrides,
+  };
+}
+
+const check = (result: ReturnType<typeof doctorReport>, id: string) => result.checks.find((c) => c.id === id)!;
+
+describe('doctorReport（CLI 独立使用与发布 §8.1）', () => {
+  it('一切正常：终端找到的就是 App 的入口，Runtime 没在跑时说会用哪个入口拉起，钥匙串答话；完全磁盘访问要等 Runtime 在跑', () => {
+    const result = doctorReport(inputs());
+    expect(result.ok).toBe(true);
+    expect(result.checks.map((c) => [c.id, c.level])).toEqual([
+      ['entry', 'ok'],
+      ['runtime', 'ok'],
+      ['credentials', 'ok'],
+      ['fullDiskAccess', 'skip'],
+    ]);
+    expect(check(result, 'entry').message).toContain('3.16.4');
+    expect(check(result, 'runtime').message).toContain('/Applications/BaoCut.app/Contents/MacOS/BaoCut');
+    expect(check(result, 'runtime').details).toMatchObject({ launch: { source: 'packaged', credentialStore: 'keychain' } });
+    expect(doctorNext(result)).toBeNull();
+  });
+
+  it('终端找不到 baocut：warn，补救是用 App 入口的完整路径跑 cli install；没有 App 时只能 skip', () => {
+    const missing = doctorReport(inputs({ terminal: null }));
+    expect(check(missing, 'entry')).toMatchObject({ level: 'warn', remedy: `'${APP}' cli install` });
+    expect(doctorNext(missing)).toBe(`'${APP}' cli install`);
+    expect(check(doctorReport(inputs({ terminal: null, app: null })), 'entry').level).toBe('skip');
+  });
+
+  it('终端先找到别的 baocut：warn，点名两边，补救是 App 入口的 cli status', () => {
+    const other = doctorReport(
+      inputs({ terminal: { found: '/usr/local/bin/baocut', target: '/Volumes/Old/BaoCut.app/Contents/MacOS/baocut-cli' }, terminalApp: { root: '/Volumes/Old/BaoCut.app', version: '3.10.0' } }),
+    );
+    const entry = check(other, 'entry');
+    expect(entry.level).toBe('warn');
+    expect(entry.message).toContain('/usr/local/bin/baocut');
+    expect(entry.message).toContain('3.10.0');
+    expect(entry.remedy).toBe(`'${APP}' cli status`);
+  });
+
+  it('Runtime 在跑：报版本、拉起者与项目目录；接口版本不同是 fail', () => {
+    const running = doctorReport(inputs({ runtime: { state: 'running', info: info({ launchedBy: 'cli' }), interfaceVersion: MCP_INTERFACE_VERSION, access: null } }));
+    expect(check(running, 'runtime')).toMatchObject({ level: 'ok', details: { launchedBy: 'cli', projectsDir: '/Users/me/BaoCut', pid: 4242 } });
+    expect(check(running, 'runtime').message).toBe(D.runtimeRunning('0.5.0', 4242, 'cli'));
+    const mismatch = doctorReport(inputs({ runtime: { state: 'running', info: info(), interfaceVersion: '999', access: null } }));
+    expect(check(mismatch, 'runtime').level).toBe('fail');
+    expect(mismatch.ok).toBe(false);
+  });
+
+  it('连不上、没有能拉起的入口、仓库入口的 Node 不合要求：fail', () => {
+    expect(check(doctorReport(inputs({ runtime: { state: 'unreachable', pid: 7, code: 'RUNTIME_UNAVAILABLE', message: 'ECONNRESET' } })), 'runtime')).toMatchObject({
+      level: 'fail',
+      remedy: 'baocut runtime status',
+    });
+    expect(check(doctorReport(inputs({ launch: null, credentials: { store: null, helper: null, probe: null } })), 'runtime').level).toBe('fail');
+    const oldNode = check(doctorReport(inputs({ launch: REPO, node: '20.11.0', credentials: { store: 'file', helper: null, probe: null } })), 'runtime');
+    expect(oldNode.level).toBe('fail');
+    expect(oldNode.message).toContain('20.11.0');
+  });
+
+  it('凭据：文件后端说出文件位置；助手缺失或连不上是 fail；钥匙串拒绝（SSH）是 warn，带解锁命令', () => {
+    expect(check(doctorReport(inputs({ launch: REPO, credentials: { store: 'file', helper: null, probe: null } })), 'credentials')).toMatchObject({
+      level: 'ok',
+      details: { file: path.join('/Users/me/.baocut', 'store', 'model-credentials.json') },
+    });
+    expect(check(doctorReport(inputs({ credentials: { store: 'keychain', helper: null, probe: null } })), 'credentials').level).toBe('fail');
+    expect(check(doctorReport(inputs({ credentials: { store: 'keychain', helper: '/x', probe: { ok: false, error: 'unavailable', message: 'boom' } } })), 'credentials')).toMatchObject({
+      level: 'fail',
+    });
+    expect(check(doctorReport(inputs({ credentials: { store: 'keychain', helper: '/x', probe: { ok: false, error: 'denied', message: 'locked' } } })), 'credentials')).toMatchObject({
+      level: 'warn',
+      remedy: 'security unlock-keychain',
+    });
+    expect(check(doctorReport(inputs({ launch: { ...REPO, source: 'env' }, credentials: { store: null, helper: null, probe: null } })), 'credentials').level).toBe('skip');
+  });
+
+  it('完全磁盘访问：缺失时按拉起者说算在谁头上；只在 macOS 上有这一项', () => {
+    const byApp = doctorReport(inputs({ runtime: { state: 'running', info: info(), interfaceVersion: MCP_INTERFACE_VERSION, access: { platform: 'darwin', fullDiskAccess: 'missing' } } }));
+    expect(check(byApp, 'fullDiskAccess')).toMatchObject({ level: 'warn' });
+    expect(check(byApp, 'fullDiskAccess').message).toContain('BaoCut.app');
+    const byCli = doctorReport(
+      inputs({ runtime: { state: 'running', info: info({ launchedBy: 'cli' }), interfaceVersion: MCP_INTERFACE_VERSION, access: { platform: 'darwin', fullDiskAccess: 'missing' } } }),
+    );
+    expect(check(byCli, 'fullDiskAccess').message).toContain('Terminal');
+    expect(check(byCli, 'fullDiskAccess').message).toContain('baocut doctor');
+    const granted = doctorReport(inputs({ runtime: { state: 'running', info: info(), interfaceVersion: MCP_INTERFACE_VERSION, access: { platform: 'darwin', fullDiskAccess: 'granted' } } }));
+    expect(check(granted, 'fullDiskAccess').level).toBe('ok');
+    expect(doctorReport(inputs({ platform: 'win32' })).checks.map((c) => c.id)).not.toContain('fullDiskAccess');
+    expect(terminalAppName('iTerm.app')).toBe('iTerm');
+    expect(terminalAppName('something-else')).toBeNull();
+  });
+
+  it('next 先取 fail 的补救，再取 warn 的', () => {
+    const result = doctorReport(
+      inputs({
+        terminal: null,
+        runtime: { state: 'unreachable', pid: 7, code: 'RUNTIME_UNAVAILABLE', message: 'x' },
+      }),
+    );
+    expect(doctorNext(result)).toBe('baocut runtime status');
+  });
+});
+
+describe('收集事实', () => {
+  it('findOnPath 按 PATH 顺序找第一个可执行的 baocut，解析软链接；不可执行、坏链接跳过', () => {
+    const a = path.join(dir, 'a');
+    const b = path.join(dir, 'b');
+    const c = path.join(dir, 'c');
+    for (const d of [a, b, c]) fs.mkdirSync(d);
+    const real = path.join(dir, 'real-baocut');
+    fs.writeFileSync(real, '#!/bin/sh\n');
+    fs.chmodSync(real, 0o755);
+    fs.writeFileSync(path.join(a, 'baocut'), 'not executable');
+    fs.symlinkSync(path.join(dir, 'gone'), path.join(b, 'baocut'));
+    fs.symlinkSync(real, path.join(c, 'baocut'));
+    expect(findOnPath('baocut', { PATH: [a, b, c].join(':') }, 'darwin')).toEqual({ found: path.join(c, 'baocut'), target: fs.realpathSync(real) });
+    expect(findOnPath('baocut', { PATH: a }, 'darwin')).toBeNull();
+  });
+
+  it('Windows 的转发脚本：只认 BaoCut 写的那种，取它转发到的入口', () => {
+    expect(forwarderTarget('@echo off\r\nrem BaoCut command line forwarder\r\n"C:\\Program Files\\BaoCut\\baocut.cmd" %*\r\n')).toBe('C:\\Program Files\\BaoCut\\baocut.cmd');
+    expect(forwarderTarget('@echo off\r\n"C:\\other\\baocut.cmd" %*\r\n')).toBeNull();
+    expect(forwarderTarget(null)).toBeNull();
+  });
+
+  it('appBundleOf 读 Info.plist 的版本；不在 .app 里时 null', () => {
+    const contents = path.join(dir, 'BaoCut.app', 'Contents');
+    fs.mkdirSync(path.join(contents, 'MacOS'), { recursive: true });
+    fs.writeFileSync(path.join(contents, 'Info.plist'), '<plist><dict><key>CFBundleShortVersionString</key>\n    <string>3.16.4</string></dict></plist>');
+    expect(appBundleOf(path.join(contents, 'MacOS', 'baocut-cli'))).toEqual({ root: path.join(dir, 'BaoCut.app'), version: '3.16.4' });
+    expect(appBundleOf('/usr/local/bin/baocut')).toBeNull();
+  });
+
+  it('probeCredentialHelper 只发一次 has，键是编出来的；按助手的回答分类，超时就杀掉', async () => {
+    const seen = path.join(dir, 'seen.json');
+    const helper = (body: string) => {
+      const file = path.join(dir, `helper-${Math.random().toString(36).slice(2)}.mjs`);
+      fs.writeFileSync(
+        file,
+        `import fs from 'node:fs';\nlet input = '';\nprocess.stdin.on('data', (d) => (input += d));\nprocess.stdin.on('end', () => {\n  fs.writeFileSync(${JSON.stringify(seen)}, input);\n  ${body};\n});\n`,
+      );
+      return { command: process.execPath, args: [file] };
+    };
+    expect(await probeCredentialHelper(helper(`process.stdout.write(JSON.stringify({ok:true,exists:false})+'\\n')`))).toEqual({ ok: true });
+    const request = JSON.parse(fs.readFileSync(seen, 'utf8'));
+    expect(request.op).toBe('has');
+    expect(request.key).toMatch(/^doctor-probe-[0-9a-f]{12}$/);
+    expect(Object.keys(request)).toEqual(['op', 'key']);
+    expect(await probeCredentialHelper(helper(`process.stdout.write(JSON.stringify({ok:false,error:'denied',message:'User interaction is not allowed.'})+'\\n')`))).toMatchObject({
+      ok: false,
+      error: 'denied',
+    });
+    expect(await probeCredentialHelper(helper(`process.exit(1)`))).toMatchObject({ ok: false, error: 'unavailable' });
+    expect(await probeCredentialHelper(helper(`setTimeout(()=>{},60000)`), 200)).toMatchObject({ ok: false, error: 'timeout' });
+    expect(await probeCredentialHelper({ command: path.join(dir, 'no-helper') })).toMatchObject({ ok: false, error: 'missing' });
+  });
+});
+
+describe('baocut doctor', () => {
+  async function cli(argv: string[], env: NodeJS.ProcessEnv) {
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const chunks = { stdout: '', stderr: '' };
+    stdout.on('data', (chunk) => (chunks.stdout += String(chunk)));
+    stderr.on('data', (chunk) => (chunks.stderr += String(chunk)));
+    const code = await runCli(argv, adminBucket, { cwd: dir, env, stdout, stderr });
+    return { code, ...chunks };
+  }
+
+  it('不拉起 Runtime、不写主目录；信封里是各项检查，next 是第一个问题的补救', async () => {
+    const home = path.join(dir, 'home');
+    fs.mkdirSync(home);
+    const entry = path.join(dir, 'app-entry');
+    fs.writeFileSync(entry, '#!/bin/sh\n');
+    fs.chmodSync(entry, 0o755);
+    vi.stubEnv('BAOCUT_LOCALE', 'en');
+    const env = {
+      ...process.env,
+      BAOCUT_HOME: home,
+      BAOCUT_RUNTIME_ENTRY: path.join(dir, 'no-such-runtime.ts'),
+      BAOCUT_CLI_ENTRY: entry,
+      PATH: path.join(dir, 'empty-bin'),
+    };
+    const result = await cli(['doctor', '--json'], env);
+    expect(result.code).toBe(0);
+    const envelope = JSON.parse(result.stdout);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.runtime).toBeUndefined();
+    expect(envelope.result.checks.map((c: { id: string }) => c.id).slice(0, 3)).toEqual(['entry', 'runtime', 'credentials']);
+    expect(envelope.result.checks[0]).toMatchObject({ id: 'entry', level: 'warn' });
+    expect(envelope.next).toBe(`'${entry}' cli install`);
+    expect(envelope.result.checks[2]).toMatchObject({ id: 'credentials', level: 'skip' });
+    expect(fs.readdirSync(home)).toEqual([]);
+
+    const human = await cli(['doctor', '--no-json'], env);
+    expect(human.stdout).toMatch(/^! Command line: /);
+    expect(human.stdout).toContain(`    fix: '${entry}' cli install`);
+
+    expect((await cli(['doctor', 'extra', '--json'], env)).code).not.toBe(0);
+    expect((await cli(['help', 'doctor'], env)).stdout).toMatch(/^baocut doctor\n/);
+  });
+});

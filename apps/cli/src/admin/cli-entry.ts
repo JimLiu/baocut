@@ -78,9 +78,9 @@ function cliEntryNext(status: CliEntryStatus): string | null {
   return null;
 }
 
-/** 让终端找到 App 自带的入口：用这个入口自己跑一次 `cli install`（还不在 PATH 上，所以写完整路径）。 */
-export function cliInstallCommand(entry: string, platform: NodeJS.Platform): string {
-  return platform === 'win32' ? `"${entry}" cli install` : `'${entry.replace(/'/g, `'\\''`)}' cli install`;
+/** 让终端找到 App 自带的入口：用这个入口自己跑一次 `cli install`（还不在 PATH 上，所以写完整路径）；`cli status` 同理。 */
+export function cliInstallCommand(entry: string, platform: NodeJS.Platform, verb: 'install' | 'status' = 'install'): string {
+  return platform === 'win32' ? `"${entry}" cli ${verb}` : `'${entry.replace(/'/g, `'\\''`)}' cli ${verb}`;
 }
 
 function dirOf(file: string): string {

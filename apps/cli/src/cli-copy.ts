@@ -116,6 +116,8 @@ const en = {
 
   // Runtime 的归属（§5.6）
   runtimeNotRunning: (home: string) => `No BaoCut Runtime is running for ${home}, and --no-start was given.`,
+  runtimeEnsureNext: (entry: string, store: 'keychain' | 'file' | null) =>
+    `baocut runtime ensure (starts ${entry} for this home${store === 'keychain' ? ', keys from the system keychain' : store === 'file' ? ', keys from the file in this home' : ''}; baocut doctor explains what would happen)`,
   runtimeNoEntry:
     'No BaoCut Runtime is running and none could be started: install the BaoCut app, run from the repository, or set BAOCUT_RUNTIME_ENTRY to the Runtime entry.',
   runtimeStartFailed: (reason: string, log: string) => `Could not start the BaoCut Runtime (${reason}). See ${log}.`,

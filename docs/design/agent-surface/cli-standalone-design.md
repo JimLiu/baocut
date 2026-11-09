@@ -1,6 +1,6 @@
 # CLI 独立使用与发布：不开桌面端也能用，以及独立 CLI 包
 
-> 方案稿，2026-11-08，未实现。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
+> 方案稿，2026-11-08。第一批（§12：§3、§5、§7.3、§8）已实现，第二、三批未做。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
 >
 > 本文延伸 [Agent 面设计](agent-surface-design.md) 的 §5.6（Runtime 的归属）与 §8.2（放哪里），CLI 拉起 Runtime 的机制以[架构设计 §2.2](../../architecture/architecture-design.md#22-启动所有权与退出) 为准，这里只写要改的部分。制作流程的产品化（生产脚本编排、旁白片段剪裁、字幕断条等）不在本文。
 
@@ -94,6 +94,7 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 - 带 `auto_updates true`：App 自己更新（架构设计 §2.6），`brew upgrade` 不与它抢。
 - cask 与 `~/.local/bin/baocut` 可以同时存在，两者指向同一个 App。
 - cask 放在 BaoCut 自己的 tap（GitHub 上的 `homebrew-tap` 仓库），每次发布随 appcast 一起更新版本号与校验和；cask 文件的源放在本仓库，tap 仓库由维护者建。
+- 实现：源文件是 `apps/desktop/releases/homebrew/baocut.rb`，由 `apps/desktop/tools/homebrew-cask.mjs` 按 `appcast-aarch64-apple-darwin.json` 生成（URL 必须与 appcast 的相同）；macOS 发布流程把它与 appcast 放进同一个 commit。复制到 tap 的 `Casks/baocut.rb` 由维护者做。
 
 ## 4. 同一个 Home 上的两份安装
 
@@ -210,13 +211,13 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 
 ### 8.1 `baocut doctor`
 
-只读，不拉起 Runtime 也能回答，不用先征得同意。逐项给出 `ok` / `warn` / `fail` 与补救命令，信封同 `baocut status`：
+只读，不拉起 Runtime 也能回答，不用先征得同意。逐项给出 `ok` / `warn` / `fail` / `skip`（这台机器上不适用，例如没装 App 时的入口、Runtime 没在跑时的完全磁盘访问）与补救命令，信封同 `baocut status`；`next` 是第一个 `fail` 的补救，没有时取第一个 `warn` 的。退出码总是 0，结论看 `result.ok`（有 `fail` 时为 false）：
 
 - **入口**：终端里的 `baocut` 指向哪里，与 App 是否同一版本，PATH 状态（§3.2）。
 - **Runtime**：会用哪个入口拉起（`resolveRuntimeLaunch` 的结果）、哪个 Home、哪个项目目录、哪种凭据后端；正在跑的那个的版本与拉起者。
 - **凭据**：后端可用吗。钥匙串经助手对一个不存在的键做一次 `has`，不读任何密钥；SSH 等没有图形会话的环境里钥匙串可能拒绝访问（`denied`），给出说明。
 - **完全磁盘访问**：`runtime.access` 的结果；缺失时说明系统会算在谁头上（App 拉起时是 BaoCut.app，从终端拉起时可能是终端，见架构设计 §12.11）与系统设置里的位置。
-- **构建**（开发态）：§7.4 的各项。原生程序与数据的位置复用 Runtime 的 `--self-check --probe`。
+- **构建**（开发态）：§7.4 的各项。原生程序与数据的位置复用 Runtime 的 `--self-check --probe`。随 §7.4 在第二批做，第一批的 `doctor` 没有这一项。
 
 `status` 回答这台机器能做什么，`doctor` 回答为什么起不来、为什么读不到。
 
@@ -226,7 +227,7 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 
 - `RUNTIME_UNAVAILABLE`（`--no-start` 时）的 `next` 写明会用哪个入口、哪个 Home、哪种凭据后端拉起。
 - `RUNTIME_START_FAILED` 给出日志路径与末尾几行（已有），并建议 `baocut doctor`。`start.md` 第 5 节改成先跑 `doctor`；只有 `doctor` 指向只能在桌面端做的事时才请用户打开桌面端。
-- 要授权与密钥无效的补救先给 CLI 命令（`baocut grants …`、`baocut models configure`，密钥由用户自己输入），再提桌面端的设置。
+- 要授权与密钥无效的补救先给 CLI 命令（`baocut grants …`、`baocut models configure`，密钥由用户自己输入），再提桌面端的设置。实现时只改了密钥无效（`PROVIDER_AUTH_FAILED`）的指导；要授权的提示（`GRANT_REQUIRED`、`GRANT_REVOKED`）桌面界面也显示同一句，没改，CLI 命令已在错误的 `remedy.commands` 里（`baocut grants create|update`）。
 - `job-tools.ts` 里完全磁盘访问的指导加上命令行下的说法：告诉用户系统设置里的位置与要打开的应用，授权后用 `baocut doctor` 复查。不让 Agent 自己去开系统设置的规定不变。
 
 ## 9. 独立 CLI 包
@@ -320,7 +321,7 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 
 ## 12. 实施顺序与验收
 
-**第一批（小改，可先做）**：§3 PATH 与 cask，§5 三项，§7.3，§8。
+**第一批（小改，可先做；已实现）**：§3 PATH 与 cask，§5 三项，§7.3，§8（不含构建一项）。
 
 - 验收：退出 App，只用 `~/.local/bin/baocut` 新建视频，视频落在 `~/BaoCut`；`download` 落在系统下载文件夹；Windows 上把下载文件夹重定向后同测。拔掉 Runtime 进程、让 PID 被复用后，下一条命令能重新拉起。Node 22 上源码 Runtime 能起。
 

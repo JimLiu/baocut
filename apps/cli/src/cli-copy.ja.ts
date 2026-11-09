@@ -94,6 +94,8 @@ export const ja: CliMessages = {
   },
 
   runtimeNotRunning: (home) => `${home} の BaoCut Runtime は実行されておらず、--no-start が指定されています。`,
+  runtimeEnsureNext: (entry, store) =>
+    `baocut runtime ensure（このホーム用に ${entry} を起動${store === 'keychain' ? '、キーはシステムのキーチェーンから' : store === 'file' ? '、キーはこのホーム内のファイルから' : ''}。何が起きるかは baocut doctor で確認できます）`,
   runtimeNoEntry:
     '実行中の BaoCut Runtime がなく、起動もできませんでした：BaoCut アプリをインストールするか、リポジトリから実行するか、BAOCUT_RUNTIME_ENTRY に Runtime のエントリを設定してください。',
   runtimeStartFailed: (reason, log) => `BaoCut Runtime を起動できませんでした（${reason}）。${log} を参照してください。`,
