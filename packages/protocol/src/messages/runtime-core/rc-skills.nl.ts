@@ -128,6 +128,8 @@ export const nl: RcSkillsMessages = {
   cliEntryUnavailable:
     'Deze Runtime is niet gestart vanuit de geïnstalleerde BaoCut-app, dus er is geen opdrachtregel van de app waar baocut naar kan verwijzen. Installeer het vanuit de BaoCut-app',
   cliEntryTaken: (p: { path: string }) => `${p.path} bestaat al en is niet door BaoCut neergezet. BaoCut vervangt of verwijdert het niet: verplaats het of geef het een andere naam en probeer het opnieuw`,
+  cliEntryStandalone: (p: { path: string; target: string }) =>
+    `${p.path} hoort bij het zelfstandige BaoCut-opdrachtregelpakket (${p.target}). De app vervangt of verwijdert het niet: werk het bij met baocut update of verwijder het met baocut cli remove van dat pakket`,
   cliEntryPathFailed: (p: { dir: string }) =>
     `baocut staat in ${p.dir}, maar BaoCut kon die map niet aan je gebruikers-PATH toevoegen. Voeg hem zelf toe: zoek in het menu Start naar ‘Omgevingsvariabelen voor uw account bewerken’`,
   cliEntryLocalOnly: 'Het baocut-commando installeren kan alleen in de desktop-app en de CLI',

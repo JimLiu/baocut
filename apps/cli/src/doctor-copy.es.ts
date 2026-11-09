@@ -28,6 +28,9 @@ export const es: DoctorMessages = {
   entryNoApp: (found, target) => `Los terminales ejecutan ${found} (${target}); no se encontró la app de BaoCut`,
   entryMissing: 'Los terminales no encuentran baocut. Instálalo desde la app de BaoCut (no hacen falta permisos de administrador).',
   entryMissingNoApp: 'Los terminales no encuentran baocut y no se encontró la app de BaoCut en las ubicaciones habituales',
+  entryStandalone: (found, version) => `Los terminales usan ${found}, el paquete independiente de línea de comandos de BaoCut ${version}`,
+  entryOtherStandalone: (found, target, own) => `Los terminales usan ${found} (${target}), no un paquete independiente de línea de comandos de BaoCut como ${own}`,
+  entryMissingStandalone: 'Los terminales no encuentran baocut. Instala este paquete de línea de comandos con cli install (no requiere permisos de administrador).',
 
   runtimeRunning: (version, pid, by) =>
     `En ejecución: versión ${version}, proceso ${pid}, iniciado por ${by === 'cli' ? 'la línea de comandos' : 'la app de BaoCut'}`,
@@ -52,6 +55,8 @@ export const es: DoctorMessages = {
     'El Acceso total al disco está desactivado para BaoCut.app, así que puede que no se lean los archivos de ubicaciones protegidas (Escritorio, Documentos, Descargas, otros discos). Activa BaoCut en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco y vuelve a ejecutar baocut doctor.',
   fdaMissingCli: (app) =>
     `El Acceso total al disco está desactivado para el Runtime que inició la línea de comandos; macOS se lo atribuye a ${app ?? 'la app que ejecutó el comando (tu terminal o la app que aloja al agente)'}. Activa esa app en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco y vuelve a abrirla, o detén este Runtime (baocut runtime stop) y abre la app de BaoCut; después vuelve a ejecutar baocut doctor.`,
+  fdaMissingOwn: (app) =>
+    `El Acceso total al disco está desactivado para el Runtime que inició la línea de comandos. Se ejecuta por su cuenta como ${app}, así que macOS se lo atribuye a ${app}, no a tu terminal: activa ${app} en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco, detén este Runtime (baocut runtime stop) y vuelve a ejecutar baocut doctor.`,
   fdaNotRunning: 'Solo se comprueba con un Runtime en ejecución',
   buildOk: (count) => `Los programas nativos se inician y las ${count} compilaciones coinciden con el código fuente`,
   buildNotSource: 'Se comprueba cuando el Runtime se ejecuta desde una copia del repositorio',

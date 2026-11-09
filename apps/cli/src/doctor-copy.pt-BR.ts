@@ -28,6 +28,9 @@ export const ptBR: DoctorMessages = {
   entryNoApp: (found, target) => `Os terminais executam ${found} (${target}); nenhum app BaoCut foi encontrado`,
   entryMissing: 'Os terminais não encontram o baocut. Instale-o pelo app BaoCut (não precisa de permissão de administrador).',
   entryMissingNoApp: 'Os terminais não encontram o baocut, e nenhum app BaoCut foi encontrado nos locais habituais',
+  entryStandalone: (found, version) => `Os terminais usam ${found}, o pacote independente de linha de comando do BaoCut ${version}`,
+  entryOtherStandalone: (found, target, own) => `Os terminais usam ${found} (${target}), não um pacote independente de linha de comando do BaoCut como ${own}`,
+  entryMissingStandalone: 'Os terminais não encontram o baocut. Instale este pacote de linha de comando com cli install (sem permissões de administrador).',
 
   runtimeRunning: (version, pid, by) =>
     `Em execução: versão ${version}, processo ${pid}, iniciado ${by === 'cli' ? 'pela linha de comando' : 'pelo app BaoCut'}`,
@@ -52,6 +55,8 @@ export const ptBR: DoctorMessages = {
     'O Acesso Total ao Disco está desativado para o BaoCut.app, então arquivos em locais protegidos (Mesa, Documentos, Transferências, outros discos) podem ficar ilegíveis. Ative o BaoCut em Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco e execute baocut doctor novamente.',
   fdaMissingCli: (app) =>
     `O Acesso Total ao Disco está desativado para o Runtime que a linha de comando iniciou; o macOS usa a permissão deste app: ${app ?? 'o app que executou o comando (seu terminal ou o app que hospeda o agente)'}. Ative esse app em Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco e reabra-o, ou pare este Runtime (baocut runtime stop) e abra o app BaoCut; depois execute baocut doctor novamente.`,
+  fdaMissingOwn: (app) =>
+    `O Acesso Total ao Disco está desativado para o Runtime que a linha de comando iniciou. Ele roda por conta própria como ${app}, então o macOS usa a permissão de ${app}, não a do seu terminal: ative ${app} em Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco, pare este Runtime (baocut runtime stop) e depois execute baocut doctor novamente.`,
   fdaNotRunning: 'Verificado apenas com um Runtime em execução',
   buildOk: (count) => `Os programas nativos iniciam e os ${count} builds correspondem ao código-fonte`,
   buildNotSource: 'Verificado quando o Runtime roda a partir de uma cópia do repositório',

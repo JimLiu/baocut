@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { stageDesktopCli } from './desktop-cli.mjs';
+import { stageDesktopCli, stageStandaloneCli } from './desktop-cli.mjs';
 
 test('packaged offline probe accepts the current CLI skill interface without a Runtime', () => {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-probe-')));
@@ -42,8 +42,9 @@ test('macOS launcher handles relocated apps, arguments, symlinks and child exit 
   try {
     const mac = path.join(dir, "Moved app's folder", 'BaoCut.app', 'Contents', 'MacOS');
     mkdirSync(mac, {recursive: true});
-    const staged = stageDesktopCli(mac, 'darwin');
+    const [staged, disclaim] = stageDesktopCli(mac, 'darwin');
     assert.equal(staged.to, 'MacOS/baocut-cli');
+    assert.equal(disclaim.to, 'MacOS/baocut-disclaim');
     assert.ok(statSync(staged.from).mode & 0o111);
     execFileSync('lipo', [staged.from, '-verify_arch', process.arch === 'x64' ? 'x86_64' : 'arm64']);
     writeFileSync(path.join(mac, 'BaoCut'), `#!${process.execPath}\nconsole.log(JSON.stringify({args:process.argv.slice(2),node:process.env.ELECTRON_RUN_AS_NODE}));process.exitCode=7;\n`, {mode:0o755});
@@ -66,7 +67,7 @@ test('macOS launcher survives strict app signing and a ZIP round trip', {skip: p
     const contents = path.join(app, 'Contents');
     const mac = path.join(contents, 'MacOS');
     mkdirSync(mac, {recursive: true});
-    const staged = stageDesktopCli(mac, 'darwin');
+    const [staged] = stageDesktopCli(mac, 'darwin');
     // The production signer skips non-Mach-O files. A shell script in MacOS
     // reproduces "code object is not signed at all" when the app is signed.
     assert.ok([0xfeedface, 0xcefaedfe, 0xfeedfacf, 0xcffaedfe, 0xcafebabe, 0xbebafeca].includes(readFileSync(staged.from).readUInt32BE()));
@@ -85,12 +86,59 @@ test('macOS launcher survives strict app signing and a ZIP round trip', {skip: p
 test('Windows shim is staged at the app root and propagates arguments and exit status', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-win-'));
   try {
-    const stage = stageDesktopCli(dir, 'win32');
+    const [stage, ...rest] = stageDesktopCli(dir, 'win32');
     assert.equal(stage.to, 'baocut.cmd');
+    assert.deepEqual(rest, []);
     const text = readFileSync(stage.from,'utf8');
     assert.match(text, /setlocal\r\nset ELECTRON_RUN_AS_NODE=1/);
     assert.match(text, /"%~dp0BaoCut.exe" "%~dp0resources\\app.asar\\out\\main\\cli.js" %\*/);
     assert.match(text, /exit \/b %errorlevel%/);
     assert.throws(() => stageDesktopCli(dir, 'linux'), /Unsupported/);
   } finally { rmSync(dir,{recursive:true,force:true}); }
+});
+
+test('standalone macOS launcher runs the bundled node on the unpacked app, without ELECTRON_RUN_AS_NODE', {skip: process.platform !== 'darwin'}, () => {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-standalone-')));
+  try {
+    const mac = path.join(dir, 'BaoCut CLI.app', 'Contents', 'MacOS');
+    mkdirSync(mac, {recursive: true});
+    const {launcher, disclaim} = stageStandaloneCli(mac, 'darwin');
+    writeFileSync(path.join(mac, 'node'), `#!${process.execPath}\nconsole.log(JSON.stringify({args:process.argv.slice(2),node:process.env.ELECTRON_RUN_AS_NODE ?? null}));\n`, {mode:0o755});
+    const link = path.join(dir, 'baocut'); symlinkSync(launcher, link);
+    const r = spawnSync(link, ['version'], {encoding: 'utf8', timeout: 10_000, env: {...process.env, ELECTRON_RUN_AS_NODE: undefined}});
+    assert.equal(r.status, 0, r.stderr);
+    const result = JSON.parse(r.stdout);
+    assert.equal(result.node, null);
+    assert.equal(path.normalize(result.args[0]), path.join(path.dirname(mac), 'Resources/app/out/main/cli.js'));
+    assert.deepEqual(result.args.slice(1), ['version']);
+    assert.ok(statSync(disclaim).mode & 0o111);
+  } finally { rmSync(dir, {recursive:true, force:true}); }
+});
+
+test('disclaim helper keeps the PID, passes arguments and exit codes, and makes the program its own responsible process', {skip: process.platform !== 'darwin'}, () => {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'baocut-disclaim-')));
+  try {
+    const [, disclaim] = stageDesktopCli(dir, 'darwin');
+    const probe = path.join(dir, 'probe');
+    writeFileSync(path.join(dir, 'probe.c'), '#include <stdio.h>\n#include <unistd.h>\nextern pid_t responsibility_get_pid_responsible_for_pid(pid_t);\nint main(int c,char**v){printf("%d %d %s\\n",getpid(),responsibility_get_pid_responsible_for_pid(getpid()),c>1?v[1]:"");return 5;}\n');
+    execFileSync('xcrun', ['clang', path.join(dir, 'probe.c'), '-o', probe]);
+    const r = spawnSync(disclaim.from, [probe, 'arg with space'], {encoding: 'utf8', timeout: 10_000});
+    assert.equal(r.status, 5, r.stderr);
+    const [pid, responsible, arg] = [...r.stdout.trim().split(' ').slice(0, 2), r.stdout.trim().split(' ').slice(2).join(' ')];
+    assert.equal(pid, responsible);
+    assert.equal(arg, 'arg with space');
+    const missing = spawnSync(disclaim.from, [path.join(dir, 'missing')], {encoding: 'utf8'});
+    assert.equal(missing.status, 127);
+  } finally { rmSync(dir, {recursive:true, force:true}); }
+});
+
+test('standalone Windows launcher runs node.exe on resources\\app', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-standalone-win-'));
+  try {
+    const {launcher, disclaim} = stageStandaloneCli(dir, 'win32');
+    assert.equal(disclaim, null);
+    const text = readFileSync(launcher, 'utf8');
+    assert.doesNotMatch(text, /ELECTRON_RUN_AS_NODE/);
+    assert.match(text, /"%~dp0node.exe" "%~dp0resources\\app\\out\\main\\cli.js" %\*/);
+  } finally { rmSync(dir, {recursive:true, force:true}); }
 });

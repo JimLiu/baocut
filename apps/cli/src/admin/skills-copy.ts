@@ -107,6 +107,7 @@ const en = {
     stale: 'Points to another BaoCut',
     broken: 'Points to a location that no longer exists',
     foreign: "Something else is there (left alone)",
+    standalone: 'Points to the standalone command line package, which manages it (baocut update; left alone)',
   },
 };
 

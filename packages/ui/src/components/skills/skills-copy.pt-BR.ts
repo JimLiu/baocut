@@ -355,6 +355,8 @@ export const ptBR: SkillsPageMessages = {
       `Aponta para ${target}, que não existe mais (o aplicativo foi movido). Repare para que aponte para este aplicativo.`,
     cliForeign:
       'Já existe ali um baocut que não foi colocado pelo BaoCut. O BaoCut não vai substituí-lo; mova ou renomeie esse item e depois instale.',
+    cliStandalone:
+      'Instalada · os terminais usam a linha de comando independente do BaoCut, que é atualizada com baocut update. O aplicativo não mexe nela.',
     cliInstall: 'Instalar ferramenta de linha de comando',
     cliRepair: 'Reparar',
     cliRemoveHint: 'Apaga só o que o BaoCut colocou ali; o aplicativo mantém sua linha de comando',

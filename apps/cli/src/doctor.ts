@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { MCP_INTERFACE_VERSION, PROTOCOL_VERSION, type ComponentBuild, type RuntimeInfo } from '@baocut/protocol';
+import { MCP_INTERFACE_VERSION, PROTOCOL_VERSION, STANDALONE_APP_NAME, standaloneLayout, type ComponentBuild, type RuntimeInfo } from '@baocut/protocol';
 import { cliInstallCommand } from './admin/cli-entry.ts';
 import { M } from './cli-copy.ts';
 import { D } from './doctor-copy.ts';
@@ -14,11 +14,15 @@ import {
   launchEntry,
   nodeSatisfies,
   openClient,
+  ownStandalonePackage,
   packagedApps,
   packagedResourceEnv,
+  standalonePackageAt,
   startLogFile,
   type LaunchSpec,
+  type StandalonePackage,
 } from './runtime/connection.ts';
+import { S } from './standalone/standalone-copy.ts';
 
 /**
  * `baocut doctor`（CLI 独立使用与发布 §8.1）：为什么起不来、为什么读不到。逐项给出 ok / warn / fail（查不了时 skip）与补救命令。
@@ -75,6 +79,10 @@ export interface DoctorInputs {
   app: { entry: string; version: string | null } | null;
   /** 终端那个 `baocut` 落在哪个 App 里、那个 App 的版本（macOS 读 Info.plist）。 */
   terminalApp: { root: string; version: string | null } | null;
+  /** 这条命令所在的独立 CLI 包（CLI 独立使用与发布 §9.3）的启动器与版本；App 里或仓库里的 CLI 是 null。 */
+  standalone: { launcher: string; version: string } | null;
+  /** 终端那个 `baocut` 是哪个独立包的启动器、那个包的版本；不是独立包时 null。 */
+  terminalStandalone: { root: string; version: string } | null;
   launch: LaunchSpec | null;
   node: string;
   runtime: DoctorRuntime;
@@ -102,7 +110,9 @@ export function doctorNext(result: DoctorResult): string | null {
   return null;
 }
 
-function entryCheck({ terminal, app, terminalApp, platform }: DoctorInputs): DoctorCheck {
+function entryCheck(inputs: DoctorInputs): DoctorCheck {
+  if (inputs.standalone) return standaloneEntryCheck(inputs, inputs.standalone);
+  const { terminal, app, terminalApp, platform } = inputs;
   const details = { found: terminal?.found ?? null, target: terminal?.target ?? null, app: app?.entry ?? null, appVersion: app?.version ?? null };
   if (!terminal) {
     return app
@@ -124,6 +134,26 @@ function entryCheck({ terminal, app, terminalApp, platform }: DoctorInputs): Doc
     };
   }
   return { id: 'entry', level: 'ok', message: D.entryNoApp(terminal.found, terminal.target), details };
+}
+
+/**
+ * 从独立包里跑的 doctor 拿终端的 `baocut` 与独立包比：指向某个装好的独立包就是好的，补救命令写这个包启动器的完整路径（入口可能还不在
+ * PATH 上）。终端先找到 App 的入口时只点名，谁该让位留给 §9.4 的共存规则。
+ */
+function standaloneEntryCheck({ terminal, terminalStandalone, platform }: DoctorInputs, own: { launcher: string; version: string }): DoctorCheck {
+  const details = { found: terminal?.found ?? null, target: terminal?.target ?? null, standalone: own.launcher, standaloneVersion: own.version };
+  if (!terminal) return { id: 'entry', level: 'warn', message: D.entryMissingStandalone, remedy: cliInstallCommand(own.launcher, platform), details };
+  const shown = terminal.target === terminal.found ? terminal.found : `${terminal.found} → ${terminal.target}`;
+  if (terminalStandalone) {
+    return { id: 'entry', level: 'ok', message: D.entryStandalone(shown, terminalStandalone.version), details: { ...details, terminalVersion: terminalStandalone.version } };
+  }
+  return {
+    id: 'entry',
+    level: 'warn',
+    message: D.entryOtherStandalone(terminal.found, terminal.target, own.launcher),
+    remedy: cliInstallCommand(own.launcher, platform, 'status'),
+    details,
+  };
 }
 
 function runtimeCheck({ runtime, launch, node, home }: DoctorInputs): DoctorCheck {
@@ -185,7 +215,7 @@ function credentialsCheck({ credentials, home, platform }: DoctorInputs): Doctor
   return { id: 'credentials', level: 'fail', message: D.credentialsUnavailable(probe.message), details };
 }
 
-function fullDiskAccessCheck({ runtime, terminalProgram }: DoctorInputs): DoctorCheck {
+function fullDiskAccessCheck({ runtime, terminalProgram, launch }: DoctorInputs): DoctorCheck {
   if (runtime.state !== 'running' || !runtime.access?.fullDiskAccess) {
     return { id: 'fullDiskAccess', level: 'skip', message: D.fdaNotRunning, details: {} };
   }
@@ -193,7 +223,12 @@ function fullDiskAccessCheck({ runtime, terminalProgram }: DoctorInputs): Doctor
   const launchedBy = runtime.info.launchedBy === 'cli' ? 'cli' : 'app';
   const details = { state, launchedBy };
   if (state === 'granted') return { id: 'fullDiskAccess', level: 'ok', message: D.fdaGranted, details };
-  // 架构设计 §12.11：权限算在拉起它的那个应用头上；从终端拉起时多半是终端。
+  // 架构设计 §12.11：权限算在负责进程头上。CLI 经 disclaim 助手拉起时 Runtime 自己负责，算在它所在的包（BaoCut.app 或
+  // BaoCut CLI.app）头上；没有助手时（旧版、开发构建）负责进程是拉起它的应用，多半是终端。
+  if (launchedBy === 'cli' && launch?.disclaim) {
+    const app = launch.source === 'standalone' ? STANDALONE_APP_NAME : 'BaoCut';
+    return { id: 'fullDiskAccess', level: 'warn', message: D.fdaMissingOwn(app), details: { ...details, attributedTo: app } };
+  }
   const message = launchedBy === 'cli' ? D.fdaMissingCli(terminalAppName(terminalProgram)) : D.fdaMissingApp;
   return { id: 'fullDiskAccess', level: 'warn', message, details: { ...details, terminal: terminalProgram } };
 }
@@ -261,6 +296,8 @@ export function terminalAppName(program: string | null): string | null {
 
 export interface DoctorDeps {
   platform?: NodeJS.Platform;
+  /** 这条命令所在的独立包；不给时按本模块的位置找（测试换掉）。 */
+  standalone?: StandalonePackage | null;
   /** 凭据助手的期限。 */
   helperTimeoutMs?: number;
   /** 跑 Runtime 自检（测试替换）。 */
@@ -280,6 +317,8 @@ export async function gatherDoctor(
   const platform = deps.platform ?? process.platform;
   const terminal = findOnPath('baocut', env, platform);
   const app = appEntry(env, platform);
+  const own = deps.standalone !== undefined ? deps.standalone : ownStandalonePackage(platform);
+  const terminalPackage = terminal ? standaloneOfLauncher(terminal.target, platform) : null;
   const store = launch ? launchCredentialStore(launch) : null;
   const helper = store === 'keychain' ? credentialHelper(env, launch!, platform) : null;
   const [runtime, probe, build] = await Promise.all([
@@ -294,6 +333,8 @@ export async function gatherDoctor(
     terminal,
     app,
     terminalApp: terminal && platform === 'darwin' ? appBundleOf(terminal.target) : null,
+    standalone: own ? { launcher: own.launcher, version: packageVersion(own) } : null,
+    terminalStandalone: terminalPackage ? { root: terminalPackage.root, version: packageVersion(terminalPackage) } : null,
     launch,
     node: process.versions.node,
     runtime,
@@ -413,6 +454,21 @@ function appEntry(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): { entry: s
   const entry = candidates.find((candidate) => fs.existsSync(candidate));
   if (!entry) return null;
   return { entry, version: platform === 'darwin' ? (appBundleOf(entry)?.version ?? null) : null };
+}
+
+/** `file` 是某个独立包的启动器时，那个包；否则 null。 */
+function standaloneOfLauncher(file: string, platform: NodeJS.Platform): StandalonePackage | null {
+  const layout = standaloneLayout(platform);
+  if (!layout) return null;
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  let root = file;
+  for (let i = 0; i < layout.launcher.length; i += 1) root = paths.dirname(root);
+  if (paths.join(root, ...layout.launcher) !== file) return null;
+  return standalonePackageAt(root, platform);
+}
+
+function packageVersion(pkg: StandalonePackage): string {
+  return S.version(pkg.manifest.version, pkg.manifest.build);
 }
 
 /** 文件所在的 `.app` 与它的版本（`Contents/Info.plist` 的 `CFBundleShortVersionString`）；不在 `.app` 里时 null。 */

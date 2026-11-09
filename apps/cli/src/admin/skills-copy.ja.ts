@@ -71,5 +71,12 @@ export const ja: SkillsMessages = {
   cliNothingToRemove: (path) => `${path} に削除するものはありません`,
   cliInstallHint: 'baocut cli install で baocut を PATH に置けます',
   cliFixHint: 'baocut cli install でこのアプリを指すように直せます',
-  cliState: { none: '未インストール', current: 'このアプリを指しています', stale: '別の BaoCut を指しています', broken: 'もう存在しない場所を指しています', foreign: '別のものがあります（触りません）' },
+  cliState: {
+    none: '未インストール',
+    current: 'このアプリを指しています',
+    stale: '別の BaoCut を指しています',
+    broken: 'もう存在しない場所を指しています',
+    foreign: '別のものがあります（触りません）',
+    standalone: 'スタンドアロンのコマンドラインパッケージを指しています。そちらが管理します（baocut update、触りません）',
+  },
 };

@@ -2,7 +2,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { resolveElectronBinary } from '@baocut/code-runtime';
 import { describe, expect, it } from 'vitest';
-import { probeCompositionHost, probeNativeCommand } from './self-check.ts';
+import { probeCompositionHost, probeNativeCommand, runtimeSelfCheck } from './self-check.ts';
 
 describe('probeNativeCommand', () => {
   it('uses the per-worker startup budget while retaining a bounded timeout', async () => {
@@ -31,5 +31,13 @@ describe('probeCompositionHost', () => {
     const result = await probeCompositionHost({ ...process.env, BAOCUT_ELECTRON: missing });
     expect(result.ok).toBe(false);
     expect(result.detail).toMatch(/^COMPOSITION_HOST_UNAVAILABLE: /);
+  });
+});
+
+describe('runtimeSelfCheck', () => {
+  it('独立 CLI 包不要求 Electron', async () => {
+    const report = await runtimeSelfCheck({ env: { ...process.env, BAOCUT_PACKAGE_KIND: 'standalone', BAOCUT_ELECTRON: '' } });
+    expect(report.binaries).not.toHaveProperty('electron');
+    expect(report.problems.filter((problem) => problem.startsWith('electron'))).toEqual([]);
   });
 });

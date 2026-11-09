@@ -66,5 +66,12 @@ export const zhHans: SkillsMessages = {
   cliNothingToRemove: (path) => `${path} 没有要移除的东西`,
   cliInstallHint: 'baocut cli install 把 baocut 放进 PATH',
   cliFixHint: 'baocut cli install 让它改指向这个应用',
-  cliState: { none: '未安装', current: '指向这个应用', stale: '指向另一份 BaoCut', broken: '指向的位置已经不在了', foreign: '已有别的东西（不动它）' },
+  cliState: {
+    none: '未安装',
+    current: '指向这个应用',
+    stale: '指向另一份 BaoCut',
+    broken: '指向的位置已经不在了',
+    foreign: '已有别的东西（不动它）',
+    standalone: '指向独立的命令行包，由它管理（baocut update；不动它）',
+  },
 };

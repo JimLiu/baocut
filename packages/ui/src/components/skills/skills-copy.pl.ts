@@ -370,6 +370,7 @@ export const pl: SkillsPageMessages = {
     cliStale: (target: string) => `Wskazuje na inny BaoCut (${target}). Napraw, aby wskazywał na tę aplikację.`,
     cliBroken: (target: string) => `Wskazuje na ${target}, którego już tam nie ma (aplikację przeniesiono). Napraw, aby wskazywał na tę aplikację.`,
     cliForeign: 'Jest tam już baocut, którego nie umieścił BaoCut. BaoCut go nie zastąpi; przenieś go lub zmień jego nazwę, a potem zainstaluj.',
+    cliStandalone: 'Zainstalowano · terminale uruchamiają samodzielny wiersz poleceń BaoCut, który aktualizuje się przez baocut update. Aplikacja go nie zmienia.',
     cliInstall: 'Zainstaluj narzędzie wiersza poleceń',
     cliRepair: 'Napraw',
     cliRemoveHint: 'Usuwa tylko to, co umieścił tam BaoCut; aplikacja zachowuje swój wiersz poleceń',

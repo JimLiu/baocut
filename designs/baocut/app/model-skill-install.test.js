@@ -70,6 +70,10 @@ test('命令行：没装给「安装命令行工具」；不在 PATH 上给那�
   assert.match(other.text, /\/opt\/homebrew\/bin\/baocut/);
   const broken = M.cliRow(M.scenarioCli('broken'));
   assert.deepEqual([broken.kind, broken.cta, broken.removable], ['broken', '修复', true]);
+  const standalone = M.cliRow(M.scenarioCli('cli-standalone'));
+  assert.equal(standalone.kind, 'standalone');
+  assert.equal(standalone.cta, null);
+  assert.equal(standalone.removable, false);
   const taken = M.cliRow({state: 'foreign'});
   assert.deepEqual([taken.cta, taken.removable], [null, false]);
   assert.ok(Object.values(M.cliRow(M.cliInstalled())).every((v) => !String(v).includes('sudo')));

@@ -28,6 +28,9 @@ export const ja: DoctorMessages = {
   entryNoApp: (found, target) => `ターミナルは ${found}（${target}）を使っています。BaoCut アプリは見つかりませんでした`,
   entryMissing: 'ターミナルから baocut が見つかりません。BaoCut アプリからインストールしてください（管理者権限は不要）。',
   entryMissingNoApp: 'ターミナルから baocut が見つからず、通常の場所に BaoCut アプリもありません',
+  entryStandalone: (found, version) => `ターミナルが使うのは ${found}、BaoCut のコマンドライン単体パッケージ ${version} です`,
+  entryOtherStandalone: (found, target, own) => `ターミナルが使うのは ${found}（${target}）で、${own} のような BaoCut のコマンドライン単体パッケージではありません`,
+  entryMissingStandalone: 'ターミナルから baocut が見つかりません。cli install でこのコマンドライン単体パッケージをインストールしてください（管理者権限は不要）。',
 
   runtimeRunning: (version, pid, by) =>
     `実行中：バージョン ${version}、プロセス ${pid}、${by === 'cli' ? 'コマンドライン' : 'BaoCut アプリ'}から起動`,
@@ -51,6 +54,8 @@ export const ja: DoctorMessages = {
     'BaoCut.app のフルディスクアクセスがオフのため、保護された場所（デスクトップ、書類、ダウンロード、ほかのドライブ）にあるファイルを読めないことがあります。「システム設定 › プライバシーとセキュリティ › フルディスクアクセス」で BaoCut をオンにしてから、baocut doctor をもう一度実行してください。',
   fdaMissingCli: (app) =>
     `コマンドラインが起動した Runtime のフルディスクアクセスがオフです。macOS はこれを${app ?? 'コマンドを実行したアプリ（ターミナル、または Agent を動かしているアプリ）'}の権限として扱います。「システム設定 › プライバシーとセキュリティ › フルディスクアクセス」でそのアプリをオンにして開き直すか、この Runtime を停止（baocut runtime stop）して BaoCut アプリを開いてください。そのあと baocut doctor をもう一度実行してください。`,
+  fdaMissingOwn: (app) =>
+    `コマンドラインが起動した Runtime のフルディスクアクセスがオフです。この Runtime は ${app} として単独で動いているため、macOS はターミナルではなく ${app} の権限として扱います。「システム設定 › プライバシーとセキュリティ › フルディスクアクセス」で ${app} をオンにし、この Runtime を停止（baocut runtime stop）してから、baocut doctor をもう一度実行してください。`,
   fdaNotRunning: 'Runtime の実行中にのみ確認します',
   buildOk: (count) => `ネイティブプログラムはすべて起動し、${count} 件のビルドがソースと一致しています`,
   buildNotSource: 'Runtime をリポジトリから実行しているときにチェックします',

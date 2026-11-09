@@ -361,6 +361,8 @@ export const de: SkillsPageMessages = {
       `Zeigt auf ${target}, das nicht mehr existiert (die App wurde verschoben). Reparieren Sie es, damit es auf diese App zeigt.`,
     cliForeign:
       'Dort liegt bereits ein baocut, das nicht von BaoCut stammt. BaoCut ersetzt es nicht; verschieben Sie es oder benennen Sie es um, und installieren Sie dann.',
+    cliStandalone:
+      'Installiert · Terminals verwenden die eigenständige BaoCut-Befehlszeile, die mit baocut update aktualisiert wird. Die App lässt sie unberührt.',
     cliInstall: 'Befehlszeilentool installieren',
     cliRepair: 'Reparieren',
     cliRemoveHint: 'Löscht nur, was BaoCut dort abgelegt hat; die App behält ihre Befehlszeile',

@@ -13,12 +13,15 @@ import {
   findRuntime,
   interfaceMismatch,
   isEndpointRefused,
+  launchRuntime,
   lockHolderAlive,
   nodeSatisfies,
+  ownStandalonePackage,
   packagedApps,
   packagedResourceEnv,
   resolveRuntimeLaunch,
   appCredentialHelperEnv,
+  type LaunchSpec,
 } from './connection.ts';
 
 describe('Runtime 的入口与版本门', () => {
@@ -292,5 +295,93 @@ describe('CLI shipped inside a relocated desktop app', () => {
   it('derives a portable Windows app before standard install directories', () => {
     const from = String.raw`D:\Portable Apps\BaoCut\resources\app.asar\out\main`;
     expect(packagedApps({LOCALAPPDATA:String.raw`C:\Users\test\Local`},'win32',from)[0]).toEqual({executable:String.raw`D:\Portable Apps\BaoCut\BaoCut.exe`,resources:String.raw`D:\Portable Apps\BaoCut\resources`,own:true});
+  });
+});
+
+/** 一个独立 CLI 包（CLI 独立使用与发布 §9）的骨架：布局与清单，Node 与启动器只是占位文件。 */
+function makeStandalone(dir: string, platform: 'darwin' | 'win32' = 'darwin') {
+  const root = path.join(dir, 'versions', '3.17.0-build.93');
+  const contents = path.join(root, 'BaoCut CLI.app', 'Contents');
+  const app = platform === 'darwin' ? path.join(contents, 'Resources', 'app') : path.join(root, 'resources', 'app');
+  const resources = path.dirname(app);
+  const from = path.join(app, 'out', 'main');
+  fs.mkdirSync(from, { recursive: true });
+  const manifest = { schema: 1, product: 'baocut-cli', version: '3.17.0', build: 93, target: platform === 'darwin' ? 'aarch64-apple-darwin' : 'x86_64-pc-windows-msvc', variant: 'cpu', sourceCommit: null, node: '24.11.1' };
+  fs.writeFileSync(path.join(app, 'baocut-standalone.json'), JSON.stringify(manifest));
+  const macos = path.join(contents, 'MacOS');
+  if (platform === 'darwin') {
+    fs.mkdirSync(macos, { recursive: true });
+    for (const name of ['node', 'baocut-cli', 'baocut-disclaim']) fs.writeFileSync(path.join(macos, name), 'fixture');
+  }
+  return { root, app, resources, from, macos, manifest };
+}
+
+describe('CLI shipped inside the standalone package', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-standalone-')));
+  });
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('认出自己所在的独立包；拉起包里的 Node 跑解开的 runtime.js，经 disclaim 助手，标明没有 Electron', () => {
+    const pkg = makeStandalone(dir);
+    expect(ownStandalonePackage('darwin', pkg.from)).toMatchObject({ root: pkg.root, app: pkg.app, manifest: pkg.manifest });
+    expect(resolveRuntimeLaunch({}, 'darwin', pkg.from)).toEqual({
+      command: path.join(pkg.macos, 'node'),
+      args: [path.join(pkg.app, 'out', 'main', 'runtime.js'), '--credential-store', 'keychain'],
+      env: { ...packagedResourceEnv(pkg.resources, 'darwin'), BAOCUT_PACKAGE_KIND: 'standalone' },
+      source: 'standalone',
+      disclaim: path.join(pkg.macos, 'baocut-disclaim'),
+    });
+    // 资源与命令行入口照 App 的找法：`BAOCUT_CLI_ENTRY` 正是独立包的启动器。
+    expect(packagedResourceEnv(pkg.resources, 'darwin').BAOCUT_CLI_ENTRY).toBe(path.join(pkg.macos, 'baocut-cli'));
+    expect(resolveRuntimeLaunch({ BAOCUT_RUNTIME_ENTRY: '/explicit/runtime.js' }, 'darwin', pkg.from)?.source).toBe('env');
+    // 没有 disclaim 助手时直接拉起。
+    fs.rmSync(path.join(pkg.macos, 'baocut-disclaim'));
+    expect(resolveRuntimeLaunch({}, 'darwin', pkg.from)).not.toHaveProperty('disclaim');
+  });
+
+  it('清单不成形或布局不对时不算独立包', () => {
+    const pkg = makeStandalone(dir);
+    fs.writeFileSync(path.join(pkg.app, 'baocut-standalone.json'), '{"schema":2}');
+    expect(ownStandalonePackage('darwin', pkg.from)).toBeNull();
+    const loose = path.join(dir, 'loose', 'app', 'out', 'main');
+    fs.mkdirSync(loose, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'loose', 'app', 'baocut-standalone.json'), JSON.stringify(pkg.manifest));
+    expect(ownStandalonePackage('darwin', loose)).toBeNull();
+    expect(ownStandalonePackage('linux', pkg.from)).toBeNull();
+  });
+
+  it('App 里有 disclaim 助手时经它拉起', () => {
+    const contents = path.join(dir, 'BaoCut.app', 'Contents');
+    const from = path.join(contents, 'Resources', 'app.asar', 'out', 'main');
+    fs.mkdirSync(from, { recursive: true });
+    fs.mkdirSync(path.join(contents, 'MacOS'), { recursive: true });
+    fs.writeFileSync(path.join(contents, 'MacOS', 'BaoCut'), 'fixture');
+    expect(resolveRuntimeLaunch({}, 'darwin', from)).not.toHaveProperty('disclaim');
+    fs.writeFileSync(path.join(contents, 'MacOS', 'baocut-disclaim'), 'fixture');
+    expect(resolveRuntimeLaunch({}, 'darwin', from)).toMatchObject({ source: 'packaged', disclaim: path.join(contents, 'MacOS', 'baocut-disclaim') });
+  });
+
+  it.skipIf(process.platform === 'win32')('经助手拉起时程序与参数排在助手后面，PID 不变，发现文件对得上', { timeout: 20_000 }, async () => {
+    const home = path.join(dir, 'home');
+    const marker = path.join(dir, 'disclaim-args.txt');
+    // 假的助手：记下参数再 exec 程序（真的助手以 POSIX_SPAWN_SETEXEC 换掉自己，PID 同样不变）。
+    const disclaim = path.join(dir, 'disclaim.sh');
+    fs.writeFileSync(disclaim, `#!/bin/sh\nprintf '%s\\n' "$@" > '${marker}'\nexec "$@"\n`, { mode: 0o755 });
+    const runtime = path.join(dir, 'fake-runtime.cjs');
+    fs.writeFileSync(runtime, [
+      "const fs=require('fs'),net=require('net'),path=require('path');",
+      'const home=process.env.BAOCUT_HOME;',
+      "const server=net.createServer(()=>{}).listen(0,'127.0.0.1',()=>{",
+      "fs.mkdirSync(home,{recursive:true});",
+      "fs.writeFileSync(path.join(home,'runtime.json'),JSON.stringify({pid:process.pid,startedAt:new Date().toISOString(),endpoint:'ws://127.0.0.1:'+server.address().port,token:'t',launchedBy:'cli'}));",
+      'setTimeout(()=>process.exit(0),3000);});',
+    ].join(''));
+    const spec: LaunchSpec = { command: process.execPath, args: [runtime], env: {}, source: 'standalone', disclaim };
+    const { discovery, started } = await launchRuntime(home, spec, 10_000);
+    expect(started).toBe(true);
+    expect(fs.readFileSync(marker, 'utf8').trim().split('\n')).toEqual([process.execPath, runtime, '--quiet', '--launched-by', 'cli', '--idle-exit']);
+    expect(discovery.endpoint).toMatch(/^ws:\/\/127\.0\.0\.1:\d+$/);
   });
 });

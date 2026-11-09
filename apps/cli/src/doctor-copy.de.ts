@@ -29,6 +29,9 @@ export const de: DoctorMessages = {
   entryNoApp: (found, target) => `Terminals verwenden ${found} (${target}); keine BaoCut-App gefunden`,
   entryMissing: 'Terminals finden baocut nicht. Installieren Sie es aus der BaoCut-App (keine Administratorrechte nötig).',
   entryMissingNoApp: 'Terminals finden baocut nicht, und an den üblichen Orten wurde keine BaoCut-App gefunden',
+  entryStandalone: (found, version) => `Terminals verwenden ${found}, das eigenständige BaoCut-Befehlszeilenpaket ${version}`,
+  entryOtherStandalone: (found, target, own) => `Terminals verwenden ${found} (${target}), kein eigenständiges BaoCut-Befehlszeilenpaket wie ${own}`,
+  entryMissingStandalone: 'Terminals finden baocut nicht. Installiere dieses Befehlszeilenpaket mit cli install (keine Administratorrechte nötig).',
 
   runtimeRunning: (version, pid, by) =>
     `Läuft: Version ${version}, Prozess ${pid}, gestartet von ${by === 'cli' ? 'der Befehlszeile' : 'der BaoCut-App'}`,
@@ -53,6 +56,8 @@ export const de: DoctorMessages = {
     'Festplattenvollzugriff ist für BaoCut.app deaktiviert, daher sind Dateien an geschützten Orten (Schreibtisch, Dokumente, Downloads, andere Laufwerke) möglicherweise nicht lesbar. Aktivieren Sie BaoCut unter Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff und führen Sie dann baocut doctor erneut aus.',
   fdaMissingCli: (app) =>
     `Festplattenvollzugriff ist für die Runtime deaktiviert, die die Befehlszeile gestartet hat; macOS richtet sich dabei nach der Berechtigung von ${app ?? 'der App, die den Befehl ausgeführt hat (Ihrem Terminal oder der App, in der der Agent läuft)'}. Aktivieren Sie diese App unter Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff und öffnen Sie sie neu, oder beenden Sie diese Runtime (baocut runtime stop) und öffnen Sie die BaoCut-App; führen Sie danach baocut doctor erneut aus.`,
+  fdaMissingOwn: (app) =>
+    `Festplattenvollzugriff ist für die Runtime deaktiviert, die die Befehlszeile gestartet hat. Die Runtime läuft eigenständig als ${app}, daher richtet sich macOS nach der Berechtigung von ${app}, nicht nach Ihrem Terminal: Aktivieren Sie ${app} unter Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff, beenden Sie diese Runtime (baocut runtime stop) und führen Sie dann baocut doctor erneut aus.`,
   fdaNotRunning: 'Wird nur geprüft, während eine Runtime läuft',
   buildOk: (count) => `Die nativen Programme starten, und die ${count} Builds passen zum Quellcode`,
   buildNotSource: 'Wird geprüft, wenn die Runtime aus einem Repository-Checkout läuft',

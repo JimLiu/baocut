@@ -63,5 +63,12 @@ skillHelp: `Kullanım:
   cliNothingToRemove: (path) => `${path} konumunda kaldırılacak bir şey yok`,
   cliInstallHint: "baocut cli install, baocut'ı PATH'e koyar",
   cliFixHint: 'baocut cli install onu bu uygulamaya yönlendirir',
-  cliState: { none: 'Yüklü değil', current: 'Bu uygulamaya işaret ediyor', stale: "Başka bir BaoCut'a işaret ediyor", broken: 'Artık var olmayan bir konuma işaret ediyor', foreign: 'Orada başka bir şey var (dokunulmadı)' },
+  cliState: {
+    none: 'Yüklü değil',
+    current: 'Bu uygulamaya işaret ediyor',
+    stale: "Başka bir BaoCut'a işaret ediyor",
+    broken: 'Artık var olmayan bir konuma işaret ediyor',
+    foreign: 'Orada başka bir şey var (dokunulmadı)',
+    standalone: 'Bağımsız komut satırı paketine işaret ediyor; onu o paket yönetir (baocut update; dokunulmadı)',
+  },
 };

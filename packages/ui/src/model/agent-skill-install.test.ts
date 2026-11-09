@@ -166,6 +166,9 @@ describe('命令行 baocut 那一行', () => {
     expect(kind(entry({ state: 'stale', target: '/Volumes/old/BaoCut.app/Contents/MacOS/baocut-cli' }))).toMatchObject({ action: 'repair', removable: true });
     expect(kind(entry({ state: 'broken' }))).toMatchObject({ kind: 'broken', action: 'repair', removable: true });
     expect(kind(entry({ state: 'foreign', target: null, managed: false }))).toEqual({ kind: 'foreign', action: null, removable: false, command: null });
+    // 指向独立 CLI 包：由独立包管（baocut update），App 不修、不移除。
+    const standalone = '/Users/a/.local/share/baocut/versions/3.17.0-build.93/BaoCut CLI.app/Contents/MacOS/baocut-cli';
+    expect(kind(entry({ state: 'standalone', target: standalone, managed: false }))).toEqual({ kind: 'standalone', action: null, removable: false, command: null });
   });
 
   it('入口所在的目录', () => {

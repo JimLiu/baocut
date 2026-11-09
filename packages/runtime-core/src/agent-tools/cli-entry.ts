@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RpcError, type CliEntryState, type CliEntryStatus } from '@baocut/protocol';
+import { RpcError, STANDALONE_MANIFEST_FILE, standaloneLayout, type CliEntryState, type CliEntryStatus } from '@baocut/protocol';
 import { RcSkills } from '@baocut/protocol/messages/runtime-core';
 
 /**
@@ -12,9 +12,10 @@ import { RcSkills } from '@baocut/protocol/messages/runtime-core';
  * - 位置：macOS 与 Linux 在 `~/.local/bin/baocut` 放指向 App 入口的软链接；Windows 在 `%LOCALAPPDATA%\BaoCut\bin\baocut.cmd`
  *   写一个转发脚本（带 `FORWARDER_MARK` 那一行），再把这个目录加进用户 PATH（`HKCU\Environment` 的 `Path`，广播
  *   `WM_SETTINGCHANGE`）。都不要管理员权限。App 入口来自 `BAOCUT_CLI_ENTRY`；源码 Runtime 没有它，装不了。
- * - 状态：`none`；`current` 指向本 App 的入口；`stale` 指向另一份 BaoCut 入口；`broken` 指向的位置不在了；`foreign` 那里的东西
+ * - 状态：`none`；`current` 指向本 App 的入口；`stale` 指向另一份 BaoCut 入口；`broken` 指向的位置不在了；`standalone` 指向独立
+ *   CLI 包（§9）的启动器，那是用户专门装的命令行，由独立包自己管（`baocut update`），App 不改也不删；`foreign` 那里的东西
  *   不是 BaoCut 放的（文件、目录、指向别处的链接、没有标记行的脚本），永不覆盖或删除。软链接认作 BaoCut 入口的条件：指向的文件名是
- *   `baocut-cli`，或与记录里的目标相同。
+ *   `baocut-cli`，或与记录里的目标相同。认作独立包的条件：解析后的目标在独立包布局的启动器位置，包里有清单文件。
  * - 记录：装好后在 `<Runtime Home>/cli-entry.json` 记下位置与目标。App 启动时（`repair`）只修记录里的那个、而且还指向记录里的目标
  *   的入口：指向独立 CLI 包（§9）或用户自己建的链接都不动。
  * - 首次启动（`installOnFirstLaunch`）：桌面端第一次启动时，位置上什么都没有就装上；已有东西（BaoCut 的或别人的）都不动。每个
@@ -159,7 +160,11 @@ export class CliEntryInstaller {
     const entry = this.entry();
     if (!entry) throw new RpcError('unsupported', RcSkills.cliEntryUnavailable(), { code: 'CLI_ENTRY_UNAVAILABLE' });
     const at = this.location();
-    if (this.inspect(at, entry).state === 'foreign') throw taken(at);
+    // 独立包拉起的 Runtime：入口由独立包的 `baocut cli install` 放（版本目录与回滚），这里不替它放。
+    if (isStandaloneLauncher(entry, this.platform)) throw standaloneOwned(at, entry);
+    const found = this.inspect(at, entry);
+    if (found.state === 'foreign') throw taken(at);
+    if (found.state === 'standalone') throw standaloneOwned(at, found.target);
     this.place(at, entry);
     if (this.win && !(await this.userPath('add', this.p.dirname(at)))) {
       throw new RpcError('internal', RcSkills.cliEntryPathFailed({ dir: this.p.dirname(at) }), {
@@ -170,11 +175,12 @@ export class CliEntryInstaller {
     return this.status();
   }
 
-  /** 移除 BaoCut 的入口：软链接只删链接；Windows 连同用户 PATH 里的那个目录。`foreign` 拒绝，`none` 什么都不做。 */
+  /** 移除 BaoCut 的入口：软链接只删链接；Windows 连同用户 PATH 里的那个目录。`foreign` 与 `standalone` 拒绝，`none` 什么都不做。 */
   async remove(): Promise<CliEntryStatus> {
     const at = this.location();
     const found = this.inspect(at, this.entry());
     if (found.state === 'foreign') throw taken(at);
+    if (found.state === 'standalone') throw standaloneOwned(at, found.target);
     // 用户移除过：App 之后的首次启动不再装回来。
     this.markFirstLaunch('removed', at);
     if (found.state !== 'none') {
@@ -252,6 +258,8 @@ export class CliEntryInstaller {
     const ours = ENTRY_NAMES.has(path.posix.basename(target)) || (!!recorded && samePath(recorded.target, target, this.platform));
     const real = safeRealpath(at);
     if (!real) return { state: ours ? 'broken' : 'foreign', target };
+    // 独立包的入口先认：哪怕是独立包自己拉起的 Runtime（`BAOCUT_CLI_ENTRY` 就是它）也由独立包管。
+    if (isStandaloneLauncher(real, this.platform)) return { state: 'standalone', target };
     if (entry && samePath(real, safeRealpath(entry) ?? entry, this.platform)) return { state: 'current', target };
     const realOurs = ours || ENTRY_NAMES.has(path.posix.basename(real));
     return { state: realOurs ? 'stale' : 'foreign', target };
@@ -269,12 +277,13 @@ export class CliEntryInstaller {
     if (!text.split(/\r?\n/).some((line) => line.trim() === FORWARDER_MARK)) return { state: 'foreign', target: null };
     const target = parseForwarder(text);
     if (!target || !fs.existsSync(target)) return { state: 'broken', target };
+    if (isStandaloneLauncher(target, this.platform)) return { state: 'standalone', target };
     if (entry && samePath(target, entry, this.platform)) return { state: 'current', target };
     return { state: 'stale', target };
   }
 
   private isManaged(at: string, found: Inspected): boolean {
-    if (found.state === 'none' || found.state === 'foreign' || !found.target) return false;
+    if (found.state === 'none' || found.state === 'foreign' || found.state === 'standalone' || !found.target) return false;
     const recorded = this.readRecord();
     return !!recorded && samePath(recorded.path, at, this.platform) && samePath(recorded.target, found.target, this.platform);
   }
@@ -524,6 +533,32 @@ function samePath(a: string, b: string, platform: NodeJS.Platform): boolean {
   const p = platform === 'win32' ? path.win32 : path.posix;
   const norm = (x: string) => p.resolve(x).replace(/[\\/]+$/, '');
   return platform === 'win32' || platform === 'darwin' ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
+}
+
+/**
+ * `file` 是不是某个独立 CLI 包（§9）的启动器：按独立包布局从它往上找包根，启动器正在布局里的位置、包里有清单文件。
+ * 独立包自己装的入口指向它的版本目录里的启动器（`~/.local/share/baocut/versions/<版本>/BaoCut CLI.app/Contents/MacOS/baocut-cli`，
+ * Windows 是 `…\cli\versions\<版本>\baocut.cmd`）。
+ */
+export function isStandaloneLauncher(file: string, platform: NodeJS.Platform = process.platform): boolean {
+  const layout = standaloneLayout(platform);
+  if (!layout) return false;
+  const p = platform === 'win32' ? path.win32 : path.posix;
+  let root = p.resolve(file);
+  for (let i = 0; i < layout.launcher.length; i += 1) root = p.dirname(root);
+  if (!samePath(p.join(root, ...layout.launcher), file, platform)) return false;
+  try {
+    return fs.statSync(p.join(root, ...layout.app, STANDALONE_MANIFEST_FILE)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function standaloneOwned(at: string, target: string | null): RpcError {
+  return new RpcError('conflict', RcSkills.cliEntryStandalone({ path: at, target: target ?? at }), {
+    code: 'CLI_ENTRY_STANDALONE',
+    path: at,
+  });
 }
 
 function taken(at: string): RpcError {

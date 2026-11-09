@@ -26,6 +26,9 @@ export const zhHant: DoctorMessages = {
   entryNoApp: (found, target) => `終端機用的是 ${found}（${target}）；找不到 BaoCut 應用程式`,
   entryMissing: '終端機還找不到 baocut。從 BaoCut 應用程式安裝它（不需要管理員權限）。',
   entryMissingNoApp: '終端機找不到 baocut，常見的位置也沒有 BaoCut 應用程式',
+  entryStandalone: (found, version) => `終端機用的是 ${found}，就是 BaoCut 命令列獨立套件 ${version}`,
+  entryOtherStandalone: (found, target, own) => `終端機用的是 ${found}（${target}），不是 ${own} 這樣的 BaoCut 命令列獨立套件`,
+  entryMissingStandalone: '終端機還找不到 baocut。用 cli install 裝上這個命令列獨立套件（不需要管理員權限）。',
 
   runtimeRunning: (version, pid, by) => `執行中：版本 ${version}，程序 ${pid}，由${by === 'cli' ? '命令列' : ' BaoCut 應用程式'}啟動`,
   runtimeStopped: (entry) => `沒有在執行。下一個命令會在背景用 ${entry} 啟動它`,
@@ -46,6 +49,8 @@ export const zhHant: DoctorMessages = {
     'BaoCut.app 沒有完整磁碟取用權限，受保護位置（桌面、文件、下載項目、其他磁碟）裡的檔案可能讀不到。在「系統設定 › 隱私權與安全性 › 完整磁碟取用權限」中打開 BaoCut，再執行 baocut doctor 重新檢查。',
   fdaMissingCli: (app) =>
     `命令列啟動的 Runtime 沒有完整磁碟取用權限；macOS 把它算在${app ?? '執行命令的那個應用程式（終端機，或執行 Agent 的應用程式）'}頭上。在「系統設定 › 隱私權與安全性 › 完整磁碟取用權限」中打開那個應用程式並重新開啟它，或停止這個 Runtime（baocut runtime stop）再開啟 BaoCut 應用程式；之後執行 baocut doctor 重新檢查。`,
+  fdaMissingOwn: (app) =>
+    `命令列啟動的 Runtime 沒有完整磁碟取用權限。它以 ${app} 的身分單獨執行，macOS 把它算在 ${app} 頭上，而不是終端機：在「系統設定 › 隱私權與安全性 › 完整磁碟取用權限」中打開 ${app}，停止這個 Runtime（baocut runtime stop），再執行 baocut doctor 重新檢查。`,
   fdaNotRunning: 'Runtime 執行中才會檢查',
   buildOk: (count) => `原生程式都能啟動，${count} 份建置與原始碼一致`,
   buildNotSource: 'Runtime 從儲存庫執行時才檢查',

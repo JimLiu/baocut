@@ -62,6 +62,8 @@ function inputs(overrides: Partial<DoctorInputs> = {}): DoctorInputs {
     terminal: { found: '/Users/me/.local/bin/baocut', target: APP },
     app: { entry: APP, version: '3.16.4' },
     terminalApp: { root: '/Applications/BaoCut.app', version: '3.16.4' },
+    standalone: null,
+    terminalStandalone: null,
     launch: PACKAGED,
     node: '24.6.0',
     runtime: { state: 'stopped' },
@@ -109,6 +111,23 @@ describe('doctorReport（CLI 独立使用与发布 §8.1）', () => {
     expect(entry.remedy).toBe(`'${APP}' cli status`);
   });
 
+  it('独立包里的 doctor 拿终端的 baocut 与独立包比，不与 App 比；补救写本包启动器的完整路径', () => {
+    const versions = '/Users/me/.local/share/baocut/versions';
+    const own = `${versions}/3.17.0-build.93/BaoCut CLI.app/Contents/MacOS/baocut-cli`;
+    const standalone = { launcher: own, version: '3.17.0 (build 93)' };
+    const installed = doctorReport(
+      inputs({ standalone, terminal: { found: '/Users/me/.local/bin/baocut', target: own }, terminalStandalone: { root: `${versions}/3.17.0-build.93`, version: '3.17.0 (build 93)' } }),
+    );
+    expect(check(installed, 'entry')).toMatchObject({ level: 'ok', details: { terminalVersion: '3.17.0 (build 93)' } });
+    expect(check(installed, 'entry').message).toContain('3.17.0 (build 93)');
+    const missing = check(doctorReport(inputs({ standalone, terminal: null, app: null })), 'entry');
+    expect(missing).toMatchObject({ level: 'warn', message: D.entryMissingStandalone, remedy: `'${own}' cli install` });
+    // 终端先找到 App 的入口：点名，补救是本包的 cli status。
+    const app = check(doctorReport(inputs({ standalone })), 'entry');
+    expect(app).toMatchObject({ level: 'warn', remedy: `'${own}' cli status` });
+    expect(app.message).toContain(APP);
+  });
+
   it('Runtime 在跑：报版本、拉起者与项目目录；接口版本不同是 fail', () => {
     const running = doctorReport(inputs({ runtime: { state: 'running', info: info({ launchedBy: 'cli' }), interfaceVersion: MCP_INTERFACE_VERSION, access: null } }));
     expect(check(running, 'runtime')).toMatchObject({ level: 'ok', details: { launchedBy: 'cli', projectsDir: '/Users/me/BaoCut', pid: 4242 } });
@@ -154,6 +173,12 @@ describe('doctorReport（CLI 独立使用与发布 §8.1）', () => {
     );
     expect(check(byCli, 'fullDiskAccess').message).toContain('Terminal');
     expect(check(byCli, 'fullDiskAccess').message).toContain('baocut doctor');
+    // 经 disclaim 助手拉起：Runtime 自己负责，算在它所在的包头上，不是终端。
+    const cliMissing = { state: 'running', info: info({ launchedBy: 'cli' }), interfaceVersion: MCP_INTERFACE_VERSION, access: { platform: 'darwin', fullDiskAccess: 'missing' } } as const;
+    const disclaimed = doctorReport(inputs({ runtime: cliMissing, launch: { ...REPO, source: 'standalone', disclaim: '/x/baocut-disclaim' } }));
+    expect(check(disclaimed, 'fullDiskAccess')).toMatchObject({ level: 'warn', message: D.fdaMissingOwn('BaoCut CLI'), details: { attributedTo: 'BaoCut CLI' } });
+    const disclaimedApp = doctorReport(inputs({ runtime: cliMissing, launch: { ...REPO, source: 'packaged', disclaim: '/x/baocut-disclaim' } }));
+    expect(check(disclaimedApp, 'fullDiskAccess').message).toBe(D.fdaMissingOwn('BaoCut'));
     const granted = doctorReport(inputs({ runtime: { state: 'running', info: info(), interfaceVersion: MCP_INTERFACE_VERSION, access: { platform: 'darwin', fullDiskAccess: 'granted' } } }));
     expect(check(granted, 'fullDiskAccess').level).toBe('ok');
     expect(doctorReport(inputs({ platform: 'win32' })).checks.map((c) => c.id)).not.toContain('fullDiskAccess');

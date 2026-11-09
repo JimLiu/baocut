@@ -1,23 +1,38 @@
 import path from 'node:path';
 import type { CliEntryStatus } from '@baocut/protocol';
+import { ownStandalonePackage } from '../runtime/connection.ts';
+import { standaloneCli } from '../standalone/command.ts';
+import { S } from '../standalone/standalone-copy.ts';
 import { defineNoun } from './context.ts';
 import { M } from './skills-copy.ts';
 
 /**
  * 管理桶 `baocut cli install|status|remove`（CLI 独立使用与发布 §3.2）：让终端找到 `baocut`。macOS 与 Linux 在
  * `~/.local/bin/baocut` 放指向 App 入口的软链接，Windows 写转发脚本并把它的目录加进用户 PATH。位置、状态与装法都在 Runtime
- * 那边（`cliEntry.*`，与 App 的「安装命令行工具」同一份规则），CLI 只经协议。
+ * 那边（`cliEntry.*`，与 App 的「安装命令行工具」同一份规则），CLI 只经协议。独立 CLI 包里的 CLI 不连 Runtime，自己装进版本目录
+ * 再放入口（`standalone/command.ts`，§9.3）。
  */
+const VERBS = ['install', 'status', 'remove'] as const;
+
 export const cliEntry = defineNoun({
   name: 'cli',
-  verbs: ['install', 'status', 'remove'],
+  verbs: VERBS,
   get usage() {
-    return M.cliHelp;
+    return ownStandalonePackage() ? S.cliHelp : M.cliHelp;
+  },
+  get offline() {
+    return ownStandalonePackage() ? VERBS : undefined;
   },
   options: {},
   async run(ctx) {
     const [sub, ...extra] = ctx.args;
     if (extra.length > 0) throw ctx.usageError();
+    const own = ownStandalonePackage();
+    if (own) {
+      const done = await standaloneCli({ output: ctx.output, env: ctx.env, home: ctx.home }, own, sub);
+      if (done === null) throw ctx.usageError();
+      return done;
+    }
     const home = ctx.env.HOME || ctx.env.USERPROFILE || '';
     if (sub === 'status') {
       const status = await ctx.client.request('cliEntry.status', {});
@@ -58,7 +73,7 @@ function installedLines(status: CliEntryStatus, home: string): string[] {
 }
 
 /** 终端里的 `baocut`：查不出、没找到、找到的是别的那个；不在 PATH 上时要加的那一行。 */
-function terminalLines(status: CliEntryStatus, home: string, quietWhenOurs = false): string[] {
+export function terminalLines(status: CliEntryStatus, home: string, quietWhenOurs = false): string[] {
   const tilde = tildeOf(home);
   const dir = tilde(dirOf(status.path));
   const lines: string[] = [];
@@ -70,9 +85,9 @@ function terminalLines(status: CliEntryStatus, home: string, quietWhenOurs = fal
   return lines;
 }
 
-/** 没装、或装的不是这个 App 时的下一步。 */
+/** 没装、或装的不是这个 App 时的下一步。指向独立包时没有：那是独立包管的。 */
 function cliEntryNext(status: CliEntryStatus): string | null {
-  if (!status.entry) return null;
+  if (!status.entry || status.state === 'standalone') return null;
   if (status.state === 'none') return M.cliInstallHint;
   if (status.state === 'stale' || status.state === 'broken') return M.cliFixHint;
   return null;
@@ -87,7 +102,7 @@ function dirOf(file: string): string {
   return /\\/.test(file) && !file.includes('/') ? path.win32.dirname(file) : path.posix.dirname(file);
 }
 
-function tildeOf(home: string): (p: string) => string {
+export function tildeOf(home: string): (p: string) => string {
   return (p) => (home && (p === home || p.startsWith(home + '/') || p.startsWith(home + '\\')) ? `~${p.slice(home.length)}` : p);
 }
 

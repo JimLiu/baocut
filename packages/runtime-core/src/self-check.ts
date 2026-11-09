@@ -15,7 +15,7 @@ import {
   resolveModelAssetsDir,
 } from '@baocut/models';
 import { findBundledToolDir } from '@baocut/process-host';
-import type { ComponentBuild } from '@baocut/protocol';
+import { PACKAGE_KIND_ENV, STANDALONE_PACKAGE_KIND, type ComponentBuild } from '@baocut/protocol';
 import { buildTargets, checkBuilds } from './build-freshness.ts';
 import { resolveCredentialHelperCommand } from './credentials.ts';
 import { resolveExportWorkerCommand } from './exports/video-export.ts';
@@ -35,11 +35,14 @@ import { resolveEngineHostCommand } from './videos/engine-host.ts';
  * （`probeCompositionHost`），打包后走的是主进程入口的 `--composition-host` 分支。
  *
  * 主要给打包产物用：桌面应用的检查脚本（`apps/desktop/tools/check-packaged-app.mjs`）以应用的可执行文件按 Node 方式运行打进
- * asar 的 `runtime.js`，环境变量与主进程启动 Runtime 时给的一样。不碰 Runtime Home、不联网。
+ * asar 的 `runtime.js`，环境变量与主进程启动 Runtime 时给的一样。不碰 Runtime Home、不联网。独立 CLI 包（`BAOCUT_PACKAGE_KIND=standalone`，
+ * CLI 独立使用与发布 §9）没有 Electron：不要求 `electron`，离屏宿主记为跳过。
  */
 
 export interface SelfCheckProbe {
   ok: boolean;
+  /** 这个包里本来就没有、没去起（独立 CLI 包的离屏宿主）。 */
+  skipped?: boolean;
   detail: string;
   reply?: unknown;
 }
@@ -157,6 +160,7 @@ export async function runtimeSelfCheck(
   options: { probe?: boolean; env?: NodeJS.ProcessEnv; sourceRoot?: string | null } = {},
 ): Promise<SelfCheckReport> {
   const env = options.env ?? process.env;
+  const standalone = env[PACKAGE_KIND_ENV] === STANDALONE_PACKAGE_KIND;
   const engineHost = resolveEngineHostCommand(env);
   const audioCpp = resolveAudioCppCli(env);
   const binaries: Record<string, string | null> = {
@@ -168,8 +172,8 @@ export async function runtimeSelfCheck(
     // 本地语音合成与音乐共用的引擎（Model Worker 协议规范 §4.4）。
     'audiocpp-cli': audioCpp,
     'audiocpp-server': audioCpp ? audioCppServerOf(audioCpp) : null,
-    // 代码包的离屏宿主用的 Electron：打包后是应用自己的可执行文件。
-    electron: resolveElectronBinary(env),
+    // 代码包的离屏宿主用的 Electron：打包后是应用自己的可执行文件。独立 CLI 包不带。
+    ...(standalone ? {} : { electron: resolveElectronBinary(env) }),
   };
   const dirs: Record<string, string | null> = {
     templates: resolveBuiltinTemplatesDir(env),
@@ -234,7 +238,9 @@ export async function runtimeSelfCheck(
       probes[name] = result;
       if (!result.ok) problems.push(`${name}: does not start (${result.detail})`);
     }
-    const host = await probeCompositionHost(env);
+    const host = standalone
+      ? { ok: true, skipped: true, detail: 'skipped: the standalone command line package has no Electron' }
+      : await probeCompositionHost(env);
     probes['composition-host'] = host;
     if (!host.ok) problems.push(`composition-host: does not start (${host.detail})`);
   }

@@ -28,6 +28,9 @@ export const ko: DoctorMessages = {
   entryNoApp: (found, target) => `터미널은 ${found}(${target})을(를) 실행합니다. BaoCut 앱을 찾지 못했습니다`,
   entryMissing: '터미널에서 baocut을 찾을 수 없습니다. BaoCut 앱에서 설치하세요(관리자 권한 필요 없음).',
   entryMissingNoApp: '터미널에서 baocut을 찾을 수 없고, 일반적인 위치에서 BaoCut 앱도 찾지 못했습니다',
+  entryStandalone: (found, version) => `터미널은 BaoCut 명령줄 단독 패키지 ${version}인 ${found}을(를) 사용합니다`,
+  entryOtherStandalone: (found, target, own) => `터미널은 ${found}(${target})을(를) 사용하며, ${own} 같은 BaoCut 명령줄 단독 패키지가 아닙니다`,
+  entryMissingStandalone: '터미널에서 baocut을 찾을 수 없습니다. cli install로 이 명령줄 단독 패키지를 설치하세요(관리자 권한 불필요).',
 
   runtimeRunning: (version, pid, by) =>
     `실행 중: 버전 ${version}, 프로세스 ${pid}, ${by === 'cli' ? '명령줄' : 'BaoCut 앱'}에서 시작함`,
@@ -51,6 +54,8 @@ export const ko: DoctorMessages = {
     'BaoCut.app의 전체 디스크 접근 권한이 꺼져 있어 보호된 위치(데스크탑, 문서, 다운로드, 다른 드라이브)의 파일을 읽지 못할 수 있습니다. 시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한에서 BaoCut을 켠 다음 baocut doctor를 다시 실행하세요.',
   fdaMissingCli: (app) =>
     `명령줄이 시작한 Runtime의 전체 디스크 접근 권한이 꺼져 있습니다. macOS는 이를 ${app ?? '명령을 실행한 앱(터미널 또는 Agent를 실행하는 앱)'}의 권한으로 봅니다. 시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한에서 그 앱을 켜고 다시 열거나, 이 Runtime을 중지하고(baocut runtime stop) BaoCut 앱을 여세요. 그런 다음 baocut doctor를 다시 실행하세요.`,
+  fdaMissingOwn: (app) =>
+    `명령줄이 시작한 Runtime의 전체 디스크 접근 권한이 꺼져 있습니다. 이 Runtime은 ${app}(으)로 따로 실행되므로 macOS는 이를 터미널이 아닌 ${app}의 권한으로 봅니다. 시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한에서 ${app}을(를) 켜고, 이 Runtime을 중지한 다음(baocut runtime stop) baocut doctor를 다시 실행하세요.`,
   fdaNotRunning: 'Runtime이 실행 중일 때만 확인합니다',
   buildOk: (count) => `네이티브 프로그램이 모두 시작되고 빌드 ${count}개가 소스와 일치합니다`,
   buildNotSource: 'Runtime을 저장소에서 실행할 때 점검합니다',

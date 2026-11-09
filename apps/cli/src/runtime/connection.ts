@@ -7,16 +7,22 @@ import { fileURLToPath } from 'node:url';
 import { BaoCutClient } from '@baocut/client';
 import {
   MCP_INTERFACE_VERSION,
+  PACKAGE_KIND_ENV,
   PROTOCOL_VERSION,
   RUNTIME_VERSION,
+  STANDALONE_MANIFEST_FILE,
+  STANDALONE_PACKAGE_KIND,
   decideRuntimeReuse,
   isLanguagePreference,
+  parseStandaloneManifest,
+  standaloneLayout,
   processLanguageTags,
   resolveLanguage,
   setLocale,
   type CatalogListResult,
   type RuntimeDiscovery,
   type RuntimeInfo,
+  type StandaloneManifest,
 } from '@baocut/protocol';
 import { M } from '../cli-copy.ts';
 import { CliError } from '../envelope.ts';
@@ -146,7 +152,12 @@ export interface LaunchSpec {
   command: string;
   args: string[];
   env: Record<string, string>;
-  source: 'env' | 'packaged' | 'repo';
+  source: 'env' | 'standalone' | 'packaged' | 'repo';
+  /**
+   * macOS 上经这个助手（`baocut-disclaim <程序> <参数>`）拉起：Runtime 成为自己的负责进程，完全磁盘访问算在它所在的包
+   * （BaoCut.app 或 BaoCut CLI）头上，而不是终端（CLI 独立使用与发布 §9.7）。助手换掉自己、PID 不变。
+   */
+  disclaim?: string;
   /** 从仓库运行时，仓库 `package.json` 的 `engines.node`：当前的 Node 不在其中时不拉起（`checkRuntimeNode`）。 */
   nodeRange?: string;
   /**
@@ -156,9 +167,9 @@ export interface LaunchSpec {
   own?: boolean;
 }
 
-/** 给人看的入口：打包的写 App 的可执行文件，其余写入口文件（是可执行文件时写它）。 */
+/** 给人看的入口：打包的写 App（或独立包里 Node）的可执行文件，其余写入口文件（是可执行文件时写它）。 */
 export function launchEntry(spec: LaunchSpec): string {
-  return spec.source === 'packaged' ? spec.command : (spec.args.find((arg) => !arg.startsWith('-')) ?? spec.command);
+  return spec.source === 'packaged' || spec.source === 'standalone' ? spec.command : (spec.args.find((arg) => !arg.startsWith('-')) ?? spec.command);
 }
 
 /**
@@ -223,8 +234,70 @@ export function checkRuntimeNode(spec: LaunchSpec, version: string = process.ver
   }
 }
 
+/** 一个独立 CLI 包（CLI 独立使用与发布 §9）：包根与各部分的位置、包内清单。 */
+export interface StandalonePackage {
+  root: string;
+  app: string;
+  resources: string;
+  node: string;
+  launcher: string;
+  disclaim: string | null;
+  manifest: StandaloneManifest;
+}
+
+/** `root` 处的独立包；不是（布局不对、没有清单或清单不成形）时 null。 */
+export function standalonePackageAt(root: string, platform: NodeJS.Platform = process.platform): StandalonePackage | null {
+  const layout = standaloneLayout(platform);
+  if (!layout) return null;
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const at = (segments: readonly string[]) => paths.join(root, ...segments);
+  let manifest: StandaloneManifest | null;
+  try {
+    manifest = parseStandaloneManifest(fs.readFileSync(at([...layout.app, STANDALONE_MANIFEST_FILE]), 'utf8'));
+  } catch {
+    return null;
+  }
+  if (!manifest) return null;
+  return {
+    root,
+    app: at(layout.app),
+    resources: at(layout.resources),
+    node: at(layout.node),
+    launcher: at(layout.launcher),
+    disclaim: layout.disclaim ? at(layout.disclaim) : null,
+    manifest,
+  };
+}
+
+/** 当前 CLI 所在的独立包：`out/main` 的上两级是有清单的 `app/`，再按布局往上是包根。不在独立包里时 null。 */
+export function ownStandalonePackage(
+  platform: NodeJS.Platform = process.platform,
+  from: string = path.dirname(fileURLToPath(import.meta.url)),
+): StandalonePackage | null {
+  const layout = standaloneLayout(platform);
+  if (!layout) return null;
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const app = paths.resolve(from, '..', '..');
+  let root = app;
+  for (let i = 0; i < layout.app.length; i += 1) root = paths.dirname(root);
+  if (paths.join(root, ...layout.app) !== app) return null;
+  return standalonePackageAt(root, platform);
+}
+
+/** 独立包的 Runtime：包里的 Node 跑解开的 `runtime.js`，资源照 App 的找法，并告诉 Runtime 这是独立包（没有 Electron）。 */
+export function standaloneLaunch(pkg: StandalonePackage, platform: NodeJS.Platform = process.platform): LaunchSpec {
+  return {
+    command: pkg.node,
+    args: [path.join(pkg.app, 'out', 'main', 'runtime.js'), '--credential-store', 'keychain'],
+    env: { ...packagedResourceEnv(pkg.resources, platform), [PACKAGE_KIND_ENV]: STANDALONE_PACKAGE_KIND },
+    source: 'standalone',
+    ...(platform === 'darwin' && pkg.disclaim && fs.existsSync(pkg.disclaim) ? { disclaim: pkg.disclaim } : {}),
+  };
+}
+
 /**
- * Runtime 的入口，依次找：`BAOCUT_RUNTIME_ENTRY`（`.ts` / `.js` 用当前的 Node 跑，否则当可执行文件）→ 当前 CLI 所在的桌面包 →
+ * Runtime 的入口，依次找：`BAOCUT_RUNTIME_ENTRY`（`.ts` / `.js` 用当前的 Node 跑，否则当可执行文件）→ 当前 CLI 所在的独立包 →
+ * 当前 CLI 所在的桌面包 →
  * 从仓库运行且主目录不是默认的 `~/.baocut` 时，仓库里的 `apps/runtime/src/main.ts`（同一份代码，新工具才调得到）→ 标准安装位置
  * （以 Node 方式运行它带的 Runtime，资源位置照桌面端的 `packagedResourceEnv`）→ 仓库里的入口。默认主目录是用户的真实数据与钥匙串，
  * 开发中的代码不碰它，留给装好的应用（Agent 面设计 §5.6）。
@@ -242,6 +315,9 @@ export function resolveRuntimeLaunch(
       ? { command: process.execPath, args: nodeArgs(entry, node), env: {}, source: 'env' }
       : { command: entry, args: [], env: {}, source: 'env' };
   }
+  // 自身所在的安装排在 env 之后（CLI 独立使用与发布 §9.4）：独立包的 CLI 不去拉起标准位置的 App。
+  const own = ownStandalonePackage(platform, from);
+  if (own) return standaloneLaunch(own, platform);
   // 桌面包可能就放在仓库的打包输出目录里：包内的 CLI 不算从仓库运行。
   const root = path.basename(path.resolve(from, '..', '..')) === 'app.asar' ? null : repoRoot(from);
   const entry = root && path.join(root, 'apps', 'runtime', 'src', 'main.ts');
@@ -252,12 +328,15 @@ export function resolveRuntimeLaunch(
   if (repo && runtimeHome(env) !== path.resolve(defaultHome())) return repo;
   for (const app of packagedApps(env, platform, from)) {
     if (fs.existsSync(app.executable) && fs.existsSync(path.join(app.resources, 'app.asar'))) {
+      const disclaim = platform === 'darwin' ? path.join(path.dirname(app.executable), 'baocut-disclaim') : null;
       return {
         command: app.executable,
         args: [path.join(app.resources, 'app.asar', 'out', 'main', 'runtime.js'), '--credential-store', 'keychain'],
         env: { ELECTRON_RUN_AS_NODE: '1', ...packagedResourceEnv(app.resources, platform) },
         source: 'packaged',
         own: Boolean(app.own),
+        // 旧版 App 没有这个助手：照旧直接拉起。
+        ...(disclaim && fs.existsSync(disclaim) ? { disclaim } : {}),
       };
     }
   }
@@ -439,8 +518,9 @@ function spawnRuntime(home: string, spec: LaunchSpec, log: string): SpawnedRunti
   fs.mkdirSync(path.dirname(log), { recursive: true });
   const fd = fs.openSync(log, 'a');
   let child;
+  const args = [...spec.args, '--quiet', '--launched-by', 'cli', '--idle-exit'];
   try {
-    child = spawn(spec.command, [...spec.args, '--quiet', '--launched-by', 'cli', '--idle-exit'], {
+    child = spawn(spec.disclaim ?? spec.command, spec.disclaim ? [spec.command, ...args] : args, {
       detached: true,
       stdio: ['ignore', fd, fd],
       env: { ...process.env, ...spec.env, BAOCUT_HOME: home },

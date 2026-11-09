@@ -347,6 +347,7 @@ export const ko: SkillsPageMessages = {
     cliStale: (target: string) => `다른 BaoCut(${target})을 가리킵니다. 복구하면 이 앱을 가리키도록 바뀝니다.`,
     cliBroken: (target: string) => `가리키는 대상(${target})이 더 이상 없습니다(앱을 옮겼습니다). 복구하면 이 앱을 가리키도록 바뀝니다.`,
     cliForeign: '그곳에 BaoCut이 설치하지 않은 baocut이 이미 있습니다. BaoCut은 이를 바꾸지 않습니다. 옮기거나 이름을 바꾼 뒤 설치하세요.',
+    cliStandalone: '설치됨 · 터미널에서 독립 실행형 BaoCut 명령줄이 실행되며, baocut update로 업데이트됩니다. 앱은 이를 건드리지 않습니다.',
     cliInstall: '명령줄 도구 설치',
     cliRepair: '복구',
     cliRemoveHint: 'BaoCut이 둔 것만 삭제하며, 앱의 명령줄 도구는 그대로 남습니다',

@@ -28,6 +28,9 @@ export const tr: DoctorMessages = {
   entryNoApp: (found, target) => `Terminaller ${found} (${target}) komutunu çalıştırıyor; BaoCut uygulaması bulunamadı`,
   entryMissing: 'Terminaller baocut komutunu bulamıyor. BaoCut uygulamasından yükleyin (yönetici hakları gerekmez).',
   entryMissingNoApp: 'Terminaller baocut komutunu bulamıyor ve olağan konumlarda BaoCut uygulaması bulunamadı',
+  entryStandalone: (found, version) => `Terminaller ${found} kullanıyor; bu, BaoCut bağımsız komut satırı paketi ${version}`,
+  entryOtherStandalone: (found, target, own) => `Terminaller ${found} (${target}) kullanıyor; ${own} gibi bir BaoCut bağımsız komut satırı paketi değil`,
+  entryMissingStandalone: 'Terminaller baocut komutunu bulamıyor. Bu komut satırı paketini cli install ile kurun (yönetici izni gerekmez).',
 
   runtimeRunning: (version, pid, by) =>
     `Çalışıyor: sürüm ${version}, işlem ${pid}, ${by === 'cli' ? 'komut satırı' : 'BaoCut uygulaması'} tarafından başlatıldı`,
@@ -52,6 +55,8 @@ export const tr: DoctorMessages = {
     "BaoCut.app için Tam Disk Erişimi kapalı, bu yüzden korunan konumlardaki (Masaüstü, Belgeler, İndirilenler, diğer diskler) dosyalar okunamayabilir. Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi bölümünde BaoCut'ı açın, ardından baocut doctor komutunu yeniden çalıştırın.",
   fdaMissingCli: (app) =>
     `Komut satırının başlattığı Runtime için Tam Disk Erişimi kapalı; macOS bunu şu uygulamanın iznine göre değerlendirir: ${app ?? 'komutu çalıştıran uygulama (terminaliniz veya ajanı barındıran uygulama)'}. O uygulamayı Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi bölümünde açıp yeniden başlatın ya da bu Runtime'ı durdurup (baocut runtime stop) BaoCut uygulamasını açın; ardından baocut doctor komutunu yeniden çalıştırın.`,
+  fdaMissingOwn: (app) =>
+    `Komut satırının başlattığı Runtime için Tam Disk Erişimi kapalı. Bu Runtime ${app} olarak kendi başına çalışıyor, bu yüzden macOS izni terminalinize değil ${app} uygulamasına göre değerlendirir: Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi bölümünde ${app} uygulamasını açın, bu Runtime'ı durdurun (baocut runtime stop), ardından baocut doctor komutunu yeniden çalıştırın.`,
   fdaNotRunning: 'Yalnızca bir Runtime çalışırken denetlenir',
   buildOk: (count) => `Yerel programlar başlıyor ve ${count} derleme kaynak kodla eşleşiyor`,
   buildNotSource: 'Runtime depo kopyasından çalışırken denetlenir',

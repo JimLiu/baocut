@@ -20,6 +20,8 @@
 // 5. 核对解开的包：resources 里的每一项都在，asar 里有主进程、Runtime 与 editor.wasm。在 Windows 上另由 check-packaged-app.mjs 真跑一遍。
 // 6. 写发布报告 `<产物名>-release.json`：版本、build、变体、安装器与 zip 的文件名、大小与 sha256。给了 --download-base-url 时再按
 //    应用的更新源格式（schema-1，app-update-rules.ts 的 releaseManifest）写 `appcast-<target>[-<变体>].json`，写完用应用自己的解析器读一遍。
+//    给了 --standalone-cli 时再从核对过的 App 拼出独立命令行包（standalone-cli.mjs，CLI 独立使用与发布 §9），归档与 `.sha256`
+//    放在同一个输出目录，发布报告多一项 `cli`，更新源多一个与 `app` 并列的 `cli` 条目。只能在目标平台上打（带的是当前这个 Node）。
 //
 // 选项：--variant cpu|cuda|vulkan（缺省 cpu）、--target <三元组>（缺省 x86_64-pc-windows-msvc）、--bin-dir <目录>、--cuda-redist <目录>
 // （缺省 $CUDA_PATH/bin/x64 或 $CUDA_PATH/bin）、--worker-features <a,b>（Model Worker 另加的 feature）、--out <目录>（缺省 apps/desktop/dist/<变体>，
@@ -65,6 +67,7 @@ import { macPackagePlan } from './macos-package-plan.mjs';
 import { LOCALES } from '../../../packages/protocol/src/i18n.ts';
 import { readReleaseNotes } from './release-notes.mjs';
 import { stageDesktopCli } from './desktop-cli.mjs';
+import { addStandaloneToFeed, buildStandaloneCli } from './standalone-cli.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DESKTOP = path.resolve(HERE, '..');
@@ -139,6 +142,7 @@ const { values: options } = parseArgs({
     'download-base-url': { type: 'string' },
     'release-notes': { type: 'string' },
     'rollout-hours': { type: 'string' },
+    'standalone-cli': { type: 'boolean', default: false },
   },
 });
 
@@ -196,6 +200,8 @@ function modelWorkerBuildEnv() {
 const isMac = options.platform === 'mac';
 if (!['win', 'mac'].includes(options.platform)) fail('--platform must be win or mac');
 if (options.local && !isMac) fail('--local is only supported for Mac packaging');
+// 独立包的 Node 取当前这个 Node（CI 的 setup-node），所以只能在目标平台上打。
+if (options['standalone-cli'] && process.platform !== (isMac ? 'darwin' : 'win32')) fail('--standalone-cli must run on the target platform (it bundles this Node)');
 let macPlan;
 try { if (isMac) macPlan = macPackagePlan(options); } catch (error) { fail(error.message); }
 options.target ??= isMac ? macPlan.target : 'x86_64-pc-windows-msvc';
@@ -309,7 +315,7 @@ const staging = mkdtempSync(path.join(tmpdir(), 'baocut-package-'));
 const appDir = path.join(staging, 'app');
 const resDir = path.join(staging, 'resources');
 try {
-  const cliLauncher = stageDesktopCli(path.join(staging, 'cli'), isMac ? 'darwin' : 'win32');
+  const cliFiles = stageDesktopCli(path.join(staging, 'cli'), isMac ? 'darwin' : 'win32');
   // 2. 只含产物的应用。
   const desktop = JSON.parse(readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'));
   mkdirSync(appDir, { recursive: true });
@@ -466,10 +472,10 @@ try {
           NSMicrophoneUsageDescription: 'BaoCut needs microphone access to record audio for transcription.',
           NSBonjourServices: ['_baocut-node._tcp'],
         },
-        extraFiles: [cliLauncher, { from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],
+        extraFiles: [...cliFiles, { from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],
       },
       win: {
-        extraFiles: [cliLauncher],
+        extraFiles: cliFiles,
         icon: path.join(DESKTOP, 'build', 'icon.ico'),
         artifactName: `${artifact}.\${ext}`,
         // 不签名（§14）。改 exe 的图标与版本信息要 rcedit，在 macOS / Linux 上得有 Wine：只在 Windows 上做。
@@ -502,21 +508,36 @@ try {
       executables: [...BUNDLED_EXECUTABLES, ...AUDIO_CPP_EXECUTABLES].map((name) => path.join(unpacked, 'Contents/Resources/bin', name)),
       entitlements: path.join(DESKTOP, 'build/entitlements.mac.plist') });
     run(process.execPath, [path.join(HERE, 'check-packaged-app.mjs'), distribution.verifiedApp]);
+    // 独立命令行包（CLI 独立使用与发布 §9）：从刚核对过的那份 App 拼出来，同一个版本号与 build。
+    const standalone = options['standalone-cli'] ? await buildStandaloneCli({ platform: 'darwin', app: distribution.verifiedApp, output: outDir,
+      local: options.local, signingSha1: options['sign-sha1'], keychain: options['sign-keychain'], profile: options['notary-profile'], downloadBase }) : null;
     const report = { schema: 1, product: PRODUCT_NAME, appId: APP_ID, version: desktop.version, build, target: options.target,
-      sourceCommit, minimumSystemVersion: '14.0', ...distribution };
+      sourceCommit, minimumSystemVersion: '14.0', ...distribution, ...(standalone ? { cli: standaloneReport(standalone) } : {}) };
     writeFileSync(path.join(outDir, 'app-release.json'), `${JSON.stringify(report, null, 2)}\n`);
     if (downloadBase) {
       const manifest = releaseManifest({ target: FEED_TARGET, variant: 'cpu', version: desktop.version, build, date: new Date().toISOString().slice(0, 10),
         ...releaseNotes,
         format: 'zip', url: `${downloadBase.replace(/\/+$/, '')}/${distribution.portable.file}`, size: distribution.portable.size, sha256: distribution.portable.sha256 });
-      const text = `${JSON.stringify(manifest, null, 2)}\n`;
+      let text = `${JSON.stringify(manifest, null, 2)}\n`;
       if (!parseManifest(text, FEED_TARGET, false).ok) fail('Mac appcast validation failed');
+      if (standalone) text = addStandaloneToFeed(text, { target: FEED_TARGET, variant: 'cpu', entry: standalone.entry });
       writeFileSync(path.join(outDir, feedFileName(FEED_TARGET, null)), text);
     }
-  } else writeReleaseFiles(`${PRODUCT_NAME}-${desktop.version}${buildPart}-win-x64${variant.suffix}`, desktop.version);
+  } else {
+    const standalone = options['standalone-cli']
+      ? await buildStandaloneCli({ platform: 'win32', app: unpacked, output: outDir, variant: options.variant, downloadBase })
+      : null;
+    writeReleaseFiles(`${PRODUCT_NAME}-${desktop.version}${buildPart}-win-x64${variant.suffix}`, desktop.version, standalone);
+  }
 } finally {
   if (options['keep-staging']) console.log(`临时目录留着：${staging}`);
   else rmSync(staging, { recursive: true, force: true });
+}
+
+/** 发布报告里独立包的那一项（不带本机路径）。 */
+function standaloneReport(standalone) {
+  return { ...standalone.archive, notarized: standalone.notarized, notarySubmissionId: standalone.notarySubmissionId,
+    signature: standalone.signature, node: standalone.manifest.node, unpackedBytes: standalone.unpackedBytes, checked: standalone.checked };
 }
 
 /** 文件的大小与 sha256（流式读，安装器上百 MB）。 */
@@ -542,7 +563,7 @@ function fileFacts(file) {
  * 发布报告（总是写）与更新源（给了 --download-base-url 才写）。更新源用应用自己的 releaseManifest 生成、parseManifest 读回，
  * 与应用检查更新时读的是同一套口径。
  */
-function writeReleaseFiles(stem, version) {
+function writeReleaseFiles(stem, version, standalone = null) {
   const installerPath = path.join(outDir, `${stem}-setup.exe`);
   const zipPath = path.join(outDir, `${stem}.zip`);
   const installer = packageTargets.includes('nsis') ? fileFacts(installerPath) : null;
@@ -559,6 +580,7 @@ function writeReleaseFiles(stem, version) {
     installer: installer && { format: 'exe', ...installer },
     portable: portable && { format: 'zip', ...portable },
     feed: feedFileName(FEED_TARGET, options.variant),
+    ...(standalone ? { cli: standaloneReport(standalone) } : {}),
   };
   const reportPath = path.join(outDir, `${stem}-release.json`);
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -578,7 +600,8 @@ function writeReleaseFiles(stem, version) {
     sha256: installer.sha256,
     ...(rolloutHours ? { rolloutHours, releasedAt: generatedAt.toISOString() } : {}),
   });
-  const text = `${JSON.stringify(manifest, null, 2)}\n`;
+  let text = `${JSON.stringify(manifest, null, 2)}\n`;
+  if (standalone) text = addStandaloneToFeed(text, { target: FEED_TARGET, variant: options.variant, entry: standalone.entry });
   const parsed = parseManifest(text, FEED_TARGET, false, options.variant);
   if (!parsed.ok) fail(`生成的更新源读不回来：${parsed.error} ${parsed.detail}`);
   if (rolloutHours && !parsed.rollout) fail('生成的更新源里的分批字段读不回来');
@@ -658,6 +681,8 @@ function verifyUnpacked(dir, variantName) {
   if (!existsSync(launcher)) problems.push('Missing desktop CLI launcher');
   else if (isMac && (statSync(launcher).mode & 0o111) === 0) problems.push('Desktop CLI launcher is not executable');
   if (isMac && existsSync(launcher)) runMac('lipo', [launcher, '-verify_arch', macPlan.intel ? 'x86_64' : 'arm64']);
+  // CLI 拉起 Runtime 经它设 disclaim 属性（CLI 独立使用与发布 §9.7）；缺了 CLI 照样直接拉起，但完全磁盘访问算在终端头上。
+  if (isMac && !existsSync(path.join(dir, 'Contents/MacOS/baocut-disclaim'))) problems.push('Missing disclaim helper Contents/MacOS/baocut-disclaim');
   for (const name of BUNDLED_EXECUTABLES) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.bin, exe(name)))) problems.push(`没有 resources/${RESOURCE_DIRS.bin}/${exe(name)}`);
   }

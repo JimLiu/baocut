@@ -360,6 +360,7 @@ const en = {
     cliStale: (target: string) => `Points to another BaoCut (${target}). Repair to point it to this app.`,
     cliBroken: (target: string) => `Points to ${target}, which isn't there any more (the app was moved). Repair to point it to this app.`,
     cliForeign: "There's already a baocut there that BaoCut didn't put there. BaoCut won't replace it; move or rename it, then install.",
+    cliStandalone: 'Installed · terminals run the standalone BaoCut command line, which updates with baocut update. The app leaves it alone.',
     cliInstall: 'Install command line tool',
     cliRepair: 'Repair',
     cliRemoveHint: 'Only deletes what BaoCut put there; the app keeps its command line',

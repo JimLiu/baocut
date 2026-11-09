@@ -57,6 +57,43 @@ test('Mac publication rejects tampered archives, checksum files and update URLs'
   } finally { rmSync(directory, { recursive: true }); }
 });
 
+/** Adds the standalone command line archive (built with --standalone-cli) to a fixture candidate. */
+async function withCli({ directory, report, feed }) {
+  const file = 'BaoCut-CLI-3.0.0-build.61-aarch64-apple-darwin.zip';
+  const bytes = Buffer.from('test cli contents');
+  writeFileSync(path.join(directory, file), bytes);
+  const sha256 = await fileHash(path.join(directory, file));
+  writeFileSync(path.join(directory, `${file}.sha256`), `${sha256}  ${file}\n`);
+  report.cli = { format: 'zip', file, size: bytes.length, sha256, notarized: true, notarySubmissionId: 'd'.repeat(36), node: '24.22.1', verifiedRoot: '/private/local' };
+  feed.cli = { format: 'zip', url: `https://github.com/jimliu/baocut/releases/download/baocut-v3.0.0-build.61/${file}`, size: bytes.length, sha256 };
+  writeFileSync(path.join(directory, 'app-release.json'), JSON.stringify(report));
+  writeFileSync(path.join(directory, 'appcast-aarch64-apple-darwin.json'), JSON.stringify(feed));
+  return { file };
+}
+
+test('An optional standalone CLI archive is published with its checksum and must match the feed cli entry', async () => {
+  const candidate = await fixture();
+  const { directory, report, feed } = candidate;
+  try {
+    // A feed cli entry without the archive is refused.
+    writeFileSync(path.join(directory, 'appcast-aarch64-apple-darwin.json'), JSON.stringify({ ...feed, cli: { format: 'zip', url: 'https://example.com/x.zip', size: 1, sha256: 'e'.repeat(64) } }));
+    await assert.rejects(validateMacPackage(directory, expected), /does not have/);
+    const { file } = await withCli(candidate);
+    const item = await validateMacPackage(directory, expected);
+    assert.deepEqual(item.names.filter((name) => name.includes('CLI')), [file, `${file}.sha256`]);
+    assert.equal(publicReport(report).cli.verifiedRoot, undefined);
+    assert.equal(publicReport(report).cli.sha256, report.cli.sha256);
+    feed.cli.url = feed.cli.url.replace('build.61', 'build.60');
+    writeFileSync(path.join(directory, 'appcast-aarch64-apple-darwin.json'), JSON.stringify(feed));
+    await assert.rejects(validateMacPackage(directory, expected), /standalone CLI archive/);
+    feed.cli.url = feed.cli.url.replace('build.60', 'build.61');
+    writeFileSync(path.join(directory, 'appcast-aarch64-apple-darwin.json'), JSON.stringify(feed));
+    report.cli.notarized = false;
+    writeFileSync(path.join(directory, 'app-release.json'), JSON.stringify(report));
+    await assert.rejects(validateMacPackage(directory, expected), /not notarized/);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test('Mac publication requires matching signer/source, notarization and safe artifact names', async () => {
   for (const mutate of [
     (r) => { r.signingSha1 = 'D'.repeat(40); },

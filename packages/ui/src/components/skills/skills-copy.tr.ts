@@ -348,6 +348,7 @@ export const tr: SkillsPageMessages = {
     cliBroken: (target: string) =>
       `${target} konumunu gösteriyor, ama orada artık bir şey yok (uygulama taşındı). Bu uygulamayı göstermesi için onarın.`,
     cliForeign: 'Orada BaoCut’ın koymadığı bir baocut zaten var. BaoCut onu değiştirmez; taşıyın veya yeniden adlandırın, sonra yükleyin.',
+    cliStandalone: 'Yüklü · terminaller bağımsız BaoCut komut satırını çalıştırır; baocut update ile güncellenir. Uygulama ona dokunmaz.',
     cliInstall: 'Komut satırı aracını yükle',
     cliRepair: 'Onar',
     cliRemoveHint: 'Yalnızca BaoCut’ın oraya koyduğunu siler; uygulamanın komut satırı yerinde kalır',

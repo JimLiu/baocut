@@ -125,6 +125,8 @@ export const zhHant: RcSkillsMessages = {
   agentSkillLocalOnly: '只能在桌面應用程式或命令列中為其他 Agent 安裝 BaoCut 說明書',
   cliEntryUnavailable: '這個 Runtime 不是從已安裝的 BaoCut 應用程式啟動的，沒有可供 baocut 指向的應用程式命令列。請在 BaoCut 應用程式裡安裝',
   cliEntryTaken: (p) => `${p.path} 已經存在，不是 BaoCut 放的。BaoCut 不會取代或刪除它：移走或改名後再試`,
+  cliEntryStandalone: (p) =>
+    `${p.path} 屬於獨立的 BaoCut 命令列套件（${p.target}）。App 不會替換或刪除它：用 baocut update 更新，或用那個套件的 baocut cli remove 移除`,
   cliEntryPathFailed: (p) => `baocut 已經放進 ${p.dir}，但沒能把這個資料夾加入使用者的 PATH。請自行加入：在開始功能表中搜尋「編輯您帳戶的環境變數」`,
   cliEntryLocalOnly: '只能在桌面應用程式或命令列中安裝 baocut 指令',
 };

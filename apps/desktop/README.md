@@ -16,7 +16,16 @@ Electron 升级同时更新 `package.json`、根 lockfile 与安装脚本许可�
 
 桌面构建把当前 CLI、离线工具目录和 Runtime 放在同一个 App 中。macOS 的入口是 `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 是安装目录里的 `baocut.cmd`；两者都使用包内的 Electron，无需另装 Node。让终端直接找到 `baocut`：App 第一次启动时，那里还没有 `baocut` 就自动装上（每个 Runtime Home 一次，已有文件不动，用户移除后不再装回来）；移除过或想重装时，用入口的完整路径跑一次 `cli install`（如 `/Applications/BaoCut.app/Contents/MacOS/baocut-cli cli install`），或在 Skills 页「在终端或其他应用的 Agent 里使用 BaoCut」卡片里安装。macOS 在 `~/.local/bin/baocut` 放指向入口的软链接，Windows 在 `%LOCALAPPDATA%\BaoCut\bin` 放转发用的 `baocut.cmd` 并把这个目录加进用户 PATH（对新开的终端生效）；都不要管理员权限，那里已有不是 BaoCut 放的文件时不覆盖。`~/.local/bin` 不在 shell 的 PATH 上时 `baocut cli status` 给出要加进配置的那一行；App 被移动后，下次启动会把自己装的链接改指向新位置。Homebrew 的 cask `baocut` 装同一个 App 并把 `baocut` 链接进 Homebrew 的 `bin`，带 `auto_updates true`，之后由 App 自己更新；源文件是 [`releases/homebrew/baocut.rb`](releases/homebrew/baocut.rb)，由 `tools/homebrew-cask.mjs` 按 Mac appcast 生成，tap 仓库（GitHub 上的 `homebrew-tap`）由维护者建好并复制过去后才能 `brew install --cask`。也可以把入口的完整路径设为 `BAOCUT_CLI`，或通过绝对路径调用。macOS 的启动器也支持用户自己建立的符号链接；打包时用 Xcode 的 clang 编译为与宿主相同架构的 Mach-O，随 App 签名，避免脚本放在 `Contents/MacOS` 造成嵌套代码签名失败。
 
-先运行入口的 `version`：没有 Runtime 时只报告 CLI 版本，已有 Runtime 时检查工具接口是否兼容；不要用 App 的营销版本号代替这个检查。确认后可用该入口执行 `skill install`：默认在 `~/.agents/skills/baocut` 与 `~/.claude/skills/baocut` 放指向包内 `resources/agent-skill/baocut` 的软链接，之后随 App 更新，不用重装；`--dir <文件夹>` 装到任意文件夹，`--copy` 改为复制。CLI 优先启动自身所在 App 的 Runtime、读取同一包的说明书；显式的 `BAOCUT_RUNTIME_ENTRY` 仍优先。
+**独立 CLI 包**（[CLI 独立使用与发布 §9](../../docs/design/agent-surface/cli-standalone-design.md#9-独立-cli-包)）让没装 App 的机器也能在终端用 `baocut`：
+- **随发布出包**：`package-desktop.mjs --standalone-cli` 只能在目标平台上跑。App 打好、验过之后，它从 App 里取出 Runtime 代码、`bin/` 与资源，换上与 Electron 同一大版本的 Node，出 `BaoCut-CLI-<版本>-build.<n>-<target>[-<变体>].zip` 与 `.sha256`。发布报告与更新源各加一个 `cli` 条目。macOS 的包是签名、公证过的 `BaoCut CLI.app`；`--local` 时用临时签名，不公证。
+- **单独演练**：`node tools/standalone-cli.mjs --app <BaoCut.app> --out <新目录> --local`。可选 `--app-code out` 换上刚构建的主进程代码，`--node <Node 24>` 指定 Node，`--version` 与 `--build` 指定版本。出包后自检，并跑 `check-bundled-cli.mjs`。
+- **用户安装**：解开后运行包里的 `baocut-cli cli install`（Windows 是 `baocut.cmd cli install`）。包被拷进 `~/.local/share/baocut/versions/`（Windows 是 `%LOCALAPPDATA%\BaoCut\cli\versions\`），入口指过去。
+- **更新与回滚**：`baocut update` 从同一个更新源升级，`baocut update --rollback` 回滚。演练时用 `BAOCUT_UPDATE_APPCAST` 指向本地清单。
+- **与 App 的关系**：App 不改也不删指向独立包的入口。独立包没有 Electron，代码画面要靠装好的 App。
+
+macOS 上 App 与独立包的 CLI 都经包里的 `baocut-disclaim` 拉起 Runtime，完全磁盘访问算在 BaoCut（独立包是 BaoCut CLI）头上，不沿用终端的授权（[架构设计 §12.11](../../docs/architecture/architecture-design.md#1211-系统访问权限macos-完全磁盘访问权限)）。
+
+先运行入口的 `version`：没有 Runtime 时只报告 CLI 版本，已有 Runtime 时检查工具接口是否兼容；不要用 App 的营销版本号代替这个检查。确认后可用该入口执行 `skill install`：默认在 `~/.agents/skills/baocut` 与 `~/.claude/skills/baocut` 放指向包内 `resources/agent-skill/baocut` 的软链接，之后随 App 更新，不用重装；`--dir <文件夹>` 装到任意文件夹，`--copy` 改为复制。CLI 优先启动自身所在的 App 或独立包的 Runtime、读取同一包的说明书；显式的 `BAOCUT_RUNTIME_ENTRY` 仍优先。
 
 旧的 3.8.0 Build 77 发布包没有这些入口；只改环境变量不能补出缺失文件。需要含修复的新桌面包，或先从与 App 匹配的源码运行 CLI。旧 Homebrew `bcut` 配方不是当前桌面 CLI 的匹配安装方式。启动发现与版本门见 [Skill 启动说明](../../skills/baocut/references/start.md)。
 

@@ -354,6 +354,7 @@ export const it: SkillsPageMessages = {
     cliStale: (target: string) => `Punta a un altro BaoCut (${target}). Ripara per farlo puntare a questa app.`,
     cliBroken: (target: string) => `Punta a ${target}, che non c’è più (l’app è stata spostata). Ripara per farlo puntare a questa app.`,
     cliForeign: 'Lì c’è già un baocut che non ha messo BaoCut. BaoCut non lo sostituirà; spostalo o rinominalo, poi installa.',
+    cliStandalone: 'Installata · i terminali usano la riga di comando autonoma di BaoCut, che si aggiorna con baocut update. L’app non la tocca.',
     cliInstall: 'Installa lo strumento da riga di comando',
     cliRepair: 'Ripara',
     cliRemoveHint: 'Elimina solo ciò che ha messo BaoCut; l’app mantiene la sua riga di comando',

@@ -362,6 +362,8 @@ export const fr: SkillsPageMessages = {
     cliBroken: (target: string) =>
       `Pointe vers ${target}, qui n’existe plus (l’application a été déplacée). Réparez pour le faire pointer vers cette application.`,
     cliForeign: 'Il y a déjà là un baocut que BaoCut n’y a pas mis. BaoCut ne le remplacera pas ; déplacez-le ou renommez-le, puis installez.',
+    cliStandalone:
+      'Installé · les terminaux lancent la ligne de commande autonome de BaoCut, qui se met à jour avec baocut update. L’application n’y touche pas.',
     cliInstall: 'Installer l’outil en ligne de commande',
     cliRepair: 'Réparer',
     cliRemoveHint: 'Supprime seulement ce que BaoCut y a mis ; l’application garde sa ligne de commande',

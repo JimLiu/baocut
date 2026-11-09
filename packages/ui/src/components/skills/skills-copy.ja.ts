@@ -350,6 +350,8 @@ export const ja: SkillsPageMessages = {
       `${target} を指していますが、そこにはもうありません（アプリが移動されました）。修復するとこのアプリを指すようになります。`,
     cliForeign:
       'そこには BaoCut 以外が置いた baocut がすでにあります。BaoCut はそれを置き換えません。移動するか名前を変えてからインストールしてください。',
+    cliStandalone:
+      'インストール済み · ターミナルではスタンドアロンの BaoCut コマンドラインが使われ、baocut update で更新されます。アプリはこれに手を加えません。',
     cliInstall: 'コマンドラインツールをインストール',
     cliRepair: '修復',
     cliRemoveHint: 'BaoCut が置いたものだけを削除します。アプリのコマンドラインはそのまま残ります',

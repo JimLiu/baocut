@@ -123,6 +123,8 @@ export const pl: RcSkillsMessages = {
   agentSkillLocalOnly: 'Instalowanie skilla BaoCut dla innych agentów jest dostępne tylko w aplikacji desktopowej i w CLI',
   cliEntryUnavailable: 'Ten Runtime nie został uruchomiony z zainstalowanej aplikacji BaoCut, więc nie ma wiersza poleceń aplikacji, na który mogłoby wskazywać baocut. Zainstaluj je z aplikacji BaoCut',
   cliEntryTaken: (p) => `${p.path} już istnieje i nie umieścił tego BaoCut. BaoCut tego nie zastąpi ani nie usunie: przenieś lub zmień nazwę i spróbuj ponownie`,
+  cliEntryStandalone: (p) =>
+    `${p.path} należy do samodzielnego pakietu wiersza poleceń BaoCut (${p.target}). Aplikacja go nie zastępuje ani nie usuwa: zaktualizuj go przez baocut update lub usuń przez baocut cli remove z tego pakietu`,
   cliEntryPathFailed: (p) => `baocut jest w ${p.dir}, ale BaoCut nie udało się dodać tego folderu do PATH użytkownika. Dodaj go samodzielnie: wyszukaj w menu Start „Edytuj zmienne środowiskowe dla konta”`,
   cliEntryLocalOnly: 'Instalowanie polecenia baocut jest dostępne tylko w aplikacji desktopowej i w CLI',
 };

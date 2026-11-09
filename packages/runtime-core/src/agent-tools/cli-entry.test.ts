@@ -11,6 +11,7 @@ import {
   WINDOWS_USER_PATH_SCRIPT,
   encodedCommand,
   forwarderScript,
+  isStandaloneLauncher,
   parseForwarder,
   parseWindowsPathProbe,
   type CommandRunner,
@@ -45,6 +46,19 @@ describe('cli entry installer', () => {
   const makeApp = (name: string) => {
     const macos = path.join(dir, name, 'Contents', 'MacOS');
     fs.mkdirSync(macos, { recursive: true });
+    const file = path.join(macos, 'baocut-cli');
+    fs.writeFileSync(file, '#!/bin/sh\n', { mode: 0o755 });
+    return file;
+  };
+
+  /** 独立 CLI 包的一个版本目录（§9.3）：`BaoCut CLI.app/Contents/MacOS/baocut-cli` 加 `Resources/app/` 里的清单。 */
+  const makeStandalone = (version: string) => {
+    const root = path.join(user, '.local', 'share', 'baocut', 'versions', version);
+    const macos = path.join(root, 'BaoCut CLI.app', 'Contents', 'MacOS');
+    const app = path.join(root, 'BaoCut CLI.app', 'Contents', 'Resources', 'app');
+    fs.mkdirSync(macos, { recursive: true });
+    fs.mkdirSync(app, { recursive: true });
+    fs.writeFileSync(path.join(app, 'baocut-standalone.json'), '{}\n');
     const file = path.join(macos, 'baocut-cli');
     fs.writeFileSync(file, '#!/bin/sh\n', { mode: 0o755 });
     return file;
@@ -127,6 +141,44 @@ describe('cli entry installer', () => {
     fs.symlinkSync(standalone, link());
     expect(await installer().status()).toMatchObject({ state: 'stale', managed: false });
     expect(installer().repair()).toBe(false);
+  });
+
+  it('指向独立 CLI 包的链接是 standalone：App 启动时不修，装与移除都拒绝，链接不动', async () => {
+    // App 先装过（有记录），之后用户装了独立包，独立包把链接改指它的版本目录。
+    await installer().install();
+    const standalone = makeStandalone('3.17.0-build.93');
+    fs.rmSync(link());
+    fs.symlinkSync(standalone, link());
+    expect(await installer().status()).toMatchObject({ state: 'standalone', target: standalone, managed: false });
+    expect(installer().repair()).toBe(false);
+    expect((await rejection(() => installer().install())).details).toMatchObject({ code: 'CLI_ENTRY_STANDALONE', path: link() });
+    expect((await rejection(() => installer().remove())).details).toMatchObject({ code: 'CLI_ENTRY_STANDALONE' });
+    expect(fs.readlinkSync(link())).toBe(standalone);
+
+    // 独立包更新时删掉了旧版本目录：链接失效、文件名还是 baocut-cli，但它不在记录里，App 照样不修。
+    fs.rmSync(path.join(user, '.local', 'share'), { recursive: true });
+    expect(await installer().status()).toMatchObject({ state: 'broken', managed: false });
+    expect(installer().repair()).toBe(false);
+  });
+
+  it('独立包自己拉起的 Runtime 也报 standalone，不替独立包放入口', async () => {
+    const standalone = makeStandalone('3.17.0-build.93');
+    const own = (env: NodeJS.ProcessEnv = { BAOCUT_CLI_ENTRY: standalone, SHELL: '/bin/zsh' }) =>
+      new CliEntryInstaller({ home, userHome: user, env, platform: 'darwin', run });
+    expect((await rejection(() => own().install())).details).toMatchObject({ code: 'CLI_ENTRY_STANDALONE' });
+    expect(fs.existsSync(link())).toBe(false);
+    fs.mkdirSync(path.dirname(link()), { recursive: true });
+    fs.symlinkSync(standalone, link());
+    expect(await own().status()).toMatchObject({ state: 'standalone', target: standalone });
+  });
+
+  it('认独立包的启动器：位置要在布局里，包里要有清单', () => {
+    const standalone = makeStandalone('3.17.0-build.93');
+    expect(isStandaloneLauncher(standalone, 'darwin')).toBe(true);
+    expect(isStandaloneLauncher(entry, 'darwin')).toBe(false);
+    fs.rmSync(path.join(path.dirname(path.dirname(standalone)), 'Resources', 'app', 'baocut-standalone.json'));
+    expect(isStandaloneLauncher(standalone, 'darwin')).toBe(false);
+    expect(isStandaloneLauncher(standalone, 'linux')).toBe(false);
   });
 
   it('移除只删链接与记录，App 入口不动；没有时什么都不做', async () => {
@@ -274,6 +326,21 @@ describe('windows forwarder', () => {
     expect(installer.inspect(at, app)).toEqual({ state: 'stale', target: old });
     fs.writeFileSync(at, forwarderScript(app));
     expect(installer.inspect(at, app)).toEqual({ state: 'current', target: app });
+  });
+
+  // 找清单要按 Windows 的路径拼，只在 Windows 上跑。
+  it.runIf(process.platform === 'win32')('转发到独立包的 baocut.cmd（包里有 resources\\app\\ 的清单）是 standalone', () => {
+    const app = path.join(dir, 'app', 'baocut.cmd');
+    fs.mkdirSync(path.dirname(app), { recursive: true });
+    fs.writeFileSync(app, '@echo off\r\n');
+    const pkg = path.join(dir, 'cli', 'current');
+    fs.mkdirSync(path.join(pkg, 'resources', 'app'), { recursive: true });
+    fs.writeFileSync(path.join(pkg, 'resources', 'app', 'baocut-standalone.json'), '{}\n');
+    fs.writeFileSync(path.join(pkg, 'baocut.cmd'), '@echo off\r\n');
+    const installer = new CliEntryInstaller({ home: path.join(dir, 'home'), userHome: dir, env: { BAOCUT_CLI_ENTRY: app }, platform: 'win32' });
+    const at = path.join(dir, 'baocut.cmd');
+    fs.writeFileSync(at, forwarderScript(path.join(pkg, 'baocut.cmd')));
+    expect(installer.inspect(at, app)).toEqual({ state: 'standalone', target: path.join(pkg, 'baocut.cmd') });
   });
 
   it('位置在 %LOCALAPPDATA%\\BaoCut\\bin 下', () => {

@@ -1,6 +1,6 @@
 # CLI 独立使用与发布：不开桌面端也能用，以及独立 CLI 包
 
-> 方案稿，2026-11-08。第一批（§12：§3、§5、§7.3、§8）与第二批（§4、§6.1、§7.1、§7.2、§7.4）已实现，第三批（§9 独立包）未做。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
+> 方案稿，2026-11-08。第一批（§12：§3、§5、§7.3、§8）与第二批（§4、§6.1、§7.1、§7.2、§7.4）已实现；第三批（§9）的打包、安装、更新与 disclaim 拉起已实现，还没发布，§9.4 的复用规则还没接上。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
 >
 > 本文延伸 [Agent 面设计](agent-surface-design.md) 的 §5.6（Runtime 的归属）与 §8.2（放哪里），CLI 拉起 Runtime 的机制以[架构设计 §2.2](../../architecture/architecture-design.md#22-启动所有权与退出) 为准，这里只写要改的部分。制作流程的产品化（生产脚本编排、旁白片段剪裁、字幕断条等）不在本文。
 
@@ -69,7 +69,7 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 | 7 | 桌面端碰到忙着的旧版 CLI Runtime 只等它做完，不给「现在停止它」 | §4.2 |
 | 8 | 第一版不做开机常驻 | §6.2 |
 | 9 | 项目目录改规则，不迁移已有的视频 | §5.1 |
-| 10 | 钥匙串先用同一签名标识的助手，实测不行再换访问组外壳 | §9.6 |
+| 10 | 钥匙串先用同一签名标识的助手，实测不行再换访问组外壳（实测可行，不要外壳） | §9.6 |
 | 11 | App 首次启动时自动装上终端里的 `baocut`：每个 Runtime Home 一次，那里已有东西时不动，用户移除后不再装回来 | §3.2 |
 
 第 3 条之下可以加一句提示：桌面端退出、停下自己的 Runtime 时，如果还有 CLI 连接，退出对话框说明这些连接会断开、下一条命令会在后台重新拉起 Runtime。
@@ -276,11 +276,24 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 
 ## 9. 独立 CLI 包
 
-已定要做（§2 第 4 条），排在 §4 与 §6.1 之后：不然只装独立包的用户会碰到 MCP 宿主拉不起 Runtime，与 App 版本不同时也没有确定的规则。第一版 macOS 与 Windows，与 App 同一次构建、同一个版本号同时发布。
+已定要做（§2 第 4 条）。第一版 macOS 与 Windows，与 App 同一次构建、同一个版本号同时发布。原计划排在 §4 与 §6.1 之后：不然只装独立包的用户会碰到 MCP 宿主拉不起 Runtime，与 App 版本不同时也没有确定的规则。实际先做了打包、安装与更新，它们不依赖 §4；§9.4 的复用与替换等 §4.2 合并后再接上。
 
 ### 9.1 内容
 
-独立包是同一次构建多出的一个产物：Node 可执行文件、`cli.js` 与 `runtime.js`、`bin/` 下的原生程序、资源目录（模板、贴纸、skill、模型资源、web 与各编辑器），不带 Electron 与桌面界面。Node 的大版本与 App 里 Electron 自带的一致，并且有 `node:sqlite`。资源仍按 `packagedResourceEnv` 的环境变量找，独立包的启动器设置它们。
+独立包是同一次构建多出的一个产物。`apps/desktop/tools/standalone-cli.mjs` 从签好、验过的 App 里取出它；`package-desktop.mjs --standalone-cli` 在 App 之后做这一步。包里不带 Electron 与桌面界面：
+
+- **macOS**：一个 `BaoCut CLI.app`，标识 `com.baocut.cli`，`LSUIElement`，可执行文件是 Node。
+  - `Contents/MacOS/` 放 `node`、启动器 `baocut-cli` 与 `baocut-disclaim`（§9.7）。启动器与 App 的是同一份 `desktop-cli-mac.c`。
+  - `Contents/Resources/` 放 `app/`、第三方声明，以及 App 的资源目录：`bin/` 下的原生程序、模板、贴纸、skill、模型资源、web 与各编辑器。资源目录用 `ditto` 原样拷贝，原生程序的签名不变。
+  - 包成 `.app`，是为了在系统设置的完全磁盘访问列表里以 BaoCut CLI 出现。
+- **Windows**：`baocut.cmd`、`node.exe` 与 `resources\`。`resources\` 里是同样的资源，外加 `app\`。
+- **`app/`**：解开的 `app.asar` 去掉 `out/renderer` 与 `out/preload`，剩 `out/main/` 的 `cli.js`、`runtime.js` 与依赖。依赖只有纯 JS 的 `ws` 与 `zod`，没有原生模块。
+- **清单** `app/baocut-standalone.json`：`{ schema, product, version, build, target, variant, sourceCommit, node }`。CLI 靠它认出自己在独立包里，布局与解析在 `@baocut/protocol` 的 `standaloneLayout` 与 `parseStandaloneManifest`。
+- **Node**：
+  - 大版本必须与 App 里 Electron 自带的一致，并且有 `node:sqlite`。打包时比对，3.16.4 的 Electron 44.9.3 带 Node 24.22.0。
+  - 默认取打包机上运行脚本的 Node，也可以用 `--node` 指定。macOS 上重签（§9.6）。
+- **启动器**：设置 `packagedResourceEnv` 的环境变量与 `BAOCUT_PACKAGE_KIND=standalone`，资源照 App 的找法。
+- **没有 Electron 的后果**：代码画面的离屏宿主（`CompositionHost`）起不来，报 `COMPOSITION_HOST_UNAVAILABLE`，提示装 App 或把 `BAOCUT_ELECTRON` 指向 App 的可执行文件。Runtime 自检在独立包里不要求 `electron`，离屏宿主一项记为跳过。
 
 ### 9.2 大小
 
@@ -294,42 +307,86 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 | `app.asar` | 54 MB | 换成 `cli.js`、`runtime.js` 与依赖 |
 | 模板、skill、贴纸、模型资源 | 约 20 MB | 保留 |
 
-只换掉 Electron，独立包仍有约 600 MB。要明显变小，得把本机模型相关的程序（`model-worker` 加 `mlx.metallib`、`audiocpp`、`matte`、`face-detect`、`speech-worker`，约 270 MB）改成按需下载（§9.7）。
+2026-11-08 用这个 App 加本分支的 `out/main` 打了一个本机演练包：
+
+- 解开 587 MB：`bin/` 309、Node 24.22.1 116、web 与编辑器 112、`app/` 28（`out/main` 21、依赖 7）、其余约 20。
+- zip 207 MB（217,175,373 字节）。
+- 要明显变小，得把本机模型相关的程序改成按需下载（§9.7）：`model-worker` 加 `mlx.metallib`、`audiocpp`、`matte`、`face-detect`、`speech-worker`，约 270 MB。
 
 ### 9.3 安装布局
 
-- macOS 与 Windows 都装在用户目录：`~/.local/share/baocut/versions/<版本>/`（Windows 是 `%LOCALAPPDATA%\BaoCut\cli\versions\<版本>\`），`~/.local/bin/baocut` 软链接指向当前版本的启动器（Windows 放一个转发到当前版本的 `baocut.cmd`）。
-- 更新：下载新版本目录、校验、切换链接，保留上一版用于回滚。还有 Runtime 在用的旧版本不删（按发现信息的 `entry` 判断），没人用的在下一次更新时删掉。
-- 与 App 共用 Home `~/.baocut` 与钥匙串条目。
+都装在用户目录，不要管理员权限，布局照 Claude Code 的原生安装器：
+
+- **版本目录**：`~/.local/share/baocut/versions/<版本>-build.<n>/`，Windows 是 `%LOCALAPPDATA%\BaoCut\cli\versions\<版本>-build.<n>\`。旁边的 `state.json` 记 `{ schema, current, previous, updatedAt }`。
+- **入口**：
+  - macOS：`~/.local/bin/baocut` 软链接指向当前版本目录里的启动器，换链接是原子的。
+  - Windows：`%LOCALAPPDATA%\BaoCut\bin\baocut.cmd` 是转发脚本，固定转发到目录联接 `cli\current\baocut.cmd`，更新只换联接。cmd 边执行边读批处理文件，改写正在运行的转发脚本会让它从旧偏移处读到新内容，所以转发脚本不动。
+- **`baocut cli install`**：在独立包里运行时不连 Runtime。
+  - 把自己所在的包拷进版本目录：macOS 用 `ditto`，APFS 上是克隆，实测不到 1 秒。
+  - 记成当前版本，再放好入口。之后下载下来的那份包就可以删了。
+  - `cli status` 与 `cli remove` 也在独立包里处理。`remove` 只删入口，版本目录留着。
+- **更新**：见 §9.5。上一版留着回滚；还有 Runtime 在用的旧版本不删，按发现信息的 `entry` 判断，见 §4.1；没人用的在下一次更新时删掉。发现信息还没有 `entry` 时（§4.1 属第二批），有 Runtime 在跑就这次一个都不删。
+- **共用**：与 App 共用 Home `~/.baocut` 与钥匙串条目。
+- **App 怎么对待独立包的入口**：`cliEntry.status` 报 `standalone`，App 的设置页把这一行显示成已装好、由 `baocut update` 更新；App 启动时不修它，也不删它。`cliEntry.install` 与 `remove` 碰到它时拒绝，报 `CLI_ENTRY_STANDALONE`，见[命令与协议规范 §4.1](../../spec/command-protocol-spec.md#41-方法)。
 
 ### 9.4 与 App 共存
 
-- `resolveRuntimeLaunch` 现在依次找：`BAOCUT_RUNTIME_ENTRY`、自身所在的 App、非默认 Home 上的仓库、标准安装位置的 App、仓库。独立包的 CLI 不在 App 里，会落到「标准安装位置的 App」，拉起 App 的 Runtime。改成「自身所在的安装（App 或独立包）」排在 env 之后，复用与替换按 §4。
+- **自定位（已实现）**：`resolveRuntimeLaunch` 现在依次找：`BAOCUT_RUNTIME_ENTRY`、自身所在的独立包、自身所在的 App、非默认 Home 上的仓库、标准安装位置的 App、仓库。独立包的 CLI 拉起的是包里 Node 跑的 `runtime.js`，不再落到标准位置的 App。
+  - `baocut doctor` 在独立包里拿终端的 `baocut` 与独立包比，不与 App 比。
+- **复用与替换**：按 §4.2，等第二批合并。在那之前，两边仍按现有规则共用先起来的那个 Runtime。
 - 两个包同一次构建、同一个版本号一起发布。
-- PATH 上的 `baocut` 由独立包管（§3.2）。
+- PATH 上的 `baocut` 由独立包管（§3.2，§9.3）。
 
 ### 9.5 更新渠道
 
-- `baocut update`：读与 App 相同的 appcast（`apps/desktop/releases/appcast-*.json`），按平台加一个 CLI 条目；归档同样放在 GitHub Releases。
-- Homebrew formula 或 winget / Scoop 只是指向同一归档的安装方式。
-- 这与架构设计 §2.6「只有一个分发渠道」的字面冲突，要一起修订：GitHub Releases 是唯一的归档来源，App 与独立包都从这里取（§11）。
+- **更新源**：`baocut update` 读与 App 相同的更新清单 `apps/desktop/releases/appcast-<target>[-<variant>].json`。
+  - 清单多一个 `cli` 条目 `{ format: 'zip', url, size, sha256 }`，由 `addStandaloneToFeed` 写入，App 的解析器当未知键忽略。
+  - 归档 `BaoCut-CLI-<版本>-build.<n>-<target>[-<变体>].zip` 与它的 `.sha256` 和 App 放在同一个 GitHub release。
+  - `macos-release.mjs` 发布前核对：归档的大小与摘要、公证提交号，以及清单里的 `cli` 与归档一致。
+- **比较新旧**：只比 build。更新源还没有 `cli` 条目时报 `UPDATE_NOT_PUBLISHED`。
+- **下载后的校验**：核对大小与 sha256。macOS 上还要过这几项：
+  - 系统版本满足 `minimumSystemVersion`；
+  - `codesign` 验证通过，Team ID 与自己的相同；
+  - `spctl` 认可。
+- **装上之后**：解开到版本目录（macOS 用 `ditto -x -k`，Windows 用系统的 `tar.exe`），记成当前版本并切换入口。
+- **回滚**：`baocut update --rollback` 换回上一版。
+- **并发**：同时只有一次更新，靠 `versions/.update.lock`。
+- **演练**：`BAOCUT_UPDATE_APPCAST` 可以换更新源，只有这时才允许 `file://` 的清单与归档。没签名的本机演练包也只有这时能更新。
+- **其他安装方式**：Homebrew formula 与 winget / Scoop 只是指向同一归档的安装方式，第一版不做。App 自己更新；Homebrew 装的 App 用 `brew upgrade`。在 App 包里运行 `baocut update` 会说明这一点。
+- **架构设计 §2.6**：已改成「GitHub Releases 是唯一的归档来源」，App 与独立包都从这里取。
 
 ### 9.6 签名与钥匙串
 
-- macOS 包里的 Node 与全部原生程序用 Developer ID 签名，整包公证。
-- 钥匙串条目的访问控制按程序的签名认人。独立包里的 `credential-helper` 用同一个 Developer ID 与同一个签名标识，推测能直接读 App 存的条目、不弹窗。先按这个做，并实测（§13）。
-- 实测不行时改用 ChatGPT 的做法：把 `credential-helper` 包进带描述文件的小 `.app`，用钥匙串访问组，App 与独立包放同一个签好的外壳。访问组属于数据保护钥匙串，现在的 `crates/credential-helper/src/keychain.rs` 用的是传统钥匙串的通用密码条目，换过去要迁移已有条目：先读传统条目、写进数据保护钥匙串，写成功再删旧条目，与[架构设计 §6.8](../../architecture/architecture-design.md#68-模型服务配置) 现有迁移的先写后删相同。
-- Windows 的 Credential Manager 不按程序区分。
+- **签名顺序（macOS）**：先签两个启动器，再带 `entitlements.standalone-node.mac.plist`（`allow-jit`、`allow-unsigned-executable-memory`）签整个 `BaoCut CLI.app`。都用 Developer ID 与 hardened runtime。
+  - `bin/` 下的原生程序保留 App 构建时的签名。
+  - Node 官方包的 `get-task-allow` 与 `disable-library-validation` 不带进来。
+  - 签好后公证并钉上票据，打成 zip，再解开验一遍签名、票据与 `spctl`。
+  - 本机演练（`--local`）用 ad-hoc 签名，不公证。
+- **Node 重签后能用**：2026-11-08 实测，用 BaoCut 的 Developer ID 与上面的权限重签 Node 24.22.1 后，`node:sqlite` 与 JIT 都正常。
+- **钥匙串不需要外壳**：条目的访问控制按 designated requirement 认人。`credential-helper` 的 requirement 是「标识 `credential-helper` + Developer ID + Team ID」，不绑具体的二进制或证书。
+  - 2026-11-08 实测：另编一个 `credential-helper`，sha256 与 App 里的不同，用同一身份、同一标识签名。双向 `set` / `get` / 覆盖都不弹窗，结论写回 §13。
+  - 所以独立包直接用 App 里那个 `credential-helper`，不做 ChatGPT 那样的访问组外壳。外壳与数据保护钥匙串的迁移只在将来换签名身份时才要考虑。
+- **Windows**：Credential Manager 不按程序区分。归档只核对 sha256，同 App。
 
 ### 9.7 只有桌面端做过的事
 
-- **完全磁盘访问**：系统按负责进程判定授权（架构设计 §12.11）。从终端拉起时负责进程是终端或 Agent 宿主，用户给 BaoCut 的授权不生效。可以照 Claude Desktop 的 `disclaimer`：CLI 拉起 Runtime 时设置 disclaim 属性，让 Runtime 自己成为负责进程。对 App 里的 Runtime，授权就落在 BaoCut.app；独立包要给 Runtime 一个带身份的 `.app` 外壳，才能在系统设置里以 BaoCut 出现。都要实测（§13）。
+- **完全磁盘访问**：系统按负责进程判定授权，见架构设计 §12.11。
+  - 以前从终端拉起时，负责进程是终端或 Agent 宿主，用户给 BaoCut 的授权不生效。
+  - 现在照 Claude Desktop 的 `disclaimer`：App 与独立包都带一个 `baocut-disclaim` 助手（`apps/desktop/tools/disclaim-mac.c`）。CLI 经它拉起 Runtime，它设置 disclaim 属性后以 `POSIX_SPAWN_SETEXEC` 换成 Runtime，进程号不变。
+  - 2026-11-08 实测，Runtime 成了自己的负责进程，tccd 日志里请求方与负责方都是包自己的标识：App 里是 `com.baocut.app`，独立包里是 `com.baocut.cli`。
+  - 代价：不再沿用终端的完全磁盘访问权限。
+  - `baocut doctor` 的完全磁盘访问一项点名该给 BaoCut 还是 BaoCut CLI 授权。
+  - 授予之后是否生效没有实测：本机的 BaoCut 没开这项权限，不替用户去开。
 - **常驻与审片链接**：靠 §6。
-- **按需组件**（之后）：照 Claude Desktop 下载 Claude Code 的办法，放进 `<home>/components/<名字>/<版本>-<sha256 前 12 位>/`，校验后写 `.verified`，保留新旧两版；组件版本跟包版本走，仍是「一个版本一套二进制」（架构设计 §2.6）。`findBundledBinary` 加这个查找位置。
+- **按需组件**（之后）：照 Claude Desktop 下载 Claude Code 的办法。
+  - 放进 `<home>/components/<名字>/<版本>-<sha256 前 12 位>/`，校验后写 `.verified`，保留新旧两版。
+  - 组件版本跟包版本走，仍是「一个版本一套二进制」（架构设计 §2.6）。
+  - `findBundledBinary` 加这个查找位置。
+  - 本批没做。
 
 ### 9.8 Linux
 
-第一版不做。只有独立 CLI 才可能上服务器与 CI，但 Rust 媒体后端只支持 macOS 与 Windows，crates 里 `target_os = "linux"` 只有 `model-runtime` 的 3 处。要另立项目。
+第一版不做。只有独立 CLI 才可能上服务器与 CI，但 Rust 媒体后端只支持 macOS 与 Windows，crates 里 `target_os = "linux"` 只有 `model-runtime` 的 3 处。要另立项目。`standaloneLayout` 对 Linux 返回 null，CLI 在 Linux 上不认独立包。
 
 ## 10. 参考：ChatGPT 与 Claude Desktop
 
@@ -363,7 +420,7 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 | [桌面端 README「外部 Agent 与 CLI」](../../../apps/desktop/README.md#外部-agent-与-cli) | PATH 安装（macOS 与 Windows）与 cask；删掉「不自动向系统 PATH 写文件」 | §3 |
 | `skills/baocut/references/start.md` | 第 1 节加 `~/.local/bin/baocut` 与独立包位置；第 4 节「桌面端开着时直接用桌面端的那个」改成按版本规则；第 5 节先跑 `doctor` | §3、§4、§8 |
 
-第一、二批改完了上表中与它们有关的部分。还没改的：命令与协议规范里「把 CLI 拉起的 Runtime 改成常驻的方法」属于 §6.2，第一版不做，没有这个方法；架构设计 §12.11 的权限归属、§2.6 的分发渠道与 `start.md` 的独立包位置等第三批。
+第一、二、三批改完了上表中与它们有关的部分（第三批：架构设计 §2.6 与 §12.11、命令与协议规范 §4.1 的 `cliEntry`、桌面端 README、`skills/baocut/references/start.md` 第 1 节）。还没改的：命令与协议规范里「把 CLI 拉起的 Runtime 改成常驻的方法」属于 §6.2，第一版不做，没有这个方法。
 
 ## 12. 实施顺序与验收
 
@@ -379,14 +436,36 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 **第三批**：§9 独立包；之后再做按需组件（§9.7）。
 
 - 验收：在没装过 App 的机器上装独立包，读到 App 存过的密钥不弹窗，完全磁盘访问的归属与 §9.7 一致，更新与回滚各走一遍。
+- 2026-11-08 已做（macOS，装着 App 3.16.4 的机器）：
+  - 用 App 加本分支的 `out/main` 打了两个 ad-hoc 签名的演练包（build 1、build 2）。打包时的自检与 `check-bundled-cli.mjs` 都过了。
+  - 在临时的 `HOME` 与 Runtime Home 上：
+    - `cli install`；`doctor`：入口指向独立包，凭据是钥匙串，完全磁盘访问算在 BaoCut CLI；
+    - Runtime 由包里的 Node 拉起，`transcode` 任务跑完；
+    - 经 `file://` 的更新源 `update` 到 build 2，Runtime 重启后跑的是新版本；
+    - `update --rollback`，`cli remove` 后版本目录还在。
+  - 没有更新源条目时报 `UPDATE_NOT_PUBLISHED`。
+  - 钥匙串与完全磁盘访问的实测见 §13。
+- 还没做：
+  - 没装过 App 的干净机器；
+  - Developer ID 签名加公证的包，要在发布流程里做；
+  - 授予完全磁盘访问后是否生效；
+  - Windows 上的全部（打包、`cli install` 的联接与转发脚本、`update`）；
+  - 发布工作流里加 `--standalone-cli` 与 Windows 发布脚本对 `cli` 归档的处理；
+  - 按需组件。
 
 ## 13. 待实测事项
 
 下面几项是推测，实现到对应部分时实测，结果写回对应小节：
 
 - 无窗口拉起的 Runtime 读钥匙串不弹窗：先退出 App，再运行 `/Applications/BaoCut.app/Contents/MacOS/baocut-cli models capabilities --capability synthesizeSpeech --json`，结果应有 `runtime.started: true` 且在线语音服务可用（§1.1）。
-- 不同的二进制用同一签名标识，能否不弹窗读 App 存的条目（§9.6）。
-- disclaim 拉起后，完全磁盘访问是否算在 BaoCut.app（§9.7）。
+- 不同的二进制用同一签名标识，能否不弹窗读 App 存的条目（§9.6）。已实测（2026-11-08），能：
+  - 另编的 `credential-helper` 与 App 里的 sha256 不同，用同一 Developer ID、同一标识 `credential-helper` 与同样的权限签名后，designated requirement 与 App 的相同。
+  - 一方 `set`，另一方 `has` / `get`，双向都不弹窗；一方覆盖另一方的条目也不弹窗。测试用的键事后删掉了。
+- disclaim 拉起后，完全磁盘访问是否算在 BaoCut.app（§9.7）。已实测（2026-11-08），算在进程所在的包：
+  - 从有完全磁盘访问权限的终端（Claude Code 的 `claude.app`）拉起，不经 disclaim 时 Node 与 App 的可执行文件以 Node 方式运行都是 `granted`，tccd 记在终端头上。
+  - 经 disclaim 拉起都变成 `missing`，tccd 记在进程自己的包头上：App 里是 `com.baocut.app`，独立包里是 `com.baocut.cli`。
+  - 本机的 BaoCut 没开这项权限，授予之后是否生效没测。
+  - 副作用：测的时候裸 Node（mise 的 `node`）进了完全磁盘访问的列表，开关关着，可以在系统设置里删掉。
 - SSH 会话里钥匙串是否报 `denied`（§8.1）。
 - macOS 上 App 更新后，旧 Runtime 起的 Worker 读的是哪份文件（§4）。
 - §5.2 的 Windows 已知文件夹与语言列表的读法，在重定向到 OneDrive 的机器上核对。

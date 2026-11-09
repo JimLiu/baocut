@@ -46,6 +46,11 @@ const en = {
   entryNoApp: (found: string, target: string) => `Terminals run ${found} (${target}); no BaoCut app was found`,
   entryMissing: "Terminals can't find baocut. Install it from the BaoCut app (no administrator rights needed).",
   entryMissingNoApp: "Terminals can't find baocut, and no BaoCut app was found in the usual places",
+  entryStandalone: (found: string, version: string) =>
+    `Terminals run ${found}, the standalone BaoCut command line package ${version}`,
+  entryOtherStandalone: (found: string, target: string, own: string) =>
+    `Terminals run ${found} (${target}), not a standalone BaoCut command line package such as ${own}`,
+  entryMissingStandalone: "Terminals can't find baocut. Install this command line package with cli install (no administrator rights needed).",
 
   // Runtime
   runtimeRunning: (version: string, pid: number, by: 'app' | 'cli') =>
@@ -73,6 +78,8 @@ const en = {
     'Full Disk Access is off for BaoCut.app, so files in protected places (Desktop, Documents, Downloads, other drives) may be unreadable. Turn on BaoCut in System Settings › Privacy & Security › Full Disk Access, then run baocut doctor again.',
   fdaMissingCli: (app: string | null) =>
     `Full Disk Access is off for the Runtime the command line started; macOS counts it against ${app ?? 'the app that ran the command (your terminal, or the app hosting the agent)'}. Turn that app on in System Settings › Privacy & Security › Full Disk Access and reopen it, or stop this Runtime (baocut runtime stop) and open the BaoCut app; then run baocut doctor again.`,
+  fdaMissingOwn: (app: string) =>
+    `Full Disk Access is off for the Runtime the command line started. It runs on its own as ${app}, so macOS counts it against ${app}, not your terminal: turn on ${app} in System Settings › Privacy & Security › Full Disk Access, stop this Runtime (baocut runtime stop), then run baocut doctor again.`,
   fdaNotRunning: 'Checked while a Runtime is running',
   // 构建（开发态）
   buildOk: (count: number) => `The native programs start, and the ${count} builds match the source`,

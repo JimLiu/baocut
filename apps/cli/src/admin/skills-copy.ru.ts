@@ -66,5 +66,12 @@ export const ru: SkillsMessages = {
   cliNothingToRemove: (path) => `По пути ${path} нечего удалять`,
   cliInstallHint: 'baocut cli install помещает baocut в PATH',
   cliFixHint: 'baocut cli install перенаправит его на это приложение',
-  cliState: { none: 'Не установлен', current: 'Указывает на это приложение', stale: 'Указывает на другой BaoCut', broken: 'Указывает на место, которого больше нет', foreign: 'Там что-то другое (не трогаем)' },
+  cliState: {
+    none: 'Не установлен',
+    current: 'Указывает на это приложение',
+    stale: 'Указывает на другой BaoCut',
+    broken: 'Указывает на место, которого больше нет',
+    foreign: 'Там что-то другое (не трогаем)',
+    standalone: 'Указывает на отдельный пакет командной строки, который им управляет (baocut update; не трогаем)',
+  },
 };

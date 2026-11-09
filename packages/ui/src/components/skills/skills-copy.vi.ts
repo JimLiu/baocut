@@ -347,6 +347,7 @@ export const vi: SkillsPageMessages = {
     cliBroken: (target: string) =>
       `Đang trỏ tới ${target}, nhưng nơi đó không còn nữa (ứng dụng đã bị di chuyển). Hãy sửa chữa để nó trỏ tới ứng dụng này.`,
     cliForeign: 'Ở đó đã có một baocut không phải do BaoCut đặt vào. BaoCut sẽ không thay thế nó; hãy di chuyển hoặc đổi tên nó, rồi cài.',
+    cliStandalone: 'Đã cài · terminal chạy dòng lệnh BaoCut độc lập, được cập nhật bằng baocut update. Ứng dụng không đụng tới nó.',
     cliInstall: 'Cài công cụ dòng lệnh',
     cliRepair: 'Sửa chữa',
     cliRemoveHint: 'Chỉ xóa những gì BaoCut đặt vào; dòng lệnh của ứng dụng vẫn còn',

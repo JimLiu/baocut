@@ -328,6 +328,7 @@ export const zhHans: SkillsPageMessages = {
     cliStale: (target) => `指向另一个 BaoCut（${target}）。修复后改为指向这个 App。`,
     cliBroken: (target) => `指向 ${target}，那里已经没有了（App 被移动过）。修复后改为指向这个 App。`,
     cliForeign: '那里已有一个不是 BaoCut 放的 baocut，BaoCut 不会替换它。移走或改名后再安装。',
+    cliStandalone: '已安装 · 终端里用的是独立的 BaoCut 命令行，用 baocut update 更新；App 不改动它。',
     cliInstall: '安装命令行工具',
     cliRepair: '修复',
     cliRemoveHint: '只删 BaoCut 放的那一个，App 自带的命令行还在',

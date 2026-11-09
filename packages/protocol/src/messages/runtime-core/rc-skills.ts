@@ -150,6 +150,8 @@ const en = {
   cliEntryUnavailable:
     "This Runtime didn't start from the installed BaoCut app, so there's no app command line for baocut to point to. Install it from the BaoCut app",
   cliEntryTaken: (p: { path: string }) => `${p.path} already exists and BaoCut didn't put it there. BaoCut won't replace or delete it: move or rename it, then try again`,
+  cliEntryStandalone: (p: { path: string; target: string }) =>
+    `${p.path} belongs to the standalone BaoCut command line package (${p.target}). The app doesn't replace or delete it: update it with baocut update, or remove it with that package's baocut cli remove`,
   cliEntryPathFailed: (p: { dir: string }) =>
     `baocut is in ${p.dir}, but BaoCut couldn't add that folder to your user PATH. Add it yourself: search the Start menu for "Edit environment variables for your account"`,
   cliEntryLocalOnly: 'Installing the baocut command is only available in the desktop app and the CLI',

@@ -147,9 +147,10 @@ export interface AgentSkillStatus {
 
 /**
  * 终端里的 `baocut` 入口（CLI 独立使用与发布 §3.2）：`none` 没有；`current` 指向本 App 的入口；`stale` 指向另一份 BaoCut 入口
- * （例如移动前的 App）；`broken` 指向的位置不在了；`foreign` 那里有一个不是 BaoCut 入口的东西，BaoCut 永不覆盖或删除它。
+ * （例如移动前的 App）；`broken` 指向的位置不在了；`standalone` 指向独立 CLI 包（§9）的入口，由独立包管（`baocut update`），App 不改也不删；
+ * `foreign` 那里有一个不是 BaoCut 入口的东西，BaoCut 永不覆盖或删除它。
  */
-export type CliEntryState = 'none' | 'current' | 'stale' | 'broken' | 'foreign';
+export type CliEntryState = 'none' | 'current' | 'stale' | 'broken' | 'standalone' | 'foreign';
 
 /** `cliEntry.status` 与写操作的结果。 */
 export interface CliEntryStatus {

@@ -29,6 +29,9 @@ export const nl: DoctorMessages = {
   entryNoApp: (found, target) => `Terminals gebruiken ${found} (${target}); geen BaoCut-app gevonden`,
   entryMissing: 'Terminals vinden baocut niet. Installeer het vanuit de BaoCut-app (geen beheerdersrechten nodig).',
   entryMissingNoApp: 'Terminals vinden baocut niet, en op de gebruikelijke plekken is geen BaoCut-app gevonden',
+  entryStandalone: (found, version) => `Terminals gebruiken ${found}, het losse BaoCut-opdrachtregelpakket ${version}`,
+  entryOtherStandalone: (found, target, own) => `Terminals gebruiken ${found} (${target}), geen los BaoCut-opdrachtregelpakket zoals ${own}`,
+  entryMissingStandalone: 'Terminals vinden baocut niet. Installeer dit opdrachtregelpakket met cli install (geen beheerdersrechten nodig).',
 
   runtimeRunning: (version, pid, by) =>
     `Actief: versie ${version}, proces ${pid}, gestart door ${by === 'cli' ? 'de opdrachtregel' : 'de BaoCut-app'}`,
@@ -53,6 +56,8 @@ export const nl: DoctorMessages = {
     'Volledige schijftoegang staat uit voor BaoCut.app, dus bestanden op beveiligde plekken (Bureaublad, Documenten, Downloads, andere schijven) zijn mogelijk onleesbaar. Zet BaoCut aan bij Systeeminstellingen › Privacy en beveiliging › Volledige schijftoegang en voer daarna baocut doctor opnieuw uit.',
   fdaMissingCli: (app) =>
     `Volledige schijftoegang staat uit voor de Runtime die de opdrachtregel heeft gestart; macOS rekent die toe aan ${app ?? 'de app die de opdracht uitvoerde (je terminal, of de app waarin de agent draait)'}. Zet die app aan bij Systeeminstellingen › Privacy en beveiliging › Volledige schijftoegang en open hem opnieuw, of stop deze Runtime (baocut runtime stop) en open de BaoCut-app; voer daarna baocut doctor opnieuw uit.`,
+  fdaMissingOwn: (app) =>
+    `Volledige schijftoegang staat uit voor de Runtime die de opdrachtregel heeft gestart. Die draait zelfstandig als ${app}, dus macOS rekent hem toe aan ${app}, niet aan je terminal: zet ${app} aan bij Systeeminstellingen › Privacy en beveiliging › Volledige schijftoegang, stop deze Runtime (baocut runtime stop) en voer daarna baocut doctor opnieuw uit.`,
   fdaNotRunning: 'Wordt alleen gecontroleerd terwijl een Runtime draait',
   buildOk: (count) => `De native programma’s starten en de ${count} builds komen overeen met de broncode`,
   buildNotSource: 'Wordt gecontroleerd als de Runtime vanuit een kopie van de repository draait',

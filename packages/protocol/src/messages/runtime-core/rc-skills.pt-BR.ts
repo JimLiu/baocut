@@ -128,6 +128,8 @@ export const ptBR: RcSkillsMessages = {
   cliEntryUnavailable:
     'Este Runtime não foi iniciado pelo app BaoCut instalado, então não há uma linha de comando do app para o baocut apontar. Instale pelo app BaoCut',
   cliEntryTaken: (p: { path: string }) => `${p.path} já existe e não foi o BaoCut que colocou ali. O BaoCut não substitui nem apaga isso: mova ou renomeie e tente de novo`,
+  cliEntryStandalone: (p: { path: string; target: string }) =>
+    `${p.path} pertence ao pacote independente de linha de comando do BaoCut (${p.target}). O app não o substitui nem o apaga: atualize com baocut update ou remova com o baocut cli remove desse pacote`,
   cliEntryPathFailed: (p: { dir: string }) =>
     `O baocut está em ${p.dir}, mas o BaoCut não conseguiu adicionar essa pasta ao PATH do seu usuário. Adicione você mesmo: procure “Editar as variáveis de ambiente para sua conta” no menu Iniciar`,
   cliEntryLocalOnly: 'Instalar o comando baocut só está disponível no app para desktop e na CLI',

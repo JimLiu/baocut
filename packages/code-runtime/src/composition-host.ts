@@ -4,7 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { JsonLineWorker, WorkerExitedError, WorkerRequestError, WorkerSpawnError, WorkerTimeoutError, type WorkerEvent } from '@baocut/process-host';
-import { CODE_BUNDLE_ERROR_CODES, type CodeBundleErrorCode, type FrameReceipt, type FrameTicket, type Rate } from '@baocut/protocol';
+import {
+  CODE_BUNDLE_ERROR_CODES,
+  PACKAGE_KIND_ENV,
+  STANDALONE_PACKAGE_KIND,
+  type CodeBundleErrorCode,
+  type FrameReceipt,
+  type FrameTicket,
+  type Rate,
+} from '@baocut/protocol';
 import { CodeBundleError, parseRate, type InspectedBundle } from './bundle-inspect.ts';
 import { COMPOSITION_ADAPTER_SCRIPT, type AdapterPageInfo } from './composition-adapter.ts';
 import { ADAPTER_PLACEHOLDER, COMPOSITION_HOST_SCRIPT, RECORDER_PLACEHOLDER } from './composition-host-script.ts';
@@ -233,7 +241,14 @@ export class CompositionHost {
     const baseEnv = options.env ?? process.env;
     const electron = options.electron === undefined ? resolveElectronBinary(baseEnv) : options.electron;
     if (!electron) {
-      throw new CodeBundleError('COMPOSITION_HOST_UNAVAILABLE', 'Electron was not found; set BAOCUT_ELECTRON to the Electron executable');
+      // 独立 CLI 包（CLI 独立使用与发布 §9）不带 Electron：代码画面要靠装好的 App。
+      const standalone = baseEnv[PACKAGE_KIND_ENV] === STANDALONE_PACKAGE_KIND;
+      throw new CodeBundleError(
+        'COMPOSITION_HOST_UNAVAILABLE',
+        standalone
+          ? 'Code compositions need Electron, which the standalone command line package does not include; install the BaoCut app, or set BAOCUT_ELECTRON to its executable (BaoCut.app/Contents/MacOS/BaoCut, BaoCut.exe)'
+          : 'Electron was not found; set BAOCUT_ELECTRON to the Electron executable',
+      );
     }
     const script = writeHostScript(options.cacheDir);
     const env: NodeJS.ProcessEnv = { ...baseEnv };

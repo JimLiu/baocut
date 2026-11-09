@@ -582,6 +582,8 @@ function cliLine(r: CliEntryRow, cli: CliEntryStatus, onPath: AgentSkillStatus['
       return { text: C().cliBroken(t(cli.target)), tone: 'notice' };
     case 'foreign':
       return { text: C().cliForeign, tone: 'notice' };
+    case 'standalone':
+      return { text: C().cliStandalone, tone: 'positive' };
   }
 }
 

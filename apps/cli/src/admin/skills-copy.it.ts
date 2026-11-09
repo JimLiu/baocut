@@ -68,5 +68,12 @@ Origine: ${source}` : ''}`, idFormat: (flag: string, value: string) => `${flag} 
   cliNothingToRemove: (path: string) => `Niente da rimuovere in ${path}`,
   cliInstallHint: 'baocut cli install mette baocut nel PATH',
   cliFixHint: 'baocut cli install lo fa puntare a questa app',
-  cliState: { none: 'Non installato', current: 'Punta a questa app', stale: 'Punta a un altro BaoCut', broken: 'Punta a una posizione che non esiste più', foreign: 'C’è altro (lasciato com’è)' },
+  cliState: {
+    none: 'Non installato',
+    current: 'Punta a questa app',
+    stale: 'Punta a un altro BaoCut',
+    broken: 'Punta a una posizione che non esiste più',
+    foreign: 'C’è altro (lasciato com’è)',
+    standalone: 'Punta al pacchetto autonomo della riga di comando, che lo gestisce (baocut update; lasciato com’è)',
+  },
 };

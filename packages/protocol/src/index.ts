@@ -35,6 +35,7 @@ export * from './i18n.ts';
 export * from './message-ref.ts';
 export * from './services.ts';
 export * from './catalog.ts';
+export * from './standalone-cli.ts';
 export * from './web.ts';
 export * from './legacy-import.ts';
 export * from './wire.ts';

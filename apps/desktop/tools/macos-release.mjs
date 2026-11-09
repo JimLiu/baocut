@@ -9,6 +9,8 @@ import { runMac, verifyMacIdentity } from './macos-distribution.mjs';
 import { validateReleaseRef } from './desktop-release-rules.mjs';
 import { validateReleaseNotes } from './release-notes.mjs';
 import { CASK_FILE, renderHomebrewCask } from './homebrew-cask.mjs';
+import { STANDALONE_APP_NAME, parseStandaloneFeed, standaloneArchiveName } from '../../../packages/protocol/src/standalone-cli.ts';
+import { checkStandalone } from './standalone-cli.mjs';
 
 const TARGET = 'aarch64-apple-darwin';
 const FEED = feedFileName(TARGET, null);
@@ -67,6 +69,7 @@ export function publicReport(report) {
     'portable', 'installer', 'notarySubmissionId', 'dmgNotarySubmissionId', 'notarized', 'unsigned', 'signingSha1',
     'workflowCommit', 'candidateRunId', 'candidateRunUrl', 'checks'].map((key) => [key, report[key]]));
   for (const kind of ['portable', 'installer']) sanitized[kind] = Object.fromEntries(['format', 'file', 'size', 'sha256'].map((key) => [key, report[kind]?.[key]]));
+  if (report.cli) sanitized.cli = Object.fromEntries(['format', 'file', 'size', 'sha256', 'notarized', 'notarySubmissionId', 'node'].map((key) => [key, report.cli[key]]));
   return sanitized;
 }
 
@@ -86,6 +89,18 @@ export async function validateMacPackage(directory, expected) {
     ensure(statSync(file).isFile() && statSync(file).size === facts.size && await fileHash(file) === facts.sha256, 'Mac archive hash or size differs');
     ensure(readFileSync(`${file}.sha256`, 'utf8') === `${facts.sha256}  ${name}\n`, 'Mac checksum file differs');
   }
+  // The standalone command line package (CLI standalone design §9.5) is optional: built with --standalone-cli.
+  const cli = report.cli ?? null;
+  const cliNames = [];
+  if (cli) {
+    const name = standaloneArchiveName({ version: report.version, build: report.build, target: TARGET, variant: 'cpu' });
+    ensure(cli.file === name && cli.format === 'zip' && Number.isSafeInteger(cli.size) && cli.size > 0, 'Unexpected standalone CLI archive facts');
+    ensure(cli.notarized === true && /^[a-f0-9-]{36}$/.test(cli.notarySubmissionId), 'Standalone CLI archive is not notarized');
+    const file = path.join(directory, name);
+    ensure(statSync(file).isFile() && statSync(file).size === cli.size && await fileHash(file) === cli.sha256, 'Standalone CLI archive hash or size differs');
+    ensure(readFileSync(`${file}.sha256`, 'utf8') === `${cli.sha256}  ${name}\n`, 'Standalone CLI checksum file differs');
+    cliNames.push(name, `${name}.sha256`);
+  }
   const feedText = readFileSync(path.join(directory, FEED), 'utf8');
   const feed = JSON.parse(feedText);
   validateReleaseNotes(feed, report);
@@ -93,8 +108,14 @@ export async function validateMacPackage(directory, expected) {
   ensure(feed.version === report.version && feed.build === report.build && feed.app.format === 'zip' &&
     feed.app.size === report.portable.size && feed.app.sha256 === report.portable.sha256 &&
     feed.app.url === `https://github.com/jimliu/baocut/releases/download/${tag}/${report.portable.file}`, 'Mac feed points to another release or archive');
+  if (cli) {
+    const parsed = parseStandaloneFeed(feedText, TARGET, 'cpu');
+    ensure(parsed.ok && parsed.version === report.version && parsed.build === report.build && parsed.cli.size === cli.size &&
+      parsed.cli.sha256 === cli.sha256 && parsed.cli.url === `https://github.com/jimliu/baocut/releases/download/${tag}/${cli.file}`,
+    'Mac feed points to another standalone CLI archive');
+  } else ensure(feed.cli === undefined, 'Mac feed lists a standalone CLI archive the candidate does not have');
   return { report, tag, feed, feedText, names: [report.portable.file, report.installer.file,
-    `${report.portable.file}.sha256`, `${report.installer.file}.sha256`, 'app-release.json', FEED] };
+    `${report.portable.file}.sha256`, `${report.installer.file}.sha256`, ...cliNames, 'app-release.json', FEED] };
 }
 
 async function prepareCandidate(directory, env) {
@@ -108,7 +129,7 @@ async function prepareCandidate(directory, env) {
   const publicDirectory = path.join(env.RUNNER_TEMP, 'mac-release-public');
   mkdirSync(publicDirectory);
   for (const name of item.names) command('cp', [path.join(directory, name), path.join(publicDirectory, name)]);
-  console.log('Prepared six verified public files; temporary signing credentials and intermediate submissions excluded.');
+  console.log(`Prepared ${item.names.length} verified public files; temporary signing credentials and intermediate submissions excluded.`);
 }
 
 async function publishCandidate(directory, env) {
@@ -168,6 +189,16 @@ async function publishCandidate(directory, env) {
   runMac('codesign', ['--verify', '--strict', dmg]);
   runMac('xcrun', ['stapler', 'validate', dmg]);
   runMac('spctl', ['--assess', '--type', 'open', '--context', 'context:primary-signature', dmg]);
+  if (report.cli) {
+    const cliExtracted = path.join(readback, 'cli-extracted');
+    mkdirSync(cliExtracted);
+    runMac('ditto', ['-x', '-k', path.join(readback, report.cli.file), cliExtracted]);
+    const bundle = path.join(cliExtracted, `${STANDALONE_APP_NAME}.app`);
+    runMac('codesign', ['--verify', '--deep', '--strict', '--verbose=2', bundle]);
+    runMac('xcrun', ['stapler', 'validate', bundle]);
+    runMac('spctl', ['--assess', '--type', 'execute', '--verbose=4', bundle]);
+    checkStandalone(cliExtracted, 'darwin');
+  }
   ensure(api(`repos/${repo}/releases/latest`).id === latestId, 'Historical Latest release changed');
   const after = api(`repos/${repo}/releases/${release.id}`);
   for (const previous of release.assets) ensure(after.assets.some((asset) => asset.id === previous.id && asset.digest === previous.digest && asset.size === previous.size), 'Existing release asset changed');

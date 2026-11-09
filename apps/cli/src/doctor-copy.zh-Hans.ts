@@ -26,6 +26,9 @@ export const zhHans: DoctorMessages = {
   entryNoApp: (found, target) => `终端用的是 ${found}（${target}）；没找到 BaoCut App`,
   entryMissing: '终端还找不到 baocut。从 BaoCut App 装上它（不要管理员权限）。',
   entryMissingNoApp: '终端找不到 baocut，常见的位置也没有 BaoCut App',
+  entryStandalone: (found, version) => `终端用的是 ${found}，就是 BaoCut 命令行独立包 ${version}`,
+  entryOtherStandalone: (found, target, own) => `终端用的是 ${found}（${target}），不是 ${own} 这样的 BaoCut 命令行独立包`,
+  entryMissingStandalone: '终端还找不到 baocut。用 cli install 装上这个命令行独立包（不要管理员权限）。',
 
   runtimeRunning: (version, pid, by) => `在跑：版本 ${version}，进程 ${pid}，由${by === 'cli' ? '命令行' : ' BaoCut App '}拉起`,
   runtimeStopped: (entry) => `没在跑。下一条命令会在后台用 ${entry} 拉起它`,
@@ -46,6 +49,8 @@ export const zhHans: DoctorMessages = {
     'BaoCut.app 没有完全磁盘访问权限，受保护位置（桌面、文稿、下载、其他磁盘）里的文件可能读不到。在「系统设置 › 隐私与安全性 › 完全磁盘访问权限」里打开 BaoCut，再运行 baocut doctor 复查。',
   fdaMissingCli: (app) =>
     `命令行拉起的 Runtime 没有完全磁盘访问权限；macOS 把它算在${app ?? '运行命令的那个应用（终端，或运行 Agent 的应用）'}头上。在「系统设置 › 隐私与安全性 › 完全磁盘访问权限」里打开那个应用并重新打开它，或者停掉这个 Runtime（baocut runtime stop）再打开 BaoCut App；之后运行 baocut doctor 复查。`,
+  fdaMissingOwn: (app) =>
+    `命令行拉起的 Runtime 没有完全磁盘访问权限。它以 ${app} 的身份单独运行，macOS 把它算在 ${app} 头上，不是终端：在「系统设置 › 隐私与安全性 › 完全磁盘访问权限」里打开 ${app}，停掉这个 Runtime（baocut runtime stop），再运行 baocut doctor 复查。`,
   fdaNotRunning: 'Runtime 在跑时才查',
   buildOk: (count) => `原生程序都能启动，${count} 份构建与源码一致`,
   buildNotSource: 'Runtime 从仓库运行时才查',

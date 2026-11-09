@@ -36,6 +36,12 @@ describe('resolveElectronBinary', () => {
     expect((error as CodeBundleError).code).toBe('COMPOSITION_HOST_UNAVAILABLE');
   });
 
+  it('独立 CLI 包里没有 Electron：报错说明要装好的 App', async () => {
+    const error = await CompositionHost.start({ electron: null, env: { BAOCUT_PACKAGE_KIND: 'standalone' } }).catch((e: unknown) => e);
+    expect((error as CodeBundleError).code).toBe('COMPOSITION_HOST_UNAVAILABLE');
+    expect((error as CodeBundleError).message).toContain('standalone command line package');
+  });
+
   it('retains startup diagnostics when the executable rejects the host switch', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-host-start-failure-'));
     try {

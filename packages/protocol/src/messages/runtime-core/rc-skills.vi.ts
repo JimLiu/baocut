@@ -31,6 +31,8 @@ renderErrorAt: (p) => `${p.file}:${p.line}: ${p.message}`, renderErrorIn: (p) =>
   agentSkillLocalOnly: 'Chỉ có thể cài skill BaoCut cho các agent khác trong ứng dụng máy tính và CLI',
   cliEntryUnavailable: 'Runtime này không được khởi động từ ứng dụng BaoCut đã cài, nên không có dòng lệnh của ứng dụng để baocut trỏ tới. Hãy cài từ ứng dụng BaoCut',
   cliEntryTaken: (p) => `${p.path} đã tồn tại và không phải do BaoCut đặt vào. BaoCut không thay thế hay xóa nó: hãy di chuyển hoặc đổi tên rồi thử lại`,
+  cliEntryStandalone: (p) =>
+    `${p.path} thuộc gói dòng lệnh BaoCut độc lập (${p.target}). Ứng dụng không thay thế hay xóa nó: cập nhật bằng baocut update, hoặc gỡ bằng baocut cli remove của gói đó`,
   cliEntryPathFailed: (p) => `baocut nằm trong ${p.dir}, nhưng BaoCut không thêm được thư mục đó vào PATH của người dùng. Hãy tự thêm: tìm “Chỉnh sửa biến môi trường cho tài khoản của bạn” trong menu Start`,
   cliEntryLocalOnly: 'Chỉ có thể cài lệnh baocut trong ứng dụng máy tính và CLI',
 };

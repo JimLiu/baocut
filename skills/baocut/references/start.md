@@ -8,10 +8,11 @@
 
 1. `command -v baocut`（Windows 上 `where baocut`）。找到就用它；不要把旧版 `bcut` 当成当前 CLI。没找到时再看 BaoCut 放命令的位置（你的 shell 未必读了用户的 PATH 配置）：macOS 与 Linux 是 `~/.local/bin/baocut`，Windows 是 `%LOCALAPPDATA%\BaoCut\bin\baocut.cmd`。
 2. 找不到时看环境变量 `BAOCUT_CLI`：它给出命令入口的完整路径，带空格时作为一个路径参数传入。
-3. 仍没有时，只检查桌面包的固定入口，不递归搜索：
+3. 仍没有时，只检查桌面包与独立 CLI 包的固定入口，不递归搜索：
    - macOS：`/Applications/BaoCut.app/Contents/MacOS/baocut-cli`，再看 `~/Applications/BaoCut.app/Contents/MacOS/baocut-cli`。
    - Windows：`%LOCALAPPDATA%\Programs\BaoCut\baocut.cmd`，再看 `%ProgramFiles%\BaoCut\baocut.cmd`。
-4. 非标准安装位置让用户给出入口路径或设置 `BAOCUT_CLI`。桌面包的启动器使用包内的 Electron，不需要系统 Node。用入口的完整路径跑通即可。App 第一次启动时会自己把 `baocut` 装到上一步说的位置，用户移除过或那里原本就有别的文件时不装；用户想在终端里直接打 `baocut` 时，征得同意后用这个入口跑一次 `cli install`（放到上一步说的位置，不要管理员权限），它会说明还要不要把那个目录加进 PATH。
+   - 独立 CLI 包（不带桌面界面的 BaoCut 命令行）：macOS 列出 `~/.local/share/baocut/versions/`，用 `state.json` 里 `current` 那个版本的 `BaoCut CLI.app/Contents/MacOS/baocut-cli`；Windows 是 `%LOCALAPPDATA%\BaoCut\cli\current\baocut.cmd`。
+4. 非标准安装位置让用户给出入口路径或设置 `BAOCUT_CLI`。桌面包的启动器使用包内的 Electron，不需要系统 Node。用入口的完整路径跑通即可。App 第一次启动时会自己把 `baocut` 装到第 1 步说的位置，用户移除过或那里原本就有别的文件时不装；用户想在终端里直接打 `baocut` 时，征得同意后用这个入口跑一次 `cli install`（放到第 1 步说的位置，不要管理员权限），它会说明还要不要把那个目录加进 PATH。
 5. 入口仍不存在：说明所装桌面包没有 CLI，请用户更新到含该入口的桌面包，或使用与 App 匹配的源码 CLI。不要把旧版 Homebrew `bcut` 当成匹配安装方式，不要自己下载安装包或去其他目录翻找。
 
 下文统一写 `baocut`，按找到的实际路径替换。
@@ -25,7 +26,7 @@ baocut version
 输出裸 JSON：CLI 与（正在跑时）Runtime 的版本、两边的工具接口版本，以及是否一致。它不会拉起 Runtime。
 
 - 一致，或 Runtime 还没在跑：继续。
-- 不一致：之后任何要连 Runtime 的命令都会以退出码 3（`INTERFACE_VERSION_MISMATCH` / `PROTOCOL_MISMATCH`）拒绝。告诉用户哪一边要更新（通常是把 BaoCut 更新到同一版本），停在这里。不要换旧参数、不要绕过。
+- 不一致：之后任何要连 Runtime 的命令都会以退出码 3（`INTERFACE_VERSION_MISMATCH` / `PROTOCOL_MISMATCH`）拒绝。告诉用户哪一边要更新（通常是把 BaoCut 更新到同一版本；入口在独立 CLI 包里时，征得同意后用 `baocut update`），停在这里。不要换旧参数、不要绕过。
 
 ## 3. 预检：这台机器能做什么
 

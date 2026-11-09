@@ -112,6 +112,7 @@ export function compareVersions(a: string, b: string): number {
  * - unavailable 开发版没有 App 入口 / none 还没装 / elsewhere 没装，但终端已经能找到指向本 App 的 baocut（如 Homebrew cask）
  * - ready 装好且终端找得到 / unchecked 装好但查不出终端的 PATH / not-on-path 装好但目录不在 PATH 上（给那一行）
  * - shadowed 装好但终端先找到别的 baocut / stale 指向别的 BaoCut / broken 指向的位置不在了 / foreign 不是 BaoCut 放的
+ * - standalone 指向独立 CLI 包（§9）：由独立包管（`baocut update`），App 不修也不移除
  */
 export type CliEntryRowKind =
   | 'unavailable'
@@ -123,7 +124,8 @@ export type CliEntryRowKind =
   | 'shadowed'
   | 'stale'
   | 'broken'
-  | 'foreign';
+  | 'foreign'
+  | 'standalone';
 
 export interface CliEntryRow {
   kind: CliEntryRowKind;
@@ -144,6 +146,8 @@ export function cliEntryRow(entry: CliEntryStatus, onPath: AgentSkillStatus['cli
   switch (entry.state) {
     case 'foreign':
       return row('foreign');
+    case 'standalone':
+      return row('standalone');
     case 'stale':
     case 'broken':
       return row(entry.state, entry.entry ? 'repair' : null);

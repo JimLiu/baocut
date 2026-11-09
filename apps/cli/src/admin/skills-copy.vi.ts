@@ -60,5 +60,12 @@ skillHelp: `Cách dùng:
   cliNothingToRemove: (path) => `Không có gì để gỡ ở ${path}`,
   cliInstallHint: 'baocut cli install đặt baocut vào PATH',
   cliFixHint: 'baocut cli install sẽ trỏ nó tới ứng dụng này',
-  cliState: { none: 'Chưa cài', current: 'Trỏ tới ứng dụng này', stale: 'Trỏ tới một BaoCut khác', broken: 'Trỏ tới vị trí không còn tồn tại', foreign: 'Có thứ khác ở đó (không đụng tới)' },
+  cliState: {
+    none: 'Chưa cài',
+    current: 'Trỏ tới ứng dụng này',
+    stale: 'Trỏ tới một BaoCut khác',
+    broken: 'Trỏ tới vị trí không còn tồn tại',
+    foreign: 'Có thứ khác ở đó (không đụng tới)',
+    standalone: 'Trỏ tới gói dòng lệnh độc lập, gói đó tự quản lý (baocut update; không đụng tới)',
+  },
 };

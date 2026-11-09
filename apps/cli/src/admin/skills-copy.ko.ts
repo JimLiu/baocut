@@ -71,5 +71,12 @@ export const ko: SkillsMessages = {
   cliNothingToRemove: (path) => `${path}에 제거할 것이 없습니다`,
   cliInstallHint: 'baocut cli install로 baocut을 PATH에 둘 수 있습니다',
   cliFixHint: 'baocut cli install로 이 앱을 가리키게 고칠 수 있습니다',
-  cliState: { none: '설치 안 됨', current: '이 앱을 가리킴', stale: '다른 BaoCut을 가리킴', broken: '더 이상 없는 위치를 가리킴', foreign: '다른 항목이 있음(건드리지 않음)' },
+  cliState: {
+    none: '설치 안 됨',
+    current: '이 앱을 가리킴',
+    stale: '다른 BaoCut을 가리킴',
+    broken: '더 이상 없는 위치를 가리킴',
+    foreign: '다른 항목이 있음(건드리지 않음)',
+    standalone: '독립 실행형 명령줄 패키지를 가리킴, 그 패키지가 관리함(baocut update, 건드리지 않음)',
+  },
 };

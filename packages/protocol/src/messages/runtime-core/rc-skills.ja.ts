@@ -133,6 +133,8 @@ export const ja: RcSkillsMessages = {
   agentSkillLocalOnly: 'ほかのエージェント向けの BaoCut スキルのインストールは、デスクトップアプリと CLI でのみ行えます',
   cliEntryUnavailable: 'この Runtime はインストール済みの BaoCut アプリから起動されていないため、baocut の参照先になるアプリのコマンドラインがありません。BaoCut アプリからインストールしてください',
   cliEntryTaken: (p) => `${p.path} はすでに存在し、BaoCut が置いたものではありません。BaoCut は置き換えも削除もしません。移動するか名前を変えてから、もう一度試してください`,
+  cliEntryStandalone: (p) =>
+    `${p.path} はスタンドアロンの BaoCut コマンドラインパッケージ（${p.target}）のものです。アプリは置き換えも削除もしません。baocut update で更新するか、そのパッケージの baocut cli remove で削除してください`,
   cliEntryPathFailed: (p) => `baocut は ${p.dir} にありますが、BaoCut はこのフォルダをユーザーの PATH に追加できませんでした。手動で追加してください：スタートメニューで「アカウントの環境変数を編集」を検索します`,
   cliEntryLocalOnly: 'baocut コマンドのインストールは、デスクトップアプリと CLI でのみ行えます',
 };

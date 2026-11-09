@@ -363,6 +363,7 @@ export const nl: SkillsPageMessages = {
     cliStale: (target: string) => `Wijst naar een andere BaoCut (${target}). Herstel om hem naar deze app te laten wijzen.`,
     cliBroken: (target: string) => `Wijst naar ${target}, dat er niet meer is (de app is verplaatst). Herstel om hem naar deze app te laten wijzen.`,
     cliForeign: 'Daar staat al een baocut die BaoCut er niet heeft neergezet. BaoCut vervangt die niet; verplaats of hernoem hem en installeer dan.',
+    cliStandalone: 'Geïnstalleerd · terminals gebruiken de zelfstandige BaoCut-opdrachtregel, die wordt bijgewerkt met baocut update. De app laat die ongemoeid.',
     cliInstall: 'Opdrachtregeltool installeren',
     cliRepair: 'Herstellen',
     cliRemoveHint: 'Verwijdert alleen wat BaoCut er heeft neergezet; de app houdt zijn opdrachtregel',

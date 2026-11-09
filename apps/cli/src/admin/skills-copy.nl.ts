@@ -62,5 +62,12 @@ export const nl: SkillsMessages = {
   cliNothingToRemove: (path) => `Niets te verwijderen op ${path}`,
   cliInstallHint: 'baocut cli install zet baocut in PATH',
   cliFixHint: 'baocut cli install laat het naar deze app verwijzen',
-  cliState: { none: 'Niet geïnstalleerd', current: 'Verwijst naar deze app', stale: 'Verwijst naar een andere BaoCut', broken: 'Verwijst naar een plek die niet meer bestaat', foreign: 'Er staat iets anders (niet aangeraakt)' },
+  cliState: {
+    none: 'Niet geïnstalleerd',
+    current: 'Verwijst naar deze app',
+    stale: 'Verwijst naar een andere BaoCut',
+    broken: 'Verwijst naar een plek die niet meer bestaat',
+    foreign: 'Er staat iets anders (niet aangeraakt)',
+    standalone: 'Verwijst naar het zelfstandige opdrachtregelpakket, dat het beheert (baocut update; niet aangeraakt)',
+  },
 };

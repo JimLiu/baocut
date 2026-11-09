@@ -181,6 +181,8 @@
     const removable = c.state === 'current' || c.state === 'stale' || c.state === 'broken';
     const r = (kind, tone, text, cta, command) => ({kind, tone, text, cta: cta || null, removable, command: command || null});
     if (c.state === 'foreign') return r('foreign', 'notice', '那里已有一个不是 BaoCut 放的 baocut，BaoCut 不会替换它。移走或改名后再安装。');
+    /* 指向独立 CLI 包（§9）：由独立包管（baocut update），App 不修也不移除 */
+    if (c.state === 'standalone') return r('standalone', 'positive', '已安装 · 终端里用的是独立的 BaoCut 命令行，用 baocut update 更新；App 不改动它。');
     if (c.state === 'stale') return r('stale', 'notice', `指向另一个 BaoCut（${c.target}）。修复后改为指向这个 App。`, '修复');
     if (c.state === 'broken') return r('broken', 'notice', `指向 ${c.target}，那里已经没有了（App 被移动过）。修复后改为指向这个 App。`, '修复');
     if (c.state === 'none') {
@@ -206,6 +208,7 @@
     {k: 'moved', label: 'App 不在应用程序'},
     {k: 'cli-path', label: '命令行不在 PATH 上'},
     {k: 'cli-other', label: '另有一个 baocut'},
+    {k: 'cli-standalone', label: '命令行由独立包管理'},
   ];
   function scenarioInstalls(k) {
     const [agents, claude] = globalPaths();
@@ -225,6 +228,8 @@
     if (k === 'cli-path') return {state: 'current', target: cliSource, shell: {found: null, dirOnPath: false},
       pathHint: {line: 'export PATH="$HOME/.local/bin:$PATH"', file: '~/.zshrc'}};
     if (k === 'cli-other') return {state: 'current', target: cliSource, shell: {found: '/opt/homebrew/bin/baocut', dirOnPath: true}};
+    if (k === 'cli-standalone') return {state: 'standalone', target: '~/.local/share/baocut/versions/3.17.0-build.93/BaoCut CLI.app/Contents/MacOS/baocut-cli',
+      shell: {found: cliPath, dirOnPath: true}};
     return cliInstalled();
   }
   const scenarioAppPath = (k) => (k === 'moved' ? '/Users/me/Downloads/BaoCut.app/Contents/Resources/skills/baocut' : source);

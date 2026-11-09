@@ -28,6 +28,9 @@ export const pl: DoctorMessages = {
   entryNoApp: (found, target) => `Terminale uruchamiają ${found} (${target}); nie znaleziono aplikacji BaoCut`,
   entryMissing: 'Terminale nie znajdują baocut. Zainstaluj go z aplikacji BaoCut (bez uprawnień administratora).',
   entryMissingNoApp: 'Terminale nie znajdują baocut, a w typowych miejscach nie ma aplikacji BaoCut',
+  entryStandalone: (found, version) => `Terminale używają ${found}, samodzielnego pakietu wiersza poleceń BaoCut ${version}`,
+  entryOtherStandalone: (found, target, own) => `Terminale używają ${found} (${target}), a nie samodzielnego pakietu wiersza poleceń BaoCut, takiego jak ${own}`,
+  entryMissingStandalone: 'Terminale nie znajdują baocut. Zainstaluj ten pakiet wiersza poleceń przez cli install (bez uprawnień administratora).',
 
   runtimeRunning: (version, pid, by) =>
     `Działa: wersja ${version}, proces ${pid}, uruchomiony ${by === 'cli' ? 'z wiersza poleceń' : 'przez aplikację BaoCut'}`,
@@ -52,6 +55,8 @@ export const pl: DoctorMessages = {
     'Pełny dostęp do dysku jest wyłączony dla BaoCut.app, więc pliki w chronionych miejscach (Biurko, Dokumenty, Pobrane, inne dyski) mogą być nieczytelne. Włącz BaoCut w Ustawienia systemowe › Prywatność i ochrona › Pełny dostęp do dysku, a potem ponownie uruchom baocut doctor.',
   fdaMissingCli: (app) =>
     `Pełny dostęp do dysku jest wyłączony dla Runtime uruchomionego z wiersza poleceń; macOS bierze pod uwagę uprawnienia tej aplikacji: ${app ?? 'aplikacja, która uruchomiła polecenie (twój terminal lub aplikacja, w której działa agent)'}. Włącz tę aplikację w Ustawienia systemowe › Prywatność i ochrona › Pełny dostęp do dysku i otwórz ją ponownie albo zatrzymaj ten Runtime (baocut runtime stop) i otwórz aplikację BaoCut; potem ponownie uruchom baocut doctor.`,
+  fdaMissingOwn: (app) =>
+    `Pełny dostęp do dysku jest wyłączony dla Runtime uruchomionego z wiersza poleceń. Działa on samodzielnie jako ${app}, więc macOS bierze pod uwagę uprawnienia ${app}, a nie terminala: włącz ${app} w Ustawienia systemowe › Prywatność i ochrona › Pełny dostęp do dysku, zatrzymaj ten Runtime (baocut runtime stop), a potem ponownie uruchom baocut doctor.`,
   fdaNotRunning: 'Sprawdzane tylko, gdy działa Runtime',
   buildOk: (count) => `Natywne programy się uruchamiają, a kompilacje (${count}) zgadzają się z kodem źródłowym`,
   buildNotSource: 'Sprawdzane, gdy Runtime działa z repozytorium',
