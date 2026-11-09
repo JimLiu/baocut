@@ -305,7 +305,7 @@ export const zhHant: ModelsMessages = {
     title: '我的音色',
     lede: '把一段參考錄音儲存為音色，之後生成語音或翻譯配音時就能依名稱選用；參考錄音會留在這台電腦上。若要讓雲端引擎（ElevenLabs、Google Gemini）用這個音色說話，請先在這裡上傳參考錄音以建立克隆。你隨時都可以刪除它。',
     emptyTitle: '還沒有音色',
-    emptyBody: '選擇一段 5–12 秒的參考錄音，或匯入別人匯出的音色套件。儲存後，在任何地方都能選用。',
+    emptyBody: '選擇一段 10–30 秒的參考錄音，或匯入別人匯出的音色套件。儲存後，在任何地方都能選用。',
   },
   quoted: (text: string) => `「${text}」`,
 };

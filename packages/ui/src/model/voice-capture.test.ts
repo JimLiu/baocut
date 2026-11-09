@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { ModelCapabilitiesView, VoiceClone } from '@baocut/protocol';
+import type { LocalSpeechTraits, ModelCapabilitiesView, VoiceClone } from '@baocut/protocol';
 import { speechModel, withLocalSpeech } from './models-test-fixtures.ts';
 import {
   CONSENT_COMMON,
   CONSENT_PHRASES,
+  CONSENT_REC,
   FALLBACK_SEED,
+  SAMPLE,
   clock,
   cloneSteps,
   cloneTargets,
@@ -17,14 +19,22 @@ import {
   defaultVoiceName,
   downmix,
   encodeWav,
+  firstSecondsUsed,
+  initialCloneStep,
   initialSeeds,
+  limitUnit,
   randomSeed,
+  recordingNote,
+  recordingProgress,
   reseedTargets,
   reseeded,
   sampleScript,
+  sampleTooShortFor,
   sampleVerdict,
   seedFor,
   seedGroups,
+  uploadPlan,
+  uploadTargets,
   voiceIdBindings,
   voicesBoundTo,
   type CloneTarget,
@@ -96,6 +106,30 @@ describe('录音门槛', () => {
     expect(sampleVerdict(30)).toBe('best');
   });
 
+  it('录音时那一句：不够存 → 够了 → 到目标后可以接着说 → 最后几秒倒数 → 到上限', () => {
+    expect(recordingNote(2, SAMPLE)).toEqual({ kind: 'need', seconds: 3 });
+    expect(recordingNote(Number.NaN, SAMPLE)).toEqual({ kind: 'need', seconds: 5 });
+    expect(recordingNote(12, SAMPLE)).toEqual({ kind: 'enough' });
+    expect(recordingNote(30, SAMPLE)).toEqual({ kind: 'plenty' });
+    expect(recordingNote(169.9, SAMPLE)).toEqual({ kind: 'plenty' });
+    expect(recordingNote(175, SAMPLE)).toEqual({ kind: 'left', seconds: 5 });
+    expect(recordingNote(180, SAMPLE)).toEqual({ kind: 'stop' });
+    expect(recordingNote(8, CONSENT_REC)).toEqual({ kind: 'left', seconds: 7 });
+  });
+
+  it('进度条朝目标走，到目标就满，之后不倒退', () => {
+    expect(recordingProgress(15, SAMPLE)).toBe(50);
+    expect(recordingProgress(30, SAMPLE)).toBe(100);
+    expect(recordingProgress(120, SAMPLE)).toBe(100);
+    expect(recordingProgress(-1, SAMPLE)).toBe(0);
+  });
+
+  it('上限写成整分钟还是秒', () => {
+    expect(limitUnit(SAMPLE.max)).toEqual({ unit: 'minutes', value: 3 });
+    expect(limitUnit(CONSENT_REC.max)).toEqual({ unit: 'seconds', value: 15 });
+    expect(limitUnit(90)).toEqual({ unit: 'seconds', value: 90 });
+  });
+
   it('授权声明：3 秒以下算没念完', () => {
     expect(consentTooShort(2.9)).toBe(true);
     expect(consentTooShort(3)).toBe(false);
@@ -155,10 +189,40 @@ describe('克隆去哪些模型', () => {
     expect(cloneSteps(targets).find((s) => s.key === 'consent')!.needed).toEqual(['Google Gemini']);
   });
 
-  it('默认选上本机全部与连着的云端；从模型页过来时加上那一只', () => {
+  it('默认只选本机引擎：云端存好就上传，只在从那一家过来时选上它', () => {
     const targets = cloneTargets(view());
-    expect(defaultPicked(targets, null)).toEqual(['qwen3-tts-0.6b-base', 'indextts2', 'consent-co']);
-    expect(defaultPicked(targets, 'elevenlabs')).toContain('elevenlabs');
+    expect(defaultPicked(targets, null)).toEqual(['qwen3-tts-0.6b-base', 'indextts2']);
+    expect(defaultPicked(targets, 'elevenlabs')).toEqual(['qwen3-tts-0.6b-base', 'indextts2', 'elevenlabs']);
+  });
+
+  it('一定要逐字稿的本机引擎标出来、默认不选（采集存下的逐字稿是空的）；从它过来时照样选上', () => {
+    const v = view();
+    const fish = speechModel('fish-s2-pro', [], {
+      label: 'Fish S2 Pro',
+      voiceModes: ['clone'],
+      local: { reference: { recommendedSeconds: [5, 15], withTranscriptSeconds: [5, 15], acceptsTranscript: true, requiresTranscript: true } } as unknown as LocalSpeechTraits,
+    });
+    const providers = v.synthesizeSpeech.providers.map((p) => (p.providerId === 'local' ? { ...p, models: [...p.models, fish] } : p));
+    const targets = cloneTargets({ ...v, synthesizeSpeech: { ...v.synthesizeSpeech, providers } });
+    expect(targets.find((t) => t.id === 'fish-s2-pro')).toMatchObject({ kind: 'local', needsTranscript: true });
+    expect(targets.find((t) => t.id === 'indextts2')).not.toHaveProperty('needsTranscript');
+    expect(defaultPicked(targets, null)).not.toContain('fish-s2-pro');
+    expect(defaultPicked(targets, 'fish-s2-pro')).toContain('fish-s2-pro');
+  });
+
+  it('云端收的样本时长照能力视图的 voiceClone.sourceSeconds 带上；没报的不带', () => {
+    const v = view();
+    const providers = v.synthesizeSpeech.providers.map((p) =>
+      p.providerId === 'consent-co' ? { ...p, voiceClone: { requiresConsentClip: true, sourceSeconds: { min: 10, max: 30 } } } : p,
+    );
+    const targets = cloneTargets({ ...v, synthesizeSpeech: { ...v.synthesizeSpeech, providers } });
+    expect(targets.find((t) => t.id === 'consent-co')!.sourceSeconds).toEqual({ min: 10, max: 30 });
+    expect(targets.find((t) => t.id === 'elevenlabs')).not.toHaveProperty('sourceSeconds');
+  });
+
+  it('从某只模型过来时直接停在样本这一步', () => {
+    expect(initialCloneStep('google')).toBe(1);
+    expect(initialCloneStep(null)).toBe(0);
   });
 
   it('选法按当下的模型现算：点过的以点的为准，晚到的模型照默认选上', () => {
@@ -166,7 +230,7 @@ describe('克隆去哪些模型', () => {
     const late = [...targets, { ...targets[0]!, id: 'qwen3-tts-1.7b-base', name: 'Qwen3-TTS 1.7B Base' }];
     expect(defaultPicked(late, 'qwen3-tts-1.7b-base')).toContain('qwen3-tts-1.7b-base');
     const toggled = { 'indextts2': false, elevenlabs: true };
-    expect(defaultPicked(late, null, toggled)).toEqual(['qwen3-tts-0.6b-base', 'elevenlabs', 'consent-co', 'qwen3-tts-1.7b-base']);
+    expect(defaultPicked(late, null, toggled)).toEqual(['qwen3-tts-0.6b-base', 'elevenlabs', 'qwen3-tts-1.7b-base']);
     expect(defaultPicked(late, 'qwen3-tts-1.7b-base', { 'qwen3-tts-1.7b-base': false })).not.toContain('qwen3-tts-1.7b-base');
   });
 
@@ -187,8 +251,8 @@ describe('克隆去哪些模型', () => {
 
   it('克隆的 Provider 带上要不要授权声明录音', () => {
     expect(cloneProviders(view())).toEqual([
-      { providerId: 'elevenlabs', label: 'ElevenLabs', available: false, detail: '没有启用', requiresConsentClip: false },
-      { providerId: 'consent-co', label: 'Consent Co', available: true, detail: null, requiresConsentClip: true },
+      { providerId: 'elevenlabs', label: 'ElevenLabs', available: false, detail: '没有启用', requiresConsentClip: false, sourceSeconds: null },
+      { providerId: 'consent-co', label: 'Consent Co', available: true, detail: null, requiresConsentClip: true, sourceSeconds: null },
     ]);
   });
 });
@@ -357,5 +421,64 @@ describe('存下的请求', () => {
     expect(reseed).toMatchObject({ id: 'voc_1', expectedVersion: 4, content: { seeds: { a: 9 }, seed: 2 } });
     expect(reseed).not.toHaveProperty('source');
     expect(reseed.content).not.toHaveProperty('consentClip');
+  });
+});
+
+describe('保存后上传到哪', () => {
+  const gemini: CloneTarget = {
+    kind: 'cloud',
+    id: 'google',
+    name: 'Google Gemini',
+    consent: true,
+    connected: true,
+    acceptsSeed: false,
+    sourceSeconds: { min: 10, max: 30 },
+  };
+  const eleven: CloneTarget = { kind: 'cloud', id: 'elevenlabs', name: 'ElevenLabs', consent: false, connected: true, acceptsSeed: false };
+  const offline: CloneTarget = { ...eleven, id: 'minimax', name: 'MiniMax', connected: false };
+  const local: CloneTarget = { kind: 'local', id: 'indextts2', name: 'IndexTTS2', consent: false, connected: true, acceptsSeed: false };
+  const ready = { declared: true, consentClip: true, sampleSeconds: 45 };
+
+  it('条件齐了的云端都上传；本机引擎不在里面；比这家收的长时只用前几秒', () => {
+    const plan = uploadPlan([local, gemini, eleven], ready);
+    expect(plan.map((r) => [r.target.id, r.blockers, r.usesFirst])).toEqual([
+      ['google', [], 30],
+      ['elevenlabs', [], null],
+    ]);
+    expect(uploadTargets(plan).map((t) => t.id)).toEqual(['google', 'elevenlabs']);
+    expect(uploadPlan([gemini], { ...ready, sampleSeconds: 30.04 })[0]!.usesFirst).toBeNull();
+  });
+
+  it('不上传的原因按先后列：没连上、没勾本人声明、样本太短、缺授权声明录音', () => {
+    const none = { declared: false, consentClip: false, sampleSeconds: 6 };
+    expect(uploadPlan([{ ...gemini, connected: false }], none)[0]!.blockers).toEqual(['offline', 'undeclared', 'too-short', 'no-consent-clip']);
+    expect(uploadPlan([offline], ready)[0]!.blockers).toEqual(['offline']);
+    expect(uploadPlan([eleven], { ...ready, declared: false })[0]!.blockers).toEqual(['undeclared']);
+    expect(uploadPlan([gemini], { ...ready, sampleSeconds: 9.9 })[0]!.blockers).toEqual(['too-short']);
+    expect(uploadPlan([gemini], { ...ready, consentClip: false })[0]!.blockers).toEqual(['no-consent-clip']);
+    // 不要授权声明录音、没报时长的：只看连没连上与声明。
+    expect(uploadPlan([eleven], { declared: true, consentClip: false, sampleSeconds: 6 })[0]!.blockers).toEqual([]);
+    expect(uploadTargets(uploadPlan([gemini, eleven], { ...ready, declared: false }))).toEqual([]);
+  });
+
+  it('还没有样本时不判长短', () => {
+    expect(uploadPlan([gemini], { ...ready, sampleSeconds: null })[0]).toMatchObject({ blockers: [], usesFirst: null });
+  });
+
+  it('只用前几秒的几家按秒数分组；本机引擎与没报时长的不算', () => {
+    const other: CloneTarget = { ...gemini, id: 'other', name: 'Other' };
+    const longer: CloneTarget = { ...gemini, id: 'longer', name: 'Longer', sourceSeconds: { min: 5, max: 60 } };
+    expect(firstSecondsUsed([local, gemini, eleven, other, longer], 180)).toEqual([
+      { seconds: 30, names: ['Google Gemini', 'Other'] },
+      { seconds: 60, names: ['Longer'] },
+    ]);
+    expect(firstSecondsUsed([gemini], 30)).toEqual([]);
+  });
+
+  it('样本比哪几家收的最短还短：取最大的下限', () => {
+    const strict: CloneTarget = { ...gemini, id: 'strict', name: 'Strict', sourceSeconds: { min: 15, max: 60 } };
+    expect(sampleTooShortFor([local, gemini, strict, eleven], 12)).toEqual({ min: 15, names: ['Strict'] });
+    expect(sampleTooShortFor([gemini, strict], 8)).toEqual({ min: 15, names: ['Google Gemini', 'Strict'] });
+    expect(sampleTooShortFor([gemini, eleven], 10)).toBeNull();
   });
 });

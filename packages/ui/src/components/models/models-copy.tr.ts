@@ -286,7 +286,7 @@ export const tr: ModelsMessages = {
     title: "Seslerim",
     lede: "Referans kaydı ses olarak kaydedin; ardından konuşma veya çeviri dublajı oluştururken adıyla seçin. Referans kaydı bu bilgisayarda kalır. Bulut motorunun (ElevenLabs, Google Gemini) bu sesle konuşması için önce referans kaydını burada yükleyerek klon oluşturun. İstediğiniz zaman silebilirsiniz.",
     emptyTitle: "Henüz ses yok",
-    emptyBody: "5–12 saniyelik referans kaydı seçin veya başka birinin dışa aktardığı ses paketini içe aktarın. Kaydedildikten sonra her yerde seçebilirsiniz.",
+    emptyBody: "10–30 saniyelik referans kaydı seçin veya başka birinin dışa aktardığı ses paketini içe aktarın. Kaydedildikten sonra her yerde seçebilirsiniz.",
   },
   quoted: (text: string) => `“${text}”`,
 };

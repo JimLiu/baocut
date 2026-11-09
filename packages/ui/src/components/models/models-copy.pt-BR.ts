@@ -327,7 +327,7 @@ export const ptBR: ModelsMessages = {
     lede:
       "Salve uma referência como voz, escolha pelo nome na síntese ou dublagem; referência permanece local. Para nuvem (ElevenLabs, Google Gemini), envie aqui para clonar. Pode excluir quando quiser.",
     emptyTitle: "Sem vozes ainda",
-    emptyBody: "Escolha referência de 5–12 segundos ou importe pacote exportado. Após salvar, escolha em qualquer lugar.",
+    emptyBody: "Escolha referência de 10–30 segundos ou importe pacote exportado. Após salvar, escolha em qualquer lugar.",
   },
 
   quoted: (text: string) => `“${text}”`,

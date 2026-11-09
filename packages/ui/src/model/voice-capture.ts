@@ -10,14 +10,27 @@ import { sampleKinds, sampleLangs, sampleLine } from './tts-quick-test.ts';
 
 /**
  * 我的声音 › 克隆新音色的纯逻辑（架构设计 §5.9，设计稿 model-voices.js 与 settings-voice-capture.jsx）：
- * 先选这只音色给哪些模型用 → 录一段样本 →（选中的云端里有要授权声明录音的才有）念授权声明 → 保存（每只本机引擎一颗种子）。
+ * 先选这只音色给哪些模型用 → 录一段样本 →（选中的云端里有要授权声明录音的才有）念授权声明 → 保存（每只本机引擎一颗种子），
+ * 保存后立即上传到选中的、连着且条件齐了的云端建克隆（`uploadPlan`）。
  * 这里只算，不画；也不放给人看的文字（文案在 components/models/voices-copy.ts）。
  */
 
-/** 样本：5 秒能存，10 秒以上云端才收，到 30 秒自动停；上传的超过 30 秒取前 30 秒。 */
-export const SAMPLE = { min: 5, good: 10, target: 30, max: 30 } as const;
-/** 授权声明录音：念完一整句，3 秒起，15 秒自动停（Runtime 对文件的上限是 3 MiB）。 */
-export const CONSENT_REC = { min: 3, target: 8, max: 15 } as const;
+/** 一种录音的时长门槛（秒）：`countdown` 是到上限前多少秒开始倒数。 */
+export interface RecordingSpec {
+  min: number;
+  target: number;
+  max: number;
+  countdown: number;
+}
+
+/**
+ * 样本：5 秒能存，10 秒以上云端才收，30 秒就够了；想多说可以接着说，到 3 分钟（上限）自动停，最后 10 秒倒数。
+ * 上传的超过 3 分钟取前 3 分钟（48 kHz 单声道 16 位 WAV 约 16.5 MiB，在库的 20 MiB 上限内）。云端各家收多长看能力视图的
+ * `voiceClone.sourceSeconds`，更长的由 Runtime 的适配器截短再上传。
+ */
+export const SAMPLE = { min: 5, good: 10, target: 30, max: 180, countdown: 10 } as const satisfies RecordingSpec & { good: number };
+/** 授权声明录音：念完一整句，3 秒起，8 秒以后倒数，15 秒自动停（Runtime 对文件的上限是 3 MiB）。 */
+export const CONSENT_REC = { min: 3, target: 8, max: 15, countdown: 7 } as const satisfies RecordingSpec;
 
 export interface ConsentPhrase {
   /** 提供方收的 `language_code`（BCP 47）。 */
@@ -147,7 +160,7 @@ export function consentLanguageName(code: string, uiLocale: string): string {
 
 // ---- 录音门槛 ----
 
-/** 样本停下后：`short` 不给存；`local` 只够本机引擎；`ok` 云端也收；`best` 到了 30 秒。 */
+/** 样本停下后：`short` 不给存；`local` 只够本机引擎；`ok` 云端也收；`best` 到了 30 秒（再长也是 `best`）。 */
 export type SampleVerdict = 'short' | 'local' | 'ok' | 'best';
 
 export function sampleVerdict(seconds: number): SampleVerdict {
@@ -156,6 +169,34 @@ export function sampleVerdict(seconds: number): SampleVerdict {
   if (s < SAMPLE.good) return 'local';
   if (s < SAMPLE.target - 0.05) return 'ok';
   return 'best';
+}
+
+/** 录音时计时旁边的一句：`need` 还不够存；`enough` 够了、到目标最好；`plenty` 到了目标、想多说可以接着说；`left` 最后几秒倒数；`stop` 到上限。 */
+export type RecordingNote =
+  | { kind: 'need'; seconds: number }
+  | { kind: 'enough' }
+  | { kind: 'plenty' }
+  | { kind: 'left'; seconds: number }
+  | { kind: 'stop' };
+
+export function recordingNote(seconds: number, spec: RecordingSpec): RecordingNote {
+  const s = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  if (s < spec.min) return { kind: 'need', seconds: spec.min - s };
+  if (s < spec.target) return { kind: 'enough' };
+  const left = spec.max - s;
+  if (left <= 0.05) return { kind: 'stop' };
+  return left <= spec.countdown ? { kind: 'left', seconds: left } : { kind: 'plenty' };
+}
+
+/** 录音进度条（0–100）：朝目标走，到目标就满，之后接着说也不倒退。 */
+export function recordingProgress(seconds: number, spec: Pick<RecordingSpec, 'target'>): number {
+  const s = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  return Math.min(1, s / spec.target) * 100;
+}
+
+/** 上限写成整分钟还是秒（文案里的「最长 3 分钟」「最长 15 秒」）。 */
+export function limitUnit(seconds: number): { unit: 'minutes' | 'seconds'; value: number } {
+  return seconds >= 60 && seconds % 60 === 0 ? { unit: 'minutes', value: seconds / 60 } : { unit: 'seconds', value: seconds };
 }
 
 /** 授权声明录音太短（没念完整句）。 */
@@ -204,6 +245,10 @@ export interface CloneTarget {
   connected: boolean;
   /** 本机：模型收 `seed`（才给它一颗种子）。 */
   acceptsSeed: boolean;
+  /** 本机：参考录音一定要配逐字稿（采集存下的逐字稿是空的，存好后要在「编辑」里补）。 */
+  needsTranscript?: boolean;
+  /** 云端：Provider 收的参考录音时长（秒）；没公开时没有。 */
+  sourceSeconds?: { min: number; max: number };
 }
 
 /** 旧版 Runtime 不报 `voiceClone`：那时只有这几家能克隆（选音色的地方也按它判断云端能不能用我的声音）。 */
@@ -214,11 +259,19 @@ export function providerCanClone(p: Pick<ProviderCapabilityView, 'providerId' | 
   return p.kind !== 'local' && (!!p.voiceClone || VOICE_CLONE_PROVIDERS.includes(p.providerId));
 }
 
-/** 本机装好了、能克隆的合成模型 + 能克隆的云端提供方；没连密钥的云端也列出来，先存样本，连上后再建克隆。 */
+/** 本机装好了、能克隆的合成模型 + 能克隆的云端提供方；没连密钥的云端也列出来，先存样本，连上后在音色的 ⋯ 里上传。 */
 export function cloneTargets(view: ModelCapabilitiesView | null): CloneTarget[] {
   const local: CloneTarget[] = [...localSpeechModels(view).values()]
     .filter((m) => canClone(m) && m.available !== false)
-    .map((m) => ({ kind: 'local', id: m.modelId, name: m.label, consent: false, connected: true, acceptsSeed: m.acceptsSeed }));
+    .map((m) => ({
+      kind: 'local',
+      id: m.modelId,
+      name: m.label,
+      consent: false,
+      connected: true,
+      acceptsSeed: m.acceptsSeed,
+      ...(m.local?.reference?.requiresTranscript ? { needsTranscript: true } : {}),
+    }));
   const cloud: CloneTarget[] = (view?.synthesizeSpeech.providers ?? []).filter(providerCanClone).map((p) => ({
     kind: 'cloud',
     id: p.providerId,
@@ -226,20 +279,99 @@ export function cloneTargets(view: ModelCapabilitiesView | null): CloneTarget[] 
     consent: !!p.voiceClone?.requiresConsentClip,
     connected: p.available,
     acceptsSeed: false,
+    ...(p.voiceClone?.sourceSeconds ? { sourceSeconds: { ...p.voiceClone.sourceSeconds } } : {}),
   }));
   return [...local, ...cloud];
 }
 
 /**
- * 选上了哪些：用户点过的（`toggled`）以点的为准；没点过的默认选上——全部本机引擎 + 连着的云端，从模型页过来时再加上那一只。
- * 每次按当下的 `targets` 算，不在打开时拍快照：能力视图晚一步才报上来的模型（刚装好、刚连上）也照默认选上。
+ * 选上了哪些：用户点过的（`toggled`）以点的为准；没点过的按默认——本机引擎都选上（一定要逐字稿的除外：采集存下的逐字稿是空的），
+ * 云端只选从模型页那一家过来时的那一家（保存后会立即上传，不替用户把声音发给他没选的提供方）；从模型页过来的那一只总是选上。
+ * 每次按当下的 `targets` 算，不在打开时拍快照：能力视图晚一步才报上来的模型（刚装好）也照默认选上。
  */
 export function defaultPicked(
   targets: readonly CloneTarget[],
   handoffTarget: string | null,
   toggled: Readonly<Record<string, boolean>> = {},
 ): string[] {
-  return targets.filter((t) => toggled[t.id] ?? (t.kind === 'local' || t.connected || t.id === handoffTarget)).map((t) => t.id);
+  const byDefault = (t: CloneTarget) => t.id === handoffTarget || (t.kind === 'local' && !t.needsTranscript);
+  return targets.filter((t) => toggled[t.id] ?? byDefault(t)).map((t) => t.id);
+}
+
+/**
+ * 打开采集时停在哪一步：从模型页某只模型过来（`preselect`）时用户已经选好了模型，直接停在样本这一步（上一步还能回去改）；
+ * 否则从选模型开始。
+ */
+export function initialCloneStep(preselect: string | null): number {
+  return preselect ? 1 : 0;
+}
+
+// ---- 保存后上传到哪 ----
+
+/**
+ * 一家选中的云端这次为什么不上传（可能不止一个，先写的是这一页上补不了的）：`offline` 没连上（连上后在音色的 ⋯ 里上传）；
+ * `undeclared` 没勾本人声明（不勾也能存，只留在本机，§5.9：没有声明不上传）；`too-short` 样本比这家收的最短还短；
+ * `no-consent-clip` 要授权声明录音、跳过了。
+ */
+export type UploadBlocker = 'offline' | 'undeclared' | 'too-short' | 'no-consent-clip';
+
+export interface UploadRow {
+  target: CloneTarget;
+  /** 空：保存后立即上传。 */
+  blockers: UploadBlocker[];
+  /** 样本比这家收的最长还长：只用前这么多秒（Runtime 截短再上传）；不截时 null。 */
+  usesFirst: number | null;
+}
+
+export interface UploadInput {
+  /** 勾了本人声明（「这是我自己的声音，或已获本人许可」）。 */
+  declared: boolean;
+  /** 有一段能用的授权声明录音。 */
+  consentClip: boolean;
+  /** 样本秒数；还没有时 null。 */
+  sampleSeconds: number | null;
+}
+
+/** 选中的云端每家一行：这次上不上传、为什么不、只用前几秒。本机引擎不在里面（样本留在本机，不外发）。 */
+export function uploadPlan(chosen: readonly CloneTarget[], input: UploadInput): UploadRow[] {
+  return chosen
+    .filter((t) => t.kind === 'cloud')
+    .map((target) => {
+      const blockers: UploadBlocker[] = [];
+      const seconds = input.sampleSeconds;
+      const range = target.sourceSeconds;
+      if (!target.connected) blockers.push('offline');
+      if (!input.declared) blockers.push('undeclared');
+      if (range && seconds !== null && seconds < range.min) blockers.push('too-short');
+      if (target.consent && !input.consentClip) blockers.push('no-consent-clip');
+      const usesFirst = range && seconds !== null && seconds > range.max + 0.05 ? range.max : null;
+      return { target, blockers, usesFirst };
+    });
+}
+
+/** 这次保存后要上传的那几家。 */
+export function uploadTargets(plan: readonly UploadRow[]): CloneTarget[] {
+  return plan.filter((r) => !r.blockers.length).map((r) => r.target);
+}
+
+/** 样本比哪几家收的最长还长（「Google Gemini 只用前 30 秒」）：按秒数分组，同样秒数的几家写在一起。 */
+export function firstSecondsUsed(chosen: readonly CloneTarget[], sampleSeconds: number): { seconds: number; names: string[] }[] {
+  const groups: { seconds: number; names: string[] }[] = [];
+  for (const t of chosen) {
+    const max = t.kind === 'cloud' ? t.sourceSeconds?.max : undefined;
+    if (max === undefined || !(sampleSeconds > max + 0.05)) continue;
+    const hit = groups.find((g) => g.seconds === max);
+    if (hit) hit.names.push(t.name);
+    else groups.push({ seconds: max, names: [t.name] });
+  }
+  return groups;
+}
+
+/** 样本比哪几家收的最短还短：要录多长（这几家里最大的下限）与它们的名字；都够时 null。 */
+export function sampleTooShortFor(chosen: readonly CloneTarget[], sampleSeconds: number): { min: number; names: string[] } | null {
+  const short = chosen.filter((t) => t.kind === 'cloud' && !!t.sourceSeconds && sampleSeconds < t.sourceSeconds.min);
+  if (!short.length) return null;
+  return { min: Math.max(...short.map((t) => t.sourceSeconds!.min)), names: short.map((t) => t.name) };
 }
 
 /** 新音色的默认名字：`base`（「我的声音」），重名时依次加「 2」「 3」…，用户可以再改。 */
@@ -376,7 +508,7 @@ export function voicesBoundTo(
 
 // ---- 录音的文件 ----
 
-/** 采集用的采样率：解码时重采样到它，存单声道 16 位 WAV（15 秒的授权声明约 1.4 MiB，在 3 MiB 上限内）。 */
+/** 采集用的采样率：解码时重采样到它，存单声道 16 位 WAV（15 秒的授权声明约 1.4 MiB，在 3 MiB 上限内；3 分钟的样本约 16.5 MiB）。 */
 export const CAPTURE_SAMPLE_RATE = 48_000;
 
 /** 多声道取平均成单声道，最多取前 `maxSeconds` 秒。 */

@@ -348,7 +348,7 @@ const en = {
     lede:
       'Save a reference recording as a voice, then pick it by name when generating speech or translated voice-overs; the reference recording stays on this computer. To have a cloud engine (ElevenLabs, Google Gemini) speak with this voice, first upload the reference recording here to create a clone. You can delete it at any time.',
     emptyTitle: 'No voices yet',
-    emptyBody: 'Choose a 5–12 second reference recording, or import a voice pack someone exported. Once saved, you can pick it anywhere.',
+    emptyBody: 'Choose a 10–30 second reference recording, or import a voice pack someone exported. Once saved, you can pick it anywhere.',
   },
   /** 界面里引用一段原文（提示词、逐字稿）时加的引号。 */
   quoted: (text: string) => `“${text}”`,

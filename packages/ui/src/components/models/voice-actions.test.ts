@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { RpcError, type LibraryEntrySummary, type MediaHandle } from '@baocut/protocol';
 import type { HostBridge } from '../../host.ts';
 import { RuntimeSession } from '../../runtime/session.ts';
-import type { VoiceEntry } from '../../model/voices-library.ts';
+import { cloneAttemptKey, type VoiceEntry } from '../../model/voices-library.ts';
+import { useVoiceClones } from '../../state/voice-clone-store.ts';
 import {
   auditionHandle,
   cloneVoice,
@@ -12,6 +13,7 @@ import {
   importVoicePackage,
   removeClone,
   saveVoice,
+  uploadClone,
 } from './voice-actions.ts';
 
 /**
@@ -205,6 +207,21 @@ describe('导入导出、克隆与试听', () => {
       },
     });
     await expect(cloneVoice(session, summary(), 'elevenlabs')).rejects.toBe(error);
+  });
+
+  it('上传建克隆：记下这次（拿到任务 ID 或提交时的拒绝），不抛', async () => {
+    const error = new RpcError('forbidden', '把音频交给 Google Gemini 需要用户授权', { code: 'GRANT_REQUIRED' });
+    const { session } = fakeSession({
+      'library.createVoiceClone': (params) => {
+        if (params.providerId === 'google') throw error;
+        return { jobId: 'job_9' };
+      },
+    });
+    expect(await uploadClone(session, 'voc_1', 'elevenlabs')).toBe(true);
+    expect(await uploadClone(session, 'voc_1', 'google')).toBe(false);
+    const attempts = useVoiceClones.getState().attempts;
+    expect(attempts[cloneAttemptKey('voc_1', 'elevenlabs')]).toMatchObject({ kind: 'submitted', jobId: 'job_9' });
+    expect(attempts[cloneAttemptKey('voc_1', 'google')]).toMatchObject({ kind: 'rejected', error });
   });
 
   it('试听：手里的地址没到期就接着用，快到期了重新要', async () => {

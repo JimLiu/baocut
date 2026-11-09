@@ -10,7 +10,10 @@ import {
   errorText,
   formForFile,
   formFromEntry,
+  handoffOutcome,
   isVoiceAudioPath,
+  jobCloneFailure,
+  rpcCloneFailure,
   rpcErrorText,
   validateVoiceForm,
   voiceChips,
@@ -18,11 +21,28 @@ import {
   voiceMeta,
   voicePackageName,
   voiceConsentStatement,
+  cloneAttemptKey,
+  type CloneAttempt,
   type CloneProvider,
   type VoiceEntry,
 } from './voices-library.ts';
 
-const ELEVEN: CloneProvider = { providerId: 'elevenlabs', label: 'ElevenLabs', available: true, detail: null, requiresConsentClip: false };
+const ELEVEN: CloneProvider = {
+  providerId: 'elevenlabs',
+  label: 'ElevenLabs',
+  available: true,
+  detail: null,
+  requiresConsentClip: false,
+  sourceSeconds: null,
+};
+const GEMINI: CloneProvider = {
+  providerId: 'google',
+  label: 'Google Gemini',
+  available: true,
+  detail: null,
+  requiresConsentClip: true,
+  sourceSeconds: { min: 10, max: 30 },
+};
 
 function summary(patch: Partial<LibraryEntrySummary> = {}): LibraryEntrySummary {
   return {
@@ -75,7 +95,7 @@ function cloneJob(patch: Partial<JobRecord>): JobRecord {
 describe('能克隆的 Provider', () => {
   it('只列登记了的、能克隆的；不可用时带 Runtime 的说明', () => {
     expect(cloneProviders(fixtureView())).toEqual([
-      { providerId: 'elevenlabs', label: 'ElevenLabs', available: false, detail: '没有启用', requiresConsentClip: false },
+      { providerId: 'elevenlabs', label: 'ElevenLabs', available: false, detail: '没有启用', requiresConsentClip: false, sourceSeconds: null },
     ]);
     expect(cloneProviders(null)).toEqual([]);
   });
@@ -128,15 +148,114 @@ describe('一只音色在各 Provider 上的克隆', () => {
       state: 'failed',
       error: { code: 'GRANT_REQUIRED', message: '把音频交给 ElevenLabs 需要用户授权', details: { remedy: { hint: '请在设置里发放授权' } } },
     } as Partial<JobRecord>);
-    expect(cloneRows(summary(), [ELEVEN], [failed])[0]!.failure).toBe('把音频交给 ElevenLabs 需要用户授权。请在设置里发放授权');
+    expect(cloneRows(summary(), [ELEVEN], [failed])[0]!.failure).toEqual({
+      providerId: 'elevenlabs',
+      label: 'ElevenLabs',
+      code: 'GRANT_REQUIRED',
+      reason: null,
+      status: null,
+      message: '把音频交给 ElevenLabs 需要用户授权',
+      remedy: '请在设置里发放授权',
+      sourceSeconds: null,
+      hasConsentClip: false,
+    });
     // 已经有有效克隆时不提旧的失败。
     expect(cloneRows(summary({ clones: [{ providerId: 'elevenlabs', state: 'valid' }] }), [ELEVEN], [failed])[0]!.failure).toBeNull();
+  });
+
+  it('任务失败带着 Provider 拒绝的原因与 HTTP 状态；这家收的时长与有没有授权声明录音一起交给诊断', () => {
+    const failed = cloneJob({
+      providerId: 'google',
+      state: 'failed',
+      error: { code: 'PROVIDER_REJECTED', message: 'speaker mismatch', details: { providerId: 'google', status: 400, reason: 'speaker-mismatch' } },
+    } as Partial<JobRecord>);
+    expect(cloneRows(summary({ consentClip: true }), [GEMINI], [failed])[0]!.failure).toMatchObject({
+      code: 'PROVIDER_REJECTED',
+      reason: 'speaker-mismatch',
+      status: 400,
+      message: 'speaker mismatch',
+      sourceSeconds: { min: 10, max: 30 },
+      hasConsentClip: true,
+    });
+  });
+
+  describe('这次运行里界面发起的上传', () => {
+    const now = Date.parse('2026-10-03T08:10:00.000Z');
+    const key = cloneAttemptKey('voc_1', 'elevenlabs');
+    const submitted = (at: number): Record<string, CloneAttempt> => ({ [key]: { kind: 'submitted', jobId: 'job_new', at } });
+
+    it('拿到任务 ID、任务还没送回来：当作在跑，最多 30 秒', () => {
+      expect(cloneRows(summary(), [ELEVEN], [], submitted(now - 1000), now)[0]).toMatchObject({ running: true, removable: false, failure: null });
+      expect(cloneRows(summary(), [ELEVEN], [], submitted(now - 30_000), now)[0]!.running).toBe(false);
+    });
+
+    it('任务送回来之后看任务本身', () => {
+      const done = cloneJob({ jobId: 'job_new', state: 'completed', createdAt: '2026-10-03T08:09:59.000Z' });
+      expect(cloneRows(summary(), [ELEVEN], [done], submitted(now - 1000), now)[0]!.running).toBe(false);
+    });
+
+    it('提交时就被拒：比这家最近一次任务新时当作这次的失败，错误码在 details.code', () => {
+      const error = Object.assign(new Error('没有覆盖音频的授权'), { details: { code: 'GRANT_REQUIRED', remedy: { hint: '去隐私与权限' } } });
+      const rejected = { [key]: { kind: 'rejected', error, at: now } } as Record<string, CloneAttempt>;
+      const older = cloneJob({ state: 'failed', error: { code: 'PROVIDER_UNAVAILABLE', message: '旧的失败' } } as Partial<JobRecord>);
+      expect(cloneRows(summary(), [ELEVEN], [older], rejected, now)[0]!.failure).toMatchObject({
+        code: 'GRANT_REQUIRED',
+        message: '没有覆盖音频的授权',
+        remedy: '去隐私与权限',
+      });
+      // 被拒之后又建了任务：看任务。
+      const newer = cloneJob({ createdAt: '2026-10-03T08:11:00.000Z', state: 'failed', error: { code: 'PROVIDER_UNAVAILABLE', message: '新的失败' } } as Partial<JobRecord>);
+      expect(cloneRows(summary(), [ELEVEN], [newer], rejected, now)[0]!.failure).toMatchObject({ code: 'PROVIDER_UNAVAILABLE', message: '新的失败' });
+    });
   });
 
   it('条目里记着、这个 Runtime 却不登记的 Provider 也列出来，好让人删', () => {
     const rows = cloneRows(summary({ clones: [{ providerId: 'minimax', state: 'valid' }] }), [ELEVEN], []);
     expect(rows.map((r) => r.providerId)).toEqual(['elevenlabs', 'minimax']);
     expect(rows[1]).toMatchObject({ label: 'minimax', removable: true, create: null });
+  });
+});
+
+describe('诊断用的事实', () => {
+  const context = { providerId: 'google', label: 'Google Gemini', sourceSeconds: { min: 10, max: 30 }, hasConsentClip: false };
+
+  it('任务的错误：原因与状态只认对的类型', () => {
+    expect(
+      jobCloneFailure({ code: 'PROVIDER_REJECTED', message: 'nope', details: { reason: 'voice-limit', status: 429 } } as NonNullable<JobRecord['error']>, context),
+    ).toMatchObject({ code: 'PROVIDER_REJECTED', reason: 'voice-limit', status: 429, message: 'nope', remedy: null });
+    expect(
+      jobCloneFailure({ code: 'PROVIDER_REJECTED', message: 'x', details: { reason: 3, status: '400' } } as unknown as NonNullable<JobRecord['error']>, context),
+    ).toMatchObject({ reason: null, status: null });
+  });
+
+  it('提交时的拒绝：不是 Error 也照样写成一句', () => {
+    expect(rpcCloneFailure('boom', context)).toMatchObject({ code: null, reason: null, status: null, message: 'boom' });
+    expect(rpcCloneFailure(Object.assign(new Error('没有声明'), { details: { code: 'VOICE_CONSENT_REQUIRED' } }), context)).toMatchObject({
+      code: 'VOICE_CONSENT_REQUIRED',
+      message: '没有声明',
+    });
+  });
+});
+
+describe('从模型页过来、存好之后的回程条', () => {
+  const row = (patch: Partial<ReturnType<typeof cloneRows>[number]>) => ({
+    ...cloneRows(summary(), [ELEVEN], [])[0]!,
+    ...patch,
+  });
+
+  it('不是从云端过来：只说存好了', () => {
+    expect(handoffOutcome(undefined, [])).toBe('saved');
+    expect(handoffOutcome({ kind: 'local', id: 'indextts2' }, [row({})])).toBe('saved');
+  });
+
+  it('云端那家：在传、建好、没建成、这次没传', () => {
+    const target = { kind: 'cloud' as const, id: 'elevenlabs' };
+    expect(handoffOutcome(target, [row({ running: true })])).toBe('uploading');
+    expect(handoffOutcome(target, [row({ state: 'valid' })])).toBe('ready');
+    const failure = rpcCloneFailure('x', { providerId: 'elevenlabs', label: 'ElevenLabs', sourceSeconds: null, hasConsentClip: false });
+    expect(handoffOutcome(target, [row({ failure })])).toBe('failed');
+    expect(handoffOutcome(target, [row({})])).toBe('not-uploaded');
+    expect(handoffOutcome({ kind: 'cloud', id: 'google' }, [row({})])).toBe('not-uploaded');
   });
 });
 

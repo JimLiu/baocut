@@ -4,15 +4,21 @@ import {
   ActionButton,
   AlertDialog,
   Button,
+  Content,
   DialogContainer,
+  Heading,
+  InlineAlert,
   Menu,
   MenuItem,
   MenuSection,
   MenuTrigger,
+  ProgressCircle,
   Text,
   ToastQueue,
 } from '@react-spectrum/s2';
 import AddIcon from '@react-spectrum/s2/icons/Add';
+import AlertIcon from '@react-spectrum/s2/icons/AlertTriangle';
+import CheckmarkIcon from '@react-spectrum/s2/icons/CheckmarkCircle';
 import InfoIcon from '@react-spectrum/s2/icons/InfoCircle';
 import ImportIcon from '@react-spectrum/s2/icons/Import';
 import MicrophoneIcon from '@react-spectrum/s2/icons/Microphone';
@@ -25,6 +31,7 @@ import {
   cloneProviders,
   cloneRows,
   deleteBody,
+  handoffOutcome,
   isVoiceAudioPath,
   rpcErrorText,
   uploadNotice,
@@ -33,15 +40,19 @@ import {
   voicePackageName,
   VOICE_AUDIO_EXTENSIONS,
   VOICE_PACKAGE_EXTENSION,
+  type CloneAttempt,
   type CloneProvider,
+  type CloneRow,
   type VoiceEntry,
 } from '../../model/voices-library.ts';
+import { diagnoseCloneFailure, type CloneDiagnosis } from '../../model/voice-clone-failure.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useJobs } from '../../state/jobs-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { useVoiceClones } from '../../state/voice-clone-store.ts';
 import { useVoiceHandoff } from '../../state/voice-handoff-store.ts';
 import { useVoices } from '../../state/voices-store.ts';
 import { localSpeechModels } from '../../model/models-tts-local.ts';
@@ -61,7 +72,7 @@ import { auditionBundle } from '../../model/tts-quick-test.ts';
 import { M } from '../settings/general-settings-copy.ts';
 import { TTS_LOCAL_COPY as TTS } from './tts-local-copy.ts';
 import { useVoiceEntries } from './use-voice-entries.ts';
-import { auditionHandle, cloneVoice, deleteVoice, exportVoice, importVoicePackage, removeClone, reseedVoice } from './voice-actions.ts';
+import { auditionHandle, deleteVoice, exportVoice, importVoicePackage, removeClone, reseedVoice, uploadClone } from './voice-actions.ts';
 import { ConsentCapture, VoiceCapture } from './voice-capture.tsx';
 import { VoiceDialog, type VoiceDialogMode } from './voice-dialog.tsx';
 import { Card, Chips, EmptyCard, Lede, PageStatus } from './model-parts.tsx';
@@ -84,13 +95,22 @@ const nameText = style({ font: 'ui', fontWeight: 'medium', color: 'gray-900', ov
 const meta = style({ marginTop: 4, font: 'ui-xs', color: 'gray-600', overflowWrap: 'anywhere' });
 const transcript = style({ marginTop: 4, font: 'ui-xs', color: 'gray-700', overflowWrap: 'anywhere', lineClamp: 2, userSelect: 'text' });
 const rowNote = style({
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 8,
   marginTop: 4,
   marginBottom: 0,
   paddingStart: 40,
   font: 'ui-xs',
   overflowWrap: 'anywhere',
-  color: { default: 'gray-700', isFailed: 'negative-900' },
+  color: 'gray-700',
 });
+const rowEta = style({ color: 'gray-600' });
+const rowAlert = style({ marginTop: 8, marginStart: 40 });
+const alertBody = style({ display: 'flex', flexDirection: 'column', alignItems: 'start', gap: 8 });
+const alertText = style({ margin: 0, overflowWrap: 'anywhere' });
+const alertDetail = style({ margin: 0, font: 'ui-xs', color: 'gray-600', overflowWrap: 'anywhere', userSelect: 'text' });
 const handoffBar = style({
   display: 'flex',
   alignItems: 'center',
@@ -100,11 +120,12 @@ const handoffBar = style({
   paddingX: 12,
   paddingY: 8,
   borderRadius: 'lg',
-  backgroundColor: 'informative-subtle',
+  backgroundColor: { default: 'informative-subtle', tone: { positive: 'positive-subtle', negative: 'negative-subtle' } },
   font: 'ui-sm',
   color: 'gray-900',
 });
 const handoffText = style({ flexGrow: 1, flexBasis: 0, minWidth: 200 });
+const handoffEta = style({ font: 'ui-xs', color: 'gray-700' });
 const foot = style({
   marginTop: 16,
   marginBottom: 0,
@@ -152,8 +173,47 @@ export function MyVoices() {
   const handoff = useVoiceHandoff((s) => s.handoff);
   const setHandoff = useVoiceHandoff((s) => s.setHandoff);
   const targets = useMemo(() => cloneTargets(capabilities), [capabilities]);
+  const attempts = useVoiceClones((s) => s.attempts);
   const canCapture = !!host.writeRecording;
-  const [view, setView] = useState<{ kind: 'capture'; preselect: string | null } | { kind: 'consent'; voice: LibraryEntrySummary } | null>(null);
+  const [view, setView] = useState<
+    | { kind: 'capture'; preselect: string | null }
+    /** 补录 / 重录授权声明；从克隆失败的补救过来时带上要重新上传的那家与那次的「怎么办」。 */
+    | { kind: 'consent'; voice: LibraryEntrySummary; resubmit?: { providerId: string; label: string }; tip?: string | null }
+    | null
+  >(null);
+
+  /** 上传建克隆（⋯ 里确认过的、失败后的「重新上传」）：进度与结果在那一行。 */
+  const upload = async (voice: LibraryEntrySummary, providerId: string, label: string) => {
+    if (await uploadClone(runtime, voice.id, providerId)) ToastQueue.neutral(COPY.cloneStarted(label), { timeout: 4000 });
+    else ToastQueue.negative(COPY.cloneRejected(label), { timeout: 8000 });
+  };
+
+  /** 克隆失败那一块的一键补救。 */
+  const fix = (voice: LibraryEntrySummary, row: CloneRow, diagnosis: CloneDiagnosis) => {
+    switch (diagnosis.fix?.kind) {
+      case 'reconsent':
+      case 'record-consent':
+        if (canCapture) setView({ kind: 'consent', voice, resubmit: { providerId: row.providerId, label: row.label }, tip: diagnosis.advice });
+        return;
+      case 'resample':
+        if (canCapture) setView({ kind: 'capture', preselect: row.providerId });
+        return;
+      case 'retry':
+        void upload(voice, row.providerId, row.label);
+        return;
+      case 'provider':
+        goTo({ tab: 'settings', section: 'providers', providerId: row.providerId });
+        return;
+      case 'privacy':
+        goTo({ tab: 'settings', section: 'privacy' });
+        return;
+      case 'edit':
+        setDialog({ kind: 'edit', voice });
+        return;
+      default:
+        return;
+    }
+  };
 
   // 从模型页那一行的「克隆新音色」过来：直接打开采集、预选那只模型；打开一次就把 `open` 摘掉，回来不再自动开。
   useEffect(() => {
@@ -243,12 +303,7 @@ export function MyVoices() {
   const confirmed = async (c: Confirm) => {
     switch (c.kind) {
       case 'upload':
-        try {
-          await cloneVoice(runtime, c.voice, c.providerId);
-          ToastQueue.neutral(COPY.cloneStarted(c.label), { timeout: 4000 });
-        } catch (error) {
-          ToastQueue.negative(COPY.cloneRejected(rpcErrorText(error)), { timeout: 8000 });
-        }
+        await upload(c.voice, c.providerId, c.label);
         return;
       case 'remove-clone':
         try {
@@ -361,6 +416,7 @@ export function MyVoices() {
             providers={providers}
             targets={targets}
             jobs={jobs}
+            attempts={attempts}
             canCapture={canCapture}
             playing={audition.playing === voice.id}
             canExport={!!host.pickSavePath}
@@ -371,6 +427,7 @@ export function MyVoices() {
             onConfirm={setConfirm}
             onReseed={(modelId) => void reseed(voice, modelId)}
             onConsent={() => setView({ kind: 'consent', voice })}
+            onFix={(row, diagnosis) => fix(voice, row, diagnosis)}
           />
         ))}
       </Card>
@@ -394,11 +451,13 @@ export function MyVoices() {
     );
   }
   const consentEntry = view?.kind === 'consent' ? entryOf(view.voice) : null;
-  if (consentEntry && connected) {
+  if (view?.kind === 'consent' && consentEntry && connected) {
     return (
       <ConsentCapture
         entry={consentEntry}
         needed={consentProviders(targets).map((t) => t.name)}
+        resubmit={view.resubmit ?? null}
+        tip={view.tip ?? null}
         onCancel={() => setView(null)}
         onSaved={() => setView(null)}
       />
@@ -421,11 +480,19 @@ export function MyVoices() {
   );
 }
 
-/** 回程条（设计稿 settings-voices.jsx `HandoffBar`）：从试听的「克隆新音色…」过来时写从哪儿来；存好一只后带回去用它。 */
+/**
+ * 回程条（设计稿 settings-voices.jsx `HandoffBar`）：从试听的「克隆新音色…」过来时写从哪儿来；存好一只后带回去用它。
+ * 从模型页某家云端过来、存好之后，跟着那家的克隆走：在传（转圈与要多久）、建好了（回去的主按钮）、没建成（原因与补救在那一行）、
+ * 这次没上传。不把人送去任务页。
+ */
 function HandoffBar() {
   const handoff = useVoiceHandoff((s) => s.handoff);
   const setHandoff = useVoiceHandoff((s) => s.setHandoff);
   const goTo = useShell((s) => s.go);
+  const voices = useVoices((s) => s.voices);
+  const capabilities = useModels((s) => s.capabilities);
+  const jobs = useJobs((s) => s.jobs);
+  const attempts = useVoiceClones((s) => s.attempts);
   if (!handoff) return null;
   const quick = handoff.key.startsWith('quick:');
   const back = () => {
@@ -433,8 +500,46 @@ function HandoffBar() {
     if (!quick) setHandoff(null);
     goTo(handoff.route);
   };
+  const voice = handoff.voiceId ? (voices.find((v) => v.id === handoff.voiceId) ?? null) : null;
+  if (!quick && voice && handoff.target?.kind === 'cloud') {
+    const rows = cloneRows(voice, cloneProviders(capabilities), jobs, attempts);
+    const outcome = handoffOutcome(handoff.target, rows);
+    const label = rows.find((r) => r.providerId === handoff.target!.id)?.label ?? handoff.target.id;
+    if (outcome !== 'saved') {
+      const tone = outcome === 'ready' ? 'positive' : outcome === 'failed' ? 'negative' : undefined;
+      return (
+        <div className={handoffBar({ tone })} role="status">
+          {outcome === 'uploading' ? (
+            <ProgressCircle size="S" isIndeterminate aria-label={COPY.cloning(label)} />
+          ) : outcome === 'ready' ? (
+            <CheckmarkIcon />
+          ) : outcome === 'failed' ? (
+            <AlertIcon />
+          ) : (
+            <InfoIcon />
+          )}
+          <span className={handoffText}>
+            {outcome === 'uploading' ? (
+              <>
+                {CC.handoffUploading(label)} <span className={handoffEta}>{COPY.cloningEta}</span>
+              </>
+            ) : outcome === 'ready' ? (
+              CC.handoffReady(voice.name, label)
+            ) : outcome === 'failed' ? (
+              CC.handoffFailed(voice.name, label)
+            ) : (
+              CC.handoffNotUploaded(label)
+            )}
+          </span>
+          <Button variant={outcome === 'ready' ? 'accent' : 'secondary'} size="S" onPress={back}>
+            {CC.backTo(handoff.from)}
+          </Button>
+        </div>
+      );
+    }
+  }
   return (
-    <div className={handoffBar} role="status">
+    <div className={handoffBar({})} role="status">
       <InfoIcon />
       <span className={handoffText}>
         {quick
@@ -548,7 +653,7 @@ function idsLine(entry: VoiceEntry, targets: readonly CloneTarget[], providers: 
 
 /**
  * 一行音色：试听、名字与标签、语言 / 录音 / 来源、逐字稿、种子与 voice ID；⋯ 里是编辑、换种子、授权声明、克隆、导出与删除；
- * 下面是克隆在跑或失败的一句。
+ * 下面是克隆在跑（转圈与要多久）或没建成（原因、怎么办、一键补救与原话）。
  */
 function VoiceRow({
   voice,
@@ -556,6 +661,7 @@ function VoiceRow({
   providers,
   targets,
   jobs,
+  attempts,
   canCapture,
   playing,
   canExport,
@@ -566,12 +672,14 @@ function VoiceRow({
   onConfirm,
   onReseed,
   onConsent,
+  onFix,
 }: {
   voice: LibraryEntrySummary;
   entry: VoiceEntry | null;
   providers: readonly CloneProvider[];
   targets: readonly CloneTarget[];
   jobs: readonly JobRecord[];
+  attempts: Readonly<Record<string, CloneAttempt>>;
   canCapture: boolean;
   playing: boolean;
   canExport: boolean;
@@ -582,8 +690,9 @@ function VoiceRow({
   onConfirm: (confirm: Confirm) => void;
   onReseed: (modelId: string) => void;
   onConsent: () => void;
+  onFix: (row: CloneRow, diagnosis: CloneDiagnosis) => void;
 }) {
-  const clones = cloneRows(voice, providers, jobs);
+  const clones = cloneRows(voice, providers, jobs, attempts);
   const disabled: string[] = canExport ? [] : ['export'];
   if (!entry || !canCapture) disabled.push('consent');
   const reseedItems = entry
@@ -692,18 +801,57 @@ function VoiceRow({
       {clones
         .filter((c) => c.running)
         .map((c) => (
-          <p key={`run:${c.providerId}`} className={rowNote({})}>
-            {COPY.cloning(c.label)}
-          </p>
+          <div key={`run:${c.providerId}`} className={rowNote} role="status">
+            <ProgressCircle size="S" isIndeterminate aria-label={COPY.cloning(c.label)} />
+            <span>{COPY.cloning(c.label)}</span>
+            <span className={rowEta}>{COPY.cloningEta}</span>
+          </div>
         ))}
       {clones
         .filter((c) => c.failure && !c.running)
         .map((c) => (
-          <p key={`fail:${c.providerId}`} className={rowNote({ isFailed: true })}>
-            {COPY.cloneFailed(c.label, c.failure!)}
-          </p>
+          <CloneFailureAlert
+            key={`fail:${c.providerId}`}
+            row={c}
+            diagnosis={diagnoseCloneFailure(c.failure!)}
+            canCapture={canCapture}
+            onFix={onFix}
+          />
         ))}
     </div>
+  );
+}
+
+/** 克隆没建成：原因与怎么办、一键补救，Provider 的原话放在最后（字小一些，能选中复制）。 */
+function CloneFailureAlert({
+  row,
+  diagnosis,
+  canCapture,
+  onFix,
+}: {
+  row: CloneRow;
+  diagnosis: CloneDiagnosis;
+  canCapture: boolean;
+  onFix: (row: CloneRow, diagnosis: CloneDiagnosis) => void;
+}) {
+  const fix = diagnosis.fix;
+  // 要录音的补救在没有录音能力的宿主上不给。
+  const usable = fix && (canCapture || !['reconsent', 'record-consent', 'resample'].includes(fix.kind));
+  return (
+    <InlineAlert variant="negative" styles={rowAlert}>
+      <Heading>{COPY.cloneFailedTitle(row.label)}</Heading>
+      <Content>
+        <div className={alertBody}>
+          <p className={alertText}>{diagnosis.advice ? `${diagnosis.cause} ${diagnosis.advice}` : diagnosis.cause}</p>
+          {diagnosis.detail ? <p className={alertDetail}>{diagnosis.detail}</p> : null}
+          {usable ? (
+            <Button variant="secondary" size="S" onPress={() => onFix(row, diagnosis)}>
+              {fix.label}
+            </Button>
+          ) : null}
+        </div>
+      </Content>
+    </InlineAlert>
   );
 }
 

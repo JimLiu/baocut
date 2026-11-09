@@ -1,5 +1,6 @@
 import type { LibraryEntrySummary, LibraryExportResult, MediaHandle, VoiceCloneRemoveResult } from '@baocut/protocol';
 import type { RuntimeSession } from '../../runtime/session.ts';
+import { useVoiceClones } from '../../state/voice-clone-store.ts';
 import {
   captureVoiceRequest,
   clonesToRemove,
@@ -111,8 +112,23 @@ export async function exportVoice(session: Session, voice: LibraryEntrySummary, 
 }
 
 /** 在一个 Provider 上建克隆：上传参考录音，返回任务 ID。 */
-export async function cloneVoice(session: Session, voice: LibraryEntrySummary, providerId: string): Promise<string> {
+export async function cloneVoice(session: Session, voice: Pick<LibraryEntrySummary, 'id'>, providerId: string): Promise<string> {
   return session.createVoiceClone(voice.id, providerId);
+}
+
+/**
+ * 上传建克隆并记下这次（state/voice-clone-store.ts）：拿到任务 ID 时那一行马上显示在跑；提交时就被拒时把错误留在那一行，
+ * 由那一行说原因与补救。返回提交成功没有，不抛。
+ */
+export async function uploadClone(session: Session, voiceId: string, providerId: string): Promise<boolean> {
+  const store = useVoiceClones.getState();
+  try {
+    store.submitted(voiceId, providerId, await cloneVoice(session, { id: voiceId }, providerId));
+    return true;
+  } catch (error) {
+    store.rejected(voiceId, providerId, error);
+    return false;
+  }
 }
 
 /** 删掉一个克隆：先删远端，删不掉时以 Provider 的错误码报告；`localOnly` 只清本机记录。 */

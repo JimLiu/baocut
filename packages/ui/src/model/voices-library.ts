@@ -15,6 +15,7 @@ import { langName, languageOptions, type LanguageOption } from './tools-models.t
 import { M } from './voices-library-copy.ts';
 import { jobErrorText, remedyHintText, remedyText } from './localized-text.ts';
 import { providerCanClone, reseeded } from './voice-capture.ts';
+import type { CloneFailureFacts } from './voice-clone-failure.ts';
 
 export { VOICE_CLONE_PROVIDERS } from './voice-capture.ts';
 
@@ -47,6 +48,8 @@ export interface CloneProvider {
   detail: string | null;
   /** 克隆要附上说话人本人念授权声明的录音（`voiceClone.requiresConsentClip`）。 */
   requiresConsentClip: boolean;
+  /** 这家收的样本时长（`voiceClone.sourceSeconds`）；没公开时 null。 */
+  sourceSeconds: { min: number; max: number } | null;
 }
 
 /** 这个 Runtime 里能克隆（语音合成能力下报了 `voiceClone`）的 Provider。 */
@@ -57,8 +60,20 @@ export function cloneProviders(view: ModelCapabilitiesView | null): CloneProvide
     available: p.available,
     detail: p.available ? null : (localizeText(p.detail, p.detailRef) ?? null),
     requiresConsentClip: !!p.voiceClone?.requiresConsentClip,
+    sourceSeconds: p.voiceClone?.sourceSeconds ? { ...p.voiceClone.sourceSeconds } : null,
   }));
 }
+
+/**
+ * 这次运行里界面发起的一次上传（state/voice-clone-store.ts 记着）：`submitted` 拿到了任务 ID，任务经 `jobs` 主题送回来之前
+ * 也算在跑；`rejected` 提交时就被拒（没建任务），比这家最近一次任务新时当作这次的失败。`at` 是 `Date.now()`。
+ */
+export type CloneAttempt = { kind: 'submitted'; jobId: string; at: number } | { kind: 'rejected'; error: unknown; at: number };
+
+export const cloneAttemptKey = (voiceId: string, providerId: string): string => `${voiceId}\n${providerId}`;
+
+/** 提交了、任务还没送回来：最多这么久还当它在跑（主题断了、任务被清掉时不一直转）。 */
+const PENDING_MS = 30_000;
 
 const LIVE: readonly JobRecord['state'][] = ['queued', 'running'];
 
@@ -78,16 +93,59 @@ export interface CloneRow {
   /** `none`：这个 Provider 上还没有克隆。 */
   state: 'valid' | 'stale' | 'none';
   running: boolean;
-  /** 最近一次克隆失败的原因（之后没有建成）。 */
-  failure: string | null;
+  /** 最近一次克隆没建成（之后也没有建成）：诊断用的事实（voice-clone-failure.ts 写成原因与补救）。 */
+  failure: CloneFailureFacts | null;
   /** 「上传到 X」能不能点；不能时 `why` 说原因。有效的克隆不再给这一项。 */
   create: { enabled: boolean; why: string | null } | null;
   /** 有克隆记录（有效或过期）时可以删。 */
   removable: boolean;
 }
 
-/** 一只音色在各个能克隆的 Provider 上的状态；条目里记着、但这个 Runtime 已经不登记的 Provider 也列出来，好让人删掉。 */
-export function cloneRows(voice: LibraryEntrySummary, providers: readonly CloneProvider[], jobs: readonly JobRecord[]): CloneRow[] {
+function num(details: unknown, key: string): number | null {
+  const v = (details as Record<string, unknown> | null | undefined)?.[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+type FailureContext = Pick<CloneFailureFacts, 'providerId' | 'label' | 'sourceSeconds' | 'hasConsentClip'>;
+
+/** 克隆任务失败（`job.error`）→ 诊断用的事实。 */
+export function jobCloneFailure(error: NonNullable<JobRecord['error']>, context: FailureContext): CloneFailureFacts {
+  const details = error.details;
+  return {
+    ...context,
+    code: error.code ?? null,
+    reason: str(details, 'reason'),
+    status: num(details, 'status'),
+    message: jobErrorText(error),
+    remedy: remedyHint(details),
+  };
+}
+
+/** `library.createVoiceClone` 提交时就被拒（RpcError，错误码在 `details.code`）→ 诊断用的事实。 */
+export function rpcCloneFailure(error: unknown, context: FailureContext): CloneFailureFacts {
+  const ref = (error as { messageRef?: MessageRef } | null)?.messageRef;
+  const details = (error as { details?: unknown } | null)?.details;
+  return {
+    ...context,
+    code: str(details, 'code'),
+    reason: str(details, 'reason'),
+    status: num(details, 'status'),
+    message: localizeText(error instanceof Error ? error.message : String(error), ref),
+    remedy: remedyHint(details),
+  };
+}
+
+/**
+ * 一只音色在各个能克隆的 Provider 上的状态；条目里记着、但这个 Runtime 已经不登记的 Provider 也列出来，好让人删掉。
+ * `attempts` 是这次运行里界面发起的上传（`cloneAttemptKey` 为键）：刚提交、任务还没送回来时也算在跑；提交时就被拒的当作失败。
+ */
+export function cloneRows(
+  voice: LibraryEntrySummary,
+  providers: readonly CloneProvider[],
+  jobs: readonly JobRecord[],
+  attempts: Readonly<Record<string, CloneAttempt>> = {},
+  now = Date.now(),
+): CloneRow[] {
   const ids = [...providers.map((p) => p.providerId)];
   for (const c of voice.clones ?? []) if (!ids.includes(c.providerId)) ids.push(c.providerId);
   return ids.map((providerId) => {
@@ -95,8 +153,19 @@ export function cloneRows(voice: LibraryEntrySummary, providers: readonly CloneP
     const label = provider?.label ?? providerId;
     const state = voice.clones?.find((c) => c.providerId === providerId)?.state ?? 'none';
     const job = latestCloneJob(jobs, voice.id, providerId);
-    const running = !!job && LIVE.includes(job.state);
-    const failure = job?.state === 'failed' && state !== 'valid' && job.error ? errorText(job.error.code, jobErrorText(job.error), job.error.details) : null;
+    const attempt = attempts[cloneAttemptKey(voice.id, providerId)] ?? null;
+    const pending = attempt?.kind === 'submitted' && now - attempt.at < PENDING_MS && !jobs.some((j) => j.jobId === attempt.jobId);
+    const running = pending || (!!job && LIVE.includes(job.state));
+    const context: FailureContext = { providerId, label, sourceSeconds: provider?.sourceSeconds ?? null, hasConsentClip: !!voice.consentClip };
+    const rejected = attempt?.kind === 'rejected' && (!job || Date.parse(job.createdAt) < attempt.at) ? attempt : null;
+    const failure =
+      state === 'valid' || running
+        ? null
+        : rejected
+          ? rpcCloneFailure(rejected.error, context)
+          : job?.state === 'failed' && job.error
+            ? jobCloneFailure(job.error, context)
+            : null;
     let create: CloneRow['create'] = null;
     if (state !== 'valid') {
       const why = running
@@ -114,6 +183,21 @@ export function cloneRows(voice: LibraryEntrySummary, providers: readonly CloneP
     }
     return { providerId, label, state, running, failure, create, removable: state !== 'none' && !running };
   });
+}
+
+/**
+ * 从模型页过来、存好之后，回程条说什么：`saved` 不是从某家云端过来（本机模型或没指定）；云端那家 `uploading` 在传、
+ * `ready` 建好了、`failed` 没建成、`not-uploaded` 这次没上传（没连上、跳过了授权声明、没选它）。
+ */
+export type HandoffOutcome = 'saved' | 'uploading' | 'ready' | 'failed' | 'not-uploaded';
+
+export function handoffOutcome(target: { kind: 'local' | 'cloud'; id: string } | undefined, rows: readonly CloneRow[]): HandoffOutcome {
+  if (target?.kind !== 'cloud') return 'saved';
+  const row = rows.find((r) => r.providerId === target.id);
+  if (!row) return 'not-uploaded';
+  if (row.running) return 'uploading';
+  if (row.state === 'valid') return 'ready';
+  return row.failure ? 'failed' : 'not-uploaded';
 }
 
 // ---- 一行的显示 ----

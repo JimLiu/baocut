@@ -41,28 +41,41 @@ import {
   defaultVoiceName,
   downmix,
   encodeWav,
+  firstSecondsUsed,
+  initialCloneStep,
   initialSeeds,
+  limitUnit,
   meterLevel,
   randomSeed,
+  recordingNote,
+  recordingProgress,
   sampleScript,
+  sampleTooShortFor,
   sampleVerdict,
   scriptLanguages,
+  uploadPlan,
+  uploadTargets,
   type CloneStep,
   type CloneTarget,
+  type RecordingSpec,
+  type UploadRow,
 } from '../../model/voice-capture.ts';
 import { rpcErrorText, voiceConsentStatement, VOICE_NAME_MAX, type VoiceEntry } from '../../model/voices-library.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useVoices } from '../../state/voices-store.ts';
-import { createCapturedVoice, saveConsentClip } from './voice-actions.ts';
-import { CAPTURE_COPY as CC } from './voices-copy.ts';
+import { createCapturedVoice, saveConsentClip, uploadClone } from './voice-actions.ts';
+import { CAPTURE_COPY as CC, MY_VOICES_COPY as COPY } from './voices-copy.ts';
 
 /**
  * 我的声音 › 克隆新音色（设计稿 settings-voice-capture.jsx，架构设计 §5.9）：① 选这只音色给哪些模型用 → ② 录一段样本
- * （目标 30 秒，到点自动停；麦克风或上传，上传的超过 30 秒取前 30 秒）→ ③ 授权声明（选中的云端里有要它的才有这一步）
- * → ④ 保存（名字、本人声明、每只收种子的本机引擎一颗种子）。`ConsentCapture` 是行上 ⋯「补录 / 重录授权声明」的单步版。
+ * （30 秒就够，想多说可以接着说，到 3 分钟自动停；麦克风或上传，上传的超过 3 分钟取前 3 分钟）→ ③ 授权声明（选中的云端里有要它的
+ * 才有这一步）→ ④ 保存（名字、本人声明、每只收种子的本机引擎一颗种子）。保存后立即上传到选中的、连着且条件齐了的云端建克隆，
+ * 进度与结果在我的声音那一行；不勾本人声明也能存，只留在本机、哪家都不传。从模型页某只模型过来时直接停在样本这一步。`ConsentCapture` 是行上 ⋯「补录 / 重录授权声明」的
+ * 单步版，从克隆失败的补救过来时存好后自动重新上传。
  *
  * 录音在界面里解码、混成单声道、重采样到 48 kHz、截到上限，写成 WAV，经宿主（`writeRecording`）落到临时目录，
- * 再把路径交给 `library.put`。存下的是整段样本（≤ 30 秒）当参考录音；逐字稿留空（样本后半段是随便说的），需要时在「编辑」里补。
+ * 再把路径交给 `library.put`。存下的是整段样本（≤ 3 分钟）当参考录音（云端收得更短时由 Runtime 截短再上传）；逐字稿留空
+ * （样本后半段是随便说的），需要时在「编辑」里补。
  */
 
 const wrap = style({ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 });
@@ -94,6 +107,7 @@ const script = style({
   userSelect: 'text',
 });
 const clipBox = style({ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 });
+const stack = style({ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: 1, minWidth: 0 });
 const recLine = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, minWidth: 0 });
 const timer = style({ font: 'code-lg', color: { default: 'gray-800', isLive: 'negative-900' }, fontVariantNumeric: 'tabular-nums' });
 const grow = style({ flexGrow: 1, flexBasis: 0, minWidth: 160 });
@@ -115,11 +129,13 @@ export interface Clip {
   trimmed: boolean;
 }
 
-interface Spec {
-  min: number;
-  target: number;
-  max: number;
+/** 上限写成「3 分钟」「15 秒」。 */
+function limitText(seconds: number): string {
+  const { unit, value } = limitUnit(seconds);
+  return unit === 'minutes' ? CC.limitMinutes(value) : CC.limitSeconds(value);
 }
+
+const names = (list: readonly Pick<CloneTarget, 'name'>[]) => list.map((t) => t.name).join(' / ');
 
 /** 解码一段音频（麦克风录的 WebM / 上传的 WAV、MP3、M4A、FLAC），混成单声道、重采样到 48 kHz、截到上限，写成 WAV。 */
 async function toWav(data: ArrayBuffer, maxSeconds: number): Promise<Omit<Clip, 'via' | 'name'>> {
@@ -166,11 +182,29 @@ function usePlayback() {
   return { playing, toggle, stop };
 }
 
+/** 录音时计时旁边的一句。 */
+function noteText(seconds: number, spec: RecordingSpec): string {
+  const note = recordingNote(seconds, spec);
+  switch (note.kind) {
+    case 'need':
+      return CC.needMore(note.seconds.toFixed(1));
+    case 'enough':
+      return CC.enoughBest(clock(spec.target));
+    case 'plenty':
+      return CC.plenty;
+    case 'left':
+      return CC.left(note.seconds.toFixed(1));
+    case 'stop':
+      return CC.autoStop;
+  }
+}
+
 /**
- * 一段录音：麦克风（选输入设备、电平、计时 `mm:ss.s / 00:30.0`，到上限自动停，听一遍、重录）或上传一个音频文件。
+ * 一段录音：麦克风（选输入设备、电平、计时 `mm:ss.s / 00:30.0`，进度条朝目标走；到目标后想多说可以接着说，最后几秒倒数，
+ * 到上限自动停；听一遍、重录）或上传一个音频文件（超过上限取前面）。
  * 停下或选好文件后 `onClip(clip)`，重录 / 换文件时 `onClip(null)`；`clip` 是父级已经拿着的那段（换步回来照它恢复）。
  */
-function ClipRecorder({ spec, clip, onClip, hint }: { spec: Spec; clip: Clip | null; onClip: (clip: Clip | null) => void; hint: string }) {
+function ClipRecorder({ spec, clip, onClip, hint }: { spec: RecordingSpec; clip: Clip | null; onClip: (clip: Clip | null) => void; hint: string }) {
   const [via, setVia] = useState<'mic' | 'upload'>(clip?.via ?? 'mic');
   const [phase, setPhase] = useState<'idle' | 'rec' | 'reading'>('idle');
   const [secs, setSecs] = useState(0);
@@ -299,15 +333,10 @@ function ClipRecorder({ spec, clip, onClip, hint }: { spec: Spec; clip: Clip | n
     await finish(await file.arrayBuffer(), 'upload', file.name);
   };
 
-  const left = Math.max(0, spec.max - secs);
-  const recNote =
-    secs < spec.min
-      ? CC.needMore((spec.min - secs).toFixed(1))
-      : secs < spec.target
-        ? CC.enoughBest(clock(spec.target))
-        : left > 0.05
-          ? CC.left(left.toFixed(1))
-          : CC.autoStop;
+  const recNote = noteText(secs, spec);
+  // 到目标之前写「已录 / 目标」；过了目标只写已录的（上限在说明与最后几秒的倒数里）。
+  const timeText = (s: number) => (s < spec.target ? `${clock(s)} / ${clock(spec.target)}` : clock(s));
+  const limit = limitText(spec.max);
   const playButton = clip ? (
     <ActionButton size="S" aria-label={playback.playing ? CC.stopPlay : CC.play} onPress={() => playback.toggle(clip)}>
       {playback.playing ? <PauseIcon /> : <PlayIcon />}
@@ -359,15 +388,15 @@ function ClipRecorder({ spec, clip, onClip, hint }: { spec: Spec; clip: Clip | n
                 {CC.stop}
               </Button>
               <span className={timer({ isLive: true })} role="timer" aria-live="off">
-                {clock(secs)} / {clock(spec.max)}
+                {timeText(secs)}
               </span>
               <ProgressBar
                 size="S"
                 aria-label={CC.progress}
-                value={(secs / spec.max) * 100}
+                value={recordingProgress(secs, spec)}
                 styles={style({ flexGrow: 1, minWidth: 120 })}
               />
-              <span className={detail}>{recNote}</span>
+              <span className={recordingNote(secs, spec).kind === 'left' ? warn : detail}>{recNote}</span>
             </>
           ) : phase === 'reading' ? (
             <span className={detail}>{CC.reading}</span>
@@ -375,7 +404,7 @@ function ClipRecorder({ spec, clip, onClip, hint }: { spec: Spec; clip: Clip | n
             <>
               {playButton}
               <span className={timer({})}>{clock(clip.seconds)}</span>
-              <span className={`${grow} ${detail}`}>{clip.seconds >= spec.max - 0.05 ? CC.stoppedAtMax(spec.max) : hint}</span>
+              <span className={`${grow} ${detail}`}>{clip.seconds >= spec.max - 0.05 ? CC.stoppedAtMax(limit) : hint}</span>
               <Button variant="secondary" size="S" onPress={() => void start()}>
                 <RefreshIcon />
                 <Text>{CC.again}</Text>
@@ -387,9 +416,7 @@ function ClipRecorder({ spec, clip, onClip, hint }: { spec: Spec; clip: Clip | n
                 <MicrophoneIcon />
                 <Text>{CC.start}</Text>
               </Button>
-              <span className={timer({})}>
-                {clock(0)} / {clock(spec.max)}
-              </span>
+              <span className={timer({})}>{timeText(0)}</span>
               <span className={`${grow} ${detail}`}>{hint}</span>
             </>
           )}
@@ -414,7 +441,7 @@ function ClipRecorder({ spec, clip, onClip, hint }: { spec: Spec; clip: Clip | n
               {playButton}
               <span className={timer({})}>{clock(clip.seconds)}</span>
               <span className={`${grow} ${detail}`}>
-                {[clip.name, clip.trimmed ? CC.trimmed(spec.max) : null, hint].filter(Boolean).join(' · ')}
+                {[clip.name, clip.trimmed ? CC.trimmed(limit) : null, hint].filter(Boolean).join(' · ')}
               </span>
               <Button variant="secondary" size="S" onPress={() => fileInput.current?.click()}>
                 <RefreshIcon />
@@ -427,7 +454,7 @@ function ClipRecorder({ spec, clip, onClip, hint }: { spec: Spec; clip: Clip | n
                 <UploadIcon />
                 <Text>{CC.pickFile}</Text>
               </Button>
-              <span className={`${grow} ${detail}`}>{CC.uploadHint(spec.min, spec.target)}</span>
+              <span className={`${grow} ${detail}`}>{CC.uploadHint(spec.min, spec.target, limit)}</span>
             </>
           )}
         </div>
@@ -468,7 +495,9 @@ function ModelsStep({
   const local = targets.filter((t) => t.kind === 'local');
   const cloud = targets.filter((t) => t.kind === 'cloud');
   const chip = (t: CloneTarget) => {
-    const extra = [t.consent ? CC.needsConsent : null, t.connected ? null : CC.notConnected].filter(Boolean).join(' · ');
+    const extra = [t.consent ? CC.needsConsent : null, t.needsTranscript ? CC.needsTranscript : null, t.connected ? null : CC.notConnected]
+      .filter(Boolean)
+      .join(' · ');
     return (
       <ToggleButton key={t.id} size="S" isSelected={picked.includes(t.id)} onChange={() => onToggle(t.id)}>
         {extra ? `${t.name} · ${extra}` : t.name}
@@ -491,32 +520,43 @@ function ModelsStep({
   );
 }
 
-/** ② 样本：念哪门语言的台词，照着念或上传一段现成的。 */
+/**
+ * ② 样本：念哪门语言的台词，照着念或上传一段现成的。`chosen` 是选中的模型：选中的云端收得比上限短时先说一声
+ * （「Google Gemini 只用前 30 秒」），样本比哪家收的最短还短时点名。
+ */
 function SampleStep({
+  chosen,
   lang,
   setLang,
   clip,
   onClip,
 }: {
+  chosen: readonly CloneTarget[];
   lang: string;
   setLang: (code: string) => void;
   clip: Clip | null;
   onClip: (c: Clip | null) => void;
 }) {
   const verdict = clip ? sampleVerdict(clip.seconds) : null;
+  const shortFor = clip && verdict !== 'short' ? sampleTooShortFor(chosen, clip.seconds) : null;
   const hint =
     verdict === 'short'
       ? CC.sampleShort(clip!.seconds.toFixed(1), SAMPLE.min)
-      : verdict === 'local'
-        ? CC.sampleLocal
-        : verdict === 'ok'
-          ? CC.sampleOk(SAMPLE.target)
-          : verdict === 'best'
-            ? CC.sampleBest
-            : CC.checkTake;
+      : shortFor
+        ? CC.sampleShortFor(shortFor.names.join(' / '), shortFor.min)
+        : verdict === 'local'
+          ? CC.sampleLocal
+          : verdict === 'ok'
+            ? CC.sampleOk(SAMPLE.target)
+            : verdict === 'best'
+              ? CC.sampleBest
+              : CC.checkTake;
+  // 选中的云端里收得比上限短的：录之前就说，免得录了 3 分钟才知道只用前 30 秒。
+  const capped = firstSecondsUsed(chosen, SAMPLE.max).map((g) => CC.usesFirst(g.names.join(' / '), g.seconds));
   return (
     <>
-      <p className={lede}>{CC.sampleLede(SAMPLE.min, SAMPLE.good, SAMPLE.target)}</p>
+      <p className={lede}>{CC.sampleLede(SAMPLE.min, SAMPLE.good, SAMPLE.target, limitText(SAMPLE.max))}</p>
+      {capped.length ? <p className={detail}>{capped.join(' · ')}</p> : null}
       <div className={row}>
         <span className={lab}>{CC.language}</span>
         <div className={chips}>
@@ -531,10 +571,10 @@ function SampleStep({
         {sampleScript(lang).map((line, i) => (
           <span key={i}>{line}</span>
         ))}
-        <span className={detail}>{CC.scriptTail(SAMPLE.target)}</span>
+        <span className={detail}>{CC.scriptTail(SAMPLE.target, limitText(SAMPLE.max))}</span>
       </blockquote>
       <ClipRecorder spec={SAMPLE} clip={clip} onClip={onClip} hint={hint} />
-      {verdict === 'short' ? <p className={warn}>{hint}</p> : null}
+      {verdict === 'short' || shortFor ? <p className={warn}>{hint}</p> : null}
     </>
   );
 }
@@ -652,7 +692,10 @@ async function writeClip(write: ((data: Uint8Array) => Promise<string>) | undefi
   return write(clip.bytes);
 }
 
-/** 克隆新音色的四步。`preselect` 是从模型页过来时那只模型。存好后 `onSaved(id)`。 */
+/**
+ * 克隆新音色的四步。`preselect` 是从模型页过来时那只模型（直接停在样本这一步）。存好后立即上传到 `uploadPlan` 里条件齐了的云端，
+ * 再 `onSaved(id)`：上传的进度与结果在我的声音那一行，提交时就被拒的也留在那一行，存好的音色不受影响。
+ */
 export function VoiceCapture({
   targets,
   preselect,
@@ -670,7 +713,7 @@ export function VoiceCapture({
   const picked = useMemo(() => defaultPicked(targets, preselect, toggled), [targets, preselect, toggled]);
   const chosen = useMemo(() => targets.filter((t) => picked.includes(t.id)), [targets, picked]);
   const steps = cloneSteps(chosen);
-  const [cur, setCur] = useState(0);
+  const [cur, setCur] = useState(() => initialCloneStep(preselect));
   const [lang, setLang] = useState(() => defaultScriptLanguage(intlLocale()));
   const [sample, setSample] = useState<Clip | null>(null);
   const [consentDraft, setConsentDraft] = useState<ConsentDraft>({ language: CONSENT_DEFAULT, custom: '' });
@@ -705,7 +748,9 @@ export function VoiceCapture({
           ? consentReady(consentDraft, consentClip)
           : false;
   const keptConsent = consentReady(consentDraft, consentClip) ? consentClip : null;
-  const names = (list: readonly CloneTarget[]) => list.map((t) => t.name).join(' / ');
+  const plan = uploadPlan(chosen, { declared: consent, consentClip: !!keptConsent, sampleSeconds: sample?.seconds ?? null });
+  const uploads = uploadTargets(plan);
+  const consentTo = uploads.filter((t) => t.consent);
   const foot =
     step.key === 'models'
       ? chosen.length
@@ -717,11 +762,9 @@ export function VoiceCapture({
           : CC.footSample
         : step.key === 'consent'
           ? CC.footConsent(step.needed.join(' / '))
-          : sample
-            ? keptConsent
-              ? CC.footSaveConsent(sample.seconds.toFixed(1), keptConsent.seconds.toFixed(1))
-              : CC.footSave(sample.seconds.toFixed(1))
-            : '';
+          : uploads.length
+            ? CC.outflow(names(uploads), consentTo.length ? names(consentTo) : null)
+            : CC.outflowNone;
 
   const save = async () => {
     if (!sample) return;
@@ -747,7 +790,13 @@ export function VoiceCapture({
               }
             : null,
       });
-      ToastQueue.positive(CC.saved(entry.content.name), { timeout: 4000 });
+      // 音色已经存好：上传各家互不影响，提交时被拒的留在那一行说原因，不当成保存失败。
+      const sent = await Promise.all(uploads.map((t) => uploadClone(runtime, entry.id, t.id)));
+      const started = uploads.filter((_, i) => sent[i]);
+      ToastQueue.positive(started.length ? CC.savedUploading(entry.content.name, names(started)) : CC.saved(entry.content.name), {
+        timeout: 5000,
+      });
+      for (const t of uploads.filter((_, i) => !sent[i])) ToastQueue.negative(COPY.cloneRejected(t.name), { timeout: 8000 });
       onSaved(entry.id);
     } catch (error) {
       ToastQueue.negative(CC.saveFailed(rpcErrorText(error)), { timeout: 8000 });
@@ -775,6 +824,7 @@ export function VoiceCapture({
       ) : null}
       {step.key === 'sample' ? (
         <SampleStep
+          chosen={chosen}
           lang={lang}
           setLang={(code) => {
             setLang(code);
@@ -821,7 +871,7 @@ export function VoiceCapture({
           <Checkbox isSelected={consent} onChange={setConsent}>
             {voiceConsentStatement()}
           </Checkbox>
-          <Landing chosen={chosen} consentClip={!!keptConsent} />
+          <Landing chosen={chosen} plan={plan} sampleSeconds={sample?.seconds ?? null} />
         </>
       ) : null}
       <div className={acts}>
@@ -849,8 +899,8 @@ export function VoiceCapture({
           </Button>
         ) : null}
         {last ? (
-          <Button variant="accent" size="S" isPending={saving} isDisabled={!sample || !consent || !name.trim()} onPress={() => void save()}>
-            {CC.save}
+          <Button variant="accent" size="S" isPending={saving} isDisabled={!sample || !name.trim()} onPress={() => void save()}>
+            {uploads.length ? CC.saveUpload(names(uploads)) : CC.save}
           </Button>
         ) : null}
         <Button variant="secondary" size="S" isDisabled={saving} onPress={onCancel}>
@@ -862,41 +912,65 @@ export function VoiceCapture({
   );
 }
 
-/** 保存这一步的「会落到哪」：本机一行，云端每家一行。 */
-function Landing({ chosen, consentClip }: { chosen: readonly CloneTarget[]; consentClip: boolean }) {
+/** 一家云端这次不上传的那一句（只写第一个原因：先写这一页上补不了的）。 */
+function blockedText(r: UploadRow, sampleSeconds: number | null): string {
+  switch (r.blockers[0]) {
+    case 'offline':
+      return CC.landingOffline;
+    case 'undeclared':
+      return CC.landingUndeclared;
+    case 'too-short':
+      return CC.landingTooShort((sampleSeconds ?? 0).toFixed(1), r.target.sourceSeconds?.min ?? SAMPLE.good);
+    default:
+      return CC.landingNoClip;
+  }
+}
+
+/** 保存这一步的「会落到哪」：本机一行（要逐字稿的引擎另起一行），云端每家一行——保存后立即上传，或这次为什么不传。 */
+function Landing({ chosen, plan, sampleSeconds }: { chosen: readonly CloneTarget[]; plan: readonly UploadRow[]; sampleSeconds: number | null }) {
   const local = chosen.filter((t) => t.kind === 'local');
-  const cloud = chosen.filter((t) => t.kind === 'cloud');
+  const transcript = local.filter((t) => t.needsTranscript);
   return (
     <div className={clipBox}>
       {local.length ? (
         <div className={row}>
           <span className={lab}>{CC.local}</span>
-          <span className={detail}>{CC.landingLocal(local.map((t) => t.name).join(' / '))}</span>
+          <div className={stack}>
+            <span className={detail}>{CC.landingLocal(names(local))}</span>
+            {transcript.length ? <span className={warn}>{CC.landingTranscript(names(transcript))}</span> : null}
+          </div>
         </div>
       ) : null}
-      {cloud.map((t) => (
-        <div key={t.id} className={row}>
-          <span className={lab}>{t.name}</span>
-          <span className={detail}>
-            {[t.connected ? CC.landingCloud : CC.landingCloudOff, t.consent && !consentClip ? CC.landingConsentMissing : null]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
+      {plan.map((r) => (
+        <div key={r.target.id} className={row}>
+          <span className={lab}>{r.target.name}</span>
+          {r.blockers.length ? (
+            <span className={warn}>{blockedText(r, sampleSeconds)}</span>
+          ) : (
+            <span className={detail}>{[CC.landingUpload, r.usesFirst !== null ? CC.firstOnly(r.usesFirst) : null].filter(Boolean).join(' · ')}</span>
+          )}
         </div>
       ))}
     </div>
   );
 }
 
-/** 给已有音色补录 / 重录授权声明（行上 ⋯）。`needed` 是要它的提供方名字。 */
+/**
+ * 给已有音色补录 / 重录授权声明（行上 ⋯）。`needed` 是要它的提供方名字。从克隆失败的补救过来时带 `resubmit`：存好后自动
+ * 重新上传到那一家（按钮照实说），`tip` 是那次失败的「怎么办」。
+ */
 export function ConsentCapture({
   entry,
   needed,
+  resubmit = null,
+  tip = null,
   onCancel,
   onSaved,
 }: {
   entry: VoiceEntry;
   needed: readonly string[];
+  resubmit?: { providerId: string; label: string } | null;
+  tip?: string | null;
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -914,7 +988,13 @@ export function ConsentCapture({
       const path = await writeClip(runtime.host.writeRecording?.bind(runtime.host), clip);
       const text = draft.language === VOICE_CONSENT_CUSTOM ? draft.custom.trim() : null;
       await saveConsentClip(runtime, entry, { language: draft.language, text, path });
-      ToastQueue.positive(CC.consentSaved(entry.content.name), { timeout: 4000 });
+      if (!resubmit) ToastQueue.positive(CC.consentSaved(entry.content.name), { timeout: 4000 });
+      else if (await uploadClone(runtime, entry.id, resubmit.providerId))
+        ToastQueue.positive(CC.consentSavedUploading(entry.content.name, resubmit.label), { timeout: 5000 });
+      else {
+        ToastQueue.positive(CC.consentSaved(entry.content.name), { timeout: 4000 });
+        ToastQueue.negative(COPY.cloneRejected(resubmit.label), { timeout: 8000 });
+      }
       onSaved();
     } catch (error) {
       ToastQueue.negative(CC.saveFailed(rpcErrorText(error)), { timeout: 8000 });
@@ -933,10 +1013,11 @@ export function ConsentCapture({
         </ActionButton>
       </div>
       <h2 className={title}>{heading}</h2>
+      {tip ? <p className={warn}>{tip}</p> : null}
       <ConsentStep needed={needed} draft={draft} setDraft={setDraft} clip={clip} onClip={setClip} />
       <div className={acts}>
         <Button variant="accent" size="S" isPending={saving} isDisabled={!ok} onPress={() => void save()}>
-          {CC.saveClip}
+          {resubmit ? CC.saveClipUpload(resubmit.label) : CC.saveClip}
         </Button>
         <Button variant="secondary" size="S" isDisabled={saving} onPress={onCancel}>
           {CC.cancel}

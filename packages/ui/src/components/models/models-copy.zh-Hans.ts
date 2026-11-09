@@ -286,7 +286,7 @@ export const zhHans: ModelsMessages = {
     title: '我的声音',
     lede: '把一段参考录音存成音色，之后生成语音、翻译配音时按名字选；参考录音留在这台电脑上。要用云端引擎（ElevenLabs、Google Gemini）念这只音色时，先在这里把参考录音上传给它建克隆，随时可删。',
     emptyTitle: '还没有音色',
-    emptyBody: '选一段 5–12 秒的参考录音，或导入别人导出的音色包；存好后到处都能选。',
+    emptyBody: '选一段 10–30 秒的参考录音，或导入别人导出的音色包；存好后到处都能选。',
   },
   quoted: (text: string) => `「${text}」`,
 };
