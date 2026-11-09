@@ -45,10 +45,12 @@ const speechBundle = (bundleId: string, like: string): BundleDefinition => ({
 const CLONE = 'clone@audio-cpp';
 const SPEAKERS = 'speakers@audio-cpp';
 const FISH = 'fish@audio-cpp';
+const INDEX = 'index@audio-cpp';
 const BUNDLES: BundleDefinition[] = [
   speechBundle(CLONE, 'qwen3-tts-0.6b-base@audio-cpp-q8'),
   speechBundle(SPEAKERS, 'qwen3-tts-1.7b-customvoice@audio-cpp-q8'),
   speechBundle(FISH, 'fish-s2-pro@audio-cpp-q8'),
+  speechBundle(INDEX, 'indextts2@audio-cpp-q8'),
 ];
 const ggufContent = (bundle: BundleDefinition) => `weights of ${bundle.bundleId}`;
 
@@ -127,6 +129,8 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
   let ffmpeg: string;
   /** 起 ffmpeg 时改用的假进程（测起进程本身的系统错误）；null 时照常起。 */
   let fakeFfmpegSpawn: (() => ChildProcess) | null;
+  /** 每次起 ffmpeg 的参数。 */
+  let ffmpegArgs: string[][];
   let catalog: ModelCatalog;
   let services: ModelServices;
   let provider: LocalSpeechProvider;
@@ -146,6 +150,7 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
     engine = fake.cli;
     ffmpeg = await writeScript(dir, 'ffmpeg', FAKE_FFMPEG);
     fakeFfmpegSpawn = null;
+    ffmpegArgs = [];
     const models = path.join(dir, 'models');
     for (const bundle of BUNDLES) await writeRepo(models, bundle);
     // 内置清单只给资源调度估计常驻量用。
@@ -161,8 +166,10 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
       engine: () => engine,
       env: async () => process.env,
       ffmpeg: async () => ({ command: ffmpeg, env: process.env }),
-      spawn: ((command: string, args: string[], options: object) =>
-        command === ffmpeg && fakeFfmpegSpawn ? fakeFfmpegSpawn() : spawn(command, args, options)) as typeof spawn,
+      spawn: ((command: string, args: string[], options: object) => {
+        if (command === ffmpeg) ffmpegArgs.push(args);
+        return command === ffmpeg && fakeFfmpegSpawn ? fakeFfmpegSpawn() : spawn(command, args, options);
+      }) as typeof spawn,
       threads: 2,
       resources: scheduler,
       idleMs: 60_000,
@@ -399,6 +406,30 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
     expect(job).toMatchObject({ state: 'failed', error: { code: 'PROVIDER_REJECTED', details: expect.objectContaining({ reason: 'reference-duration' }) } });
     expect(job.error!.message).toContain('30');
     expect(await requests()).toEqual([]);
+  });
+
+  it('引擎拿不到原文的参考录音只转开头一段（ffmpeg -t，模型建议时长的上限）；带原文的不截', async () => {
+    const ref = path.join(dir, 'ref.wav');
+    await fs.copyFile(builtinVoiceFile(builtinVoice('zh-male')!)!, ref);
+    const max = String(real('qwen3-tts-0.6b-base@audio-cpp-q8').speech!.reference!.recommendedSeconds[1]);
+    const limitOf = (args: string[]) => (args.includes('-t') ? args[args.indexOf('-t') + 1] : null);
+    // 没给原文：Qwen3-TTS Base 只取说话人向量。
+    expect((await speak({ reference: { file: ref } })).state).toBe('completed');
+    // 带原文：原文要和整段录音对得上，不截（太长时按 withTranscriptSeconds 拒绝，见上一条）。
+    expect((await speak({ reference: { file: ref, transcript: '我的声音' } })).state).toBe('completed');
+    // IndexTTS 不读原文：带原文的音色库条目也照样截。
+    const content = { name: '我', language: null, transcript: '你好', origin: 'recorded' as const, consent: { declared: true, statement: '本人' } };
+    const voice = (await library.put({ library: 'voices', content, file: { path: ref } })).entry;
+    expect((await speak({ model: INDEX, voice: `library:${voice.id}` })).state).toBe('completed');
+    expect(ffmpegArgs.map(limitOf)).toEqual([max, null, max]);
+    const [capped] = ffmpegArgs;
+    // `-t` 是输出选项：在输入之后、输出文件之前。
+    expect(capped!.indexOf('-t')).toBeGreaterThan(capped!.indexOf('-i'));
+    expect(capped!.indexOf('-t')).toBeLessThan(capped!.length - 1);
+    const sent = await requests();
+    expect(sent[0]).not.toHaveProperty('reference_text');
+    expect(sent[1]).toMatchObject({ reference_text: '我的声音' });
+    expect(sent[2]).not.toHaveProperty('reference_text');
   });
 
   it('音色库条目：直接用它的参考录音，任务冻结条目的版本', async () => {

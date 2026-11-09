@@ -98,6 +98,8 @@ const FFMPEG_TIMEOUT_MS = 5 * 60_000;
 const DEMUXER_ALLOWLIST = 'mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,aac,mp3,wav,flac,ogg';
 /** 参考录音转好的 WAV 在 staging 里的名字。 */
 const REFERENCE_WAV = 'reference.wav';
+/** 引擎拿不到原文的参考录音只转开头这么多秒；模型的说明给了建议时长时用它的上限。 */
+const UNTRANSCRIBED_REFERENCE_MAX_SEC = 30;
 
 interface Server {
   bundleId: string;
@@ -259,7 +261,12 @@ export class LocalSpeechProvider implements GenerationProvider {
     return slot;
   }
 
-  /** 参考录音：核对摘要，转成 staging 里的 WAV，检查带原文时的时长上限。返回 WAV 的路径。 */
+  /**
+   * 参考录音：核对摘要，转成 staging 里的 WAV，检查带原文时的时长上限。返回 WAV 的路径。
+   * 引擎拿不到原文时（没给原文，或这个模型不读原文）只转开头一段：至多模型建议时长的上限，没写时 30 秒。音色库的样本可以长到
+   * 几分钟，整段喂给引擎只会拖慢合成、撑满内存，取音色用不着这么长。带原文的录音不截：截了就和原文对不上，太长时照旧按
+   * `withTranscriptSeconds` 拒绝。
+   */
   async #prepareReference(
     reference: NonNullable<Extract<GenerationRun['parameters'], { capability: 'synthesizeSpeech' }>['reference']>,
     profile: SpeechBundleProfile,
@@ -273,7 +280,9 @@ export class LocalSpeechProvider implements GenerationProvider {
       throw new ProviderFailure('input-unreadable', L.referenceChanged(), { file: reference.path, expected: reference.sha256 });
     }
     const out = path.join(staging, REFERENCE_WAV);
-    const ok = await this.#toWav(reference.path, out, signal);
+    const transcribed = !!reference.transcript?.trim() && profile.reference?.acceptsTranscript !== false;
+    const maxSec = transcribed ? null : (profile.reference?.recommendedSeconds[1] ?? UNTRANSCRIBED_REFERENCE_MAX_SEC);
+    const ok = await this.#toWav(reference.path, out, signal, maxSec);
     if (signal.aborted) return out;
     const wav = ok ? inspectWav(await fs.readFile(out).catch(() => Buffer.alloc(0))) : null;
     if (!wav?.ok || wav.wav.durationSec <= 0) throw new ProviderFailure('input-unreadable', unreadable.message, unreadable.details);
@@ -291,9 +300,10 @@ export class LocalSpeechProvider implements GenerationProvider {
 
   /**
    * ffmpeg 把参考录音的第一条音轨转成单声道 16 位 WAV（保留采样率，由引擎自己重采样）。不经 shell，只许读本地文件。
+   * `maxSec` 不是 null 时只转开头这么多秒（`-t`）。
    * ffmpeg 起不来（没装、不可执行）时抛 `tool-unavailable`：这不是录音读不出来，不能算成安装不完整。
    */
-  async #toWav(file: string, out: string, signal: AbortSignal): Promise<boolean> {
+  async #toWav(file: string, out: string, signal: AbortSignal, maxSec: number | null): Promise<boolean> {
     const tool = await this.#ffmpeg();
     const args = [
       '-nostdin',
@@ -311,6 +321,7 @@ export class LocalSpeechProvider implements GenerationProvider {
       '-vn',
       '-sn',
       '-dn',
+      ...(maxSec !== null ? ['-t', String(maxSec)] : []),
       '-ac',
       '1',
       '-c:a',
