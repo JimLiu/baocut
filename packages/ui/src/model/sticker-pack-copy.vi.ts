@@ -32,4 +32,15 @@ export const vi: StickerPackMessages = {
   notoHint:
     'Năm danh mục có sẵn là Lottie của Google Noto Animated Emoji (CC BY 4.0): vòng lặp vector có nền trong suốt, theo đầu phát trên khung vẽ và có thể đổi màu như nhãn dán.',
   addFailed: (message: string) => `Không thể thêm nhãn dán: ${message}`,
+  hostTitle: 'Người dẫn ảo',
+  hostNote: (count) => `${count} nhân vật gốc · chớp mắt, khớp khẩu hình, biểu cảm`,
+  hostCategories: 'Phong cách người dẫn',
+  hostStyles: { anime: 'Anime', chibi: 'Chibi' },
+  hostName: (host) => host.name,
+  hostSignpost: 'Đặt vào là người dẫn sẽ chớp mắt, thở và lắc lư nhẹ.',
+  hostLipSync: 'Để nhân vật nói theo lời dẫn hoặc đổi biểu cảm, hãy nhờ BaoCut trong một phiên khớp khẩu hình cho nó.',
+  hostLipSyncWeb: 'Khớp khẩu hình theo lời dẫn được bắt đầu từ Agent hoặc ứng dụng BaoCut; kết quả sẽ đồng bộ về đây.',
+  noHost: 'Không có người dẫn phù hợp',
+  noHostHint: 'Thử từ khác, hoặc xóa tìm kiếm để xem tất cả người dẫn.',
+  hostAddFailed: (message) => `Không thể thêm người dẫn: ${message}`,
 };

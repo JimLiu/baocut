@@ -32,4 +32,15 @@ export const tr: StickerPackMessages = {
   notoHint:
     'Beş yerleşik kategori, Google Noto Animated Emoji’nin Lottie dosyalarıdır (CC BY 4.0): saydamlıklı vektör döngüleri tuvalde oynatma kafasını izler ve çıkartmalar gibi yeniden renklendirilebilir.',
   addFailed: (message: string) => `Çıkartma eklenemedi: ${message}`,
+  hostTitle: 'Sanal sunucular',
+  hostNote: (count) => `${count} özgün karakter · göz kırpma, dudak senkronu, ifadeler`,
+  hostCategories: 'Sunucu stilleri',
+  hostStyles: { anime: 'Anime', chibi: 'Chibi' },
+  hostName: (host) => host.name,
+  hostSignpost: 'Yerleştirilen sunucu göz kırpar, nefes alır ve hafifçe sallanır.',
+  hostLipSync: 'Anlatımla birlikte konuşması veya ifade değiştirmesi için bir oturumda BaoCut’tan dudak senkronu isteyin.',
+  hostLipSyncWeb: 'Anlatıma dudak senkronu Agent’tan ya da BaoCut uygulamasından başlatılır; sonuç buraya eşitlenir.',
+  noHost: 'Eşleşen sunucu yok',
+  noHostHint: 'Başka bir kelime deneyin veya tüm sunucuları görmek için aramayı temizleyin.',
+  hostAddFailed: (message) => `Sunucu eklenemedi: ${message}`,
 };

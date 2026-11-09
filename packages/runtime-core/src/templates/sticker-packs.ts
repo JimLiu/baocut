@@ -5,11 +5,14 @@ import {
   APPLIED_ASSET_REF,
   RpcError,
   STICKER_PACK_ORIGIN,
+  hostThumbnailPath,
   packSticker,
+  stickerHost,
   type MediaHandle,
   type PackSticker,
   type StickerApplyParams,
   type StickerApplyResult,
+  type StickerHandleParams,
 } from '@baocut/protocol';
 import { RcCommon, RcStickers } from '@baocut/protocol/messages/runtime-core';
 import type { TrustedPrincipal } from '../gateway.ts';
@@ -117,9 +120,21 @@ export class StickerPacks {
     return fs.existsSync(file) ? file : null;
   }
 
-  /** 句柄由调用方所在通道的媒体表发：桌面网关与 Web 服务各有一张，Web 页面只能取同源的 `/media/…`。 */
-  async openHandle(p: { id: string }, media: MediaRegistry): Promise<MediaHandle> {
-    const { root, file } = await this.locate(p.id);
+  /**
+   * 句柄由调用方所在通道的媒体表发：桌面网关与 Web 服务各有一张，Web 页面只能取同源的 `/media/…`。
+   * `file: 'thumbnail'` 发内置主播随包的缩略图，不下载角色包；别的贴纸没有缩略图，`not-found`。
+   */
+  async openHandle(p: StickerHandleParams, media: MediaRegistry): Promise<MediaHandle> {
+    if (p.file !== 'thumbnail') {
+      const { root, file } = await this.locate(p.id);
+      return media.issue(root, file);
+    }
+    const sticker = packSticker(p.id);
+    const host = sticker ? stickerHost(sticker) : null;
+    if (!host) throw new RpcError('not-found', RcStickers.stickerNotFound({ id: p.id }), { code: 'STICKER_NOT_FOUND' });
+    const root = this.#options.dir;
+    const file = hostThumbnailPath(host);
+    if (!root || !this.bundledFile(file)) throw new RpcError('not-found', RcStickers.stickersMissing(), { code: 'STICKER_NOT_FOUND' });
     return media.issue(root, file);
   }
 

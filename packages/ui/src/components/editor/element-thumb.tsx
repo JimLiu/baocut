@@ -78,29 +78,32 @@ export function BrandStickerThumb({
   ) : null;
 }
 
-/** 随包贴纸的缩略图：SVG 直接当图片摆；Lottie 停在一帧，`playing` 时播。地址是 `stickers.openHandle` 发的句柄。 */
+/**
+ * 随包贴纸的缩略图：SVG 直接当图片摆；Lottie 停在一帧，`playing` 时播；内置主播是随包的静止立绘，铺满格子、顶端对齐，
+ * 只露头与上半身（设计稿 .stile--host）。地址是 `stickers.openHandle` 发的句柄。
+ */
 export function PackStickerThumb({ sticker, playing = false }: { sticker: PackSticker; playing?: boolean }) {
-  const url = usePackStickerUrl(sticker.id);
+  const url = usePackStickerUrl(sticker.id, sticker.host ? 'thumbnail' : undefined);
   if (sticker.animated) return <LottieThumb url={url} playing={playing} />;
-  return url ? (
-    <img src={url} alt="" draggable={false} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain' }} />
-  ) : null;
+  const fit = sticker.host ? { objectFit: 'cover' as const, objectPosition: '50% 0' } : { objectFit: 'contain' as const };
+  return url ? <img src={url} alt="" draggable={false} style={{ display: 'block', width: '100%', height: '100%', ...fit }} /> : null;
 }
 
-function usePackStickerUrl(id: string): string | null {
+function usePackStickerUrl(id: string, file?: 'thumbnail'): string | null {
   const runtime = useRuntime();
-  const [state, setState] = useState<{ id: string; url: string | null } | null>(null);
+  const key = file ? `${id}#${file}` : id;
+  const [state, setState] = useState<{ key: string; url: string | null } | null>(null);
   useEffect(() => {
     let live = true;
-    openStickerHandle(runtime, id).then(
-      (handle) => live && setState({ id, url: handle.url }),
-      () => live && setState({ id, url: null }),
+    openStickerHandle(runtime, id, file).then(
+      (handle) => live && setState({ key, url: handle.url }),
+      () => live && setState({ key, url: null }),
     );
     return () => {
       live = false;
     };
-  }, [runtime, id]);
-  return state?.id === id ? state.url : null;
+  }, [runtime, id, file, key]);
+  return state?.key === key ? state.url : null;
 }
 
 function LottieThumb({ url, playing }: { url: string | null; playing: boolean }) {

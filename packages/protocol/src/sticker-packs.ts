@@ -410,8 +410,23 @@ export function packSticker(id: string): PackSticker | null {
 /** 随包贴纸一共几张。 */
 export const PACK_STICKER_COUNT = BY_ID.size;
 
+/** 内置主播的角色包是哪个角色（包里的次序就是 `BUILTIN_HOSTS` 的次序）；别的贴纸是 null。 */
+export function stickerHost(sticker: PackSticker): BuiltinHost | null {
+  return sticker.host ? (BUILTIN_HOSTS[sticker.index] ?? null) : null;
+}
+
 /** 拷进视频的随包贴纸素材的来源（视频格式规范 §4.1）：`origin` 与 `source.stickerPack`。 */
 export const STICKER_PACK_ORIGIN = 'sticker-pack';
+
+export interface StickerHandleParams {
+  /** 随包贴纸的 ID（`packSticker`）。 */
+  id: string;
+  /**
+   * 取哪个文件：缺省是贴纸文件本身；`thumbnail` 是内置主播随包的静止缩略图（`hostThumbnailPath`），不下载角色包。
+   * 别的贴纸没有缩略图。
+   */
+  file?: 'thumbnail';
+}
 
 export interface StickerApplyParams {
   videoId: Id;

@@ -94,7 +94,7 @@ const fileTarget = z.union([
 ]);
 const revision = z.string().regex(/^\d+$/);
 /** 随包贴纸的 ID（`sticker-packs.ts`）：`<包>-<文件>`，目录里有没有由 Runtime 查。 */
-const stickerId = z.string().regex(/^[A-Za-z0-9-]+\.(svg|json)$/).max(200);
+const stickerId = z.string().regex(/^[A-Za-z0-9-]+\.(svg|json|bcpuppet)$/).max(200);
 /** Codex Pet（`pets.ts`）：社区的 slug，目录里有没有由 Runtime 查。 */
 const petRef = z.object({ source: z.literal('community'), slug: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/).max(200) }).strict();
 const assetTarget = { videoId: id, assetId: id, revision: revision.optional() };
@@ -1653,7 +1653,7 @@ export const methodParamSchemas = {
     })
     .strict(),
   'library.openHandle': libraryRef,
-  'stickers.openHandle': z.object({ id: stickerId }).strict(),
+  'stickers.openHandle': z.object({ id: stickerId, file: z.literal('thumbnail').optional() }).strict(),
   'stickers.applyToVideo': z
     .object({
       videoId: id,

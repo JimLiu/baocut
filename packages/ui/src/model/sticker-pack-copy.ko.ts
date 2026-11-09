@@ -32,4 +32,15 @@ export const ko: StickerPackMessages = {
   notoHint:
     '기본 제공 5개 분류는 Google Noto Animated Emoji의 Lottie(CC BY 4.0)입니다. 투명 배경의 벡터 루프로, 캔버스에서 재생 헤드를 따라 움직이며 정적 스티커처럼 색을 바꿀 수 있습니다.',
   addFailed: (message: string) => `스티커를 추가하지 못했습니다: ${message}`,
+  hostTitle: '버추얼 호스트',
+  hostNote: (count) => `오리지널 캐릭터 ${count}명 · 눈 깜빡임, 립싱크, 표정`,
+  hostCategories: '호스트 화풍',
+  hostStyles: { anime: '애니메이션', chibi: '치비' },
+  hostName: (host) => host.name,
+  hostSignpost: '놓기만 하면 눈을 깜빡이고 숨 쉬며 살짝 흔들립니다.',
+  hostLipSync: '내레이션에 맞춰 말하거나 표정을 바꾸게 하려면 세션에서 BaoCut에게 립싱크를 맡기세요.',
+  hostLipSyncWeb: '내레이션 립싱크는 Agent나 BaoCut 앱에서 시작하세요. 결과는 여기에 동기화됩니다.',
+  noHost: '일치하는 호스트가 없습니다',
+  noHostHint: '다른 단어로 검색하거나 검색어를 지워 모든 호스트를 보세요.',
+  hostAddFailed: (message) => `호스트를 추가하지 못했습니다: ${message}`,
 };

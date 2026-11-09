@@ -32,4 +32,15 @@ export const pl: StickerPackMessages = {
   notoHint:
     'Pięć wbudowanych kategorii to pliki Lottie z Google Noto Animated Emoji (CC BY 4.0): wektorowe pętle z przezroczystością, które na płótnie podążają za głowicą odtwarzania i można je przekolorować jak naklejki.',
   addFailed: (message: string) => `Nie udało się dodać naklejki: ${message}`,
+  hostTitle: 'Wirtualni prowadzący',
+  hostNote: (count) => `${count} oryginalnych postaci · mruganie, synchronizacja ust, mimika`,
+  hostCategories: 'Style prowadzących',
+  hostStyles: { anime: 'Anime', chibi: 'Chibi' },
+  hostName: (host) => host.name,
+  hostSignpost: 'Po umieszczeniu prowadzący mruga, oddycha i lekko się kołysze.',
+  hostLipSync: 'Aby mówił w rytm narracji lub zmieniał mimikę, poproś BaoCut w sesji o synchronizację ust.',
+  hostLipSyncWeb: 'Synchronizację ust z narracją uruchom z agenta lub aplikacji BaoCut; wynik pojawi się tutaj.',
+  noHost: 'Brak pasujących prowadzących',
+  noHostHint: 'Spróbuj innego słowa albo wyczyść wyszukiwanie, aby zobaczyć wszystkich prowadzących.',
+  hostAddFailed: (message) => `Nie udało się dodać prowadzącego: ${message}`,
 };

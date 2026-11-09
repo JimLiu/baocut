@@ -107,7 +107,7 @@ import type {
   SetCapabilityParametersRequest,
   TextCapabilityParameters,
 } from './models.ts';
-import type { StickerApplyParams, StickerApplyResult } from './sticker-packs.ts';
+import type { StickerApplyParams, StickerApplyResult, StickerHandleParams } from './sticker-packs.ts';
 import type { PetApplyParams, PetApplyResult, PetHandleParams } from './pets.ts';
 import type {
   LibraryApplyParams,
@@ -1409,9 +1409,9 @@ export interface RpcMethods extends BotRpcMethods {
 
   /**
    * 随应用分发的贴纸（`sticker-packs.ts` 的目录）的短期读取句柄，同 `artifacts.openHandle`：元素面板画缩略图用。
-   * 目录里没有的 ID `not-found`（`STICKER_NOT_FOUND`）。
+   * `file: 'thumbnail'` 取内置主播随包的缩略图。目录里没有的 ID、或要缩略图的不是内置主播时 `not-found`（`STICKER_NOT_FOUND`）。
    */
-  'stickers.openHandle': { params: { id: string }; result: MediaHandle };
+  'stickers.openHandle': { params: StickerHandleParams; result: MediaHandle };
   /**
    * 把一张随包贴纸拷进视频：一笔普通的编辑事务（`importAsset`，`managed`），来源记 `origin: 'sticker-pack'`、
    * `source.stickerPack: { id }`（视频格式规范 §4.1）。之后与应用里的那份无关。放到时间线上由调用方另外编辑。

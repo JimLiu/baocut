@@ -2,7 +2,7 @@
 
 The sticker packs shown in the editor's Elements panel. There are 301 static SVGs (`<pack>-<file>.svg`) and 81 Lottie animations (`anim/dyn-<pack>-NN.json`).
 
-`hosts/` holds the 19 built-in virtual hosts: layered character packages (`host-<id>.bcpuppet`, see `docs/spec/puppet-format-spec.md`) and a rest-pose thumbnail for each (`host-<id>.webp`, 256×384). Their catalogue (names, style, look) is `BUILTIN_HOSTS` in the same protocol file. The agent reaches them through `hosts_list` and `hosts_show`.
+`hosts/` holds the 19 built-in virtual hosts: layered character packages (`host-<id>.bcpuppet`, see `docs/spec/puppet-format-spec.md`) and a rest-pose thumbnail for each (`host-<id>.webp`, 256×384). Their catalogue (names, style, look) is `BUILTIN_HOSTS` in the same protocol file. The agent reaches them through `hosts_list` and `hosts_show`. The Elements panel's Virtual hosts section shows the thumbnails (`stickers.openHandle` with `file: 'thumbnail'`, never downloads the package) and adds a host with `stickers.applyToVideo`, as an idling character sticker in the lower right.
 
 - The catalogue (packs, files and search words) is `packages/protocol/src/sticker-packs.ts`. Pack names are in the UI's `sticker-pack-copy.*.ts`.
 - The Runtime finds this directory through `resolveStickerPacksDir`. The lookup order is `BAOCUT_STICKERS_DIR`, then `<resources>/stickers` in the packaged app, then this directory.

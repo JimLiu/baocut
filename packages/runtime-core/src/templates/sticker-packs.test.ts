@@ -15,6 +15,7 @@ import {
   packStickers,
   type EditOperation,
 } from '@baocut/protocol';
+import { methodParamSchemas } from '@baocut/protocol/schemas';
 import type { TrustedPrincipal } from '../gateway.ts';
 import type { MediaRegistry } from '../media.ts';
 import type { OnlineAsset, OnlineAssets } from '../online-assets.ts';
@@ -69,6 +70,15 @@ describe('随包贴纸', () => {
     for (const file of files) {
       expect(fs.readFileSync(path.join(dir, file)).equals(fs.readFileSync(path.join(prototype, file))), file).toBe(true);
     }
+  });
+
+  it('协议收下三族贴纸的 ID；缩略图只有 thumbnail 一种', () => {
+    const open = methodParamSchemas['stickers.openHandle'];
+    for (const id of ['featured-01.svg', 'dyn-emoji-01.json', 'host-rin.bcpuppet']) expect(open.safeParse({ id }).success, id).toBe(true);
+    expect(open.safeParse({ id: 'host-rin.bcpuppet', file: 'thumbnail' }).success).toBe(true);
+    expect(open.safeParse({ id: 'host-rin.bcpuppet', file: 'sheet' }).success).toBe(false);
+    expect(open.safeParse({ id: 'host-rin.zip' }).success).toBe(false);
+    expect(methodParamSchemas['stickers.applyToVideo'].safeParse({ videoId: 'v1', id: 'host-rin.bcpuppet', commandId: 'c1' }).success).toBe(true);
   });
 
   it('句柄只发给目录里的贴纸', async () => {
@@ -142,6 +152,18 @@ describe('随包贴纸', () => {
       ]);
       expect(packs.bundledFile('hosts/host-rin.webp')).toBe(path.join(bundled, 'hosts/host-rin.webp'));
       expect(packs.bundledFile('hosts/host-ren.webp')).toBeNull();
+      // 缩略图随包：发句柄不经素材 CDN；只有内置主播有缩略图。
+      wanted.length = 0;
+      const issued: string[] = [];
+      const media = { issue: async (root: string, file: string) => (issued.push(path.join(root, file)), { url: file }) } as unknown as MediaRegistry;
+      await packs.openHandle({ id: 'host-rin.bcpuppet', file: 'thumbnail' }, media);
+      expect(issued).toEqual([path.join(bundled, 'hosts/host-rin.webp')]);
+      expect(wanted).toEqual([]);
+      await expect(packs.openHandle({ id: 'host-ren.bcpuppet', file: 'thumbnail' }, media)).rejects.toMatchObject({ code: 'not-found' });
+      await expect(packs.openHandle({ id: 'cta-like.svg', file: 'thumbnail' }, media)).rejects.toMatchObject({
+        code: 'not-found',
+        details: { code: 'STICKER_NOT_FOUND' },
+      });
       await expect(new StickerPacks({ dir: bundled, online: null, videos: {} as VideoService }).locate('host-rin.bcpuppet')).rejects.toMatchObject({
         code: 'not-found',
       });
