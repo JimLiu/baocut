@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { intlLocale } from '@baocut/protocol';
 import {
   ActionButton,
@@ -6,9 +6,6 @@ import {
   Checkbox,
   Picker,
   PickerItem,
-  ProgressBar,
-  SegmentedControl,
-  SegmentedControlItem,
   Text,
   TextArea,
   TextField,
@@ -17,20 +14,14 @@ import {
 } from '@react-spectrum/s2';
 import ChevronLeftIcon from '@react-spectrum/s2/icons/ChevronLeft';
 import EditIcon from '@react-spectrum/s2/icons/Edit';
-import MicrophoneIcon from '@react-spectrum/s2/icons/Microphone';
-import PauseIcon from '@react-spectrum/s2/icons/Pause';
-import PlayIcon from '@react-spectrum/s2/icons/Play';
 import RefreshIcon from '@react-spectrum/s2/icons/Refresh';
-import UploadIcon from '@react-spectrum/s2/icons/Upload';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
-  CAPTURE_SAMPLE_RATE,
   CONSENT_COMMON,
   CONSENT_DEFAULT,
   CONSENT_REC,
   SAMPLE,
   VOICE_CONSENT_CUSTOM,
-  clock,
   cloneSteps,
   consentLanguageName,
   consentMore,
@@ -39,25 +30,19 @@ import {
   defaultPicked,
   defaultScriptLanguage,
   defaultVoiceName,
-  downmix,
-  encodeWav,
   firstSecondsUsed,
   initialCloneStep,
   initialSeeds,
-  limitUnit,
-  meterLevel,
   randomSeed,
-  recordingNote,
-  recordingProgress,
   sampleScript,
   sampleTooShortFor,
   sampleVerdict,
+  saveTakeWarnings,
   scriptLanguages,
   uploadPlan,
   uploadTargets,
   type CloneStep,
   type CloneTarget,
-  type RecordingSpec,
   type UploadRow,
 } from '../../model/voice-capture.ts';
 import { rpcErrorText, voiceConsentStatement, VOICE_NAME_MAX, type VoiceEntry } from '../../model/voices-library.ts';
@@ -65,6 +50,7 @@ import { useRuntime } from '../../runtime/context.tsx';
 import { useVoices } from '../../state/voices-store.ts';
 import { createCapturedVoice, saveConsentClip, uploadClone } from './voice-actions.ts';
 import { CAPTURE_COPY as CC, MY_VOICES_COPY as COPY } from './voices-copy.ts';
+import { ClipRecorder, TakeWarning, limitText, type Clip } from './voice-take.tsx';
 
 /**
  * 我的声音 › 克隆新音色（设计稿 settings-voice-capture.jsx，架构设计 §5.9）：① 选这只音色给哪些模型用 → ② 录一段样本
@@ -76,6 +62,10 @@ import { CAPTURE_COPY as CC, MY_VOICES_COPY as COPY } from './voices-copy.ts';
  * 录音在界面里解码、混成单声道、重采样到 48 kHz、截到上限，写成 WAV，经宿主（`writeRecording`）落到临时目录，
  * 再把路径交给 `library.put`。存下的是整段样本（≤ 3 分钟）当参考录音（云端收得更短时由 Runtime 截短再上传）；逐字稿留空
  * （样本后半段是随便说的），需要时在「编辑」里补。
+ *
+ * 一段录音（`ClipRecorder`，在 voice-take.tsx）录音中当场提示、停下后给判词。麦克风由这里统一拿着：进「授权声明」时还没录就换回
+ * 录样本的那只，换了别的就提醒（要授权声明的提供方核对两段是不是同一个人）；保存时两段有爆音、底噪，或不是同一只麦克风录的，
+ * 在保存按钮上面提醒一次，不拦。
  */
 
 const wrap = style({ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 });
@@ -92,7 +82,6 @@ const lab = style({ flexShrink: 0, width: 112, paddingTop: 4, font: 'ui-sm', col
 const chips = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, flexGrow: 1, minWidth: 0 });
 const detail = style({ margin: 0, font: 'ui-xs', color: 'gray-600', overflowWrap: 'anywhere' });
 const warn = style({ margin: 0, font: 'ui-xs', color: 'notice-900', overflowWrap: 'anywhere' });
-const negative = style({ margin: 0, font: 'ui-xs', color: 'negative-900', overflowWrap: 'anywhere' });
 const script = style({
   display: 'flex',
   flexDirection: 'column',
@@ -108,361 +97,12 @@ const script = style({
 });
 const clipBox = style({ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 });
 const stack = style({ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: 1, minWidth: 0 });
-const recLine = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, minWidth: 0 });
-const timer = style({ font: 'code-lg', color: { default: 'gray-800', isLive: 'negative-900' }, fontVariantNumeric: 'tabular-nums' });
-const grow = style({ flexGrow: 1, flexBasis: 0, minWidth: 160 });
-const meter = style({ display: 'inline-flex', alignItems: 'end', gap: 2, height: 16 });
-const bar = style({ width: 4, height: 'full', borderRadius: 'sm', backgroundColor: { default: 'gray-200', isLit: 'positive' } });
 const seedValue = style({ font: 'code-sm', color: 'gray-900', userSelect: 'text' });
 const field = style({ width: 'full', maxWidth: 400 });
 const acts = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingTop: 12 });
 const footText = style({ flexGrow: 1, flexBasis: 0, minWidth: 200, font: 'ui-xs', color: 'gray-600', overflowWrap: 'anywhere' });
 
-/** 一段录好（或解码好）的音频：单声道 16 位 WAV。 */
-export interface Clip {
-  bytes: Uint8Array;
-  seconds: number;
-  via: 'mic' | 'upload';
-  /** 上传的文件名。 */
-  name: string | null;
-  /** 上传的比上限长，只取了前面。 */
-  trimmed: boolean;
-}
-
-/** 上限写成「3 分钟」「15 秒」。 */
-function limitText(seconds: number): string {
-  const { unit, value } = limitUnit(seconds);
-  return unit === 'minutes' ? CC.limitMinutes(value) : CC.limitSeconds(value);
-}
-
 const names = (list: readonly Pick<CloneTarget, 'name'>[]) => list.map((t) => t.name).join(' / ');
-
-/** 解码一段音频（麦克风录的 WebM / 上传的 WAV、MP3、M4A、FLAC），混成单声道、重采样到 48 kHz、截到上限，写成 WAV。 */
-async function toWav(data: ArrayBuffer, maxSeconds: number): Promise<Omit<Clip, 'via' | 'name'>> {
-  const ctx = new OfflineAudioContext(1, 1, CAPTURE_SAMPLE_RATE);
-  const audio = await ctx.decodeAudioData(data);
-  const channels = Array.from({ length: audio.numberOfChannels }, (_, i) => audio.getChannelData(i));
-  const mono = downmix(channels, audio.sampleRate, maxSeconds);
-  return { bytes: encodeWav(mono, audio.sampleRate), seconds: mono.length / audio.sampleRate, trimmed: audio.duration > maxSeconds + 0.05 };
-}
-
-const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
-function Meter({ level, on }: { level: number; on: boolean }) {
-  return (
-    <span className={meter} role="meter" aria-label={CC.level} aria-valuemin={0} aria-valuemax={1} aria-valuenow={on ? level : 0}>
-      {Array.from({ length: 14 }, (_, i) => (
-        <span key={i} className={bar({ isLit: on && level * 14 > i })} />
-      ))}
-    </span>
-  );
-}
-
-/** 试听一段录音（同一时间只放一段）。 */
-function usePlayback() {
-  const audio = useRef<HTMLAudioElement | null>(null);
-  const url = useRef<string | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const stop = () => {
-    audio.current?.pause();
-    if (url.current) URL.revokeObjectURL(url.current);
-    url.current = null;
-    setPlaying(false);
-  };
-  useEffect(() => stop, []);
-  const toggle = (clip: Clip) => {
-    if (playing) return stop();
-    const el = audio.current ?? (audio.current = new Audio());
-    url.current = URL.createObjectURL(new Blob([clip.bytes.slice()], { type: 'audio/wav' }));
-    el.src = url.current;
-    el.onended = stop;
-    setPlaying(true);
-    void el.play().catch(stop);
-  };
-  return { playing, toggle, stop };
-}
-
-/** 录音时计时旁边的一句。 */
-function noteText(seconds: number, spec: RecordingSpec): string {
-  const note = recordingNote(seconds, spec);
-  switch (note.kind) {
-    case 'need':
-      return CC.needMore(note.seconds.toFixed(1));
-    case 'enough':
-      return CC.enoughBest(clock(spec.target));
-    case 'plenty':
-      return CC.plenty;
-    case 'left':
-      return CC.left(note.seconds.toFixed(1));
-    case 'stop':
-      return CC.autoStop;
-  }
-}
-
-/**
- * 一段录音：麦克风（选输入设备、电平、计时 `mm:ss.s / 00:30.0`，进度条朝目标走；到目标后想多说可以接着说，最后几秒倒数，
- * 到上限自动停；听一遍、重录）或上传一个音频文件（超过上限取前面）。
- * 停下或选好文件后 `onClip(clip)`，重录 / 换文件时 `onClip(null)`；`clip` 是父级已经拿着的那段（换步回来照它恢复）。
- */
-function ClipRecorder({ spec, clip, onClip, hint }: { spec: RecordingSpec; clip: Clip | null; onClip: (clip: Clip | null) => void; hint: string }) {
-  const [via, setVia] = useState<'mic' | 'upload'>(clip?.via ?? 'mic');
-  const [phase, setPhase] = useState<'idle' | 'rec' | 'reading'>('idle');
-  const [secs, setSecs] = useState(0);
-  const [level, setLevel] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [devices, setDevices] = useState<{ id: string; label: string }[]>([]);
-  const [deviceId, setDeviceId] = useState('default');
-  const live = useRef<{ stream: MediaStream; recorder: MediaRecorder; ctx: AudioContext; timer: number } | null>(null);
-  const fileInput = useRef<HTMLInputElement | null>(null);
-  const playback = usePlayback();
-
-  const listDevices = async () => {
-    const all = await navigator.mediaDevices?.enumerateDevices().catch(() => []);
-    setDevices(
-      (all ?? [])
-        .filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.label)
-        .map((d) => ({ id: d.deviceId, label: d.label })),
-    );
-  };
-
-  const release = () => {
-    const l = live.current;
-    live.current = null;
-    if (!l) return;
-    window.clearInterval(l.timer);
-    for (const track of l.stream.getTracks()) track.stop();
-    void l.ctx.close().catch(() => undefined);
-  };
-
-  useEffect(() => {
-    void listDevices();
-    return () => {
-      const l = live.current;
-      if (l && l.recorder.state !== 'inactive') {
-        l.recorder.ondataavailable = null;
-        l.recorder.onstop = null;
-        l.recorder.stop();
-      }
-      release();
-    };
-  }, []);
-
-  const finish = async (data: ArrayBuffer, from: Clip['via'], name: string | null) => {
-    try {
-      const wav = await toWav(data, spec.max);
-      onClip({ ...wav, via: from, name });
-      setSecs(wav.seconds);
-    } catch (e) {
-      setError(CC.readFailed(errorMessage(e)));
-    } finally {
-      setPhase('idle');
-    }
-  };
-
-  const stop = () => {
-    const l = live.current;
-    if (!l) return;
-    window.clearInterval(l.timer);
-    setLevel(0);
-    setPhase('reading');
-    if (l.recorder.state !== 'inactive') l.recorder.stop();
-  };
-
-  const start = async () => {
-    playback.stop();
-    setError(null);
-    onClip(null);
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: deviceId === 'default' ? true : { deviceId: { exact: deviceId } } });
-    } catch (e) {
-      const name = (e as { name?: string } | null)?.name;
-      setError(name === 'NotAllowedError' || name === 'SecurityError' ? CC.micDenied : CC.micFailed(errorMessage(e)));
-      return;
-    }
-    void listDevices();
-    const recorder = new MediaRecorder(stream);
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = (e) => {
-      if (e.data.size) chunks.push(e.data);
-    };
-    recorder.onstop = () => {
-      release();
-      void new Blob(chunks, { type: recorder.mimeType })
-        .arrayBuffer()
-        .then((data) => finish(data, 'mic', null))
-        .catch((e: unknown) => {
-          setError(CC.readFailed(errorMessage(e)));
-          setPhase('idle');
-        });
-    };
-    const ctx = new AudioContext();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    ctx.createMediaStreamSource(stream).connect(analyser);
-    const frame = new Uint8Array(analyser.fftSize);
-    const startedAt = performance.now();
-    const timer = window.setInterval(() => {
-      const s = (performance.now() - startedAt) / 1000;
-      setSecs(Math.min(s, spec.max));
-      analyser.getByteTimeDomainData(frame);
-      setLevel(meterLevel(frame));
-      if (s >= spec.max) stop();
-    }, 100);
-    live.current = { stream, recorder, ctx, timer };
-    setSecs(0);
-    setPhase('rec');
-    recorder.start(250);
-  };
-
-  const switchVia = (key: string) => {
-    if (phase !== 'idle') return;
-    playback.stop();
-    setVia(key as Clip['via']);
-    setError(null);
-    setSecs(0);
-    onClip(null);
-  };
-
-  const pickFile = async (file: File | undefined) => {
-    if (!file) return;
-    playback.stop();
-    setError(null);
-    onClip(null);
-    setPhase('reading');
-    await finish(await file.arrayBuffer(), 'upload', file.name);
-  };
-
-  const recNote = noteText(secs, spec);
-  // 到目标之前写「已录 / 目标」；过了目标只写已录的（上限在说明与最后几秒的倒数里）。
-  const timeText = (s: number) => (s < spec.target ? `${clock(s)} / ${clock(spec.target)}` : clock(s));
-  const limit = limitText(spec.max);
-  const playButton = clip ? (
-    <ActionButton size="S" aria-label={playback.playing ? CC.stopPlay : CC.play} onPress={() => playback.toggle(clip)}>
-      {playback.playing ? <PauseIcon /> : <PlayIcon />}
-    </ActionButton>
-  ) : null;
-
-  return (
-    <div className={clipBox}>
-      <div className={row}>
-        <span className={lab}>{CC.source}</span>
-        <div className={chips}>
-          <SegmentedControl aria-label={CC.source} selectedKey={via} onSelectionChange={(key) => switchVia(String(key))}>
-            <SegmentedControlItem id="mic">
-              <MicrophoneIcon />
-              <Text>{CC.mic}</Text>
-            </SegmentedControlItem>
-            <SegmentedControlItem id="upload">
-              <UploadIcon />
-              <Text>{CC.upload}</Text>
-            </SegmentedControlItem>
-          </SegmentedControl>
-          {via === 'mic' ? (
-            <>
-              <Picker
-                aria-label={CC.device}
-                size="S"
-                menuWidth={260}
-                isDisabled={phase !== 'idle'}
-                selectedKey={deviceId}
-                onSelectionChange={(key) => setDeviceId(key === null ? 'default' : String(key))}
-              >
-                {[{ id: 'default', label: CC.defaultDevice }, ...devices].map((d) => (
-                  <PickerItem key={d.id} id={d.id} textValue={d.label}>
-                    {d.label}
-                  </PickerItem>
-                ))}
-              </Picker>
-              <Meter level={level} on={phase === 'rec'} />
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {via === 'mic' ? (
-        <div className={recLine}>
-          {phase === 'rec' ? (
-            <>
-              <Button variant="negative" onPress={stop}>
-                {CC.stop}
-              </Button>
-              <span className={timer({ isLive: true })} role="timer" aria-live="off">
-                {timeText(secs)}
-              </span>
-              <ProgressBar
-                size="S"
-                aria-label={CC.progress}
-                value={recordingProgress(secs, spec)}
-                styles={style({ flexGrow: 1, minWidth: 120 })}
-              />
-              <span className={recordingNote(secs, spec).kind === 'left' ? warn : detail}>{recNote}</span>
-            </>
-          ) : phase === 'reading' ? (
-            <span className={detail}>{CC.reading}</span>
-          ) : clip ? (
-            <>
-              {playButton}
-              <span className={timer({})}>{clock(clip.seconds)}</span>
-              <span className={`${grow} ${detail}`}>{clip.seconds >= spec.max - 0.05 ? CC.stoppedAtMax(limit) : hint}</span>
-              <Button variant="secondary" size="S" onPress={() => void start()}>
-                <RefreshIcon />
-                <Text>{CC.again}</Text>
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="accent" onPress={() => void start()}>
-                <MicrophoneIcon />
-                <Text>{CC.start}</Text>
-              </Button>
-              <span className={timer({})}>{timeText(0)}</span>
-              <span className={`${grow} ${detail}`}>{hint}</span>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className={recLine}>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="audio/*,.wav,.mp3,.m4a,.flac"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              void pickFile(file);
-            }}
-          />
-          {phase === 'reading' ? (
-            <span className={detail}>{CC.reading}</span>
-          ) : clip ? (
-            <>
-              {playButton}
-              <span className={timer({})}>{clock(clip.seconds)}</span>
-              <span className={`${grow} ${detail}`}>
-                {[clip.name, clip.trimmed ? CC.trimmed(limit) : null, hint].filter(Boolean).join(' · ')}
-              </span>
-              <Button variant="secondary" size="S" onPress={() => fileInput.current?.click()}>
-                <RefreshIcon />
-                <Text>{CC.otherFile}</Text>
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="accent" onPress={() => fileInput.current?.click()}>
-                <UploadIcon />
-                <Text>{CC.pickFile}</Text>
-              </Button>
-              <span className={`${grow} ${detail}`}>{CC.uploadHint(spec.min, spec.target, limit)}</span>
-            </>
-          )}
-        </div>
-      )}
-      {error ? <p className={negative}>{error}</p> : null}
-    </div>
-  );
-}
 
 function StepList({ steps, cur }: { steps: CloneStep[]; cur: number }) {
   const labels: Record<CloneStep['key'], string> = {
@@ -530,12 +170,16 @@ function SampleStep({
   setLang,
   clip,
   onClip,
+  deviceId,
+  onDeviceId,
 }: {
   chosen: readonly CloneTarget[];
   lang: string;
   setLang: (code: string) => void;
   clip: Clip | null;
   onClip: (c: Clip | null) => void;
+  deviceId?: string;
+  onDeviceId?: (id: string) => void;
 }) {
   const verdict = clip ? sampleVerdict(clip.seconds) : null;
   const shortFor = clip && verdict !== 'short' ? sampleTooShortFor(chosen, clip.seconds) : null;
@@ -573,7 +217,7 @@ function SampleStep({
         ))}
         <span className={detail}>{CC.scriptTail(SAMPLE.target, limitText(SAMPLE.max))}</span>
       </blockquote>
-      <ClipRecorder spec={SAMPLE} clip={clip} onClip={onClip} hint={hint} />
+      <ClipRecorder spec={SAMPLE} clip={clip} onClip={onClip} hint={hint} deviceId={deviceId} onDeviceId={onDeviceId} />
       {verdict === 'short' || shortFor ? <p className={warn}>{hint}</p> : null}
     </>
   );
@@ -591,12 +235,19 @@ function ConsentStep({
   setDraft,
   clip,
   onClip,
+  sample = null,
+  deviceId,
+  onDeviceId,
 }: {
   needed: readonly string[];
   draft: ConsentDraft;
   setDraft: (d: ConsentDraft) => void;
   clip: Clip | null;
   onClip: (c: Clip | null) => void;
+  /** 克隆新音色里录的样本：拿它比麦克风（单步补录时没有）。 */
+  sample?: Clip | null;
+  deviceId?: string;
+  onDeviceId?: (id: string) => void;
 }) {
   const locale = intlLocale();
   const phrase = consentPhrase(draft.language);
@@ -677,6 +328,10 @@ function ConsentStep({
         clip={clip}
         onClip={onClip}
         hint={short ? CC.consentShort(clip.seconds.toFixed(1)) : clip ? CC.consentGood : CC.consentHint}
+        deviceId={deviceId}
+        onDeviceId={onDeviceId}
+        sample={sample}
+        needed={needed}
       />
       {short ? <p className={warn}>{CC.consentShort(clip.seconds.toFixed(1))}</p> : null}
     </>
@@ -718,6 +373,8 @@ export function VoiceCapture({
   const [sample, setSample] = useState<Clip | null>(null);
   const [consentDraft, setConsentDraft] = useState<ConsentDraft>({ language: CONSENT_DEFAULT, custom: '' });
   const [consentClip, setConsentClip] = useState<Clip | null>(null);
+  // 麦克风两步共用：进「授权声明」时还没录就换回录样本的那只（要它的提供方核对两段是不是同一个人，同一只麦克风最稳）。
+  const [deviceId, setDeviceId] = useState('default');
   const [name, setName] = useState(() =>
     defaultVoiceName(
       CC.namePlaceholder,
@@ -751,6 +408,13 @@ export function VoiceCapture({
   const plan = uploadPlan(chosen, { declared: consent, consentClip: !!keptConsent, sampleSeconds: sample?.seconds ?? null });
   const uploads = uploadTargets(plan);
   const consentTo = uploads.filter((t) => t.consent);
+  // 保存前那条提醒：授权声明这次没传给要它的那家就不拿它说（本机引擎只用样本）。
+  const takeWarnings = saveTakeWarnings({ sample, consent: consentTo.length ? keptConsent : null });
+  const goTo = (i: number) => {
+    const to = steps[Math.max(0, Math.min(i, steps.length - 1))];
+    if (to?.key === 'consent' && !consentClip && sample?.via === 'mic' && sample.mic) setDeviceId(sample.mic.id);
+    setCur(i);
+  };
   const foot =
     step.key === 'models'
       ? chosen.length
@@ -831,10 +495,21 @@ export function VoiceCapture({
           }}
           clip={sample}
           onClip={setSample}
+          deviceId={deviceId}
+          onDeviceId={setDeviceId}
         />
       ) : null}
       {step.key === 'consent' ? (
-        <ConsentStep needed={step.needed} draft={consentDraft} setDraft={setConsentDraft} clip={consentClip} onClip={setConsentClip} />
+        <ConsentStep
+          needed={step.needed}
+          draft={consentDraft}
+          setDraft={setConsentDraft}
+          clip={consentClip}
+          onClip={setConsentClip}
+          sample={sample}
+          deviceId={deviceId}
+          onDeviceId={setDeviceId}
+        />
       ) : null}
       {step.key === 'save' ? (
         <>
@@ -872,16 +547,21 @@ export function VoiceCapture({
             {voiceConsentStatement()}
           </Checkbox>
           <Landing chosen={chosen} plan={plan} sampleSeconds={sample?.seconds ?? null} />
+          <TakeWarning
+            warnings={takeWarnings}
+            uploadTo={names(uploads)}
+            onRedo={(key) => goTo(steps.findIndex((s) => s.key === key))}
+          />
         </>
       ) : null}
       <div className={acts}>
         {index > 0 ? (
-          <Button variant="secondary" size="S" isDisabled={saving} onPress={() => setCur(index - 1)}>
+          <Button variant="secondary" size="S" isDisabled={saving} onPress={() => goTo(index - 1)}>
             {CC.prev}
           </Button>
         ) : null}
         {!last ? (
-          <Button variant="accent" size="S" isDisabled={!canNext} onPress={() => setCur(index + 1)}>
+          <Button variant="accent" size="S" isDisabled={!canNext} onPress={() => goTo(index + 1)}>
             {CC.next}
           </Button>
         ) : null}
@@ -892,7 +572,7 @@ export function VoiceCapture({
             size="S"
             onPress={() => {
               setConsentClip(null);
-              setCur(index + 1);
+              goTo(index + 1);
             }}
           >
             {CC.skipConsent}
@@ -1015,6 +695,11 @@ export function ConsentCapture({
       <h2 className={title}>{heading}</h2>
       {tip ? <p className={warn}>{tip}</p> : null}
       <ConsentStep needed={needed} draft={draft} setDraft={setDraft} clip={clip} onClip={setClip} />
+      {/* 只录授权声明：没有哪家要它就不提醒；样本早就存了，比不了麦克风。 */}
+      <TakeWarning
+        warnings={saveTakeWarnings({ sample: null, consent: needed.length || resubmit ? clip : null })}
+        uploadTo={resubmit ? resubmit.label : needed.join(' / ')}
+      />
       <div className={acts}>
         <Button variant="accent" size="S" isPending={saving} isDisabled={!ok} onPress={() => void save()}>
           {resubmit ? CC.saveClipUpload(resubmit.label) : CC.saveClip}

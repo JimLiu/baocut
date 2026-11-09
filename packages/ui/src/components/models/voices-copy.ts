@@ -189,6 +189,55 @@ const en = {
     consentHint: 'Read the whole sentence in one go; no need to rush',
     consentShort: (seconds: string) => `Only ${seconds} seconds · read the whole sentence`,
     consentGood: 'Play it back; reading the whole sentence clearly is enough',
+    /** 录音中电平下面那一行（model/voice-capture.ts `liveTakeHint`）。 */
+    takeLive: {
+      clipping: 'Clipping · move back from the microphone or speak more softly',
+      silent: 'No sound yet · check that the right microphone is selected, or move closer',
+      quiet: 'Too quiet · move closer to the microphone',
+      noisy: 'A bit noisy · turn off fans or air conditioning if you can',
+      waiting: 'Read the text above',
+      ok: 'Good level',
+    },
+    /** 停下后的毛病（短名，也用在保存前那条提醒里）与各自的办法。 */
+    takeIssue: {
+      silent: 'almost nothing recorded',
+      clipping: 'clipping',
+      quiet: 'too quiet',
+      noisy: 'background noise',
+      pauses: 'mostly pauses',
+    },
+    takeFix: {
+      silent: 'Check that the right microphone is selected and not muted, then record again',
+      clipping: 'Move a hand’s width back from the microphone or turn down the input volume in system settings, then record again',
+      quiet: 'Move closer to the microphone and speak at your normal volume, then record again',
+      noisy: 'Turn off fans and air conditioning, or move to a quieter room, then record again',
+      pauses: 'Keep talking; don’t pause for long in the middle',
+    },
+    /** 几样毛病连成判词的标题（各语言自己拼）。 */
+    takeTitle: (issues: readonly string[]) => {
+      const text = issues.join(', ');
+      return text.charAt(0).toLocaleUpperCase('en') + text.slice(1);
+    },
+    takeOk: 'Sounds good',
+    takeOkFix: 'Good level, no clipping, and quiet enough',
+    /** 授权声明这一步：现在选的麦克风和录样本的不是同一只。 */
+    micNow: (sample: string, used: string, names: string) =>
+      `The sample was recorded with “${sample}”, and “${used}” is selected now. With a different microphone, ${names} may not recognize both recordings as the same person.`,
+    /** 授权声明已经用另一只麦克风录好了。 */
+    micTaken: (sample: string, used: string, names: string) =>
+      `The sample was recorded with “${sample}”, but this was recorded with “${used}”. With a different microphone, ${names} may not recognize both recordings as the same person; switch back and record again to be safe.`,
+    switchMic: (label: string) => `Switch back to ${label}`,
+    /** 麦克风菜单里录样本用的那一只。 */
+    sampleMic: 'Used for the sample',
+    /** 保存前那条提醒：只提醒，不拦。 */
+    warnTitle: (names: string) => `${names} may reject this voice`,
+    warnTitleLocal: 'The cloned voice will pick up these problems too',
+    warnSample: (issues: readonly string[]) => `Sample: ${issues.join(', ')}`,
+    warnConsent: (issues: readonly string[]) => `Consent statement: ${issues.join(', ')}`,
+    warnMic: 'The consent statement and the sample were recorded with different microphones',
+    warnBody: 'You can still save; if it’s rejected, you’ll see why. Recording again is safer.',
+    warnBodyLocal: 'You can still save; recording again is better.',
+    redoSample: 'Re-record sample',
     skipConsent: 'Skip for now and save',
     name: 'Name',
     namePlaceholder: 'My voice',

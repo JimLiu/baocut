@@ -37,7 +37,19 @@ import {
   uploadTargets,
   voiceIdBindings,
   voicesBoundTo,
+  TAKE,
+  analyzeTake,
+  feedLiveTake,
+  liveTakeHint,
+  micMismatch,
+  redoSteps,
+  sameMic,
+  saveTakeWarnings,
+  startLiveTake,
+  takeIssues,
   type CloneTarget,
+  type TakeAnalysis,
+  type TakeSource,
 } from './voice-capture.ts';
 import { captureVoiceRequest, cloneProviders, consentClipRequest, reseedRequest, type VoiceEntry } from './voices-library.ts';
 
@@ -480,5 +492,162 @@ describe('保存后上传到哪', () => {
     expect(sampleTooShortFor([local, gemini, strict, eleven], 12)).toEqual({ min: 15, names: ['Strict'] });
     expect(sampleTooShortFor([gemini, strict], 8)).toEqual({ min: 15, names: ['Google Gemini', 'Strict'] });
     expect(sampleTooShortFor([gemini, eleven], 10)).toBeNull();
+  });
+});
+
+describe('录音音质', () => {
+  const SR = 8000;
+  /** `seconds` 秒、振幅 `amp` 的 200 Hz 正弦（RMS = amp / √2）。 */
+  const sine = (amp: number, seconds: number, sr = SR) =>
+    Float32Array.from({ length: Math.round(seconds * sr) }, (_, i) => amp * Math.sin((2 * Math.PI * 200 * i) / sr));
+  /** 等幅的方波噪声：每个样本 ±amp，RMS = amp。 */
+  const hiss = (amp: number, seconds: number, sr = SR) => Float32Array.from({ length: Math.round(seconds * sr) }, (_, i) => (i % 2 ? amp : -amp));
+  const join = (...parts: Float32Array[]) => {
+    const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+    let at = 0;
+    for (const p of parts) {
+      out.set(p, at);
+      at += p.length;
+    }
+    return out;
+  };
+  const clean: TakeAnalysis = { seconds: 20, levelDb: -20, peakDb: -6, clipRatio: 0, silenceRatio: 0.2, noiseFloorDb: -60 };
+  const take = (patch: Partial<TakeAnalysis>): TakeAnalysis => ({ ...clean, ...patch });
+
+  it('门槛：削顶 0.5%、底噪 −45 dBFS、太小声 −35 dBFS、静音 −50 dBFS、底噪取开头 0.5 秒', () => {
+    expect(TAKE).toMatchObject({ clipWarn: 0.005, noiseWarnDb: -45, quietDb: -35, silenceDb: -50, noiseWindow: 0.5, clipAt: 0.99 });
+  });
+
+  it('空的、正弦的读数；采样率不同读数一样', () => {
+    expect(analyzeTake(new Float32Array(0), SR)).toEqual({
+      seconds: 0,
+      levelDb: -120,
+      peakDb: -120,
+      clipRatio: 0,
+      silenceRatio: 1,
+      noiseFloorDb: -120,
+    });
+    const a = analyzeTake(sine(0.5, 2), SR);
+    expect(a).toMatchObject({ seconds: 2, levelDb: -9, peakDb: -6, clipRatio: 0, silenceRatio: 0 });
+    expect(analyzeTake(sine(0.5, 2, 48_000), 48_000).levelDb).toBe(a.levelDb);
+  });
+
+  it('电平只算说话的帧，静音帧算进静音比例；全是静音退回整段 RMS', () => {
+    const a = analyzeTake(join(new Float32Array(SR), sine(0.5, 1)), SR);
+    expect(a.levelDb).toBe(-9);
+    expect(a.silenceRatio).toBe(0.5);
+    expect(analyzeTake(hiss(0.001, 1), SR)).toMatchObject({ silenceRatio: 1, levelDb: -60 });
+  });
+
+  it('削顶按 |x| ≥ 0.99 数', () => {
+    const s = sine(0.3, 1);
+    for (let i = 0; i < 80; i++) s[i * 100] = i % 2 ? -1 : 0.995;
+    expect(analyzeTake(s, SR).clipRatio).toBe(80 / SR);
+  });
+
+  it('底噪取开头 0.5 秒的下四分位：跳过全零，刚开口也不被顶高，后面再吵也不算', () => {
+    const room = hiss(0.003, 0.5); // −50.5 dBFS
+    expect(analyzeTake(join(room, sine(0.5, 3)), SR).noiseFloorDb).toBe(-50.5);
+    expect(analyzeTake(join(new Float32Array(SR * 0.1), hiss(0.003, 0.4), sine(0.5, 3)), SR).noiseFloorDb).toBe(-50.5);
+    expect(analyzeTake(join(hiss(0.003, 0.3), sine(0.5, 3)), SR).noiseFloorDb).toBe(-50.5);
+    expect(analyzeTake(join(room, sine(0.5, 1), hiss(0.05, 2)), SR).noiseFloorDb).toBe(-50.5);
+  });
+
+  it('停下后的毛病：门槛的两边，几乎没声音时只报它，按要紧程度排', () => {
+    expect(takeIssues(clean)).toEqual([]);
+    expect(takeIssues(null)).toEqual([]);
+    expect(takeIssues(take({ clipRatio: 0.005 }))).toEqual([]);
+    expect(takeIssues(take({ clipRatio: 0.0051 }))).toEqual(['clipping']);
+    expect(takeIssues(take({ noiseFloorDb: -45 }))).toEqual([]);
+    expect(takeIssues(take({ noiseFloorDb: -44.9 }))).toEqual(['noisy']);
+    expect(takeIssues(take({ levelDb: -35 }))).toEqual([]);
+    expect(takeIssues(take({ levelDb: -35.1 }))).toEqual(['quiet']);
+    expect(takeIssues(take({ silenceRatio: 0.5 }))).toEqual([]);
+    expect(takeIssues(take({ silenceRatio: 0.51 }))).toEqual(['pauses']);
+    expect(takeIssues(take({ silenceRatio: 0.95, clipRatio: 0.1 }))).toEqual(['silent']);
+    expect(takeIssues(take({ clipRatio: 0.02, noiseFloorDb: -40, silenceRatio: 0.6 }))).toEqual(['clipping', 'noisy', 'pauses']);
+  });
+
+  it('录音中那一行：爆音 > 3 秒没声音 > 太小声 > 太吵 > 等开口 > 合适', () => {
+    const hint = (o: { recent?: Partial<TakeAnalysis> | null; noiseFloorDb?: number | null; heard?: boolean }, seconds = 5) =>
+      liveTakeHint(
+        {
+          recent: o.recent === null ? null : take(o.recent ?? {}),
+          noiseFloorDb: o.noiseFloorDb === undefined ? -60 : o.noiseFloorDb,
+          heard: o.heard ?? true,
+        },
+        seconds,
+      );
+    expect(hint({})).toBe('ok');
+    expect(hint({ recent: { clipRatio: 0.002 }, noiseFloorDb: -40 })).toBe('clipping');
+    expect(hint({ recent: { clipRatio: 0.001 } }), '0.1% 以内不打扰').toBe('ok');
+    expect(hint({ heard: false, recent: { silenceRatio: 1, levelDb: -70 } }, 3)).toBe('silent');
+    expect(hint({ heard: false, recent: { silenceRatio: 1, levelDb: -70 } }, 2.9)).toBe('waiting');
+    expect(hint({ recent: { levelDb: -40 }, noiseFloorDb: -40 })).toBe('quiet');
+    expect(hint({ recent: { levelDb: -70, silenceRatio: 1 } }), '说话中间停一下不算太小声').toBe('ok');
+    expect(hint({ noiseFloorDb: -40 })).toBe('noisy');
+    expect(hint({ noiseFloorDb: null, heard: false, recent: null }, 0.3)).toBe('waiting');
+    expect(hint({ noiseFloorDb: -40, heard: false }, 1), '没开口也先说吵').toBe('noisy');
+  });
+
+  it('录音中每 0.1 秒喂一帧：开头 0.5 秒量底噪，听到声音记下，只看最近 1.5 秒', () => {
+    const frame = (f: Float32Array, i: number) => f.subarray(Math.round(i * 0.1 * SR), Math.round(i * 0.1 * SR) + 400);
+    const audio = join(hiss(0.003, 0.8), sine(0.5, 1.2), sine(1.2, 0.5)); // 安静 → 说话 → 爆音
+    let live = startLiveTake(SR);
+    const seen: string[] = [];
+    for (let i = 1; i <= 25; i++) {
+      live = feedLiveTake(live, frame(audio, i - 1), i * 0.1);
+      seen.push(liveTakeHint(live, i * 0.1));
+      if (i === 5) expect(live.noiseFloorDb, '0.5 秒还在量').toBeNull();
+      if (i === 6) expect(live.noiseFloorDb).toBe(-50.5);
+    }
+    expect(seen.slice(0, 8).every((h) => h === 'waiting')).toBe(true);
+    expect(seen[9]).toBe('ok');
+    expect(seen[24]).toBe('clipping');
+    expect(live.frames.length, '最近 1.5 秒').toBe(15);
+    expect(live.head, '量完就不留了').toEqual([]);
+    // 复制了帧：AnalyserNode 复用同一块缓冲
+    const buf = sine(0.5, 0.05);
+    const fed = feedLiveTake(startLiveTake(SR), buf, 0.1);
+    buf.fill(0);
+    expect(fed.frames[0]![10]).not.toBe(0);
+  });
+
+  it('同一只麦克风：知道物理设备就按它比（系统默认也认得出），否则按选的设备比', () => {
+    expect(sameMic({ id: 'default', group: 'g1' }, { id: 'builtin', group: 'g1' })).toBe(true);
+    expect(sameMic({ id: 'builtin', group: 'g1' }, { id: 'airpods', group: 'g2' })).toBe(false);
+    expect(sameMic({ id: 'default' }, { id: 'builtin', group: 'g1' })).toBe(false);
+    expect(sameMic({ id: 'builtin' }, { id: 'builtin' })).toBe(true);
+  });
+
+  it('授权声明和样本不是同一只麦克风', () => {
+    const sample: TakeSource = { via: 'mic', mic: { id: 'builtin' } };
+    expect(micMismatch(sample, null, { id: 'builtin' })).toBe(false);
+    expect(micMismatch(sample, null, { id: 'airpods' }), '还没录：看现在选的').toBe(true);
+    expect(micMismatch(sample, { via: 'mic', mic: { id: 'airpods' } }, { id: 'builtin' }), '录好了：看录时用的').toBe(true);
+    expect(micMismatch(sample, { via: 'mic', mic: { id: 'builtin' } }, { id: 'airpods' })).toBe(false);
+    expect(micMismatch(sample, { via: 'upload' }, { id: 'airpods' }), '授权声明是上传的不比').toBe(false);
+    expect(micMismatch({ via: 'upload' }, null, { id: 'airpods' }), '样本是上传的不比').toBe(false);
+    expect(micMismatch(null, null, { id: 'airpods' })).toBe(false);
+    expect(micMismatch(sample, null, null)).toBe(false);
+  });
+
+  it('保存前只报削顶 > 0.5%、底噪 > −45 dBFS 与换了麦克风；干净的不说话', () => {
+    const mic = (a: TakeAnalysis, id = 'builtin'): TakeSource => ({ via: 'mic', mic: { id }, analysis: a });
+    expect(saveTakeWarnings({ sample: mic(clean), consent: mic(clean) })).toEqual([]);
+    expect(saveTakeWarnings({ sample: mic(take({ levelDb: -40, silenceRatio: 0.7 })) }), '太小声、停顿多只在停下时说').toEqual([]);
+    expect(saveTakeWarnings({ sample: mic(take({ clipRatio: 0.005, noiseFloorDb: -45 })) }), '正好在门槛上').toEqual([]);
+    const list = saveTakeWarnings({ sample: mic(take({ clipRatio: 0.012 })), consent: mic(take({ noiseFloorDb: -40 }), 'airpods') });
+    expect(list).toEqual([
+      { step: 'sample', kind: 'clipping' },
+      { step: 'consent', kind: 'noisy' },
+      { step: 'consent', kind: 'mic' },
+    ]);
+    expect(redoSteps(list)).toEqual(['sample', 'consent']);
+    expect(redoSteps([{ step: 'consent', kind: 'mic' }])).toEqual(['consent']);
+    expect(saveTakeWarnings({ sample: mic(clean), consent: null }), '授权声明这次不上传：不比麦克风').toEqual([]);
+    expect(saveTakeWarnings({ sample: null, consent: mic(take({ clipRatio: 0.02 })) }), '单步补录只看授权声明').toEqual([
+      { step: 'consent', kind: 'clipping' },
+    ]);
   });
 });

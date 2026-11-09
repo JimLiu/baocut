@@ -553,3 +553,233 @@ export function meterLevel(frame: Uint8Array): number {
   if (peak <= 0) return 0;
   return Math.max(0, Math.min(1, 1 + Math.log10(peak) / 2));
 }
+
+// ---- 录音音质（设计稿 model-voice-take.js：门槛同一组数） ----
+//
+// 克隆新音色的样本与授权声明录完先在本机看一遍，别等云端退回才知道录坏了：要授权声明的提供方会核对两段是不是同一个人，
+// 官方建议同一只麦克风、同一个房间、干净自然的说话；爆音、底噪、太小声都会让它认不准。只提醒，不拦（时长门槛在上面）。
+
+/** 音质门槛：dB 都是 dBFS。 */
+export const TAKE = {
+  /** 20 ms 一帧。 */
+  frame: 0.02,
+  /** 底噪取开头 0.5 秒：按下录音到开口通常有这么久。 */
+  noiseWindow: 0.5,
+  /** |x| ≥ 0.99 算削顶。 */
+  clipAt: 0.99,
+  /** 削顶样本超过 0.5%：判爆音，保存前提醒。 */
+  clipWarn: 0.005,
+  /** 底噪高于 −45 dBFS：判太吵，保存前提醒。 */
+  noiseWarnDb: -45,
+  /** 一帧 RMS 低于 −50 dBFS 算静音。 */
+  silenceDb: -50,
+  /** 说话（非静音帧）的电平低于 −35 dBFS：太小声。 */
+  quietDb: -35,
+  /** 95% 以上是静音：几乎没录到声音。 */
+  silentRatio: 0.95,
+  /** 一半以上是静音：停顿太多。 */
+  pauseWarn: 0.5,
+  /** 录音中只看最近 1.5 秒。 */
+  liveWindow: 1.5,
+  /** 最近这一段削顶超过 0.1% 就当场提醒。 */
+  liveClip: 0.001,
+  /** 开录 3 秒还没听到人声：多半是麦克风不对。 */
+  noVoiceAfter: 3,
+} as const;
+
+const DB_FLOOR = -120;
+/** 比它还低的是数字静音（设备刚打开时的全零），不算进底噪。 */
+const ZERO_DB = -100;
+
+const dbfs = (x: number) => (x > 0 ? Math.max(DB_FLOOR, 20 * Math.log10(x)) : DB_FLOOR);
+const round1 = (x: number) => Math.round(x * 10) / 10;
+
+/** 从小到大第 q 分位（0–1），取下标向下取整的那个；空的回最低值。 */
+function quantile(list: readonly number[], q: number): number {
+  if (!list.length) return DB_FLOOR;
+  const sorted = [...list].sort((a, b) => a - b);
+  return sorted[Math.floor((sorted.length - 1) * q)]!;
+}
+
+/** 一段录音的读数。dB 都是 dBFS（最低 −120），比例是 0–1。 */
+export interface TakeAnalysis {
+  seconds: number;
+  /** 说话的电平：非静音帧的 RMS（全是静音时退到整段 RMS）。 */
+  levelDb: number;
+  peakDb: number;
+  /** 削顶样本的比例。 */
+  clipRatio: number;
+  /** 静音帧的比例。 */
+  silenceRatio: number;
+  /** 底噪：开头 0.5 秒各帧 RMS 的下四分位（刚开口也不至于被说话顶高），跳过全零。 */
+  noiseFloorDb: number;
+}
+
+/** 一段单声道 PCM（−1..1）的读数。 */
+export function analyzeTake(samples: Float32Array, sampleRate: number): TakeAnalysis {
+  const n = samples.length;
+  const sr = Number.isFinite(sampleRate) && sampleRate > 0 ? sampleRate : 0;
+  if (!n || !sr) return { seconds: 0, levelDb: DB_FLOOR, peakDb: DB_FLOOR, clipRatio: 0, silenceRatio: 1, noiseFloorDb: DB_FLOOR };
+  const size = Math.max(1, Math.round(TAKE.frame * sr));
+  const headEnd = TAKE.noiseWindow * sr;
+  const head: number[] = [];
+  let peak = 0;
+  let clipped = 0;
+  let total = 0;
+  let voiced = 0;
+  let voicedN = 0;
+  let frames = 0;
+  let silent = 0;
+  for (let start = 0; start < n; start += size) {
+    const end = Math.min(n, start + size);
+    let sum = 0;
+    for (let i = start; i < end; i++) {
+      const x = samples[i]!;
+      const a = x < 0 ? -x : x;
+      if (a > peak) peak = a;
+      if (a >= TAKE.clipAt) clipped += 1;
+      sum += x * x;
+    }
+    total += sum;
+    frames += 1;
+    const d = dbfs(Math.sqrt(sum / (end - start)));
+    if (d < TAKE.silenceDb) silent += 1;
+    else {
+      voiced += sum;
+      voicedN += end - start;
+    }
+    if (start < headEnd && d > ZERO_DB) head.push(d);
+  }
+  return {
+    seconds: round1(n / sr),
+    levelDb: round1(dbfs(Math.sqrt(voicedN ? voiced / voicedN : total / n))),
+    peakDb: round1(dbfs(peak)),
+    clipRatio: clipped / n,
+    silenceRatio: silent / frames,
+    noiseFloorDb: round1(quantile(head, 0.25)),
+  };
+}
+
+/** 几段接成一段。 */
+function joinFrames(frames: readonly Float32Array[]): Float32Array {
+  const out = new Float32Array(frames.reduce((n, f) => n + f.length, 0));
+  let at = 0;
+  for (const f of frames) {
+    out.set(f, at);
+    at += f.length;
+  }
+  return out;
+}
+
+/**
+ * 录音进行中的读数：每次取到一帧时域样本（AnalyserNode，约 0.1 秒一帧）喂进来。`recent` 是最近 1.5 秒的读数，
+ * `noiseFloorDb` 是开头 0.5 秒量到的（还没量完是 null），`heard` 是到现在有没有过非静音的帧。
+ */
+export interface LiveTake {
+  sampleRate: number;
+  frames: Float32Array[];
+  head: Float32Array[];
+  heard: boolean;
+  noiseFloorDb: number | null;
+  recent: TakeAnalysis | null;
+}
+
+export function startLiveTake(sampleRate: number): LiveTake {
+  return { sampleRate, frames: [], head: [], heard: false, noiseFloorDb: null, recent: null };
+}
+
+/** 喂一帧（会复制，AnalyserNode 复用同一块缓冲）。`seconds` 是这一帧在录音里的时刻，`interval` 是两帧之间隔多久。 */
+export function feedLiveTake(live: LiveTake, frame: Float32Array, seconds: number, interval = 0.1): LiveTake {
+  const copy = Float32Array.from(frame);
+  const keep = Math.max(1, Math.round(TAKE.liveWindow / interval));
+  const frames = [...live.frames, copy].slice(-keep);
+  const inHead = seconds <= TAKE.noiseWindow;
+  const head = inHead ? [...live.head, copy] : live.head;
+  const noiseFloorDb =
+    live.noiseFloorDb ?? (!inHead && head.length ? analyzeTake(joinFrames(head), live.sampleRate).noiseFloorDb : null);
+  const heard = live.heard || analyzeTake(copy, live.sampleRate).silenceRatio < 1;
+  return { ...live, frames, head: inHead ? head : [], heard, noiseFloorDb, recent: analyzeTake(joinFrames(frames), live.sampleRate) };
+}
+
+/** 录音中那一行：`waiting` 还没开口；`ok` 音量合适；其余是要当场改的。 */
+export type LiveTakeHint = 'clipping' | 'silent' | 'quiet' | 'noisy' | 'waiting' | 'ok';
+
+/** 先后：爆音 > 3 秒还没声音 > 太小声 > 太吵 > 等开口 > 合适。 */
+export function liveTakeHint(live: Pick<LiveTake, 'recent' | 'noiseFloorDb' | 'heard'>, seconds: number): LiveTakeHint {
+  const s = Number.isFinite(seconds) ? seconds : 0;
+  const recent = live.recent;
+  if (recent && recent.clipRatio > TAKE.liveClip) return 'clipping';
+  if (!live.heard && s >= TAKE.noVoiceAfter) return 'silent';
+  if (live.heard && recent && recent.silenceRatio < 1 && recent.levelDb < TAKE.quietDb) return 'quiet';
+  if (live.noiseFloorDb !== null && live.noiseFloorDb > TAKE.noiseWarnDb) return 'noisy';
+  return live.heard ? 'ok' : 'waiting';
+}
+
+/** 停下后这段录音的毛病（按要紧程度排）；几乎没声音时只报 `silent`。 */
+export type TakeIssue = 'silent' | 'clipping' | 'quiet' | 'noisy' | 'pauses';
+
+export function takeIssues(a: TakeAnalysis | null | undefined): TakeIssue[] {
+  if (!a) return [];
+  if (a.silenceRatio >= TAKE.silentRatio) return ['silent'];
+  const out: TakeIssue[] = [];
+  if (a.clipRatio > TAKE.clipWarn) out.push('clipping');
+  if (a.levelDb < TAKE.quietDb) out.push('quiet');
+  if (a.noiseFloorDb > TAKE.noiseWarnDb) out.push('noisy');
+  if (a.silenceRatio > TAKE.pauseWarn) out.push('pauses');
+  return out;
+}
+
+/** 一只麦克风：`id` 是选的输入设备（`default` 是系统默认），`group` 是它的物理设备（`groupId`，认得出系统默认就是哪一只）。 */
+export interface MicIdentity {
+  id: string;
+  group?: string;
+}
+
+/** 是不是同一只：两边都知道物理设备时按它比，否则按选的设备比。 */
+export function sameMic(a: MicIdentity, b: MicIdentity): boolean {
+  return a.group && b.group ? a.group === b.group : a.id === b.id;
+}
+
+/** 比麦克风用到的一段录音：麦克风录的带着当时那只。 */
+export interface TakeSource {
+  via: 'mic' | 'upload';
+  mic?: MicIdentity | null;
+  analysis?: TakeAnalysis | null;
+}
+
+/**
+ * 授权声明和样本是不是同一只麦克风：样本是上传的不比；授权声明已录就看它录时用的（上传的不比），没录就看现在选的 `current`。
+ * 不是同一只时 true。
+ */
+export function micMismatch(sample: TakeSource | null, consent: TakeSource | null, current: MicIdentity | null): boolean {
+  if (!sample || sample.via !== 'mic' || !sample.mic) return false;
+  const used = consent ? (consent.via === 'mic' ? (consent.mic ?? null) : null) : current;
+  return !!used && !sameMic(used, sample.mic);
+}
+
+/** 保存前那条提醒的一项：哪一段（`step`）有什么（爆音、底噪，或两段不是同一只麦克风）。 */
+export interface SaveTakeWarning {
+  step: 'sample' | 'consent';
+  kind: 'clipping' | 'noisy' | 'mic';
+}
+
+/**
+ * 保存这一步、上传按钮上面那条提醒：只看会让对方认不准的——削顶超过 0.5%、底噪高于 −45 dBFS、两段不是同一只麦克风；干净的回 []。
+ * 授权声明这次不上传就别给 `consent`（本机引擎只用样本）。
+ */
+export function saveTakeWarnings(clips: { sample: TakeSource | null; consent?: TakeSource | null }): SaveTakeWarning[] {
+  const out: SaveTakeWarning[] = [];
+  for (const step of ['sample', 'consent'] as const) {
+    const a = clips[step]?.analysis;
+    if (!a) continue;
+    if (a.clipRatio > TAKE.clipWarn) out.push({ step, kind: 'clipping' });
+    if (a.noiseFloorDb > TAKE.noiseWarnDb) out.push({ step, kind: 'noisy' });
+  }
+  if (clips.consent && micMismatch(clips.sample, clips.consent, null)) out.push({ step: 'consent', kind: 'mic' });
+  return out;
+}
+
+/** 那条提醒里要回去重录的步骤（按步骤的先后）。 */
+export function redoSteps(list: readonly SaveTakeWarning[]): ('sample' | 'consent')[] {
+  return (['sample', 'consent'] as const).filter((step) => list.some((w) => w.step === step));
+}
