@@ -126,4 +126,7 @@ export const de: CliMessages = {
 
   // 管理桶（admin/context.ts）
   noRuntimeClient: "Dieser Befehl verbindet sich nicht mit der Runtime",
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `offene Aufträge: ${jobs}, Verbindungen der Desktop-App: ${desktop}, andere CLI-Verbindungen: ${cli}`,
+  replaceWhenIdle: (busy: string | null) => `Diese Runtime wurde über die Befehlszeile gestartet${busy ? ` und wird noch verwendet (${busy})` : ''}. Führen Sie den Befehl erneut aus, sobald sie untätig ist; dann wird sie automatisch ersetzt.`,
+  notCliLaunched: 'Diese Runtime wurde von der BaoCut-App oder manuell gestartet, daher ersetzt die CLI sie nicht.',
 };

@@ -110,8 +110,24 @@ export function shipCliCatalog(): Plugin {
   };
 }
 
+/**
+ * 构建 commit 的短号，工作区有未提交改动时加 `-dirty`（CLI 独立使用与发布 §4.1）：主进程与 Runtime 写进发现信息的 `build`，
+ * 桌面端据此判断后台的 Runtime 与自己是不是同一次构建。不在 git 仓库里时 null。
+ */
+export function buildCommit(root = resolve(import.meta.dirname, '../..')): string | null {
+  try {
+    const commit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    if (!commit) return null;
+    const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: root, encoding: 'utf8' });
+    return status.trim() ? `${commit}-dirty` : commit;
+  } catch {
+    return null;
+  }
+}
+
 export default defineConfig({
   main: {
+    define: { __BAOCUT_BUILD__: JSON.stringify(buildCommit()) },
     // main 最先构建：在这里拦下时 out/ 的三个目录都还没动（见 tools/running-app-guard.ts）。
     plugins: [guardRunningApp(), shipEditorWasm(), shipCliCatalog()],
     build: {

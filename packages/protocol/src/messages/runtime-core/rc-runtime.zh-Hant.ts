@@ -47,7 +47,7 @@ export const zhHant: RcRuntimeMessages = {
   noSuchTool: (p: { toolId: string }) => `沒有這個工具：${p.toolId}`,
 
   statusLocalOnly: '只有本機的 CLI 和桌面應用程式能取得 Runtime 狀態',
-  stopCliOnly: '只有 CLI 能要求 Runtime 停止',
+  stopLocalOnly: '只有本機的 CLI 和桌面應用程式能要求 Runtime 停止',
   stopNotCliLaunched: '這個 Runtime 不是由 CLI 啟動的（由桌面應用程式啟動或手動啟動），因此 CLI 不會停止它',
   runtimeInUse: (p) =>
     `這個 Runtime 仍在使用中（桌面應用程式：${p.desktop}、其他 CLI 連線：${p.cli}、未完成的任務：${p.activeJobs}）。請等它們結束或將它們關閉後再停止`,

@@ -38,6 +38,7 @@ export * from './catalog.ts';
 export * from './web.ts';
 export * from './legacy-import.ts';
 export * from './wire.ts';
+export * from './runtime-reuse.ts';
 export * from './seq.ts';
 export * from './ids.ts';
 export * from './limits.ts';

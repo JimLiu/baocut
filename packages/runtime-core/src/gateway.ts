@@ -60,6 +60,11 @@ export interface GatewayOptions {
    * 返回错误表示拒绝，原样回给调用方。
    */
   authorize?: (method: RpcMethod, params: unknown, principal: TrustedPrincipal) => RpcError | null;
+  /**
+   * 协议版本不同、拒绝握手时一并告诉对方的情况（CLI 独立使用与发布 §4.2）：谁拉起的、手上有几个任务。对方连不上来问
+   * `runtime.status`，据此说明要等多久。只在令牌对了之后给。
+   */
+  mismatchDetails?: () => Record<string, unknown>;
 }
 
 /** 网关的来源规则，媒体通道的 CORS 也用它。 */
@@ -304,6 +309,7 @@ class Connection {
     if (hello.protocolVersion !== PROTOCOL_VERSION) {
       return this.#fatal(
         new RpcError('protocol-mismatch', RcGateway.protocolMismatch({ client: hello.protocolVersion, runtime: PROTOCOL_VERSION }), {
+          ...this.#options.mismatchDetails?.(),
           runtime: PROTOCOL_VERSION,
         }),
       );

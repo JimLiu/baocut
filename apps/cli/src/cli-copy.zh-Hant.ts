@@ -114,4 +114,7 @@ export const zhHant: CliMessages = {
   waitTimeout: (seconds, jobId) => `等待 ${seconds} 秒後已停止等待；作業 ${jobId} 會繼續執行。`,
 
   noRuntimeClient: '這個指令不會連線到 Runtime',
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `未完成的工作 ${jobs} 個，桌面端連線 ${desktop} 條，其他 CLI 連線 ${cli} 條`,
+  replaceWhenIdle: (busy: string | null) => `那個 Runtime 是由命令列啟動的${busy ? `，仍有人在使用（${busy}）` : ''}。等它閒置後再執行這個指令，會自動換成新的。`,
+  notCliLaunched: '那個 Runtime 是由 BaoCut 應用程式或手動啟動的，CLI 不會替換它。',
 };

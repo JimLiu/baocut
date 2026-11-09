@@ -67,4 +67,6 @@ export const ru: MainMessages = {
   webClearNotWindow: "Только окна приложения могут очищать веб-данные",
   webOpenNotWindow: "Только окна приложения могут открывать внешние ссылки",
   webOpenScheme: "Можно открывать только URL http и https",
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `Старая версия BaoCut Runtime (${version}), запущенная из командной строки, ${jobs === null ? 'ещё работает' : `ещё выполняет задания: ${jobs}`}. Когда она закончит, BaoCut сам перейдёт на эту версию`,
 };

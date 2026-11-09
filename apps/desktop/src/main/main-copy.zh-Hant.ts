@@ -66,4 +66,6 @@ export const zhHant: MainMessages = {
   webClearNotWindow: '只有應用程式視窗可以清除網頁資料',
   webOpenNotWindow: '只有應用程式視窗可以開啟外部連結',
   webOpenScheme: '只能開啟 http 與 https 網址',
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `背景有一個由命令列啟動的舊版 BaoCut Runtime（${version}）${jobs === null ? '仍在執行' : `仍在處理 ${jobs} 個工作`}，它完成後會自動換成這個版本`,
 };

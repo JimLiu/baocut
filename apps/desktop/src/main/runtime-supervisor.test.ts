@@ -5,15 +5,17 @@ import os from 'node:os';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { M } from './main-copy.ts';
-import { RuntimeSupervisor } from './runtime-supervisor.ts';
+import type { FoundRuntimeProbe } from './found-runtime.ts';
+import { RuntimeSupervisor, type RuntimeSupervisorOptions } from './runtime-supervisor.ts';
 import { STOP_MESSAGE } from './stop-child.ts';
 
-const mocks = vi.hoisted(() => ({ spawn: vi.fn(), readDiscovery: vi.fn(), isDiscoveryLive: vi.fn() }));
+const mocks = vi.hoisted(() => ({ spawn: vi.fn(), readDiscovery: vi.fn(), isDiscoveryLive: vi.fn(), isRecordedProcessAlive: vi.fn() }));
 vi.mock('node:child_process', () => ({ spawn: mocks.spawn }));
 vi.mock('@baocut/runtime-storage', async (original) => ({
   ...(await original<typeof import('@baocut/runtime-storage')>()),
   readDiscovery: mocks.readDiscovery,
   isDiscoveryLive: mocks.isDiscoveryLive,
+  isRecordedProcessAlive: mocks.isRecordedProcessAlive,
 }));
 beforeEach(() => {
   mocks.isDiscoveryLive.mockResolvedValue(true);
@@ -25,8 +27,9 @@ afterEach(() => {
 
 const DISCOVERY = { pid: 123, endpoint: 'ws://127.0.0.1:1', token: 'fixture-token' };
 
-function supervisorFor(home: RuntimeHome, legacyAutoDetect = false) {
+function supervisorFor(home: RuntimeHome, legacyAutoDetect = false, extra: Partial<RuntimeSupervisorOptions> = {}) {
   return new RuntimeSupervisor({
+    ...extra,
     home,
     legacyAutoDetect,
     script: '/fixture/runtime.js',
@@ -207,3 +210,121 @@ it('tells its own Runtime when the Bot background service is resident, also one 
   await foreign.connection();
   expect(() => foreign.setResident(true)).not.toThrow();
 });
+
+// ---- 同一个 Home 上版本不同的 Runtime（CLI 独立使用与发布 §4.2、§4.3）----
+
+const OWN = { runtimeVersion: '0.5.0', protocolVersion: '0.6', interfaceVersion: '2', build: 'new1234' };
+const IDENTITY = { own: OWN, entry: '/Applications/BaoCut.app' };
+const IDLE = { connections: { desktop: 0, cli: 0, agent: 0 }, activeJobs: 0 };
+const OLD_CLI = { ...DISCOVERY, pid: 456, startedAt: '2026-11-08T00:00:00.000Z', ...OWN, build: 'old1234', launchedBy: 'cli', entry: IDENTITY.entry };
+const OWN_DISCOVERY = { ...DISCOVERY, endpoint: 'ws://127.0.0.1:3', token: 'own-token' };
+
+function fakeProbe(overrides: Partial<FoundRuntimeProbe> = {}) {
+  return {
+    activity: vi.fn<FoundRuntimeProbe['activity']>().mockResolvedValue(IDLE),
+    mismatchJobs: vi.fn<FoundRuntimeProbe['mismatchJobs']>().mockResolvedValue(null),
+    stop: vi.fn<FoundRuntimeProbe['stop']>().mockResolvedValue(true),
+    ...overrides,
+  };
+}
+
+it('reuses a Runtime of the same version without asking it anything', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-reuse-home') });
+  mocks.readDiscovery.mockResolvedValue({ ...OLD_CLI, build: OWN.build });
+  const probe = fakeProbe();
+  await expect(supervisorFor(home, false, { identity: IDENTITY, probe }).connection()).resolves.toEqual({ endpoint: DISCOVERY.endpoint, token: DISCOVERY.token });
+  expect(probe.activity).not.toHaveBeenCalled();
+  expect(mocks.spawn).not.toHaveBeenCalled();
+});
+
+it('replaces an idle CLI Runtime of another build with its own', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-replace-home') });
+  // 请它停下后它很快退出；之后发现文件指向自己拉起的那个。
+  mocks.readDiscovery.mockResolvedValueOnce(OLD_CLI).mockResolvedValue(OWN_DISCOVERY);
+  mocks.isRecordedProcessAlive.mockReturnValueOnce(true).mockReturnValue(false);
+  mocks.spawn.mockImplementation(() => fakeRuntime().child);
+  const probe = fakeProbe();
+  await expect(supervisorFor(home, false, { identity: IDENTITY, probe }).connection()).resolves.toEqual({
+    endpoint: OWN_DISCOVERY.endpoint,
+    token: OWN_DISCOVERY.token,
+  });
+  expect(probe.stop).toHaveBeenCalledWith({ endpoint: OLD_CLI.endpoint, token: OLD_CLI.token });
+  expect(mocks.isRecordedProcessAlive).toHaveBeenCalledWith(OLD_CLI.pid, OLD_CLI.startedAt);
+  expect(mocks.spawn).toHaveBeenCalledTimes(1);
+});
+
+it('uses a busy CLI Runtime of another version for now and replaces it once it is idle', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-until-idle-home') });
+  mocks.readDiscovery.mockResolvedValue(OLD_CLI);
+  mocks.isRecordedProcessAlive.mockReturnValue(false);
+  mocks.spawn.mockImplementation(() => {
+    mocks.readDiscovery.mockResolvedValue(OWN_DISCOVERY);
+    return fakeRuntime().child;
+  });
+  const probe = fakeProbe({ activity: vi.fn<FoundRuntimeProbe['activity']>().mockResolvedValueOnce({ ...IDLE, activeJobs: 1 }).mockResolvedValue(IDLE) });
+  const supervisor = supervisorFor(home, false, { identity: IDENTITY, probe, recheckMs: 5 });
+  await expect(supervisor.connection()).resolves.toEqual({ endpoint: OLD_CLI.endpoint, token: OLD_CLI.token });
+  expect(probe.stop).not.toHaveBeenCalled();
+  // 到点再看：没有任务了，请它停下、拉起自己的；界面断线后来要连接，拿到的是新的。
+  await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+  await expect(supervisor.connection()).resolves.toEqual({ endpoint: OWN_DISCOVERY.endpoint, token: OWN_DISCOVERY.token });
+  expect(probe.stop).toHaveBeenCalledTimes(1);
+  await supervisor.stop();
+});
+
+it('keeps using a Runtime the app did not replace when it refuses to stop', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-refused-home') });
+  mocks.readDiscovery.mockResolvedValue(OLD_CLI);
+  const probe = fakeProbe({ stop: vi.fn<FoundRuntimeProbe['stop']>().mockResolvedValue(false) });
+  const supervisor = supervisorFor(home, false, { identity: IDENTITY, probe, recheckMs: 60_000 });
+  await expect(supervisor.connection()).resolves.toEqual({ endpoint: OLD_CLI.endpoint, token: OLD_CLI.token });
+  expect(mocks.spawn).not.toHaveBeenCalled();
+  await supervisor.stop();
+});
+
+it('waits for a CLI Runtime with another protocol version instead of connecting', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-wait-home') });
+  const older = { ...OLD_CLI, protocolVersion: '0.5', runtimeVersion: '0.4.0' };
+  mocks.readDiscovery.mockResolvedValue(older);
+  const probe = fakeProbe({ mismatchJobs: vi.fn<FoundRuntimeProbe['mismatchJobs']>().mockResolvedValue(2) });
+  const supervisor = supervisorFor(home, false, { identity: IDENTITY, probe });
+  await expect(supervisor.connection()).rejects.toThrow(M.runtimeOlderCliBusy('0.4.0', 2));
+  expect(probe.activity).not.toHaveBeenCalled();
+  expect(probe.stop).not.toHaveBeenCalled();
+  // 它做完、空闲退出了：下一次要连接时拉起自己的。
+  mocks.readDiscovery.mockResolvedValueOnce(null).mockResolvedValue(OWN_DISCOVERY);
+  mocks.spawn.mockImplementation(() => fakeRuntime().child);
+  await expect(supervisor.connection()).resolves.toEqual({ endpoint: OWN_DISCOVERY.endpoint, token: OWN_DISCOVERY.token });
+  await supervisor.stop();
+});
+
+it('hands a Runtime with another protocol version that the CLI did not launch to the interface as before', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-incompatible-home') });
+  mocks.readDiscovery.mockResolvedValue({ ...OLD_CLI, protocolVersion: '0.5', launchedBy: null });
+  const probe = fakeProbe();
+  await expect(supervisorFor(home, false, { identity: IDENTITY, probe }).connection()).resolves.toEqual({ endpoint: OLD_CLI.endpoint, token: OLD_CLI.token });
+  expect(probe.stop).not.toHaveBeenCalled();
+  expect(mocks.spawn).not.toHaveBeenCalled();
+});
+
+it('before an update, stops an idle CLI Runtime started from this app and leaves others alone', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-update-home') });
+  mocks.isRecordedProcessAlive.mockReturnValue(false);
+  const probe = fakeProbe();
+  mocks.readDiscovery.mockResolvedValue({ ...OLD_CLI, build: OWN.build });
+  await expect(supervisorFor(home, false, { identity: IDENTITY, probe }).releaseForUpdate()).resolves.toBe(true);
+  expect(probe.stop).toHaveBeenCalledTimes(1);
+
+  // 别处的安装、桌面端拉起的、没有 Runtime：不涉及。
+  for (const found of [{ ...OLD_CLI, entry: '/Users/me/BaoCut-cli' }, { ...OLD_CLI, launchedBy: null }, null]) {
+    mocks.readDiscovery.mockResolvedValue(found);
+    await expect(supervisorFor(home, false, { identity: IDENTITY, probe }).releaseForUpdate()).resolves.toBeNull();
+  }
+  expect(probe.stop).toHaveBeenCalledTimes(1);
+
+  // 它有任务或别的连接，不答应：照旧安装。
+  mocks.readDiscovery.mockResolvedValue({ ...OLD_CLI, build: OWN.build });
+  const refusing = fakeProbe({ stop: vi.fn<FoundRuntimeProbe['stop']>().mockResolvedValue(false) });
+  await expect(supervisorFor(home, false, { identity: IDENTITY, probe: refusing }).releaseForUpdate()).resolves.toBe(false);
+});
+

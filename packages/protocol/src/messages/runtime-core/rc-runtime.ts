@@ -63,7 +63,7 @@ const en = {
 
   // runtime.status / runtime.stop（handlers）
   statusLocalOnly: 'Runtime status is only available to the local CLI and the desktop app',
-  stopCliOnly: 'Only the CLI can ask Runtime to stop',
+  stopLocalOnly: 'Only the local CLI and the desktop app can ask Runtime to stop',
   stopNotCliLaunched: "This Runtime wasn't started by the CLI (the desktop app started it, or it was started manually), so the CLI doesn't stop it",
   runtimeInUse: (p: { desktop: number; cli: number; activeJobs: number }) =>
     `This Runtime is still in use (desktop app: ${p.desktop}, other CLI connections: ${p.cli}, unfinished tasks: ${p.activeJobs}). Wait for them to finish or close them, then stop it`,

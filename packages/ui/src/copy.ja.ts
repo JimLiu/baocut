@@ -803,6 +803,9 @@ export const ja: CopyMessages = {
     pid: 'プロセス',
     startedAt: '開始時刻',
     home: 'データフォルダ',
+    launchedBy: '起動元',
+    launchedByCli: 'コマンドライン',
+    versionDiffers: (app: string) => `このアプリのバージョン（${app}）と異なります。空いたら BaoCut は自分の Runtime に切り替えます。`,
   },
   remote: {
     title: 'リモート処理',

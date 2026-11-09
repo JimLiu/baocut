@@ -115,4 +115,7 @@ export const ko: CliMessages = {
   waitTimeout: (seconds, jobId) => `${seconds}초가 지나 기다림을 멈췄습니다. 처리 ${jobId}은(는) 계속 실행됩니다.`,
 
   noRuntimeClient: '이 명령은 Runtime에 연결하지 않습니다',
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `끝나지 않은 작업 ${jobs}개, 데스크톱 앱 연결 ${desktop}개, 다른 CLI 연결 ${cli}개`,
+  replaceWhenIdle: (busy: string | null) => `그 Runtime은 명령줄에서 시작되었습니다${busy ? `. 아직 사용 중입니다(${busy})` : ''}. 유휴 상태가 된 뒤 이 명령을 다시 실행하면 자동으로 교체됩니다.`,
+  notCliLaunched: '그 Runtime은 BaoCut 앱이나 수동으로 시작되었으므로 CLI가 교체하지 않습니다.',
 };

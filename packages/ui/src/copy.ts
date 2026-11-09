@@ -920,6 +920,9 @@ const en = {
     pid: 'Process',
     startedAt: 'Started',
     home: 'Data folder',
+    launchedBy: 'Started from',
+    launchedByCli: 'Command line',
+    versionDiffers: (app: string) => `Differs from this app (${app}). BaoCut switches to its own Runtime once this one is idle.`,
   },
   /** 远端算力页（原型 page-shell.jsx RemotePage）。这个版本只能共享转录，其他几类任务画成禁用并说明原因。 */
   remote: {

@@ -68,4 +68,6 @@ export const fr: MainMessages = {
   webClearNotWindow: "Seules les fenêtres de l’application peuvent effacer les données web",
   webOpenNotWindow: "Seules les fenêtres de l’application peuvent ouvrir des liens externes",
   webOpenScheme: "Seules les URL http et https peuvent être ouvertes",
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `Un ancien Runtime BaoCut (${version}) lancé depuis la ligne de commande ${jobs === null ? 'est toujours en cours d’exécution' : `a encore des traitements en cours : ${jobs}`}. BaoCut passera de lui-même à cette version dès qu’il aura terminé`,
 };

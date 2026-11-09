@@ -19,4 +19,6 @@ export const ptBR: MainMessages = {
   remoteMore: (count: number) => `e mais ${count}`,
   callKind: { agent: 'Tarefa do agente', task: 'Tarefa', transcribe: 'Transcrever', synthesizeSpeech: 'Gerar fala', generateImage: 'Gerar imagem', generateMusic: 'Gerar música', generateText: 'Gerar texto', modelTest: 'Verificar modelo', voiceClone: 'Clonar voz', agentTranslate: 'Traduzir' },
   webCreateNotWindow: 'Somente janelas do aplicativo podem criar abas web', webTooManyTabs: 'Há abas web demais abertas', webTabMissing: 'Esta aba web não existe mais', webClearNotWindow: 'Somente janelas do aplicativo podem limpar dados web', webOpenNotWindow: 'Somente janelas do aplicativo podem abrir links externos', webOpenScheme: 'Somente URLs http e https podem ser abertas',
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `Um Runtime do BaoCut mais antigo (${version}), iniciado pela linha de comando, ${jobs === null ? 'ainda está em execução' : `ainda tem trabalhos em andamento: ${jobs}`}. O BaoCut muda para esta versão sozinho quando ele terminar`,
 };

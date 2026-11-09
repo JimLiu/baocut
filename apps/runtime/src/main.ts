@@ -1,5 +1,6 @@
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { RuntimeAlreadyRunningError, runtimeSelfCheck, startRuntime } from '@baocut/runtime-core';
+import { RuntimeAlreadyRunningError, installBuild, installEntryOf, runtimeSelfCheck, startRuntime } from '@baocut/runtime-core';
 import { hostEnvironment } from './host-environment.ts';
 import { createParentChannel } from './parent-channel.ts';
 
@@ -63,6 +64,10 @@ async function main(): Promise<void> {
     ...(process.env.BAOCUT_ALLOWED_ORIGINS?.split(',').filter(Boolean) ?? []),
   ];
 
+  // 这份安装与构建（CLI 独立使用与发布 §4.1）：写进发现信息，对方不连接就能判断要不要替换。
+  const entry = installEntryOf(fileURLToPath(import.meta.url));
+  const install = { entry, build: await installBuild(entry) };
+
   let runtime: Awaited<ReturnType<typeof startRuntime>>;
   // 空闲退出在 Runtime 起好之后才可能触发：那时 `stop` 已经定义好。
   let onIdle = () => {};
@@ -77,6 +82,7 @@ async function main(): Promise<void> {
       launchedBy: launchedBy ?? null,
       idleExit: values['idle-exit'] ? { onIdle: () => onIdle() } : null,
       requestStop: () => onStopRequest(),
+      install,
     });
   } catch (error) {
     if (error instanceof RuntimeAlreadyRunningError) {

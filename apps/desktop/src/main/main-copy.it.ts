@@ -19,4 +19,6 @@ export const it: MainMessages = {
   remoteMore: (count: number) => pluralForm('it', count, { one: `e un’altra`, other: `e altre ${count}` }),
   callKind: { agent: 'Attività dell’agente', task: 'Attività', transcribe: 'Trascrivi', synthesizeSpeech: 'Genera voce', generateImage: 'Genera immagine', generateMusic: 'Genera musica', generateText: 'Genera testo', modelTest: 'Verifica modello', voiceClone: 'Clona voce', agentTranslate: 'Traduci' },
   webCreateNotWindow: 'Solo le finestre dell’app possono creare schede web', webTooManyTabs: 'Troppe schede web aperte', webTabMissing: 'Questa scheda web non esiste più', webClearNotWindow: 'Solo le finestre dell’app possono cancellare dati web', webOpenNotWindow: 'Solo le finestre dell’app possono aprire link esterni', webOpenScheme: 'Si possono aprire solo URL http e https',
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `Un Runtime di BaoCut precedente (${version}) avviato dalla riga di comando ${jobs === null ? 'è ancora in esecuzione' : `ha ancora lavori in corso: ${jobs}`}. BaoCut passerà da solo a questa versione quando avrà finito`,
 };

@@ -130,6 +130,13 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 
 App 的「重启并更新」在安装前除了自己的 Runtime，还要处理同一个 Home 上从本包拉起的 CLI Runtime（发现信息的 `entry` 指向本包）：空闲的请它停下；有任务的并进安装屏障的任务数，「等任务结束后安装」也等它。Windows 安装器结束进程之前它已经按架构设计 §2.4 停好。
 
+> 已实现（2026-11-08）：规则在 `@baocut/protocol` 的 `decideRuntimeReuse`，CLI（`apps/cli/src/runtime/connection.ts`）与桌面端（`RuntimeSupervisor`）共用；落地后的说法见架构设计 §2.2「两份安装共用一个 Home」与 §2.6。与上文的出入：
+>
+> - CLI 只在它会拉起的是自己这份安装时替换，`--no-start`、`BAOCUT_RUNTIME_ENTRY` 或会拉起别处装的 App 时照版本门拒绝，免得替换后起的仍是另一个版本。
+> - 桌面端替换的时机是每分钟问一次 `runtime.status`；空闲的口径同 `runtime.stop`：桌面端发起时它自己的连接都不算（一个 Home 只有一个桌面端，含 Bot 后台服务），有 CLI 连着算在用。
+> - 有任务的 CLI Runtime 本来就由界面连着，它的任务已在屏障里；装之前（「重启并更新」与退出即安装）桌面端请它停下并等它退出，它还有 CLI 连着而拒绝时照旧安装。
+> - 已知缺口：协议版本不同、CLI 拉起、没有任务但开着对外服务（Web、MCP）的旧版 Runtime 不会空闲退出，桌面端又握不上手、停不了它，界面会一直等；要用户先 `baocut runtime stop` 或关掉服务。macOS 与 Windows 上「App 更新时有一个 CLI Runtime 在跑」未实测。
+
 ## 5. CLI 拉起的 Runtime 与桌面端一致
 
 ### 5.1 项目目录

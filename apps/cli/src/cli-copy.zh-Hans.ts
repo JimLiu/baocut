@@ -111,4 +111,7 @@ export const zhHans: CliMessages = {
   waitTimeout: (seconds, jobId) => `等了 ${seconds} 秒没有结束，不再等待；任务 ${jobId} 照旧在跑。`,
 
   noRuntimeClient: '这条命令不连 Runtime',
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `没做完的任务 ${jobs} 个，桌面端连接 ${desktop} 条，别的 CLI 连接 ${cli} 条`,
+  replaceWhenIdle: (busy: string | null) => `那个 Runtime 是命令行拉起的${busy ? `，还有人在用（${busy}）` : ''}。等它空闲后再运行这条命令，会自动换成新的。`,
+  notCliLaunched: '那个 Runtime 是 BaoCut 应用拉起的或手动启动的，CLI 不替换它。',
 };

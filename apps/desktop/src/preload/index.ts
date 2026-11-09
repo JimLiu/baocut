@@ -77,7 +77,11 @@ const notifications: NonNullable<HostBridge['notifications']> = {
  */
 contextBridge.exposeInMainWorld('baocut', {
   platform: process.platform,
-  getConnection: () => ipcRenderer.invoke('baocut:connection'),
+  // 主进程说明连不上的原因（Runtime 起不来、在等旧版做完）：去掉 Electron 加的「Error invoking remote method …」前缀，界面直接显示。
+  getConnection: () =>
+    ipcRenderer.invoke('baocut:connection').catch((error: unknown) => {
+      throw new Error(String(error instanceof Error ? error.message : error).replace(/^Error invoking remote method '[^']*': (?:Error: )?/, ''));
+    }),
   pickDirectory: (options?: { title?: string }) => ipcRenderer.invoke('baocut:pick-directory', options),
   pickMediaFiles: () => ipcRenderer.invoke('baocut:pick-media'),
   pathForFile: (file: File) => webUtils.getPathForFile(file),

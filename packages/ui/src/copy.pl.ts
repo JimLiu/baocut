@@ -893,6 +893,9 @@ export const pl: CopyMessages = {
     pid: "Proces",
     startedAt: "Rozpoczęto",
     home: "Folder danych",
+    launchedBy: 'Uruchomiony przez',
+    launchedByCli: 'Wiersz poleceń',
+    versionDiffers: (app: string) => `Różni się od wersji aplikacji (${app}). Gdy będzie bezczynny, BaoCut przełączy się na własny Runtime.`,
   },
   /** 远端算力页（原型 page-shell.jsx RemotePage）。这个版本只能共享转录，其他几类任务画成禁用并说明原因。 */
   remote: {

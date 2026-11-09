@@ -14,6 +14,7 @@ import {
 import { DriverRegistry, Harness, engineProtections, projectMissingError, type AgentDriver, type Logger, type UnfinishedWork } from '@baocut/harness';
 import {
   BUILTIN_DRIVER_IDS,
+  MCP_INTERFACE_VERSION,
   PROTOCOL_VERSION,
   RUNTIME_VERSION,
   RpcError,
@@ -290,6 +291,11 @@ export interface StartRuntimeOptions {
   idleExit?: Omit<IdleExitOptions, 'minutes'> | null;
   /** `runtime.stop` 的去处（§2.2）：入口在那里停下 Runtime。不给时 `runtime.stop` 以 `unsupported` 拒绝。 */
   requestStop?: (() => void) | null;
+  /**
+   * 这个 Runtime 来自哪一份安装、哪次构建（CLI 独立使用与发布 §4.1）：写进 `RuntimeInfo` 与发现文件，桌面端与 CLI 据此决定复用还是
+   * 替换（§4.2）。入口按自己的位置算好传进来（`installEntryOf`、`installBuild`）；不给时都是 null。
+   */
+  install?: { entry: string | null; build: string | null };
 }
 
 export interface RunningRuntime {
@@ -1308,6 +1314,9 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       pid: process.pid,
       startedAt: nowIso(),
       launchedBy: options.launchedBy ?? null,
+      interfaceVersion: MCP_INTERFACE_VERSION,
+      build: options.install?.build ?? null,
+      entry: options.install?.entry ?? null,
     };
     // 空闲退出：先删发现文件再停（§2.2）：停任务与服务要一会儿，这期间来找 Runtime 的 CLI 看不到它、等它放开实例锁后另起一个，
     // 不会连上一个正在退出的。
@@ -1438,6 +1447,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         activity.connected(principal);
       },
       onRequest: (principal, method) => activity.requested(principal, method),
+      mismatchDetails: () => ({ launchedBy: info.launchedBy, activeJobs: activity.status().activeJobs }),
       onDisconnect: (principal) => {
         activity.disconnected(principal);
         present.delete(principal.connectionId);

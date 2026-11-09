@@ -48,7 +48,7 @@ export const ko: RcRuntimeMessages = {
   noSuchTool: (p: { toolId: string }) => `해당 도구가 없습니다: ${p.toolId}`,
 
   statusLocalOnly: 'Runtime 상태는 이 컴퓨터의 CLI와 데스크톱 앱에서만 볼 수 있습니다',
-  stopCliOnly: 'CLI만 Runtime 중지를 요청할 수 있습니다',
+  stopLocalOnly: '이 컴퓨터의 CLI와 데스크톱 앱만 Runtime 중지를 요청할 수 있습니다',
   stopNotCliLaunched:
     '이 Runtime은 CLI에서 시작하지 않았으므로(데스크톱 앱에서 시작했거나 수동으로 시작함) CLI에서 중지하지 않습니다',
   runtimeInUse: (p) =>

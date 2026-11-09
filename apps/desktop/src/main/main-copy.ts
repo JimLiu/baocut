@@ -71,6 +71,9 @@ const en = {
   runtimeTimeout: 'Runtime took too long to start',
   runtimeExited: (code: number | null) => `Runtime failed to start (exit code ${code})`,
   runtimeQuitting: 'The app is quitting',
+  // 同一个 Home 上有命令行拉起的旧版 Runtime、协议版本不同（CLI 独立使用与发布 §4.2）：不连，等它做完。界面在后面补句号。
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `An older BaoCut Runtime (${version}) started from the command line is still ${jobs === null ? 'running' : jobs === 1 ? 'working on 1 task' : `working on ${jobs} tasks`}. BaoCut switches to this version by itself once it finishes`,
 
   // ---- 退出时自己起的 Runtime 还有活（quit-prompt.ts，架构设计 §2.2）----
   quitBusyTitle: (count: number) => (count === 1 ? '1 task is still running' : `${count} tasks are still running`),

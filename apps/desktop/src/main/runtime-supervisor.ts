@@ -1,7 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
-import type { MessageRef, RuntimeDiscovery } from '@baocut/protocol';
-import { isDiscoveryLive, readDiscovery, type RuntimeHome } from '@baocut/runtime-storage';
+import { decideRuntimeReuse, sameRuntimeVersion, type MessageRef, type RuntimeDiscovery, type RuntimeIdentity } from '@baocut/protocol';
+import { isDiscoveryLive, isRecordedProcessAlive, readDiscovery, type RuntimeHome } from '@baocut/runtime-storage';
+import { clientProbe, type FoundRuntimeProbe } from './found-runtime.ts';
 import { M } from './main-copy.ts';
 import { packagedResourceEnv, type PackagedResources } from './packaged-resources.ts';
 import { stopChild } from './stop-child.ts';
@@ -43,9 +44,23 @@ export interface RuntimeSupervisorOptions {
   documentsDir: string | null;
   /** 操作系统的首选语言（BCP 47，按优先顺序）：界面语言跟随系统时 Runtime 按它选语言。拉起时才取。 */
   systemLanguages: () => readonly string[];
+  /**
+   * 这一份安装自己的版本与位置（CLI 独立使用与发布 §4.1、§4.2）：发现文件指向的 Runtime 版本不同时据此决定复用还是替换，
+   * 更新前按 `entry` 认出从本包拉起的 CLI Runtime（§4.3）。没给时照旧复用找到的任何 Runtime。
+   */
+  identity?: { own: RuntimeIdentity; entry: string | null };
+  /** 与找到的 Runtime 说话（`runtime.status`、`runtime.stop`）。缺省开一条短的桌面端连接去问；测试替换。 */
+  probe?: FoundRuntimeProbe;
+  /** 先连上版本不同的 Runtime 用着时，多久再看一次它空闲没有（毫秒）。 */
+  recheckMs?: number;
 }
 
 const READY_TIMEOUT_MS = 20_000;
+/** 请找到的 Runtime 停下之后等它退出的上限：它的停止顺序有 15 秒的兜底。 */
+const RELEASE_TIMEOUT_MS = 20_000;
+const RELEASE_POLL_MS = 100;
+/** 先连上版本不同的 Runtime 用着时，隔多久看一次它空闲没有。 */
+const RECHECK_MS = 60_000;
 /** 退出前问 Runtime 的期限：问不到（卡住、通道断了）就照常停，不让退出挂住。 */
 const ASK_TIMEOUT_MS = 2_000;
 
@@ -94,6 +109,8 @@ export class RuntimeSupervisor {
   #stopped = false;
   /** Bot 后台服务常驻（技术方案 §15.2）：新拉起的 Runtime 也要知道。 */
   #resident = false;
+  /** 连着（或等着）一个版本不同的 Runtime：到点再看它空闲没有，空闲了换成自己的（CLI 独立使用与发布 §4.2）。 */
+  #recheck: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: RuntimeSupervisorOptions) {
     this.#options = options;
@@ -112,21 +129,92 @@ export class RuntimeSupervisor {
   }
 
   async #ensure(): Promise<ConnectionTarget> {
-    const existing = await this.#discover();
-    if (existing) return existing;
+    const found = await this.#discover();
+    if (found) {
+      const target = targetOf(found);
+      const action = await this.#decide(found);
+      if (action === 'reuse') {
+        this.#cancelRecheck();
+        return target;
+      }
+      if (action === 'reuse-until-idle') {
+        this.#scheduleRecheck();
+        return target;
+      }
+      if (action === 'wait') {
+        // 不是 CLI 拉起的：照旧交给界面，握手被拒后界面显示协议不兼容（架构设计 §13.3）。
+        if (found.launchedBy !== 'cli') return target;
+        // CLI 拉起的旧版在做事：不连，界面按重连退避再来要连接；它做完、空闲退出后这里拉起自己的。
+        throw new Error(M.runtimeOlderCliBusy(found.runtimeVersion, await this.#probe.mismatchJobs(target)));
+      }
+      // 替换：请它停下，等它退出，再拉起自己的。停不下（刚好有人连上或有了任务）时先连上用，过一会儿再看。
+      if (!(await this.#replace(found))) {
+        this.#scheduleRecheck();
+        return target;
+      }
+    }
+    this.#cancelRecheck();
     // 读发现文件期间可能开始了退出。
     if (this.#stopped) throw new Error(M.runtimeQuitting);
     await this.#spawn();
     const started = await this.#discover();
     if (!started) throw new Error(M.runtimeNoDiscovery);
     if (this.#resident) this.#sendResident();
-    return started;
+    return targetOf(started);
   }
 
-  async #discover(): Promise<ConnectionTarget | null> {
+  /** 发现文件指向的、还在服务的 Runtime。 */
+  async #discover(): Promise<RuntimeDiscovery | null> {
     const discovery: RuntimeDiscovery | null = await readDiscovery(this.#options.home).catch(() => null);
     if (!discovery || !(await isDiscoveryLive(discovery))) return null;
-    return { endpoint: discovery.endpoint, token: discovery.token };
+    return discovery;
+  }
+
+  get #probe(): FoundRuntimeProbe {
+    return this.#options.probe ?? clientProbe;
+  }
+
+  /**
+   * 复用还是替换找到的 Runtime（CLI 独立使用与发布 §4.2）。自己起的总是复用；版本相同不用问；协议版本相同时问它忙不忙，
+   * 不同时问不了（握手会被拒绝）。
+   */
+  async #decide(found: RuntimeDiscovery) {
+    const identity = this.#options.identity;
+    if (!identity || this.#child?.pid === found.pid || sameRuntimeVersion('desktop', identity.own, found)) return 'reuse';
+    const activity = found.protocolVersion === identity.own.protocolVersion ? await this.#probe.activity(targetOf(found)) : null;
+    return decideRuntimeReuse({ seeker: 'desktop', own: identity.own, found, activity }).action;
+  }
+
+  /** 请找到的 Runtime 停下并等它退出。它不答应或等不到它退出时 false。 */
+  async #replace(found: RuntimeDiscovery): Promise<boolean> {
+    if (!(await this.#probe.stop(targetOf(found)))) return false;
+    const deadline = Date.now() + RELEASE_TIMEOUT_MS;
+    while (isRecordedProcessAlive(found.pid, found.startedAt)) {
+      if (Date.now() > deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, RELEASE_POLL_MS));
+    }
+    return true;
+  }
+
+  #scheduleRecheck(): void {
+    if (this.#recheck || this.#stopped) return;
+    this.#recheck = setTimeout(() => {
+      this.#recheck = null;
+      // 界面正在要连接时不插进去：那一次 `#ensure` 自己会判断。
+      if (this.#stopped || this.#ensuring) return;
+      // 占住 `#ensuring`：替换期间界面断线重连来要连接时，等这一次做完，拿到的是新的 Runtime。
+      this.#ensuring = this.#ensure().finally(() => {
+        this.#ensuring = null;
+      });
+      this.#ensuring.catch(() => {});
+    }, this.#options.recheckMs ?? RECHECK_MS);
+    this.#recheck.unref?.();
+  }
+
+  #cancelRecheck(): void {
+    if (!this.#recheck) return;
+    clearTimeout(this.#recheck);
+    this.#recheck = null;
   }
 
   #spawn(): Promise<void> {
@@ -202,6 +290,7 @@ export class RuntimeSupervisor {
    */
   async detach(timeoutMs = ASK_TIMEOUT_MS): Promise<void> {
     this.#stopped = true;
+    this.#cancelRecheck();
     await this.#ask({ type: 'detach' }, 'detached', timeoutMs);
     this.#child = null;
   }
@@ -259,8 +348,26 @@ export class RuntimeSupervisor {
    */
   async stop(timeoutMs = 8_000): Promise<void> {
     this.#stopped = true;
+    this.#cancelRecheck();
     const child = this.#child;
     if (!child) return;
     await stopChild(child, timeoutMs);
   }
+
+  /**
+   * 安装更新之前（CLI 独立使用与发布 §4.3）：同一个 Home 上从本包拉起的 CLI Runtime（发现信息的 `entry` 指向本包）空闲时请它
+   * 停下，等它退出，免得它以旧版继续跑、或被 Windows 安装器截断收尾。它手上的任务已在安装屏障里（界面连的就是它）；它不答应
+   * （有任务或别的 CLI 连接）时照旧安装。自己起的由 `stop` 停。返回它停好了没有；不涉及时 null。从不抛。
+   */
+  async releaseForUpdate(): Promise<boolean | null> {
+    const entry = this.#options.identity?.entry;
+    if (!entry) return null;
+    const found = await this.#discover().catch(() => null);
+    if (!found || found.launchedBy !== 'cli' || found.entry !== entry || this.#child?.pid === found.pid) return null;
+    return this.#replace(found).catch(() => false);
+  }
+}
+
+function targetOf(discovery: RuntimeDiscovery): ConnectionTarget {
+  return { endpoint: discovery.endpoint, token: discovery.token };
 }

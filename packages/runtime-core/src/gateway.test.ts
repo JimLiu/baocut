@@ -299,6 +299,45 @@ describe('网关', () => {
     }
   });
 
+  it('tells a client with another protocol version who launched it and how many jobs it has (CLI standalone §4.2)', async () => {
+    const gateway = new Gateway({
+      token: 'token', runtime, handlers: {} as RpcHandlers, log: silentLogger,
+      mismatchDetails: () => ({ launchedBy: 'cli', activeJobs: 2 }),
+    });
+    const endpoint = await gateway.listen();
+    const client = await rawClient(endpoint);
+    try {
+      client.socket.write(maskedFrame(hello('token', PROTOCOL_VERSION + 1)));
+      expect(JSON.parse((await client.nextFrame()).payload.toString())).toMatchObject({
+        type: 'fatal',
+        error: { code: 'protocol-mismatch', details: { runtime: PROTOCOL_VERSION, launchedBy: 'cli', activeJobs: 2 } },
+      });
+    } finally {
+      client.socket.destroy();
+      await gateway.close();
+    }
+  });
+
+  it('does not tell a client with a wrong token anything about its work', async () => {
+    let asked = 0;
+    const gateway = new Gateway({
+      token: 'token', runtime, handlers: {} as RpcHandlers, log: silentLogger,
+      mismatchDetails: () => ({ activeJobs: ++asked }),
+    });
+    const endpoint = await gateway.listen();
+    const client = await rawClient(endpoint);
+    try {
+      client.socket.write(maskedFrame(hello('wrong-token', PROTOCOL_VERSION + 1)));
+      const fatal = JSON.parse((await client.nextFrame()).payload.toString());
+      expect(fatal).toMatchObject({ type: 'fatal', error: { code: 'unauthenticated' } });
+      expect(fatal.error.details).toBeUndefined();
+      expect(asked).toBe(0);
+    } finally {
+      client.socket.destroy();
+      await gateway.close();
+    }
+  });
+
   it('rejects an authenticated frame above 64 MiB from its header without buffering its payload', async () => {
     const gateway = newGateway();
     const endpoint = await gateway.listen();

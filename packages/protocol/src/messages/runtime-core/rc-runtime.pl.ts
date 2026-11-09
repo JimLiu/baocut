@@ -47,7 +47,7 @@ export const pl: RcRuntimeMessages = {
   noSuchTool: (p: { toolId: string }) => `Brak takiego narzędzia: ${p.toolId}`,
 
   statusLocalOnly: "Stan Runtime dostępny tylko dla lokalnego CLI i aplikacji komputerowej",
-  stopCliOnly: "Tylko CLI może poprosić o zatrzymanie Runtime",
+  stopLocalOnly: 'Tylko lokalne CLI i aplikacja komputerowa mogą poprosić o zatrzymanie Runtime',
   stopNotCliLaunched: "Ten Runtime nie został uruchomiony przez CLI (przez aplikację komputerową lub ręcznie), więc CLI go nie zatrzymuje",
   runtimeInUse: (p) => `Runtime nadal używany (aplikacja komputerowa: ${p.desktop}, inne połączenia CLI: ${p.cli}, nieukończone zadania: ${p.activeJobs}). Poczekaj na ukończenie lub zamknij, a potem zatrzymaj`,
   stopNotSupported: "Nie można zatrzymać Runtime przez bramę",

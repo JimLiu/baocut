@@ -286,7 +286,7 @@ export --video V --kind subtitles --format srt --bilingual
 - 每条要连 Runtime 的命令先按 `BAOCUT_HOME` 的发现文件找正在跑的 Runtime；找不到时**默认自动拉起**一个（后台、脱离终端），结果里带 `runtime: { started: true }`。`--no-start` 关掉自动拉起（CI 或只想看状态时）。
 - `baocut runtime ensure` 显式做同一件事并打印 `started` / `reused`；`runtime status` 打印进程、端口、版本、是否有桌面端连接着；`runtime stop` 只停 CLI 自己拉起的那一个，桌面端连接着时拒绝并说明。
 - CLI 拉起的 Runtime 空闲（没有在用的连接、没有任务）满设置 `runtime.idleExitMinutes`（默认 10）自动退出，Agent 忘了停也不留后台进程。`baocut runtime status` 只查状态，不算在用：查询不推迟退出，报出的 `idleSince` 是查询之前的值。
-- 版本门：CLI 与 Runtime 的接口版本不同时以退出码 3 拒绝并说明哪一边要更新；不默默按旧参数解释。接口版本相同、但连上的 Runtime 没有 CLI 目录快照里的命令时，以退出码 3 报 `RUNTIME_OUTDATED`，不说成没有这个命令。
+- 版本门：CLI 与 Runtime 的接口版本不同时以退出码 3 拒绝并说明哪一边要更新；不默默按旧参数解释。例外是同一份安装换版本：对方是 CLI 拉起的、空闲，而 CLI 会拉起的正是自己这份安装（同一个仓库或包着它的 App）时，请它停下再拉起自己的，结果里同样带 `runtime: { started: true }`；它忙着时拒绝的消息写明任务数与连接数，并说明空闲后重跑会自动替换。规则与桌面端那一侧见架构设计 §2.2「两份安装共用一个 Home」。接口版本相同、但连上的 Runtime 没有 CLI 目录快照里的命令时，以退出码 3 报 `RUNTIME_OUTDATED`，不说成没有这个命令。
 - 从仓库运行的 CLI：主目录不是默认的 `~/.baocut`（如 `BAOCUT_HOME=.dev/baocut-home`）时拉起仓库里的 Runtime，与 CLI 是同一份代码，还没发布的工具才调得到。默认主目录是用户的真实数据与钥匙串，开发中的代码不碰它，仍用装好的应用。
 - 不开桌面端只用 CLI 的后续方案（两份安装的版本规则、CLI 拉起的 Runtime 与桌面端一致、隔离 Home 只读链接账号、独立 CLI 包）见 [CLI 独立使用与发布](cli-standalone-design.md)，方案稿，实现时改写本节。
 

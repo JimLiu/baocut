@@ -48,7 +48,7 @@ baocut status
 
 ## 4. Runtime 归自己管
 
-- **不手动起。** 每条要连 Runtime 的命令先找 `BAOCUT_HOME`（默认 `~/.baocut`）里正在跑的 Runtime；找不到就在后台拉起一个，结果信封里带 `runtime: { started: true }`。桌面端开着时直接用桌面端的那个。
+- **不手动起。** 每条要连 Runtime 的命令先找 `BAOCUT_HOME`（默认 `~/.baocut`）里正在跑的 Runtime；找不到就在后台拉起一个，结果信封里带 `runtime: { started: true }`。桌面端开着时直接用桌面端的那个；版本不同而后台那个是 CLI 拉起的、空闲时，CLI 会换成自己这一份的，忙着时以退出码 3 说明，等它做完再跑。
 - `baocut runtime ensure`：显式做同一件事，打印 `started` 或 `reused`。想在长流程开头先把 Runtime 拉起来时用。
 - `baocut runtime status`：进程、端口、版本、谁拉起的、有哪些连接与进行中的任务、多久后空闲退出；从不拉起。
 - `baocut runtime stop`：只停 CLI 自己拉起的那个。桌面端或别人拉起的拒绝（`RUNTIME_NOT_OWNED`），有人在用或有任务没完时拒绝（`RUNTIME_IN_USE`），退出码都是 1，不要强停。

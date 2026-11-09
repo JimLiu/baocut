@@ -3,6 +3,7 @@ export * from './json-file.ts';
 export * from './jsonl-file.ts';
 export * from './store-file.ts';
 export * from './discovery.ts';
+export * from './install-identity.ts';
 export * from './conversation-store.ts';
 export * from './project-store.ts';
 export * from './project-marker.ts';

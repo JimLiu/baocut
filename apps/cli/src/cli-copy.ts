@@ -130,6 +130,12 @@ const en = {
     `This CLI and the BaoCut Runtime speak different protocol versions: ${reason}. Update the older one.`,
   interfaceMismatch: (cli: string, runtime: string, update: 'cli' | 'runtime') =>
     `This CLI uses tool interface version ${cli}, the Runtime uses ${runtime}. ${update === 'cli' ? 'Update the CLI.' : 'Update the BaoCut app (or restart the Runtime from the same checkout as the CLI).'}`,
+  // 接口版本不同而没有替换时补的一句（CLI 独立使用与发布 §4.2）。
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) =>
+    `unfinished jobs: ${jobs}, desktop app connections: ${desktop}, other CLI connections: ${cli}`,
+  replaceWhenIdle: (busy: string | null) =>
+    `That Runtime was started from the command line${busy ? ` and is still in use (${busy})` : ''}. Run the command again once it is idle and it will be replaced automatically.`,
+  notCliLaunched: 'That Runtime was started by the BaoCut app or by hand, so the CLI does not replace it.',
 
   // 任务（§5.4）
   jobCancelling: (jobId: string) => `Cancelling ${jobId}… (press Ctrl-C again to stop waiting right away)`,

@@ -118,4 +118,7 @@ export const ja: CliMessages = {
   waitTimeout: (seconds, jobId) => `${seconds} 秒で待機をやめました。ジョブ ${jobId} は実行を続けています。`,
 
   noRuntimeClient: 'このコマンドは Runtime に接続しません',
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `未完了のジョブ ${jobs} 件、デスクトップアプリの接続 ${desktop} 本、ほかの CLI の接続 ${cli} 本`,
+  replaceWhenIdle: (busy: string | null) => `その Runtime はコマンドラインから起動されたもので${busy ? `、まだ使われています（${busy}）` : 'す'}。空いてからもう一度このコマンドを実行すると、自動で置き換わります。`,
+  notCliLaunched: 'その Runtime は BaoCut アプリか手動で起動されたものなので、CLI は置き換えません。',
 };

@@ -66,4 +66,6 @@ export const ko: MainMessages = {
   webClearNotWindow: '앱 윈도우에서만 웹 데이터를 지울 수 있습니다',
   webOpenNotWindow: '앱 윈도우에서만 외부 링크를 열 수 있습니다',
   webOpenScheme: 'http와 https URL만 열 수 있습니다',
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `명령줄에서 시작한 이전 버전의 BaoCut Runtime(${version})이 ${jobs === null ? '아직 실행 중입니다' : `아직 작업 ${jobs}개를 처리하고 있습니다`}. 끝나면 이 버전으로 자동 전환됩니다`,
 };

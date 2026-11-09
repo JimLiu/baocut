@@ -66,4 +66,6 @@ export const ja: MainMessages = {
   webClearNotWindow: 'Web データを消去できるのはアプリのウインドウだけです',
   webOpenNotWindow: '外部リンクを開けるのはアプリのウインドウだけです',
   webOpenScheme: '開けるのは http と https の URL だけです',
+  runtimeOlderCliBusy: (version: string, jobs: number | null) =>
+    `コマンドラインから起動した古い BaoCut Runtime（${version}）が${jobs === null ? 'まだ動いています' : `まだ ${jobs} 件のジョブを処理しています`}。終わると自動でこのバージョンに切り替わります`,
 };

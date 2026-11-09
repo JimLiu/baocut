@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { BaoCutClient } from '@baocut/client';
 import {
   MCP_INTERFACE_VERSION,
+  PROTOCOL_VERSION,
   RUNTIME_VERSION,
+  decideRuntimeReuse,
   isLanguagePreference,
   processLanguageTags,
   resolveLanguage,
@@ -24,7 +26,8 @@ import { CliError } from '../envelope.ts';
  * 默认在后台拉起一个（脱离终端，输出写到 `<BAOCUT_HOME>/logs/cli-runtime.log`），等它写出发现文件再连。拉起时带
  * `--launched-by cli --idle-exit`：`runtime stop` 只停这样的，空闲满 `runtime.idleExitMinutes` 它自己退出。
  *
- * 连上之后的版本门：`catalog.list` 的接口版本与 CLI 的 `MCP_INTERFACE_VERSION` 不同时以退出码 3 拒绝，不按旧参数解释。
+ * 连上之后的版本门：`catalog.list` 的接口版本与 CLI 的 `MCP_INTERFACE_VERSION` 不同时，对方是 CLI 拉起的、空闲的就请它停下、
+ * 换成这一份安装的 Runtime（CLI 独立使用与发布 §4.2）；否则以退出码 3 拒绝，不按旧参数解释。
  */
 
 /** 起不来、找不到 Runtime 时的下一步（CLI 独立使用与发布 §8.2）。 */
@@ -141,6 +144,11 @@ export interface LaunchSpec {
   source: 'env' | 'packaged' | 'repo';
   /** 从仓库运行时，仓库 `package.json` 的 `engines.node`：当前的 Node 不在其中时不拉起（`checkRuntimeNode`）。 */
   nodeRange?: string;
+  /**
+   * 拉起的是这个 CLI 所在的那份安装（同一个仓库，或包着这个 CLI 的 App）：接口版本必定与 CLI 相同，版本不同的空闲 Runtime
+   * 才值得替换（§4.2）。`BAOCUT_RUNTIME_ENTRY` 与别处装的 App 不算。
+   */
+  own?: boolean;
 }
 
 /** 给人看的入口：打包的写 App 的可执行文件，其余写入口文件（是可执行文件时写它）。 */
@@ -234,7 +242,7 @@ export function resolveRuntimeLaunch(
   const entry = root && path.join(root, 'apps', 'runtime', 'src', 'main.ts');
   const repo: LaunchSpec | null =
     root && entry && fs.existsSync(entry)
-      ? { command: process.execPath, args: nodeArgs(entry, node), env: {}, source: 'repo', ...repoNodeRange(root) }
+      ? { command: process.execPath, args: nodeArgs(entry, node), env: {}, source: 'repo', own: true, ...repoNodeRange(root) }
       : null;
   if (repo && runtimeHome(env) !== path.resolve(defaultHome())) return repo;
   for (const app of packagedApps(env, platform, from)) {
@@ -244,6 +252,7 @@ export function resolveRuntimeLaunch(
         args: [path.join(app.resources, 'app.asar', 'out', 'main', 'runtime.js'), '--credential-store', 'keychain'],
         env: { ELECTRON_RUN_AS_NODE: '1', ...packagedResourceEnv(app.resources, platform) },
         source: 'packaged',
+        own: Boolean(app.own),
       };
     }
   }
@@ -255,7 +264,7 @@ export function packagedApps(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
   from = path.dirname(fileURLToPath(import.meta.url)),
-): { executable: string; resources: string }[] {
+): { executable: string; resources: string; own?: boolean }[] {
   const paths = platform === 'win32' ? path.win32 : path.posix;
   // In app.asar/out/main, prefer the app containing this CLI over another installed version.
   const archive = paths.resolve(from, '..', '..');
@@ -265,6 +274,7 @@ export function packagedApps(
           ? paths.resolve(archive, '..', '..', 'MacOS', 'BaoCut')
           : paths.resolve(archive, '..', '..', 'BaoCut.exe'),
         resources: paths.dirname(archive),
+        own: true,
       }]
     : [];
   if (platform === 'win32') {
@@ -483,17 +493,28 @@ export interface Session {
  * 找到或拉起 Runtime、连上、取目录并过版本门。连接失败而那个 Runtime 随后不在了（进程退出，或撤掉了发现文件：空闲退出与这次
  * 连接撞上）时，再找或拉起一次，只重来一次。
  */
-export async function connectRuntime(options: { home: string; start: boolean }): Promise<Session> {
-  const first = await ensureRuntime(options.home, { start: options.start });
+export async function connectRuntime(options: { home: string; start: boolean; env?: NodeJS.ProcessEnv }): Promise<Session> {
+  const { home, start, env } = options;
+  const first = await ensureRuntime(home, { start, env });
+  // 只有能拉起、拉起的又是这个 CLI 自己那份安装时才替换：换成别处的 Runtime 版本照样不对。
+  const replace = start && Boolean(resolveRuntimeLaunch(env)?.own);
   try {
-    return await openSession(first);
+    return await openSession(first, { home, replace, env });
   } catch (error) {
-    if (!(error instanceof CliError) || error.code !== 'RUNTIME_UNAVAILABLE' || !withdrawn(options.home, first.discovery)) throw error;
-    return openSession(await ensureRuntime(options.home, { start: options.start }));
+    if (!(error instanceof CliError) || error.code !== 'RUNTIME_UNAVAILABLE' || !withdrawn(home, first.discovery)) throw error;
+    return openSession(await ensureRuntime(home, { start, env }), { home, replace: false, env });
   }
 }
 
-async function openSession({ discovery, started }: { discovery: RuntimeDiscovery; started: boolean }): Promise<Session> {
+/** CLI 自己的版本：比的是接口版本（§4.2）。 */
+const OWN_IDENTITY = { runtimeVersion: RUNTIME_VERSION, protocolVersion: PROTOCOL_VERSION, interfaceVersion: MCP_INTERFACE_VERSION, build: null };
+/** 请旧的 Runtime 停下之后等它放开实例锁的上限：它的停止顺序有 15 秒的兜底。 */
+const REPLACE_TIMEOUT_MS = 20_000;
+
+async function openSession(
+  { discovery, started }: { discovery: RuntimeDiscovery; started: boolean },
+  options: { home: string; replace: boolean; env?: NodeJS.ProcessEnv },
+): Promise<Session> {
   const { client, info } = await openClient(discovery);
   try {
     let catalog: CatalogListResult;
@@ -503,12 +524,46 @@ async function openSession({ discovery, started }: { discovery: RuntimeDiscovery
       if (client.state.status === 'connected') throw error;
       throw new CliError('RUNTIME_UNAVAILABLE', M.runtimeLost(error instanceof Error ? error.message : String(error)));
     }
-    checkInterfaceVersion(catalog.interfaceVersion);
-    return { client, info, started, catalog };
+    if (catalog.interfaceVersion === MCP_INTERFACE_VERSION) return { client, info, started, catalog };
+    // 接口版本不同（§4.2）：问它忙不忙。CLI 拉起的、除了这条连接没人在用、没有任务时请它停下，换成自己的。
+    const status = await client.request('runtime.status', {}).catch(() => null);
+    const decision = decideRuntimeReuse({
+      seeker: 'cli',
+      own: OWN_IDENTITY,
+      found: { ...info, interfaceVersion: catalog.interfaceVersion },
+      activity: status,
+    });
+    if (decision.action === 'replace' && options.replace) {
+      const stopped = await client.request('runtime.stop', {}).then(
+        () => true,
+        () => false,
+      );
+      client.close();
+      if (stopped && (await released(options.home, discovery))) {
+        const next = await ensureRuntime(options.home, { start: true, env: options.env });
+        return await openSession(next, { ...options, replace: false });
+      }
+      // 停不下（刚好有人连上）或等不到它退出：照版本门报。
+    }
+    // 空闲却没替换（`--no-start`，或这个 CLI 拉起的会是别处的 Runtime）：只报版本门本身。
+    if (decision.action === 'replace') throw interfaceMismatch(catalog.interfaceVersion, MCP_INTERFACE_VERSION);
+    const busy = status ? { activeJobs: status.activeJobs, connections: { ...status.connections, cli: Math.max(0, status.connections.cli - 1) } } : {};
+    throw interfaceMismatch(catalog.interfaceVersion, MCP_INTERFACE_VERSION, { launchedBy: info.launchedBy, ...busy });
   } catch (error) {
     client.close();
     throw error;
   }
+}
+
+/** 请停下的那个 Runtime 放开了实例锁、撤掉了发现文件（或换成了别人刚拉起的）。 */
+async function released(home: string, discovery: RuntimeDiscovery, timeoutMs = REPLACE_TIMEOUT_MS): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const current = readDiscovery(home);
+    if ((!current || current.instanceId !== discovery.instanceId) && !(lockHolderAlive(home) && !current)) return true;
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+  }
+  return false;
 }
 
 /** 这个 Runtime 已经不在，或正在退出（发现文件不再指向它）。 */
@@ -518,11 +573,29 @@ export function withdrawn(home: string, discovery: RuntimeDiscovery): boolean {
 
 /** 接口版本门（§5.6）：说明哪一边要更新。 */
 export function checkInterfaceVersion(runtimeVersion: string, cliVersion: string = MCP_INTERFACE_VERSION): void {
-  if (runtimeVersion === cliVersion) return;
+  if (runtimeVersion !== cliVersion) throw interfaceMismatch(runtimeVersion, cliVersion);
+}
+
+/**
+ * 接口版本不同而没有替换（§4.2）：说明哪一边要更新；知道对方是谁拉起的、手上有什么时一并写上，CLI 拉起的再说明它空闲后再运行会
+ * 自动替换。
+ */
+export function interfaceMismatch(
+  runtimeVersion: string,
+  cliVersion: string,
+  other: { launchedBy?: RuntimeInfo['launchedBy']; activeJobs?: number; connections?: { desktop: number; cli: number; agent: number } } = {},
+): CliError {
   const update = Number(runtimeVersion) > Number(cliVersion) ? 'cli' : 'runtime';
-  throw new CliError('INTERFACE_VERSION_MISMATCH', M.interfaceMismatch(cliVersion, runtimeVersion, update), {
+  const known = other.launchedBy !== undefined;
+  const busy =
+    other.activeJobs !== undefined ? M.runtimeBusyDetail(other.activeJobs, other.connections?.desktop ?? 0, other.connections?.cli ?? 0) : null;
+  const detail = !known ? '' : other.launchedBy === 'cli' ? M.replaceWhenIdle(busy) : M.notCliLaunched;
+  return new CliError('INTERFACE_VERSION_MISMATCH', `${M.interfaceMismatch(cliVersion, runtimeVersion, update)}${detail ? ` ${detail}` : ''}`, {
     cli: cliVersion,
     runtime: runtimeVersion,
     update,
+    ...(known ? { launchedBy: other.launchedBy } : {}),
+    ...(other.activeJobs !== undefined ? { activeJobs: other.activeJobs } : {}),
+    ...(other.connections ? { connections: other.connections } : {}),
   });
 }

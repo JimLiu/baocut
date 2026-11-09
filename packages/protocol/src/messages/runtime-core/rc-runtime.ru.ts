@@ -47,7 +47,7 @@ export const ru: RcRuntimeMessages = {
   noSuchTool: (p: { toolId: string }) => `Нет такого инструмента: ${p.toolId}`,
 
   statusLocalOnly: "Статус Runtime доступен только локальному CLI и настольному приложению",
-  stopCliOnly: "Только CLI может запросить остановку Runtime",
+  stopLocalOnly: 'Остановку Runtime может запросить только локальный CLI или настольное приложение',
   stopNotCliLaunched: "Этот Runtime запущен не CLI (настольным приложением или вручную), CLI не останавливает его",
   runtimeInUse: (p) => `Runtime ещё используется (настольное приложение: ${p.desktop}, другие подключения CLI: ${p.cli}, незавершённые задачи: ${p.activeJobs}). Дождитесь завершения или закройте, затем остановите`,
   stopNotSupported: "Этот Runtime нельзя остановить через шлюз",

@@ -137,7 +137,7 @@ export async function runCli(argv: readonly string[], admin: AdminBucket, io: Cl
       return output.success({ runtime: { running: false, home } }, 'baocut runtime ensure');
     }
 
-    session = await connectRuntime({ home, start: !globals.noStart });
+    session = await connectRuntime({ home, start: !globals.noStart, env });
     output.runtimeStarted = session.started;
     if (first === 'status') return await status(output, session, cwd, { full: statusFull });
 

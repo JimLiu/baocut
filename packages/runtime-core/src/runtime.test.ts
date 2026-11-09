@@ -14,6 +14,7 @@ import { JobManager } from '@baocut/jobs';
 import { platformBundles } from '@baocut/models';
 import { NodeInitiator, NodeService } from '@baocut/nodes';
 import {
+  MCP_INTERFACE_VERSION,
   RpcError,
   SETTING_DEFAULTS,
   newId,
@@ -1733,6 +1734,24 @@ describe('CLI 拉起的 Runtime（§2.2）', () => {
 
     desktop.close();
     await connectionsSettle(caller, (c) => c.desktop === 0);
+    await expect(caller.request('runtime.stop', {})).resolves.toEqual({ stopping: true });
+    await until(() => requestStop.mock.calls.length === 1);
+  });
+
+  it('runtime.stop 由桌面端发起（替换）：桌面端的连接不算在用，CLI 连接与任务照旧算', async () => {
+    const requestStop = vi.fn();
+    runtime = await boot({ requestStop, install: { entry: '/Applications/BaoCut.app', build: 'abc1234' } });
+    const discovery = JSON.parse(fsSync.readFileSync(home.discoveryFile, 'utf8')) as Record<string, unknown>;
+    expect(discovery).toMatchObject({ interfaceVersion: MCP_INTERFACE_VERSION, build: 'abc1234', entry: '/Applications/BaoCut.app' });
+    const caller = await connect('desktop');
+    await connect('desktop');
+    const cli = await connect('cli');
+
+    const busy = await caller.request('runtime.stop', {}).catch((error: unknown) => error);
+    expect((busy as RpcError).details).toMatchObject({ code: 'RUNTIME_IN_USE', cli: 1, desktop: 0 });
+
+    cli.close();
+    await connectionsSettle(caller, (c) => c.cli === 0);
     await expect(caller.request('runtime.stop', {})).resolves.toEqual({ stopping: true });
     await until(() => requestStop.mock.calls.length === 1);
   });

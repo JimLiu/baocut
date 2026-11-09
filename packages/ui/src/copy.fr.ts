@@ -860,6 +860,9 @@ export const fr: CopyMessages = {
     pid: "Processus",
     startedAt: "Démarré",
     home: "Dossier de données",
+    launchedBy: 'Lancé par',
+    launchedByCli: 'Ligne de commande',
+    versionDiffers: (app: string) => `Différent de cette application (${app}). BaoCut passera à son propre Runtime dès que celui-ci sera inactif.`,
   },
 
   remote: {

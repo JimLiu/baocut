@@ -789,6 +789,9 @@ export const zhHant: CopyMessages = {
     pid: '行程',
     startedAt: '啟動時間',
     home: '資料位置',
+    launchedBy: '啟動方式',
+    launchedByCli: '從命令列啟動',
+    versionDiffers: (app: string) => `與應用程式的版本（${app}）不同。等它閒置後，BaoCut 會換成自己的 Runtime。`,
   },
   remote: {
     title: '遠端算力',

@@ -49,7 +49,7 @@ export const ja: RcRuntimeMessages = {
   noSuchTool: (p: { toolId: string }) => `このツールはありません：${p.toolId}`,
 
   statusLocalOnly: 'Runtime の状態を確認できるのは、このコンピュータの CLI とデスクトップアプリのみです',
-  stopCliOnly: 'Runtime に停止を要求できるのは CLI のみです',
+  stopLocalOnly: 'Runtime に停止を要求できるのは、このコンピュータの CLI とデスクトップアプリのみです',
   stopNotCliLaunched:
     'この Runtime は CLI で起動されたものではない（デスクトップアプリが起動したか、手動で起動された）ため、CLI では停止しません',
   runtimeInUse: (p) =>

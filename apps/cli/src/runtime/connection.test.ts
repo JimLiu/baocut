@@ -11,6 +11,7 @@ import {
   checkRuntimeNode,
   ensureRuntime,
   findRuntime,
+  interfaceMismatch,
   isEndpointRefused,
   lockHolderAlive,
   nodeSatisfies,
@@ -93,6 +94,26 @@ describe('Runtime 的入口与版本门', () => {
     expect(newer.extra).toMatchObject({ cli: '2', runtime: '3', update: 'cli' });
     expect(exitCodeFor(newer.code)).toBe(EXIT.runtimeUnavailable);
     expect(catchError(() => checkInterfaceVersion('1', '2')).extra.update).toBe('runtime');
+  });
+
+  it('接口版本不同而没有替换（CLI 独立使用与发布 §4.2）：写明对方是谁拉起的、手上有什么', () => {
+    const busy = interfaceMismatch('1', '2', { launchedBy: 'cli', activeJobs: 2, connections: { desktop: 0, cli: 1, agent: 0 } });
+    expect(busy.code).toBe('INTERFACE_VERSION_MISMATCH');
+    expect(busy.extra).toMatchObject({ launchedBy: 'cli', activeJobs: 2, connections: { cli: 1 } });
+    expect(busy.message).toContain('2');
+    const byApp = interfaceMismatch('1', '2', { launchedBy: null });
+    expect(byApp.extra).toMatchObject({ launchedBy: null });
+    expect(byApp.message).not.toBe(busy.message);
+    // 不知道对方是谁时只报版本门本身。
+    expect(interfaceMismatch('1', '2').extra).not.toHaveProperty('launchedBy');
+  });
+
+  it('只有拉起这个 CLI 自己那份安装时才替换：仓库入口与包着 CLI 的 App 算，BAOCUT_RUNTIME_ENTRY 不算', () => {
+    expect(resolveRuntimeLaunch({ BAOCUT_RUNTIME_ENTRY: '/tmp/runtime.js' })?.own).toBeUndefined();
+    const repo = resolveRuntimeLaunch({ BAOCUT_HOME: path.join(os.tmpdir(), 'baocut-own-check') });
+    expect(repo).toMatchObject({ source: 'repo', own: true });
+    expect(packagedApps({}, 'darwin', '/Applications/Other.app/Contents/Resources/app.asar/out/main')[0]).toMatchObject({ own: true });
+    expect(packagedApps({}, 'darwin', '/tmp/repo/apps/cli/src/runtime')[0]?.own).toBeUndefined();
   });
 
   it('--no-start 且没有 Runtime：RUNTIME_UNAVAILABLE（退出码 3），不拉起', async () => {
@@ -246,13 +267,13 @@ describe('CLI shipped inside a relocated desktop app', () => {
       const executable = path.join(contents,'MacOS','BaoCut');
       fs.mkdirSync(from,{recursive:true}); fs.mkdirSync(path.dirname(executable),{recursive:true}); fs.writeFileSync(executable,'fixture');
       fs.mkdirSync(path.join(resources,'skills'),{recursive:true});
-      expect(packagedApps({},'darwin',from)[0]).toEqual({executable,resources});
-      expect(resolveRuntimeLaunch({},'darwin',from)).toEqual({command:executable,args:[path.join(resources,'app.asar','out','main','runtime.js'),'--credential-store','keychain'],env:{ELECTRON_RUN_AS_NODE:'1',...packagedResourceEnv(resources,'darwin')},source:'packaged'});
+      expect(packagedApps({},'darwin',from)[0]).toEqual({executable,resources,own:true});
+      expect(resolveRuntimeLaunch({},'darwin',from)).toEqual({command:executable,args:[path.join(resources,'app.asar','out','main','runtime.js'),'--credential-store','keychain'],env:{ELECTRON_RUN_AS_NODE:'1',...packagedResourceEnv(resources,'darwin')},source:'packaged',own:true});
       expect(resolveRuntimeLaunch({BAOCUT_RUNTIME_ENTRY:'/explicit/runtime.js'},'darwin',from)?.source).toBe('env');
     } finally { fs.rmSync(dir,{recursive:true,force:true}); }
   });
   it('derives a portable Windows app before standard install directories', () => {
     const from = String.raw`D:\Portable Apps\BaoCut\resources\app.asar\out\main`;
-    expect(packagedApps({LOCALAPPDATA:String.raw`C:\Users\test\Local`},'win32',from)[0]).toEqual({executable:String.raw`D:\Portable Apps\BaoCut\BaoCut.exe`,resources:String.raw`D:\Portable Apps\BaoCut\resources`});
+    expect(packagedApps({LOCALAPPDATA:String.raw`C:\Users\test\Local`},'win32',from)[0]).toEqual({executable:String.raw`D:\Portable Apps\BaoCut\BaoCut.exe`,resources:String.raw`D:\Portable Apps\BaoCut\resources`,own:true});
   });
 });

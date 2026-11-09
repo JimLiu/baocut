@@ -118,4 +118,7 @@ export const fr: CliMessages = {
   waitTimeout: (seconds: number, jobId: string) => `Attente arrêtée après ${seconds} s ; le traitement ${jobId} continue.`,
 
   noRuntimeClient: "Cette commande ne se connecte pas au Runtime",
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `traitements non terminés : ${jobs}, connexions de l’application de bureau : ${desktop}, autres connexions CLI : ${cli}`,
+  replaceWhenIdle: (busy: string | null) => `Ce Runtime a été lancé depuis la ligne de commande${busy ? ` et il est encore utilisé (${busy})` : ''}. Relancez la commande une fois qu’il est inactif : il sera remplacé automatiquement.`,
+  notCliLaunched: 'Ce Runtime a été lancé par l’application BaoCut ou à la main ; la CLI ne le remplace donc pas.',
 };

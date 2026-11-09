@@ -803,6 +803,9 @@ export const zhHans: CopyMessages = {
     pid: '进程',
     startedAt: '启动于',
     home: '数据目录',
+    launchedBy: '启动方式',
+    launchedByCli: '从命令行启动',
+    versionDiffers: (app: string) => `与应用的版本（${app}）不同。等它空闲后，BaoCut 会换成自己的 Runtime。`,
   },
   remote: {
     title: '远端算力',

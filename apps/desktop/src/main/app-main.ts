@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { BrowserWindow, Menu, app, dialog, ipcMain, nativeTheme, powerMonitor, session, shell } from 'electron';
-import { onLocaleChange, setLocale } from '@baocut/protocol';
-import { resolveRuntimeHome } from '@baocut/runtime-storage';
+import { MCP_INTERFACE_VERSION, PROTOCOL_VERSION, RUNTIME_VERSION, onLocaleChange, setLocale } from '@baocut/protocol';
+import { injectedBuild, installEntryOf, resolveRuntimeHome } from '@baocut/runtime-storage';
 import { appMenuTemplate } from './app-menu.ts';
 import { installAppUpdates } from './app-update-ipc.ts';
 import type { AppUpdateService } from './app-update-service.ts';
@@ -54,11 +54,12 @@ export function startDesktopApp(): void {
     BAOCUT_HOME: process.env.BAOCUT_HOME || (isDev ? path.resolve(app.getAppPath(), '../../.dev/baocut-home') : ''),
   });
 
+  const runtimeScript = path.join(__dirname, 'runtime.js');
   const supervisor = new RuntimeSupervisor({
     home,
     // 默认开发态也迁移历史数据；只有调用者显式给出的 Home 才默认保持沙盒隔离。
     legacyAutoDetect: !process.env.BAOCUT_HOME,
-    script: path.join(__dirname, 'runtime.js'),
+    script: runtimeScript,
     allowedOrigins: devServerUrl ? [new URL(devServerUrl).origin] : [],
     echoLogs: isDev,
     // 正式版本的密钥与节点令牌存在系统的安全存储里（没有实现的平台如实报告不可用，不回退到文件）；开发时用明文文件，
@@ -72,6 +73,12 @@ export function startDesktopApp(): void {
     // 旧版项目导入询问的默认目录在系统的文稿 / 文档文件夹下（Windows 的已知文件夹可能被移到别的盘）。
     documentsDir: systemDocumentsDir(),
     systemLanguages: () => app.getPreferredSystemLanguages(),
+    // 这一份安装的版本与位置：同一个 Home 上版本不同的 CLI Runtime 空闲时换成自己的，更新前停下从本包拉起的那个
+    // （CLI 独立使用与发布 §4.2、§4.3）。Runtime 入口对同一个文件算出同样的 `entry` 与 `build`。
+    identity: {
+      own: { runtimeVersion: RUNTIME_VERSION, protocolVersion: PROTOCOL_VERSION, interfaceVersion: MCP_INTERFACE_VERSION, build: injectedBuild() },
+      entry: installEntryOf(runtimeScript),
+    },
   });
 
   /** 应用更新的服务；就绪之前退出时还没有。 */
@@ -456,6 +463,8 @@ export function startDesktopApp(): void {
       bot?.dispose();
       if (choice === 'background') await supervisor.detach();
       await supervisor.stop().catch(() => {});
+      // 要装更新（「重启并更新」或退出即安装）：同一个 Home 上从本包拉起的 CLI Runtime 空闲时也请它停下（CLI 独立使用与发布 §4.3）。
+      if (choice === 'stop' && !relaunching && updatePending(updates)) await supervisor.releaseForUpdate();
       // 退出即安装（架构设计 §2.6）：Runtime 停下之后把已下载、已就位的更新交给换包程序，换完不重新打开。有时限、不抛；
       // 「重启并更新」引起的退出已在安装中，这里什么都不做。留在后台继续的 Runtime 还在用旧包里的文件，更新留到下次退出再装。
       // 之后停掉还在跑的下载与校验。
@@ -517,4 +526,10 @@ function dialogFilters(value: unknown): Electron.FileFilter[] | undefined {
 
 function dialogText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.slice(0, 100) : undefined;
+}
+
+/** 有一份已下载、等着装的更新，或「重启并更新」已在安装中。 */
+function updatePending(updates: AppUpdateService | null): boolean {
+  const kind = updates?.snapshot().state.k;
+  return kind === 'ready' || kind === 'installing';
 }

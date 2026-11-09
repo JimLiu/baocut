@@ -47,7 +47,7 @@ export const ptBR: RcRuntimeMessages = {
   noSuchTool: (p: { toolId: string }) => `Ferramenta inexistente: ${p.toolId}`,
 
   statusLocalOnly: "O estado do Runtime só está disponível na CLI local e no aplicativo desktop",
-  stopCliOnly: "Só a CLI pode pedir a parada do Runtime",
+  stopLocalOnly: 'Só a CLI local e o aplicativo desktop podem pedir a parada do Runtime',
   stopNotCliLaunched: "Este Runtime não foi iniciado pela CLI (aplicativo desktop ou manualmente); a CLI não o para",
   runtimeInUse: (p: { desktop: number; cli: number; activeJobs: number }) =>
     `Este Runtime ainda está em uso (aplicativo desktop: ${p.desktop}, outras conexões CLI: ${p.cli}, tarefas inacabadas: ${p.activeJobs}). Espere concluir ou feche, depois pare`,

@@ -1173,6 +1173,15 @@ export interface RuntimeInfo {
    * `runtime.idleExitMinutes` 自己退出，`baocut runtime stop` 只停这种）；其余（桌面端、`npm run runtime`）为 null。
    */
   launchedBy: RuntimeLauncher | null;
+  /**
+   * 工具接口版本（`MCP_INTERFACE_VERSION`）：CLI 的版本门比的就是它，写进发现信息让对方不连接就能判断（CLI 独立使用与发布 §4.1）。
+   * 旧版 Runtime 没有。
+   */
+  interfaceVersion?: string;
+  /** 构建 commit 的短号，开发构建带未提交改动时加 `-dirty`；查不出时 null。旧版 Runtime 没有。 */
+  build?: string | null;
+  /** 这个 Runtime 来自哪一份安装：App 包或独立包的根目录、仓库根目录；认不出时 null。旧版 Runtime 没有。 */
+  entry?: string | null;
 }
 
 export type RuntimeLauncher = 'cli';

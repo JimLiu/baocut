@@ -107,4 +107,7 @@ export const ru: CliMessages = {
   waitTimeout: (seconds, jobId) => `Ожидание остановлено спустя ${seconds} с; задание ${jobId} продолжает работу.`,
 
   noRuntimeClient: "Команда не подключается к Runtime",
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `незавершённых заданий: ${jobs}, подключений приложения: ${desktop}, других подключений CLI: ${cli}`,
+  replaceWhenIdle: (busy: string | null) => `Этот Runtime запущен из командной строки${busy ? ` и ещё используется (${busy})` : ''}. Запустите команду снова, когда он освободится, — он будет заменён автоматически.`,
+  notCliLaunched: 'Этот Runtime запущен приложением BaoCut или вручную, поэтому CLI его не заменяет.',
 };

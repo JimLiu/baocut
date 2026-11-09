@@ -376,16 +376,20 @@ export function createHandlers({
         if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.statusLocalOnly());
         return activity.status();
       },
-      // 只停 CLI 拉起的、没有别人在用的（§2.2）：桌面端、调用者之外的 CLI 连接、排队或运行中的任务都算在用。
+      // 只停 CLI 拉起的、没有别人在用的（§2.2）：排队或运行中的任务都算在用。CLI 发起时桌面端与调用者之外的 CLI 连接算在用；
+      // 桌面端发起（替换成自己的 Runtime，CLI 独立使用与发布 §4.2、§4.3）时桌面端的连接都是它自己的，不算，CLI 连接算在用。
       // 响应先送出去再停：停止顺序里会关掉网关。
       'runtime.stop': (_p, principal) => {
-        if (principal.kind !== 'cli') throw new RpcError('forbidden', RcRuntime.stopCliOnly());
+        if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.stopLocalOnly());
         if (runtime.launchedBy !== 'cli') {
           throw new RpcError('forbidden', RcRuntime.stopNotCliLaunched(), { code: 'RUNTIME_NOT_OWNED' });
         }
         const { connections, activeJobs } = activity.status();
-        // 调用者自己是一个 CLI 连接，不算。
-        const others = { desktop: connections.desktop, cli: Math.max(0, connections.cli - 1), activeJobs };
+        const others =
+          principal.kind === 'desktop'
+            ? { desktop: 0, cli: connections.cli, activeJobs }
+            : // 调用者自己是一个 CLI 连接，不算。
+              { desktop: connections.desktop, cli: Math.max(0, connections.cli - 1), activeJobs };
         if (others.desktop > 0 || others.cli > 0 || others.activeJobs > 0) {
           throw new RpcError('conflict', RcRuntime.runtimeInUse(others), { code: 'RUNTIME_IN_USE', ...others });
         }

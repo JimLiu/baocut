@@ -1,8 +1,10 @@
 import { StatusLight } from '@react-spectrum/s2';
+import { RUNTIME_VERSION } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { RUNTIME_CARD_COPY } from '../../copy.ts';
 import { shortenPath } from '../../model/format.ts';
 import { runtimeStateLabel } from '../../model/services.ts';
+import { useAppUpdate } from '../../state/app-update-store.ts';
 import { useConnection } from '../../state/connection-store.ts';
 
 /*
@@ -27,9 +29,12 @@ const name = style({ font: 'title-sm' });
 const facts = style({ display: 'grid', gridTemplateColumns: ['auto', '1fr'], columnGap: 16, rowGap: 4, margin: 0, font: 'ui-sm' });
 const term = style({ color: 'gray-600' });
 const value = style({ margin: 0, overflowWrap: 'anywhere', userSelect: 'text' });
+const note = style({ display: 'block', color: 'gray-600' });
 
 export function RuntimeCard() {
   const state = useConnection((s) => s.state);
+  // 只有桌面端会换成自己的 Runtime（网页宿主没有更新状态，也不拉起 Runtime）。
+  const desktop = useAppUpdate((s) => s.snapshot !== null);
   return (
     <section className={card} aria-label={RUNTIME_CARD_COPY.name}>
       <div className={cardHead}>
@@ -41,7 +46,22 @@ export function RuntimeCard() {
       {state.status === 'connected' ? (
         <dl className={facts}>
           <dt className={term}>{RUNTIME_CARD_COPY.version}</dt>
-          <dd className={value}>{RUNTIME_CARD_COPY.versionValue(state.runtime.runtimeVersion, state.runtime.protocolVersion)}</dd>
+          <dd className={value}>
+            {RUNTIME_CARD_COPY.versionValue(state.runtime.runtimeVersion, state.runtime.protocolVersion)}
+            {state.runtime.build ? ` · ${state.runtime.build}` : null}
+          </dd>
+          {/* 命令行拉起的、与应用版本不同（CLI 独立使用与发布 §4.2）：先连上用着，等它空闲后桌面端换成自己的。 */}
+          {state.runtime.launchedBy === 'cli' ? (
+            <>
+              <dt className={term}>{RUNTIME_CARD_COPY.launchedBy}</dt>
+              <dd className={value}>
+                {RUNTIME_CARD_COPY.launchedByCli}
+                {desktop && state.runtime.runtimeVersion !== RUNTIME_VERSION ? (
+                  <span className={note}>{RUNTIME_CARD_COPY.versionDiffers(RUNTIME_VERSION)}</span>
+                ) : null}
+              </dd>
+            </>
+          ) : null}
           <dt className={term}>{RUNTIME_CARD_COPY.pid}</dt>
           <dd className={value}>{state.runtime.pid}</dd>
           <dt className={term}>{RUNTIME_CARD_COPY.startedAt}</dt>

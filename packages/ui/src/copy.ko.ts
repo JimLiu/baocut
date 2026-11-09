@@ -804,6 +804,9 @@ export const ko: CopyMessages = {
     pid: '프로세스',
     startedAt: '시작 시각',
     home: '데이터 폴더',
+    launchedBy: '시작한 곳',
+    launchedByCli: '명령줄',
+    versionDiffers: (app: string) => `이 앱의 버전(${app})과 다릅니다. 유휴 상태가 되면 BaoCut이 자체 Runtime으로 전환합니다.`,
   },
   remote: {
     title: '원격 컴퓨팅',

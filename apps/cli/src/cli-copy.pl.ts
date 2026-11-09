@@ -107,4 +107,7 @@ export const pl: CliMessages = {
   waitTimeout: (seconds, jobId) => `Oczekiwanie zatrzymano po ${seconds} s; operacja ${jobId} nadal działa.`,
 
   noRuntimeClient: "Polecenie nie łączy się z Runtime",
+  runtimeBusyDetail: (jobs: number, desktop: number, cli: number) => `niedokończone operacje: ${jobs}, połączenia aplikacji: ${desktop}, inne połączenia CLI: ${cli}`,
+  replaceWhenIdle: (busy: string | null) => `Ten Runtime został uruchomiony z wiersza poleceń${busy ? ` i nadal jest używany (${busy})` : ''}. Uruchom polecenie ponownie, gdy będzie bezczynny, a zostanie automatycznie zastąpiony.`,
+  notCliLaunched: 'Ten Runtime uruchomiła aplikacja BaoCut lub został uruchomiony ręcznie, więc CLI go nie zastępuje.',
 };
