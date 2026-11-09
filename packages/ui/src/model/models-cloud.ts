@@ -135,7 +135,7 @@ export interface CloudProviderCard {
   /** 最近一次「刷新」（`models.refreshProvider`）的结果；从没刷新过时没有。 */
   refreshed?: ProviderRefreshStatus;
   /** 语音合成档：这家能克隆音色（Runtime 报的 `voiceClone`）；不能或旧版 Runtime 不报时没有。 */
-  voiceClone?: { requiresConsentClip: boolean };
+  voiceClone?: { requiresConsentClip: boolean; sourceSeconds?: { min: number; max: number } };
 }
 
 function onlineProviders(view: ModelCapabilitiesView, capability: OnlineCapability): ProviderCapabilityView[] {

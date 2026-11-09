@@ -827,8 +827,16 @@ export interface ProviderCapability<M extends ModelInfoBase = ModelInfoBase> {
   /**
    * 只在 `synthesizeSpeech` 下：这个 Provider 能克隆音色（`library.createVoiceClone`，架构设计 §5.9）。
    * `requiresConsentClip` 为 true 时克隆要附上说话人本人念授权声明的录音（音色的 `consentClip`）。
+   * `sourceSeconds` 是 Provider 收的参考录音时长（秒）：比 `max` 长的 WAV 由适配器截到 `max` 再上传，比 `min` 短的会被拒；
+   * Provider 没有公开范围时不给。
    */
-  voiceClone?: { requiresConsentClip: boolean };
+  voiceClone?: VoiceCloneCapability;
+}
+
+/** 能克隆音色的 Provider 在能力视图里的说明（`ProviderCapability.voiceClone`）。 */
+export interface VoiceCloneCapability {
+  requiresConsentClip: boolean;
+  sourceSeconds?: { min: number; max: number };
 }
 
 export type ProviderCapabilities = { [C in ModelServiceCapability]?: ProviderCapability<ModelInfoByCapability[C]> };

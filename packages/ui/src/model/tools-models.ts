@@ -66,7 +66,7 @@ export interface ToolModelOption<M> {
   /** 能用但要提醒的一句（Codex 不是以 ChatGPT 订阅登录：费用不在订阅里，画图可能画不了）；出厂顺序与开页的回落都跳过它。 */
   caution?: string;
   /** 云端语音合成：这家能克隆音色（Runtime 报的 `voiceClone`），我的声音建了克隆就能在这里用。 */
-  voiceClone?: { requiresConsentClip: boolean };
+  voiceClone?: { requiresConsentClip: boolean; sourceSeconds?: { min: number; max: number } };
 }
 
 /**
