@@ -9,6 +9,9 @@ on:
       build:
         type: string
         default: ""
+      standalone_cli:
+        type: boolean
+        default: false
     outputs:
       signing_sha1:
         value: ${{ jobs.package.outputs.signing_sha1 }}
@@ -75,9 +78,13 @@ jobs:
         env:
           BUILD: ${{ inputs.build }}
           BAOCUT_MAC_SIGNING_SHA1: ${{ vars.BAOCUT_MAC_SIGNING_SHA1 }}
+          STANDALONE_CLI: ${{ inputs.standalone_cli }}
         run: |
           VERSION=$(node -p 'require("./apps/desktop/package.json").version')
-          npm run package:mac -- --build "$BUILD" \
+          # The standalone command line package (CLI standalone design §9) is built from the verified App, signed and notarized too.
+          CLI_ARGS=()
+          if [ "$STANDALONE_CLI" = true ]; then CLI_ARGS=(--standalone-cli); fi
+          npm run package:mac -- --build "$BUILD" "${CLI_ARGS[@]}" \
             --sign-sha1 "$BAOCUT_MAC_SIGNING_SHA1" \
             --sign-keychain "$RUNNER_TEMP/baocut-signing.keychain-db" \
             --notary-profile baocut-notary --out "$RUNNER_TEMP/mac-release" \

@@ -12,6 +12,10 @@ on:
         description: New increasing build number; required for package/publish
         type: string
         default: ""
+      standalone_cli:
+        description: Also build, sign and notarize the standalone CLI package and list it in the update feed
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -58,6 +62,7 @@ jobs:
     with:
       mode: ${{ inputs.mode == 'validate' && 'validate' || 'package' }}
       build: ${{ inputs.build }}
+      standalone_cli: ${{ inputs.standalone_cli }}
     secrets: inherit
 
   publish:

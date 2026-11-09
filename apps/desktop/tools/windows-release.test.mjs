@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { fileHash, validateCandidate, validatePackage } from './windows-release.mjs';
+import { fileHash, packageArchives, validateCandidate, validatePackage } from './windows-release.mjs';
 
 const source = 'a'.repeat(40);
 const mac = { version: '3.0.0', build: 60, sourceCommit: source };
@@ -80,5 +80,61 @@ test('rejects a wrong release URL, app ID or unsafe artifact filename', async ()
     f.report.installer.file = '../secret.exe';
     writeFileSync(path.join(f.directory, `${f.stem}-release.json`), JSON.stringify(f.report));
     await assert.rejects(validatePackage(f.directory, mac, 'baocut-v3.0.0-build.60', 'cpu', 'JimLiu/baocut'), /artifact name/);
+  } finally { rmSync(f.directory, { recursive: true, force: true }); }
+});
+
+test('An optional standalone CLI archive must be checked on the runner and match the feed cli entry', async () => {
+  const f = await fixture();
+  const tag = 'baocut-v3.0.0-build.60';
+  const writeFeed = () => writeFileSync(path.join(f.directory, f.report.feed), JSON.stringify(f.manifest));
+  const writeReport = () => writeFileSync(path.join(f.directory, `${f.stem}-release.json`), JSON.stringify(f.report));
+  try {
+    // A feed cli entry without the archive is refused.
+    f.manifest.cli = { format: 'zip', url: 'https://example.com/x.zip', size: 1, sha256: 'e'.repeat(64) };
+    writeFeed();
+    await assert.rejects(validatePackage(f.directory, mac, tag, 'cpu', 'JimLiu/baocut', run), /does not have/);
+    const file = 'BaoCut-CLI-3.0.0-build.60-x86_64-pc-windows-msvc.zip';
+    writeFileSync(path.join(f.directory, file), 'test cli contents');
+    const sha256 = await fileHash(path.join(f.directory, file));
+    f.report.cli = { format: 'zip', file, size: 17, sha256, notarized: false, notarySubmissionId: null, signature: 'none', node: '24.22.1', unpackedBytes: 100, checked: true };
+    // The packager writes the URL from the lowercase download base; the repository name compares without case.
+    f.manifest.cli = { format: 'zip', url: `https://github.com/jimliu/baocut/releases/download/${tag}/${file}`, size: 17, sha256 };
+    writeReport();
+    writeFeed();
+    const item = await validatePackage(f.directory, mac, tag, 'cpu', 'JimLiu/baocut', run);
+    assert.deepEqual(packageArchives(item.report).map((facts) => facts.file), [f.report.installer.file, f.report.portable.file, file]);
+    f.manifest.cli.url = f.manifest.cli.url.replace('build.60/', 'build.59/');
+    writeFeed();
+    await assert.rejects(validatePackage(f.directory, mac, tag, 'cpu', 'JimLiu/baocut', run), /standalone CLI archive/);
+    f.manifest.cli.url = f.manifest.cli.url.replace('build.59/', 'build.60/');
+    writeFeed();
+    f.report.cli.checked = false;
+    writeReport();
+    await assert.rejects(validatePackage(f.directory, mac, tag, 'cpu', 'JimLiu/baocut', run), /not checked/);
+    f.report.cli.checked = true;
+    writeReport();
+    writeFileSync(path.join(f.directory, file), 'other cli contents');
+    await assert.rejects(validatePackage(f.directory, mac, tag, 'cpu', 'JimLiu/baocut', run), /hash or size differs/);
+  } finally { rmSync(f.directory, { recursive: true, force: true }); }
+});
+
+test('A variant package names its standalone CLI archive with the variant', async () => {
+  const f = await fixture();
+  try {
+    f.report.cli = { format: 'zip', file: 'BaoCut-CLI-3.0.0-build.60-x86_64-pc-windows-msvc.zip', size: 1, sha256: 'e'.repeat(64), checked: true };
+    for (const variant of ['cuda']) {
+      const stem = `${f.stem}-${variant}`;
+      for (const facts of [f.report.installer, f.report.portable]) {
+        facts.file = facts.file.replace(f.stem, stem);
+        writeFileSync(path.join(f.directory, facts.file), 'candidate-bytes');
+      }
+      f.report.variant = variant;
+      f.report.feed = `appcast-x86_64-pc-windows-msvc-${variant}.json`;
+      f.manifest.variant = variant;
+      f.manifest.app.url = f.manifest.app.url.replace(f.stem, stem);
+      writeFileSync(path.join(f.directory, `${stem}-release.json`), JSON.stringify(f.report));
+      writeFileSync(path.join(f.directory, f.report.feed), JSON.stringify(f.manifest));
+      await assert.rejects(validatePackage(f.directory, mac, 'baocut-v3.0.0-build.60', variant, 'JimLiu/baocut', run), /Unexpected standalone CLI archive facts/);
+    }
   } finally { rmSync(f.directory, { recursive: true, force: true }); }
 });

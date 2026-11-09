@@ -44,6 +44,7 @@ jobs:
     with:
       mode: package
       build: ${{ needs.plan.outputs.build }}
+      standalone_cli: true
     secrets: inherit
 
   windows:
@@ -58,6 +59,7 @@ jobs:
       include_vulkan: true
       build: ${{ needs.plan.outputs.build }}
       download_base_url: ${{ needs.plan.outputs.download_base_url }}
+      standalone_cli: true
 
   publish-macos:
     needs: [plan, macos]

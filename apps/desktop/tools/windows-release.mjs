@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BUNDLE_ID, feedFileName, parseManifest } from '../src/main/app-update-rules.ts';
+import { parseStandaloneFeed, standaloneArchiveName } from '../../../packages/protocol/src/standalone-cli.ts';
 import { parseReleaseTag } from './desktop-release-rules.mjs';
 import { validateReleaseNotes } from './release-notes.mjs';
 
@@ -64,12 +65,37 @@ export async function validatePackage(directory, mac, tag, variant, repo, run) {
   invariant(parsed.ok, 'Windows appcast rejected by the App parser');
   const feed = JSON.parse(text);
   validateReleaseNotes(feed, mac);
-  const url = new URL(feed.app.url);
-  const parts = url.pathname.split('/').filter(Boolean);
-  invariant(url.protocol === 'https:' && url.hostname === 'github.com' && !url.search && !url.hash && parts.length === 6 &&
-    `${parts[0]}/${parts[1]}`.toLowerCase() === repo.toLowerCase() && parts[2] === 'releases' && parts[3] === 'download' && parts[4] === tag && parts[5] === report.installer.file, 'Appcast does not point to this GitHub release');
+  invariant(pointsToRelease(feed.app.url, repo, tag, report.installer.file), 'Appcast does not point to this GitHub release');
   invariant(feed.version === mac.version && feed.build === mac.build && feed.app.size === report.installer.size && feed.app.sha256 === report.installer.sha256, 'Appcast artifact differs from the installer');
+  // The standalone command line package (CLI standalone design §9.5) is optional: built with --standalone-cli. Windows has no
+  // notarization; the build checked the unpacked archive on the runner instead.
+  const cli = report.cli ?? null;
+  if (cli) {
+    const name = standaloneArchiveName({ version: mac.version, build: mac.build, target: TARGET, variant });
+    invariant(cli.file === name && cli.format === 'zip' && Number.isSafeInteger(cli.size) && cli.size > 0, 'Unexpected standalone CLI archive facts');
+    invariant(cli.checked === true, 'Standalone CLI archive was not checked on the runner');
+    const input = path.join(directory, name);
+    invariant(statSync(input).isFile() && statSync(input).size === cli.size && await fileHash(input) === cli.sha256, 'Standalone CLI archive hash or size differs');
+    const standalone = parseStandaloneFeed(text, TARGET, variant);
+    invariant(standalone.ok && standalone.version === mac.version && standalone.build === mac.build && standalone.cli.size === cli.size &&
+      standalone.cli.sha256 === cli.sha256 && pointsToRelease(standalone.cli.url, repo, tag, name),
+    'Appcast points to another standalone CLI archive');
+  } else invariant(feed.cli === undefined, 'Appcast lists a standalone CLI archive the candidate does not have');
   return { report, reportFile, feed, feedName, directory };
+}
+
+/** Whether `href` is the download of `file` from this repository's `tag` release (the owner and repository compare without case). */
+function pointsToRelease(href, repo, tag, file) {
+  const url = new URL(href);
+  const parts = url.pathname.split('/').filter(Boolean);
+  return url.protocol === 'https:' && url.hostname === 'github.com' && !url.search && !url.hash && parts.length === 6 &&
+    `${parts[0]}/${parts[1]}`.toLowerCase() === repo.toLowerCase() && parts[2] === 'releases' && parts[3] === 'download' && parts[4] === tag &&
+    decodeURIComponent(parts[5]) === file;
+}
+
+/** Archives a validated package publishes: installer, portable ZIP and, when built, the standalone CLI archive. */
+export function packageArchives(report) {
+  return [report.installer, report.portable, ...(report.cli ? [report.cli] : [])];
 }
 
 function command(program, args, options = {}) {
@@ -122,15 +148,17 @@ export async function publishWindows(env = process.env) {
       const existing = JSON.parse(content);
       invariant(existing.sourceCommit === mac.sourceCommit && existing.version === mac.version && existing.build === mac.build &&
         existing.variant === variant && existing.appId === BUNDLE_ID && existing.unsigned === true &&
-        JSON.stringify(existing.installer) === JSON.stringify(item.report.installer) && JSON.stringify(existing.portable) === JSON.stringify(item.report.portable), 'Existing supplemental report differs from this candidate');
+        JSON.stringify(existing.installer) === JSON.stringify(item.report.installer) && JSON.stringify(existing.portable) === JSON.stringify(item.report.portable) &&
+        JSON.stringify(existing.cli ?? null) === JSON.stringify(item.report.cli ?? null), 'Existing supplemental report differs from this candidate');
       writeFileSync(path.join(directory, item.reportFile), content);
     } else writeFileSync(path.join(directory, item.reportFile), `${JSON.stringify(item.report, null, 2)}\n`);
-    for (const facts of [item.report.installer, item.report.portable]) writeFileSync(path.join(directory, `${facts.file}.sha256`), `${facts.sha256}  ${facts.file}\n`);
+    for (const facts of packageArchives(item.report)) writeFileSync(path.join(directory, `${facts.file}.sha256`), `${facts.sha256}  ${facts.file}\n`);
     packages.push(item);
   }
   // Validate the complete selected set before any external mutation.
   for (const item of packages) {
-    const names = [item.report.installer.file, item.report.portable.file, `${item.report.installer.file}.sha256`, `${item.report.portable.file}.sha256`, item.reportFile, item.feedName];
+    const archives = packageArchives(item.report).map((facts) => facts.file);
+    const names = [...archives, ...archives.map((file) => `${file}.sha256`), item.reportFile, item.feedName];
     for (const name of names) {
       const local = path.join(item.directory, name);
       const existing = release.assets.find((asset) => asset.name === name);
@@ -151,7 +179,7 @@ export async function publishWindows(env = process.env) {
   const marker = `<!-- baocut-windows-${runId} -->`;
   if (!(after.body || '').includes(marker)) {
     const notes = path.join(output, 'release-notes.md');
-    writeFileSync(notes, `${after.body || ''}\n\n${marker}\n### Windows x64\n\nVariants: ${variants.join(', ')}. NSIS installers and portable ZIPs are unsigned. Real credential migration and model/Agent/GPU inference were not exercised by the installer tests. Requires the [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/); the current package does not bundle the VC runtime DLLs.\n\nNative build and installer verification: ${run.html_url}\n`);
+    writeFileSync(notes, `${after.body || ''}\n\n${marker}\n### Windows x64\n\nVariants: ${variants.join(', ')}. NSIS installers and portable ZIPs${packages.some((item) => item.report.cli) ? ', and the standalone command line ZIPs (`BaoCut-CLI-…`),' : ''} are unsigned. Real credential migration and model/Agent/GPU inference were not exercised by the installer tests. Requires the [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/); the current package does not bundle the VC runtime DLLs.\n\nNative build and installer verification: ${run.html_url}\n`);
     command('gh', ['release', 'edit', tag, '--repo', repo, '--title', `BaoCut ${mac.version} (Build ${mac.build}) — macOS and Windows`, '--notes-file', notes, '--latest=false']);
   }
   invariant(api(`repos/${repo}/releases/latest`).id === latest, 'Latest release changed');

@@ -42,6 +42,10 @@ on:
         description: Staged rollout over this many hours for automatic update checks (needs download_base_url); empty or 0 offers it to everyone at once
         type: string
         default: ""
+      standalone_cli:
+        description: Also build the standalone CLI package (CLI standalone design §9) and list it in the update feed
+        type: boolean
+        default: false
 
   workflow_call:
     inputs:
@@ -73,6 +77,10 @@ on:
         description: Staged rollout over this many hours for automatic update checks (needs download_base_url); empty or 0 offers it to everyone at once
         type: string
         default: ""
+      standalone_cli:
+        description: Also build the standalone CLI package (CLI standalone design §9) and list it in the update feed
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -228,11 +236,13 @@ jobs:
           RELEASE_BUILD: ${{ inputs.build }}
           DOWNLOAD_BASE_URL: ${{ inputs.download_base_url }}
           ROLLOUT_HOURS: ${{ inputs.rollout_hours }}
+          STANDALONE_CLI: ${{ inputs.standalone_cli }}
         run: |
           $packArgs = @('apps/desktop/tools/package-desktop.mjs', '--variant', '${{ matrix.variant }}')
           if ($env:RELEASE_BUILD) { $packArgs += @('--build', $env:RELEASE_BUILD) }
           if ($env:DOWNLOAD_BASE_URL) { $packArgs += @('--download-base-url', $env:DOWNLOAD_BASE_URL) }
           if ($env:ROLLOUT_HOURS) { $packArgs += @('--rollout-hours', $env:ROLLOUT_HOURS) }
+          if ($env:STANDALONE_CLI -eq 'true') { $packArgs += '--standalone-cli' }
           node @packArgs
           if ($LASTEXITCODE -ne 0) { throw "package-desktop.mjs exited with $LASTEXITCODE" }
 

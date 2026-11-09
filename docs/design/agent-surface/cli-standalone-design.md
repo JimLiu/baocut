@@ -447,12 +447,13 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
   - 没有更新源条目时报 `UPDATE_NOT_PUBLISHED`。
   - 钥匙串与完全磁盘访问的实测见 §13。
   - 与第二批合并后接上 §9.4：独立包拉起的 Runtime 按 §4.2 替换，发现信息的 `entry` 是包根（`baocut update` 据此留下在用的版本目录），MCP 的 stdio 条目写独立包管的入口。只有单测，没在演练包上重跑。
+  - 发布工作流接上独立包：`desktop-release.yml` 给 macOS 与 Windows 两个构建传 `standalone_cli: true`，打包时加 `--standalone-cli`；手动跑 `desktop-macos.yml` 与 `desktop-windows.yml` 时默认不打。发布脚本核对 `cli` 归档的文件名、大小、sha256 与更新源的 `cli` 条目，macOS 要求公证过，Windows 要求在 runner 上解开自检过，再连同 `.sha256` 一起传到 GitHub Release。只有单测，CI 上没跑过；下一个 `baocut-v*-build.*` 标签会第一次跑，独立包公证失败会挡住 macOS 的发布。
 - 还没做：
   - 没装过 App 的干净机器；
   - Developer ID 签名加公证的包，要在发布流程里做；
   - 授予完全磁盘访问后是否生效；
   - Windows 上的全部（打包、`cli install` 的联接与转发脚本、`update`）；
-  - 发布工作流里加 `--standalone-cli` 与 Windows 发布脚本对 `cli` 归档的处理；
+  - 在 CI 上跑一遍带独立包的构建（打标签前可以手动跑 `desktop-macos.yml` 与 `desktop-windows.yml`，勾上 `standalone_cli`）；
   - 按需组件。
 
 ## 13. 待实测事项
