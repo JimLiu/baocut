@@ -30,7 +30,7 @@ cask "baocut" do
 
   auto_updates true
   depends_on arch: :arm64
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "BaoCut.app"
   binary "#{appdir}/BaoCut.app/Contents/MacOS/baocut-cli", target: "baocut"
