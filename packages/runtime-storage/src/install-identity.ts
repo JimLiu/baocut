@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { STANDALONE_MANIFEST_FILE, standaloneLayout } from '@baocut/protocol';
 
 /**
  * 一份安装的身份（CLI 独立使用与发布 §4.1）：Runtime 写进发现信息的 `entry` 与 `build`，桌面端据此判断后台的 Runtime 是不是
@@ -18,20 +19,53 @@ export function injectedBuild(): string | null {
   return typeof __BAOCUT_BUILD__ === 'string' && __BAOCUT_BUILD__ ? __BAOCUT_BUILD__ : null;
 }
 
+/** 一份安装是哪一种：App 包、独立 CLI 包（CLI 独立使用与发布 §9）或仓库。 */
+export type InstallKind = 'app' | 'standalone' | 'repo';
+
 /**
  * 入口文件属于哪一份安装：在 `app.asar` 里时是 App 包（macOS 的 `BaoCut.app`，其余平台是 `resources` 的上一级，即安装目录）；
- * 否则往上找仓库根（`package.json` 的 name 是 `baocut`）。都认不出时 null。
+ * 在独立包解开的 `app/` 里（`out/main` 的上两级有包内清单）时是独立包的根目录（装好后是版本目录）；否则往上找仓库根（`package.json`
+ * 的 name 是 `baocut`）。都认不出时 null。
  */
-export function installEntryOf(script: string, platform: NodeJS.Platform = process.platform): string | null {
+export function installOf(
+  script: string,
+  platform: NodeJS.Platform = process.platform,
+  exists: (file: string) => boolean = fs.existsSync,
+): { kind: InstallKind; entry: string } | null {
   const paths = platform === 'win32' ? path.win32 : path.posix;
   const resolved = paths.resolve(script);
   const parts = resolved.split(paths.sep);
   const asar = parts.lastIndexOf('app.asar');
   if (asar > 0) {
     const resources = parts.slice(0, asar).join(paths.sep) || paths.sep;
-    return platform === 'darwin' ? paths.dirname(paths.dirname(resources)) : paths.dirname(resources);
+    return { kind: 'app', entry: platform === 'darwin' ? paths.dirname(paths.dirname(resources)) : paths.dirname(resources) };
   }
-  return repoRootOf(paths.dirname(resolved));
+  const standalone = standaloneRootOf(resolved, platform, exists);
+  if (standalone) return { kind: 'standalone', entry: standalone };
+  const repo = repoRootOf(paths.dirname(resolved));
+  return repo ? { kind: 'repo', entry: repo } : null;
+}
+
+export function installEntryOf(
+  script: string,
+  platform: NodeJS.Platform = process.platform,
+  exists: (file: string) => boolean = fs.existsSync,
+): string | null {
+  return installOf(script, platform, exists)?.entry ?? null;
+}
+
+/** `<app>/out/main/<入口>` 里的 `<app>` 有包内清单、位置合独立包的布局时，包的根目录。 */
+function standaloneRootOf(resolved: string, platform: NodeJS.Platform, exists: (file: string) => boolean): string | null {
+  const layout = standaloneLayout(platform);
+  if (!layout) return null;
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const main = paths.dirname(resolved);
+  if (paths.basename(main) !== 'main' || paths.basename(paths.dirname(main)) !== 'out') return null;
+  const app = paths.dirname(paths.dirname(main));
+  if (!exists(paths.join(app, STANDALONE_MANIFEST_FILE))) return null;
+  let root = app;
+  for (let i = 0; i < layout.app.length; i += 1) root = paths.dirname(root);
+  return paths.join(root, ...layout.app) === app ? root : null;
 }
 
 /** 往上找仓库根（`package.json` 的 name 是 `baocut`）。 */

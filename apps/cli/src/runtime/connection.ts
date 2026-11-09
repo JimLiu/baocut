@@ -161,8 +161,8 @@ export interface LaunchSpec {
   /** 从仓库运行时，仓库 `package.json` 的 `engines.node`：当前的 Node 不在其中时不拉起（`checkRuntimeNode`）。 */
   nodeRange?: string;
   /**
-   * 拉起的是这个 CLI 所在的那份安装（同一个仓库，或包着这个 CLI 的 App）：接口版本必定与 CLI 相同，版本不同的空闲 Runtime
-   * 才值得替换（§4.2）。`BAOCUT_RUNTIME_ENTRY` 与别处装的 App 不算。
+   * 拉起的是这个 CLI 所在的那份安装（同一个仓库，或包着这个 CLI 的 App 或独立包）：接口版本必定与 CLI 相同，版本不同的空闲
+   * Runtime 才值得替换（§4.2）。`BAOCUT_RUNTIME_ENTRY` 与别处装的 App 不算。
    */
   own?: boolean;
 }
@@ -317,7 +317,7 @@ export function resolveRuntimeLaunch(
   }
   // 自身所在的安装排在 env 之后（CLI 独立使用与发布 §9.4）：独立包的 CLI 不去拉起标准位置的 App。
   const own = ownStandalonePackage(platform, from);
-  if (own) return standaloneLaunch(own, platform);
+  if (own) return { ...standaloneLaunch(own, platform), own: true };
   // 桌面包可能就放在仓库的打包输出目录里：包内的 CLI 不算从仓库运行。
   const root = path.basename(path.resolve(from, '..', '..')) === 'app.asar' ? null : repoRoot(from);
   const entry = root && path.join(root, 'apps', 'runtime', 'src', 'main.ts');
@@ -344,15 +344,17 @@ export function resolveRuntimeLaunch(
 }
 
 /**
- * 这个 CLI 自己怎么启动（`mcp install` 写进宿主的 stdio 形式，CLI 独立使用与发布 §6.1）：包内的 CLI 是 App 自带的命令行入口
- * （`entry`：macOS `Contents/MacOS/baocut-cli`，Windows 安装目录里的 `baocut.cmd`）；从仓库运行时是当前的 Node 加仓库里的
- * `apps/cli/src/main.ts`（`entry` 为 null）。都认不出（Linux 的包）时 null。
+ * 这个 CLI 自己怎么启动（`mcp install` 写进宿主的 stdio 形式，CLI 独立使用与发布 §6.1）：独立包里是包的启动器（`entry`，
+ * `standalone` 为 true）；App 里是 App 自带的命令行入口（`entry`：macOS `Contents/MacOS/baocut-cli`，Windows 安装目录里的
+ * `baocut.cmd`）；从仓库运行时是当前的 Node 加仓库里的 `apps/cli/src/main.ts`（`entry` 为 null）。都认不出（Linux 的包）时 null。
  */
 export function ownCliCommand(
   platform: NodeJS.Platform = process.platform,
   from: string = path.dirname(fileURLToPath(import.meta.url)),
   node: NodeInfo = currentNode(),
-): { command: string; args: string[]; entry: string | null } | null {
+): { command: string; args: string[]; entry: string | null; standalone?: true } | null {
+  const pkg = ownStandalonePackage(platform, from);
+  if (pkg) return { command: pkg.launcher, args: [], entry: pkg.launcher, standalone: true };
   const own = packagedApps({}, platform, from).find((app) => app.own);
   if (own) {
     const entry = packagedResourceEnv(own.resources, platform).BAOCUT_CLI_ENTRY;

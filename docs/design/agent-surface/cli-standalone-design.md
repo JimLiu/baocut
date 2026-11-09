@@ -1,6 +1,6 @@
 # CLI 独立使用与发布：不开桌面端也能用，以及独立 CLI 包
 
-> 方案稿，2026-11-08。第一批（§12：§3、§5、§7.3、§8）与第二批（§4、§6.1、§7.1、§7.2、§7.4）已实现；第三批（§9）的打包、安装、更新与 disclaim 拉起已实现，还没发布，§9.4 的复用规则还没接上。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
+> 方案稿，2026-11-08。第一批（§12：§3、§5、§7.3、§8）与第二批（§4、§6.1、§7.1、§7.2、§7.4）已实现；第三批（§9）的打包、安装、更新、disclaim 拉起与 §9.4 的复用规则已实现，还没发布。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
 >
 > 本文延伸 [Agent 面设计](agent-surface-design.md) 的 §5.6（Runtime 的归属）与 §8.2（放哪里），CLI 拉起 Runtime 的机制以[架构设计 §2.2](../../architecture/architecture-design.md#22-启动所有权与退出) 为准，这里只写要改的部分。制作流程的产品化（生产脚本编排、旁白片段剪裁、字幕断条等）不在本文。
 
@@ -177,7 +177,7 @@ CLI 拉起的 Runtime 在有在用的连接、任务或开着的对外服务（W
 
 > 已实现（2026-11-08）：`apps/cli/src/admin/mcp-stdio.ts`；落地后的说法见 Agent 面设计 §6.2 与架构设计 §4.8「stdio 桥」。桥带着条目里的客户端令牌转发给 HTTP 端点，权限、审批与审计都是那个客户端的。与上文的出入：
 >
-> - 命令只在 `~/.local/bin/baocut` 指向这份安装时写它，否则写这份安装的入口（源码时是 `node` 加 `apps/cli/src/main.ts`）；Home 不是默认的时条目带 `BAOCUT_HOME`。四家宿主都支持 stdio，`--transport http` 留给要 HTTP 的情形。
+> - 命令只在 `~/.local/bin/baocut` 指向这份安装时写它（独立包：入口由独立包管时，见 §9.4），否则写这份安装的入口（源码时是 `node` 加 `apps/cli/src/main.ts`）；Home 不是默认的时条目带 `BAOCUT_HOME`。四家宿主都支持 stdio，`--transport http` 留给要 HTTP 的情形。
 > - 用户关掉的 MCP 服务（不随 Runtime 启动）桥不替他开；找不到或拉不起 Runtime 时桥不退出，每个请求以原因回答，下一个请求再试。
 > - 实测：Claude Code 2.1.296 的 `claude mcp list` 显示已连接（令牌从 `settings.json` 的 `env` 继承）；MCP SDK 客户端只给 `PATH`、`HOME` 与条目的 `env`（同 Codex 给 stdio 服务器的最少环境）时，Runtime 不在能自己拉起、SIGKILL 掉 Runtime 后下一个请求重新拉起。Codex 0.159.0 与 Gemini CLI 读得懂写进去的条目，但没在它们的会话里实际调用（`codex mcp list` 不连接，Gemini 在未信任的目录里不启用 MCP）。Windows 上 `.cmd` 入口经 `cmd /d /c` 拉起，未实测。
 
@@ -325,7 +325,7 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
   - 把自己所在的包拷进版本目录：macOS 用 `ditto`，APFS 上是克隆，实测不到 1 秒。
   - 记成当前版本，再放好入口。之后下载下来的那份包就可以删了。
   - `cli status` 与 `cli remove` 也在独立包里处理。`remove` 只删入口，版本目录留着。
-- **更新**：见 §9.5。上一版留着回滚；还有 Runtime 在用的旧版本不删，按发现信息的 `entry` 判断，见 §4.1；没人用的在下一次更新时删掉。发现信息还没有 `entry` 时（§4.1 属第二批），有 Runtime 在跑就这次一个都不删。
+- **更新**：见 §9.5。上一版留着回滚；还有 Runtime 在用的旧版本不删，按发现信息的 `entry` 判断，见 §4.1；没人用的在下一次更新时删掉。独立包 Runtime 的 `entry` 是包根，装好后就是它的版本目录；在跑的是没有 `entry` 的旧版 Runtime 时，这次一个都不删。
 - **共用**：与 App 共用 Home `~/.baocut` 与钥匙串条目。
 - **App 怎么对待独立包的入口**：`cliEntry.status` 报 `standalone`，App 的设置页把这一行显示成已装好、由 `baocut update` 更新；App 启动时不修它，也不删它。`cliEntry.install` 与 `remove` 碰到它时拒绝，报 `CLI_ENTRY_STANDALONE`，见[命令与协议规范 §4.1](../../spec/command-protocol-spec.md#41-方法)。
 
@@ -333,7 +333,8 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 
 - **自定位（已实现）**：`resolveRuntimeLaunch` 现在依次找：`BAOCUT_RUNTIME_ENTRY`、自身所在的独立包、自身所在的 App、非默认 Home 上的仓库、标准安装位置的 App、仓库。独立包的 CLI 拉起的是包里 Node 跑的 `runtime.js`，不再落到标准位置的 App。
   - `baocut doctor` 在独立包里拿终端的 `baocut` 与独立包比，不与 App 比。
-- **复用与替换**：按 §4.2，等第二批合并。在那之前，两边仍按现有规则共用先起来的那个 Runtime。
+- **复用与替换（已实现）**：按 §4.2。独立包的 CLI 拉起的就是自己这一份（`LaunchSpec.own`），同一个 Home 上版本不同、空闲的 CLI Runtime 照样请它停下、换成自己的；接口版本相同时与 App 共用先起来的那个。桌面端看独立包拉起的 Runtime 与看别处拉起的 CLI Runtime 一样。
+- **MCP 的 stdio 形式（已实现）**：独立包里 `mcp install` 写包的启动器；`~/.local/bin/baocut` 由独立包管（`cliEntry.status` 报 `standalone`）时写那个位置，`baocut update` 删掉旧版本目录后条目照样能用。
 - 两个包同一次构建、同一个版本号一起发布。
 - PATH 上的 `baocut` 由独立包管（§3.2，§9.3）。
 
@@ -445,6 +446,7 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
     - `update --rollback`，`cli remove` 后版本目录还在。
   - 没有更新源条目时报 `UPDATE_NOT_PUBLISHED`。
   - 钥匙串与完全磁盘访问的实测见 §13。
+  - 与第二批合并后接上 §9.4：独立包拉起的 Runtime 按 §4.2 替换，发现信息的 `entry` 是包根（`baocut update` 据此留下在用的版本目录），MCP 的 stdio 条目写独立包管的入口。只有单测，没在演练包上重跑。
 - 还没做：
   - 没装过 App 的干净机器；
   - Developer ID 签名加公证的包，要在发布流程里做；

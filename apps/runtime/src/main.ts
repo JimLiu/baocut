@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { RuntimeAlreadyRunningError, installBuild, installEntryOf, runtimeSelfCheck, startRuntime } from '@baocut/runtime-core';
+import { RuntimeAlreadyRunningError, installBuild, installOf, runtimeSelfCheck, startRuntime } from '@baocut/runtime-core';
 import { hostEnvironment } from './host-environment.ts';
 import { createParentChannel } from './parent-channel.ts';
 
@@ -13,10 +13,11 @@ const BUILT_CREDENTIAL_STORE = typeof __BAOCUT_CREDENTIAL_STORE__ === 'string' ?
 
 /**
  * 从仓库运行时（源码入口，或开发态桌面端编出的 `out/main/runtime.js`）的仓库根：构建产物按它比对源码（CLI 独立使用与发布 §7.4）。
- * 在 `app.asar` 里时是打包的 App，null。
+ * 打包的 App 与独立 CLI 包没有源码可比，null。
  */
 function sourceRootOf(script: string): string | null {
-  return script.split(/[\\/]/).includes('app.asar') ? null : installEntryOf(script);
+  const install = installOf(script);
+  return install?.kind === 'repo' ? install.entry : null;
 }
 
 function credentialStoreKind(value: string): 'file' | 'keychain' {
@@ -73,7 +74,7 @@ async function main(): Promise<void> {
   ];
 
   // 这份安装与构建（CLI 独立使用与发布 §4.1）：写进发现信息，对方不连接就能判断要不要替换。
-  const entry = installEntryOf(fileURLToPath(import.meta.url));
+  const entry = installOf(fileURLToPath(import.meta.url))?.entry ?? null;
   const install = { entry, build: await installBuild(entry) };
   const sourceRoot = sourceRootOf(fileURLToPath(import.meta.url));
 

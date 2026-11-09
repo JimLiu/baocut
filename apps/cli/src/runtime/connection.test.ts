@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { packagedResourceEnv as desktopResourceEnv, packagedResources } from '../../../desktop/src/main/packaged-resources.ts';
 import { isDiscoveryLive, isEndpointRefused as storageEndpointRefused } from '../../../../packages/runtime-storage/src/discovery.ts';
+import { installEntryOf } from '../../../../packages/runtime-storage/src/install-identity.ts';
 import { CliError, EXIT, exitCodeFor } from '../envelope.ts';
 import {
   checkInterfaceVersion,
@@ -16,6 +17,7 @@ import {
   launchRuntime,
   lockHolderAlive,
   nodeSatisfies,
+  ownCliCommand,
   ownStandalonePackage,
   packagedApps,
   packagedResourceEnv,
@@ -332,6 +334,8 @@ describe('CLI shipped inside the standalone package', () => {
       env: { ...packagedResourceEnv(pkg.resources, 'darwin'), BAOCUT_PACKAGE_KIND: 'standalone' },
       source: 'standalone',
       disclaim: path.join(pkg.macos, 'baocut-disclaim'),
+      // 拉起的就是这个 CLI 自己这一份：版本不同的空闲 CLI Runtime 照 §4.2 替换。
+      own: true,
     });
     // 资源与命令行入口照 App 的找法：`BAOCUT_CLI_ENTRY` 正是独立包的启动器。
     expect(packagedResourceEnv(pkg.resources, 'darwin').BAOCUT_CLI_ENTRY).toBe(path.join(pkg.macos, 'baocut-cli'));
@@ -339,6 +343,16 @@ describe('CLI shipped inside the standalone package', () => {
     // 没有 disclaim 助手时直接拉起。
     fs.rmSync(path.join(pkg.macos, 'baocut-disclaim'));
     expect(resolveRuntimeLaunch({}, 'darwin', pkg.from)).not.toHaveProperty('disclaim');
+  });
+
+  it('MCP 的 stdio 形式拉起包的启动器；Runtime 的发现信息 `entry` 是包根，与 CLI 认出的独立包一致', () => {
+    const pkg = makeStandalone(dir);
+    expect(ownCliCommand('darwin', pkg.from)).toEqual({ command: path.join(pkg.macos, 'baocut-cli'), args: [], entry: path.join(pkg.macos, 'baocut-cli'), standalone: true });
+    // `baocut update` 按发现信息的 `entry` 留下还在用的版本目录（`collectGarbage`）：它要落在版本目录里。
+    expect(installEntryOf(path.join(pkg.from, 'runtime.js'), 'darwin')).toBe(pkg.root);
+    // 没有清单的 `out/main`（仓库里开发态编出的）照旧往上找仓库根。
+    fs.rmSync(path.join(pkg.app, 'baocut-standalone.json'));
+    expect(installEntryOf(path.join(pkg.from, 'runtime.js'), 'darwin')).toBeNull();
   });
 
   it('清单不成形或布局不对时不算独立包', () => {

@@ -2,7 +2,7 @@ export { startRuntime, RuntimeAlreadyRunningError, type StartRuntimeOptions, typ
 export { Gateway, type GatewayOptions, type TrustedPrincipal } from './gateway.ts';
 export { createHandlers, type RpcHandlers } from './handlers.ts';
 export { createFileLogger } from './logger.ts';
-export { installBuild, installEntryOf } from '@baocut/runtime-storage';
+export { installBuild, installEntryOf, installOf } from '@baocut/runtime-storage';
 export { SpaceCatalog, scanDirectory, classifyFile, isIgnoredName, entryIdOf, type ScanLimits } from './space-catalog.ts';
 export { MediaRegistry, parseRange, resolveInside, mimeTypeOf } from './media.ts';
 export { MediaAnalysis, PeakReducer, peaksRate, thumbnailMillis, type MediaAnalysisOptions, type MediaSource } from './media-analysis.ts';

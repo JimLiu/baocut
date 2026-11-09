@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Project, ServiceClient, ServiceLevel, ServiceStatus } from '@baocut/protocol';
+import type { CliEntryStatus, Project, ServiceClient, ServiceLevel, ServiceStatus } from '@baocut/protocol';
 import { CliError, EXIT } from '../envelope.ts';
 import { isDefaultHome, ownCliCommand } from '../runtime/connection.ts';
 import {
@@ -251,23 +251,28 @@ async function mcpService(ctx: McpRun): Promise<ServiceStatus> {
 
 /**
  * stdio 形式里宿主拉起的命令：这个 CLI 自己（CLI 独立使用与发布 §6.1）。App 自带的入口已经装进 `~/.local/bin/baocut`（指向的正是它）
- * 时写那个位置，App 换了位置重装入口后照样能用；否则写入口的完整路径，从仓库运行时是 Node 加 `apps/cli/src/main.ts`。Home 不是默认的
- * 那个时带上 `BAOCUT_HOME`。Windows 的入口是 `.cmd`，宿主不经 shell 拉不起来，经 `cmd /c`。认不出时 null（退回 HTTP）。
+ * 时写那个位置，App 换了位置重装入口后照样能用；独立包的入口（`standalone`，由 `baocut update` 换到当前版本）在那里时也写那个位置，
+ * 旧版本目录删掉后照样能用；否则写入口的完整路径，从仓库运行时是 Node 加 `apps/cli/src/main.ts`。Home 不是默认的那个时带上
+ * `BAOCUT_HOME`。Windows 的入口是 `.cmd`，宿主不经 shell 拉不起来，经 `cmd /c`。认不出时 null（退回 HTTP）。
  */
 async function stdioCommand(ctx: McpRun): Promise<McpStdioCommand | null> {
   const own = ownCliCommand();
   if (!own) return null;
-  let command = own.command;
-  if (own.entry) {
-    const link = await ctx.client.request('cliEntry.status', {}).catch(() => null);
-    if (link?.state === 'current' && link.entry && samePath(link.entry, own.entry)) command = link.path;
-  }
+  const link = own.entry ? await ctx.client.request('cliEntry.status', {}).catch(() => null) : null;
+  const command = stdioEntry(own, link);
   const serve = [...own.args, 'mcp', 'serve', '--stdio'];
   const env: Record<string, string> = isDefaultHome(ctx.home) ? {} : { BAOCUT_HOME: ctx.home };
   if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(command)) {
     return { command: ctx.env.ComSpec || 'cmd.exe', args: ['/d', '/c', command, ...serve], env };
   }
   return { command, args: serve, env };
+}
+
+/** 宿主拉起的可执行文件：终端里的入口是这个 CLI 自己的（同一个 App，或独立包管的入口）时写入口的位置，否则写 CLI 自己的完整路径。 */
+export function stdioEntry(own: NonNullable<ReturnType<typeof ownCliCommand>>, link: Pick<CliEntryStatus, 'entry' | 'path' | 'state'> | null): string {
+  if (!own.entry || !link) return own.command;
+  const sameApp = link.state === 'current' && !!link.entry && samePath(link.entry, own.entry);
+  return sameApp || (own.standalone && link.state === 'standalone') ? link.path : own.command;
 }
 
 function samePath(a: string, b: string): boolean {

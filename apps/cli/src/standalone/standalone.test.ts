@@ -237,8 +237,8 @@ describe.skipIf(process.platform === 'win32')('独立包 baocut update', () => {
     const { e, inst, own } = await installed();
     const fake = fakeRun({ team: 'TEAM123' });
     await updateStandalone({ installer: inst, own, env: { ...e, [STANDALONE_FEED_ENV]: publish('3.18.0', 101) }, home: runtimeHome, run: fake.run }, { check: false });
-    // 一个 Runtime 还在跑 3.17（发现信息的 entry 在那个版本目录里）。
-    const oldEntry = path.join(inst.versionPath('3.17.0-build.93'), ...layout.app, 'out', 'main', 'runtime.js');
+    // 一个 Runtime 还在跑 3.17：独立包 Runtime 的发现信息 entry 是包根，即那个版本目录（`installEntryOf`）。
+    const oldEntry = inst.versionPath('3.17.0-build.93');
     fs.writeFileSync(path.join(runtimeHome, 'runtime.json'), JSON.stringify({ pid: process.pid, entry: oldEntry }));
     const result = await updateStandalone(
       { installer: inst, own, env: { ...e, [STANDALONE_FEED_ENV]: publish('3.19.0', 110) }, home: runtimeHome, run: fake.run },

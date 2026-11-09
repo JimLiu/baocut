@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CliError } from '../envelope.ts';
 import { FakeClient, captureOutput } from '../testing/fake-client.ts';
 import { AdminRun } from './context.ts';
-import { mcp } from './mcp.ts';
+import { mcp, stdioEntry } from './mcp.ts';
 
 let home: string;
 let env: NodeJS.ProcessEnv;
@@ -276,5 +276,34 @@ describe('baocut mcp status', () => {
     expect(text).toMatch(/Claude Code\s+有/);
     expect(text).toMatch(/Codex\s+没有/);
     expect(text).not.toContain('bct_');
+  });
+});
+
+describe('stdio 形式里宿主拉起哪个可执行文件', () => {
+  const appCli = { command: '/Applications/BaoCut.app/Contents/MacOS/baocut-cli', args: [], entry: '/Applications/BaoCut.app/Contents/MacOS/baocut-cli' };
+  const standaloneCli = {
+    command: '/Users/me/.local/share/baocut/versions/3.17.0-build.93/BaoCut CLI.app/Contents/MacOS/baocut-cli',
+    args: [],
+    entry: '/Users/me/.local/share/baocut/versions/3.17.0-build.93/BaoCut CLI.app/Contents/MacOS/baocut-cli',
+    standalone: true as const,
+  };
+  const link = (state: 'current' | 'standalone' | 'stale' | 'foreign', entry: string | null = appCli.entry) => ({ path: '/Users/me/.local/bin/baocut', state, entry });
+
+  it('App 的 CLI：终端的入口指向这个 App 时写入口的位置，否则写完整路径', () => {
+    expect(stdioEntry(appCli, link('current'))).toBe('/Users/me/.local/bin/baocut');
+    expect(stdioEntry(appCli, link('current', '/Volumes/Other/BaoCut.app/Contents/MacOS/baocut-cli'))).toBe(appCli.command);
+    expect(stdioEntry(appCli, link('standalone'))).toBe(appCli.command);
+    expect(stdioEntry(appCli, null)).toBe(appCli.command);
+  });
+
+  it('独立包的 CLI：入口由独立包管时写入口的位置（更新后旧版本目录删掉照样能用），否则写启动器', () => {
+    expect(stdioEntry(standaloneCli, link('standalone'))).toBe('/Users/me/.local/bin/baocut');
+    expect(stdioEntry(standaloneCli, link('foreign'))).toBe(standaloneCli.command);
+    expect(stdioEntry(standaloneCli, link('stale'))).toBe(standaloneCli.command);
+  });
+
+  it('从仓库运行（没有入口）：写 Node 加 main.ts，不看终端的入口', () => {
+    const repo = { command: process.execPath, args: ['apps/cli/src/main.ts'], entry: null };
+    expect(stdioEntry(repo, link('current'))).toBe(process.execPath);
   });
 });
