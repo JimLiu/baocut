@@ -110,7 +110,7 @@
             <span className="grow" />
             {back ? <Btn variant="quiet" size="s" onClick={back.run}>先{back.label}</Btn> : <Btn variant="quiet" size="s" onClick={() => onAction('dismiss')}>收起</Btn>}
           </span>
-          {bar ? <span className="t-detail-xs vclone__note">「{v.name}」已存在这台电脑上，本机引擎照常能用；在 {p.name} 建好之前，它的语音合成里还选不到这只音色。</span> : null}
+          {bar ? <span className="t-detail-xs vclone__note">「{v.name}」已存在这台电脑上，本机引擎照常能用；在 {p.name} 建好之前，用 {p.name} 合成时还用不了它。</span> : null}
           {d.raw ? <span className="t-detail-xs vclone__raw">{p.name} 的原话：<span className="t-mono">{d.raw}</span></span> : null}
         </R.Content>
       </R.InlineAlert>
@@ -146,12 +146,20 @@
     }};
     if (!h.voiceId) {
       const pname = h.target && h.target.kind === 'cloud' ? providerOf(app, h.target.id).name : '';
+      /* 从选择器过来补一步（fixVoiceClone）又取消了：条上留一个回到那一步的按钮 */
+      const tv = h.task && h.open ? (app.voices || []).find((x) => x.id === String(h.open).split(':')[1]) : null;
+      const task = tv && pname ? {v: tv} : null;
       return (
         <R.InlineAlert variant="informative" UNSAFE_className="vlib-handoff">
           <R.Heading>从{h.from}过来</R.Heading>
           <R.Content>
-            <span className="vclone__p">{pname ? `录好样本存下，就在 ${pname} 建这只音色，建好带你回去。` : '录一段或从视频里取，存好后带你回去。'}</span>
-            <span className="vclone__acts"><Btn variant="quiet" size="s" onClick={() => { app.setVoiceHandoff(null); if (toModel) returnKey = h.key; app.go(h.route); }}>不了，回去</Btn></span>
+            <span className="vclone__p">{h.task === 'consent' ? `补录好授权声明，就在 ${pname} 建这只音色，建好带你回去。`
+              : h.task === 'sample' ? `换好样本，就在 ${pname} 建这只音色，建好带你回去。`
+                : pname ? `录好样本存下，就在 ${pname} 建这只音色，建好带你回去。` : '录一段或从视频里取，存好后带你回去。'}</span>
+            <span className="vclone__acts">
+              {task ? <Btn variant="accent" size="s" onClick={() => onAction(task.v, h.target.id, h.task)}>{h.task === 'consent' ? '补录授权声明' : '换样本'}</Btn> : null}
+              <Btn variant="quiet" size="s" onClick={() => { app.setVoiceHandoff(null); if (toModel) returnKey = h.key; app.go(h.route); }}>不了，回去</Btn>
+            </span>
           </R.Content>
         </R.InlineAlert>
       );

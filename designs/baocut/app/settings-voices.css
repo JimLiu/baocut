@@ -97,6 +97,9 @@
 /* 共享选择器在云端引擎下的「提供方音色」组：目录多于 12 只时组头下挂一个搜索框（voice-picker.jsx） */
 .vpk-search { padding: 4px 8px 6px; }
 .vpk-search .field { width: 100%; }
+/* 选中的我的声音在这家还没建好：那一句 + 补那一步的按钮（在传时前面一个转圈） */
+.vpk-fix { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vpk-fix__line { flex: 1 1 160px; min-width: 0; }
 
 /* 行卡与试听面板上的云端克隆状态（settings-voices.jsx）；云端试听是一句示例 + 合成按钮 */
 .vlib-cloud { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: 8px; }

@@ -149,7 +149,7 @@
           <window.VoicePicker engine={f.engine} value={f.cloudVoice} lang={f.lang} popWidth={340}
             pickKey="tool-tts" from="「生成语音」工作台" onChange={(val) => set(V.applyToForm(f, val, app.voices))} />
         </div>
-        <window.VoiceLine engine={f.engine} value={f.cloudVoice} lang={f.lang} text={f.text} className="ttsw__indent" />
+        <window.VoiceLine engine={f.engine} value={f.cloudVoice} lang={f.lang} text={f.text} className="ttsw__indent" pickKey="tool-tts" from="「生成语音」工作台" />
         {cap.instruct ? (
           <>
             <div className="ttsw__row">

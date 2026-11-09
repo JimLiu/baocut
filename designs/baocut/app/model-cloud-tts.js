@@ -3,7 +3,7 @@
    OpenAI-compatible 的 `/v1/audio/speech` 服务；2026-09-25 加第四家 Google Gemini（`generateContent` 出音频，
    30 只内置音色、风格指令写成一句话、没有数值语速、不接克隆，设计稿 §5.6 / §12.9）。这里放：四家的种子表（模型、能力、音色目录、默认音色、
    字数上限、语速区间）、`cloud:<provider>/<model>` 的拼与拆、把已连接的 API 提供方折成 model-tts.js 认的
-   「引擎」对象、「我的声音」在某家的克隆状态（上传 / 首次用时上传 / 参考不足 / 许可未说明 / 不能克隆）、
+   「引擎」对象、「我的声音」在某家的克隆状态（已上传 / 未上传 / 上传中 / 没建成 / 参考不足 / 许可未说明 / 不能克隆）、
    共享选择器在云端引擎下的分组、费用一句、页顶 chip。真相将来在 `bcut_tts::cloud`（能力表）与
    `bcut-kernel/services/cloud_tts.rs`（请求映射），这里照设计稿 §3–§6 抄。只算，不画。 */
 (function () {
@@ -323,47 +323,61 @@
   const SEARCH_AT = 12;
 
   /* ---------- 「我的声音」在某家的克隆状态（§6） ----------
-     音色档多一段 `cloud: {<provider>: {voiceId, referenceSha256, at, region?}}`。
-     返回 {k, ok, line, chip}：k ∈ uploaded / first / stale / short / consent / authorize / unsupported / orphan。
+     音色档多一段 `cloud: {<provider>: {voiceId, referenceSha256, at, region?}}`，这次会话里在建的记在 `cloneRun`（model-voices.js cloneAfter）。
+     返回 {k, ok, line, chip, fix, act}：k ∈ uploaded / first / stale / orphan / uploading / failed / short / consent / authorize / unsupported。
+     `ok` = 现在就能用这家合成（Runtime 只认有效克隆，没有就以 VOICE_CLONE_REQUIRED 拒绝，architecture-design §5.9）。
+     2026-11-09 起没有「首次用时自动上传」：没建好的音色在选择器里不再置灰成死胡同，而是带一个 `fix`（选它时怎么补）：
+       upload（就地确认后上传）/ declare（就地补一句本人声明）/ authorize（去我的声音补录授权声明）/ sample（去换样本）/
+       diagnose（去我的声音看没建成的原因）/ wait（在传，选上等它建好）；`act` 是选择器上写在原因后的那半句。只有这家不能克隆时 `fix` 为 null。
      `consent` 是「许可未说明」（音色档上那一行勾选）；`authorize` 是这家要第二段录音（本人念的授权声明，Gemini）而音色档没有 `consentClip`。 */
   const consentBlocks = (v) => (v.consent || 'unspecified') === 'unspecified';
   /** 这家要不要本人念授权声明 */
   const needsConsentClip = (p) => !!(p && p.clone && p.clone.consent);
   const hasConsentClip = (v) => !!(v && v.consentClip && v.consentClip.dur > 0);
+  const UPLOAD_ACT = '选它就上传';
   function cloneStatus(v, provider, opt) {
     const p = typeof provider === 'string' ? providerById(provider, opt && opt.extra) : provider;
     const o = opt || {};
-    if (!p) return {k: 'unsupported', ok: false, line: '没有这家提供方', chip: '—'};
+    const no = (x) => Object.assign({ok: false, fix: null, act: null}, x);
+    if (!p) return no({k: 'unsupported', line: '没有这家提供方', chip: '—'});
     if (!p.clone) {
       const alt = providers(o.extra).filter((x) => x.clone && (!o.saved || o.saved.indexOf(x.id) >= 0)).map((x) => x.name);
-      return {k: 'unsupported', ok: false, chip: `${p.name} 不能克隆`,
-        line: `${p.name} 不能克隆 · 用${p.ownVoices || '它的内置音色'}${alt.length ? '，或换 ' + alt.join(' / ') : ''}`};
+      return no({k: 'unsupported', chip: `${p.name} 不能克隆`,
+        line: `${p.name} 不能克隆 · 用${p.ownVoices || '它的内置音色'}${alt.length ? '，或换 ' + alt.join(' / ') : ''}`});
+    }
+    const run = v && v.cloneRun && v.cloneRun[p.id];
+    if (run && run.state === 'uploading') {
+      return no({k: 'uploading', fix: 'wait', chip: `${p.name} · 上传中`, line: `正在上传到 ${p.name} · 一般半分钟内建好，建好就能合成`});
+    }
+    if (run && run.state === 'failed') {
+      return no({k: 'failed', fix: 'diagnose', act: '选它看原因和办法', chip: `${p.name} — 没建成`, line: `上次没在 ${p.name} 建成`});
+    }
+    if (consentBlocks(v)) {
+      return no({k: 'consent', fix: 'declare', act: '选它补一句说明', chip: `${p.name} —`, line: '许可未说明 · 不上传到第三方'});
+    }
+    if (needsConsentClip(p) && !hasConsentClip(v)) {
+      return no({k: 'authorize', fix: 'authorize', act: '选它去补录', chip: `${p.name} — 缺授权录音`,
+        line: `${p.name} 要本人念一段授权声明（英文最稳）`});
     }
     const b = v && v.cloud && v.cloud[p.id];
-    if (b && b.orphan) return {k: 'orphan', ok: true, chip: `${p.name} ⚠`, line: `密钥已移除 · ${p.name} 上的克隆副本清理不了 · 重新连接后第一次用时重建`};
-    if (consentBlocks(v)) return {k: 'consent', ok: false, chip: `${p.name} —`, line: '许可未说明 · 不上传到第三方 · 去设置里补一行'};
-    if (needsConsentClip(p) && !hasConsentClip(v)) {
-      return {k: 'authorize', ok: false, chip: `${p.name} — 缺授权录音`,
-        line: `${p.name} 要本人念一段授权声明（英文最稳）· 在音色的 ⋯ 里补录`};
+    const stale = b && b.voiceId && (b.stale || (b.referenceSha256 && v.referenceSha256 && b.referenceSha256 !== v.referenceSha256) || (p.region && o.region && b.region && b.region !== o.region));
+    if (b && b.voiceId && !b.orphan && !stale) {
+      return {k: 'uploaded', ok: true, fix: null, act: null, chip: `${p.name} ↑ 已上传`, line: `已上传到 ${p.name} · ${b.at || ''}`.replace(/ · $/, '')};
     }
     const usable = Math.max(+(v.sourceDur || 0), +(v.dur || 0));
     if (p.clone.min && usable < p.clone.min) {
-      return {k: 'short', ok: false, chip: `${p.name} — 参考不足 ${p.clone.min} 秒`,
-        line: `参考只有 ${usable.toFixed(1)} 秒 · ${p.name} 要 ${p.clone.min} 秒以上 · 换参考段`};
+      return no({k: 'short', fix: 'sample', act: '选它去换一段样本', chip: `${p.name} — 参考不足 ${p.clone.min} 秒`,
+        line: `参考只有 ${usable.toFixed(1)} 秒 · ${p.name} 要 ${p.clone.min} 秒以上`});
     }
-    if (b && b.voiceId) {
-      if (b.stale || (b.referenceSha256 && v.referenceSha256 && b.referenceSha256 !== v.referenceSha256) || (p.region && o.region && b.region && b.region !== o.region)) {
-        return {k: 'stale', ok: true, chip: `${p.name} ⚠ 参考已换`, line: `参考段换过了 · 下次用时先删 ${p.name} 上的旧克隆再重传`};
-      }
-      return {k: 'uploaded', ok: true, chip: `${p.name} ↑ 已上传`, line: `已上传到 ${p.name} · ${b.at || ''}`.replace(/ · $/, '')};
-    }
+    if (b && b.orphan) return no({k: 'orphan', fix: 'upload', act: UPLOAD_ACT, chip: `${p.name} ⚠`, line: `密钥移除过 · ${p.name} 上的旧克隆清理不了，要重新上传`});
+    if (stale) return no({k: 'stale', fix: 'upload', act: UPLOAD_ACT, chip: `${p.name} ⚠ 参考已换`, line: `参考段换过了 · 要重新上传到 ${p.name}（旧克隆一并删掉）`});
     const secs = usable.toFixed(1);
     if (needsConsentClip(p)) {
-      return {k: 'first', ok: true, chip: `${p.name} · 首次用时建音色`,
-        line: `第一次用时把样本（${secs} 秒）与授权录音（${v.consentClip.dur.toFixed(1)} 秒）上传到 ${p.name} 建复刻音色 · 记下 voice id 反复用`};
+      return no({k: 'first', fix: 'upload', act: UPLOAD_ACT, chip: `${p.name} · 未上传`,
+        line: `还没在 ${p.name} 建音色 · 要上传样本（${secs} 秒）与授权录音（${v.consentClip.dur.toFixed(1)} 秒）`});
     }
-    return {k: 'first', ok: true, chip: `${p.name} · 首次用时上传`,
-      line: `第一次用时上传参考段（${secs} 秒）到 ${p.name} 建克隆${p.clone.expiresDays ? ` · ${p.clone.expiresDays} 天不用会过期，用时自动重建` : ''}`};
+    return no({k: 'first', fix: 'upload', act: UPLOAD_ACT, chip: `${p.name} · 未上传`,
+      line: `还没在 ${p.name} 建克隆 · 要上传参考段（${secs} 秒）${p.clone.expiresDays ? `；建好后 ${p.clone.expiresDays} 天不用会过期` : ''}`});
   }
   /** 已连接的、要本人念授权声明的提供方（采集页「授权」那一步点名谁要它） */
   function consentProviders(saved, extra) {
@@ -408,7 +422,8 @@
     groups.push({k: 'default', label: '默认', items: [{kind: 'default', label: '默认音色', sub: dv ? `按念的语言挑一只 ${p.name} 的音色（${dv.name}）` : '由对方缺省'}]});
     const mine = (voices || []).map((v) => {
       const st = cloneStatus(v, p, o);
-      return {kind: 'my', id: v.id, label: v.name, sub: st.line, disabled: !st.ok, why: st.line};
+      /* 还用不了但补得上的（fix）照样能选，原因后面写选它会怎样；只有这家不能克隆的才置灰 */
+      return {kind: 'my', id: v.id, label: v.name, sub: st.act ? `${st.line} · ${st.act}` : st.line, disabled: !st.ok && !st.fix, why: st.line, fix: st.ok ? null : st.fix};
     });
     mine.push({kind: 'new', label: '克隆新音色…', sub: '去设置 › 模型 › 语音合成 › 我的声音录一段或从视频里取'});
     groups.push({k: 'my', label: '我的声音', items: mine});
@@ -440,7 +455,7 @@
       const m = (voices || []).find((x) => x.id === v.id);
       if (!m) return '这只音色已经删了 · 换一只，或退回默认';
       const st = cloneStatus(m, p, o);
-      return st.ok ? `${st.line} · 多句时每句都用同一只 voice id` : st.line;
+      return st.ok ? `${st.line} · 多句时每句都用同一只 voice id` : st.fix === 'wait' ? st.line : `${st.line} · 建好才能合成`;
     }
     if (v.kind === 'voice') { const x = voiceById(p, v.id, o.discovered); return x ? `${p.name} 的音色 · ${x.sub || x.id}` : `${p.name} 的音色 · ${v.id}`; }
     if (v.kind === 'file') return p.clone && p.clone.min > 3 ? `只这一次 · ${p.clone.min} 秒以上、一个人说话的干净录音` : '只这一次 · 5–15 秒、一个人说话的干净录音';

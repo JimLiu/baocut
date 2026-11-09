@@ -125,24 +125,40 @@ test('默认音色按语言：精确命中 → 英语 → 表首；目录里的�
   assert.equal(C.searchVoices(C.voicesOf('elevenlabs'), 'sarah')[0].name, 'Sarah');
 });
 
-test('克隆状态：OpenAI 不能克隆；许可未说明不上传；MiniMax 要 10 秒；首次用时上传；上传过；换参考段后陈旧；移除密钥后 orphan', () => {
+test('克隆状态：OpenAI 不能克隆；许可未说明不上传；MiniMax 要 10 秒；没传过要先上传（不再首次用时自动传）；上传过；换参考段后陈旧；移除密钥后 orphan', () => {
   const v = voice({});
   assert.equal(C.cloneStatus(v, 'openai').k, 'unsupported');
   assert.match(C.cloneStatus(v, 'openai', {saved: ['openai', 'elevenlabs']}).line, /换 ElevenLabs$/);
+  assert.equal(C.cloneStatus(v, 'openai').fix, null, '不能克隆的没有补法，只能置灰');
   assert.equal(C.cloneStatus(voice({consent: 'unspecified'}), 'elevenlabs').k, 'consent');
+  assert.equal(C.cloneStatus(voice({consent: 'unspecified'}), 'elevenlabs').fix, 'declare');
   assert.equal(C.cloneStatus(v, 'minimax').k, 'short');
+  assert.equal(C.cloneStatus(v, 'minimax').fix, 'sample');
   assert.equal(C.cloneStatus(voice({sourceDur: 24}), 'minimax').k, 'first');
   assert.match(C.cloneStatus(voice({sourceDur: 24}), 'minimax').line, /7 天不用会过期/);
   const first = C.cloneStatus(v, 'elevenlabs');
   assert.equal(first.k, 'first');
-  assert.equal(first.ok, true);
+  assert.equal(first.ok, false, 'Runtime 只认有效克隆：没传过就合成不了');
+  assert.equal(first.fix, 'upload');
+  assert.equal(first.chip, 'ElevenLabs · 未上传');
+  assert.doesNotMatch(first.line, /首次用时|第一次用时/);
   const up = Object.assign({}, v, {cloud: C.bindAfter(v, 'elevenlabs', 'upload', {at: '2026-09-24'})});
   assert.equal(C.cloneStatus(up, 'elevenlabs').k, 'uploaded');
   assert.equal(C.cloneStatus(up, 'elevenlabs').chip, 'ElevenLabs ↑ 已上传');
+  assert.equal(C.cloneStatus(up, 'elevenlabs').ok, true);
   const stale = Object.assign({}, up, {cloud: C.bindAfter(up, 'elevenlabs', 'retake')});
   assert.equal(C.cloneStatus(stale, 'elevenlabs').k, 'stale');
+  assert.deepEqual([C.cloneStatus(stale, 'elevenlabs').ok, C.cloneStatus(stale, 'elevenlabs').fix], [false, 'upload']);
   const orphan = Object.assign({}, up, {cloud: C.bindAfter(up, 'elevenlabs', 'orphan')});
   assert.equal(C.cloneStatus(orphan, 'elevenlabs').k, 'orphan');
+  assert.equal(C.cloneStatus(orphan, 'elevenlabs').fix, 'upload');
+  // 这次会话里在传、没建成（cloneRun）：在传的选上等它，没建成的去看原因
+  const busy = Object.assign({}, v, V.cloneAfter(v, 'elevenlabs', 'start'));
+  assert.deepEqual([C.cloneStatus(busy, 'elevenlabs').k, C.cloneStatus(busy, 'elevenlabs').fix], ['uploading', 'wait']);
+  const failed = Object.assign({}, v, V.cloneAfter(v, 'elevenlabs', 'fail', {error: {code: 'PROVIDER_UNAVAILABLE'}}));
+  assert.deepEqual([C.cloneStatus(failed, 'elevenlabs').k, C.cloneStatus(failed, 'elevenlabs').fix], ['failed', 'diagnose']);
+  const ready = Object.assign({}, busy, V.cloneAfter(busy, 'elevenlabs', 'ready'));
+  assert.equal(C.cloneStatus(ready, 'elevenlabs').k, 'uploaded');
   const gone = Object.assign({}, up, {cloud: C.bindAfter(up, 'elevenlabs', 'delete')});
   assert.equal(C.cloneStatus(gone, 'elevenlabs').k, 'first');
   // 接入点换了：MiniMax 的绑定视为陈旧
@@ -161,20 +177,25 @@ test('选择器分组（§2.3）：默认 / 我的声音 / 提供方音色（多
   assert.deepEqual(g.map((x) => x.k), ['default', 'my', 'voices', 'file']);
   assert.match(g[0].items[0].sub, /Sarah/);
   assert.equal(g[1].items[0].disabled, false);
-  assert.equal(g[1].items[1].disabled, true);
+  assert.equal(g[1].items[0].fix, 'upload', '没传过的能选，选它就上传');
+  assert.match(g[1].items[0].sub, /还没在 ElevenLabs 建克隆.*选它就上传$/);
+  assert.equal(g[1].items[1].disabled, false, '许可未说明不是死胡同：选它就地补一句说明');
+  assert.equal(g[1].items[1].fix, 'declare');
   assert.match(g[1].items[1].why, /许可未说明/);
   assert.equal(g[1].items[2].kind, 'new');
   assert.equal(g[2].search, true);
   assert.equal(g[2].total, 14);
   assert.deepEqual(C.pickerGroups('openai', voices).map((x) => x.k), ['default', 'my', 'voices']);
-  assert.ok(C.pickerGroups('openai', voices)[1].items.every((it) => it.kind === 'new' || it.disabled), 'OpenAI 下我的声音整组置灰');
+  assert.ok(C.pickerGroups('openai', voices)[1].items.every((it) => it.kind === 'new' || (it.disabled && !it.fix)), 'OpenAI 下我的声音整组置灰（补不了）');
   assert.equal(C.pickerGroups('openai', voices)[2].search, true);
   assert.equal(C.pickerGroups('elevenlabs', voices, {query: 'zzz'})[2].items[0].kind, 'none');
   assert.match(C.pickerGroups('minimax', voices, {sourceDur: 0})[3].items[0].sub, /7 天后自动过期/);
   // 值 → 名字与那一句
   assert.equal(C.valueLabel('elevenlabs', {kind: 'voice', id: 'pNInz6obpgDQGcFmaJgB'}), 'Adam');
   assert.equal(C.valueLabel('elevenlabs', {kind: 'my', id: 'a'}, voices), '主持人');
-  assert.match(C.valueLine('elevenlabs', {kind: 'my', id: 'a'}, voices), /同一只 voice id$/);
+  assert.match(C.valueLine('elevenlabs', {kind: 'my', id: 'a'}, voices), /还没在 ElevenLabs 建克隆.*建好才能合成$/);
+  const upA = voices.map((x) => (x.id === 'a' ? Object.assign({}, x, {cloud: C.bindAfter(x, 'elevenlabs', 'upload')}) : x));
+  assert.match(C.valueLine('elevenlabs', {kind: 'my', id: 'a'}, upA), /同一只 voice id$/);
   assert.match(C.valueLine('elevenlabs', {kind: 'default'}, voices, {lang: 'zh'}), /林语/);
   assert.equal(C.voiceLabel('minimax', null, [], {lang: 'ja'}), '默认音色 · Whisper Belle');
 });
@@ -239,21 +260,22 @@ test('Gemini 音色：30 只内置、默认 Kore（任何语言都是它）、�
   const g = C.pickerGroups('google', [v, voice({id: 'b', name: '路人'})], {lang: 'zh'});
   assert.deepEqual(g.map((x) => x.k), ['default', 'my', 'voices'], '要授权录音的没有「临时用一段」');
   assert.match(g[0].items[0].sub, /Kore/);
-  assert.ok(g[1].items.every((it) => it.kind === 'new' || it.disabled), '没授权录音的整组置灰');
-  assert.ok(g[1].items.filter((it) => it.disabled).every((it) => /授权声明|许可未说明/.test(it.why || '')), '置灰写原因');
+  assert.ok(g[1].items.every((it) => it.kind === 'new' || (!it.disabled && it.fix === 'authorize')), '没授权录音的能选，选它去补录');
+  assert.ok(g[1].items.filter((it) => it.fix).every((it) => /授权声明/.test(it.why || '') && /选它去补录$/.test(it.sub)), '写原因和选它会怎样');
   assert.equal(g[2].search, true);
   assert.equal(g[2].total, 30);
   assert.equal(g[2].items.length, 30);
   assert.equal(C.pickerGroups('google', [], {query: 'kore'})[2].items[0].id, 'Kore');
   // 行卡 chip：缺授权录音
   assert.deepEqual(C.cloudChips(v, ['google']).map((c) => c.k), ['authorize']);
-  // 录了授权声明：样本太短先拦，10 秒以上首次用时建音色（样本 + 授权两段一起传），建好记 voice_…
+  // 录了授权声明：样本太短先拦，10 秒以上要先上传建音色（样本 + 授权两段一起传，选它就上传），建好记 voice_…
   const ok = voice({id: 'c', consentClip: {lang: 'en-US', dur: 7.9}});
   assert.equal(C.cloneStatus(ok, 'google').k, 'short');
   const long = voice({id: 'd', sourceDur: 29.1, consentClip: {lang: 'en-US', dur: 7.9}});
   const first = C.cloneStatus(long, 'google');
   assert.equal(first.k, 'first');
-  assert.equal(first.chip, 'Google Gemini · 首次用时建音色');
+  assert.equal(first.chip, 'Google Gemini · 未上传');
+  assert.equal(first.fix, 'upload');
   assert.match(first.line, /样本（29\.1 秒）与授权录音（7\.9 秒）/);
   assert.doesNotMatch(first.line, /过期/, 'Gemini 存着的音色不过期，不借 MiniMax 的那句');
   assert.match(C.uploadNotice(long, 'google'), /同一个人.*最多 200 只/);

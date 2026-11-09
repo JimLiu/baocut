@@ -27,6 +27,9 @@
     const app = useApp();
     const V = window.BC_VOICES;
     const mine = voice && voice.kind === 'my' ? app.voices.find((v) => v.id === voice.id) : null;
+    /* 云端引擎下我的声音靠这家的克隆：没建好时这一格写现状（选择器里选它就去补），建好了写全程同一只 voice id */
+    const cloud = mine && TTS.engineOf(engine).cloud ? window.BC_CLOUD_TTS.cloneStatus(mine, TTS.engineOf(engine).provider, {saved: app.cloudSaved, extra: app.cloudCustom}) : null;
+    const mineLine = !mine ? refLine : cloud ? (cloud.ok ? `${cloud.line} · 全程同一只 voice id` : cloud.line) : `${V.metaLine(mine)} · 全程这一段、同一颗种子`;
     return (
       <div className="dubsp">
         <span className="spkdot" style={{background: `oklch(0.6 0.14 ${sp.hue})`}} />
@@ -35,7 +38,7 @@
         <span className="spacer" />
         {onVoice ? (
           <span className="dubsp__voice">
-            <span className="t-detail-xs">{mine ? `${V.metaLine(mine)} · 全程这一段、同一颗种子` : refLine}</span>
+            <span className="t-detail-xs">{mineLine}</span>
             <window.VoicePicker engine={engine} value={voice || {kind: 'default'}} builtin={false} preset={false} file={false}
               defaultLabel="自动取参考窗" defaultSub="从这位说话人的整句里取连续几句当参考" popAlign="right" popWidth={300}
               pickKey={'dub:' + sp.id} from="「翻译配音」设置页" reopen={{tab: 'aitools', ai: 'dub'}} onChange={onVoice} />

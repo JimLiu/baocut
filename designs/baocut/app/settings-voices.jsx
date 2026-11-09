@@ -6,7 +6,7 @@
       勾一人或几人一起存；
    ④ 回程：从面板的「克隆新音色…」过来时，存好后一键回去用它。
    麦克风、分离、分人在原型里都是计时器模拟，听到的是随包的内置录音；判词与候选算法在 model-voices.js。
-   云端（2026-09-24 云端语音合成设计稿 §2.4 / §6）：行卡上多一组云端 chip（已上传 / 首次用时上传 / 参考不足 / 许可未说明 / 不能克隆），
+   云端（2026-09-24 云端语音合成设计稿 §2.4 / §6）：行卡上多一组云端 chip（已上传 / 未上传 / 参考不足 / 许可未说明 / 不能克隆），
    ⋯ 里多「上传到 X」「从 X 删除克隆」，试听克隆的模型 Picker 多一组云端；换参考段把已上传的绑定标成陈旧。
    2026-10-14：行上第三行写「凭什么认人」——每只本机引擎一颗种子、各家的 voice id、授权声明（可试听）；要授权录音的提供方（Gemini）
    连着而音色没有那段时亮一枚「缺授权录音」chip，⋯ 里「补录授权声明」走 ConsentCapture、「换种子」按引擎各一条。
@@ -20,7 +20,7 @@
   const TTS = window.BC_TTS;
   const V = window.BC_VOICES;
   const C = window.BC_CLOUD_TTS;
-  const CLOUD_TONE = {uploaded: 'positive', first: 'neutral', stale: 'notice', orphan: 'notice', short: 'notice', consent: 'notice', authorize: 'notice', unsupported: 'neutral'};
+  const CLOUD_TONE = {uploaded: 'positive', first: 'neutral', stale: 'notice', orphan: 'notice', uploading: 'accent', failed: 'negative', short: 'notice', consent: 'notice', authorize: 'notice', unsupported: 'neutral'};
 
   /* 演示用：分人页每位说话人试听放哪段随包录音 */
   const LETTER_FILES = ['tts-voice-zh-female.wav', 'tts-voice-zh-male.wav', 'tts-voice-en-female.wav', 'tts-voice-en-male.wav'];
@@ -56,13 +56,13 @@
     const run = () => {
       setPhase('run');
       timer.current = setTimeout(() => {
-        if (st.k === 'first' || st.k === 'stale') onPatch({cloud: C.bindAfter(v, e.provider, 'upload', {at: '刚刚'})});
+        if (st.fix === 'upload') onPatch({cloud: C.bindAfter(v, e.provider, 'upload', {at: '刚刚'})});
         setPhase('done');
       }, 1200);
     };
     const go = () => {
-      if (!st.ok) { app.toast(st.line); return; }
-      if (st.k === 'first' || st.k === 'stale') {
+      if (!st.ok && st.fix !== 'upload') { app.toast(st.line); return; }
+      if (st.fix === 'upload') {
         app.confirm({title: `上传到 ${e.name}？`, body: C.uploadNotice(v, e.provider), confirmLabel: '上传并合成', run});
       } else run();
     };
@@ -71,7 +71,7 @@
       <div className="vlib-cloudtry">
         <p className="t-body-sm">{sample}</p>
         <div className="row gap8">
-          <Btn variant="accent" size="s" icon="wave" disabled={phase === 'run' || !st.ok} onClick={go}>{phase === 'run' ? '合成中…' : phase === 'done' ? '再合成一次' : '合成并试听'}</Btn>
+          <Btn variant="accent" size="s" icon="wave" disabled={phase === 'run' || (!st.ok && st.fix !== 'upload')} onClick={go}>{phase === 'run' ? '合成中…' : phase === 'done' ? '再合成一次' : '合成并试听'}</Btn>
           <span className="t-detail-xs grow">{st.line} · {C.costLine(sample, C.providerById(e.provider, app.cloudCustom) || e.provider)}</span>
         </div>
         {phase === 'done' ? <window.TtsInlinePlayer dur={3.2} /> : null}
@@ -114,7 +114,7 @@
               {cloudEngines.length ? <><MenuRule /><MenuHead>云端 · 联网计费</MenuHead></> : null}
               {cloudEngines.map((e) => {
                 const st = C.cloneStatus(v, e.provider, {saved: app.cloudSaved, extra: app.cloudCustom});
-                return <MenuItem key={e.id} icon="remote" label={e.name} sub={st.line} wrap disabled={!st.ok} on={e.id === engine}
+                return <MenuItem key={e.id} icon="remote" label={e.name} sub={st.line} wrap disabled={!st.ok && st.fix !== 'upload'} on={e.id === engine}
                   onClick={() => { setOpen(false); setEngine(e.id); }} />;
               })}
             </Menu>
@@ -162,7 +162,7 @@
           onClick={() => { setMenu(false); onPatch({cloud: C.bindAfter(v, e.provider, 'delete')}); app.toast(st.k === 'orphan' ? `已清掉 ${e.name} 的绑定 · 对方账户里的旧克隆要自己删` : `已从 ${e.name} 删除克隆 · 要用时在这里再上传`); }} />;
       }
       if (V.cloneState(v, e.provider) === 'uploading') return <MenuItem key={e.id} icon="remote" label={`上传到 ${e.name}`} sub={`正在上传 · ${V.CLONE_ETA}`} wrap disabled />;
-      return <MenuItem key={e.id} icon="remote" label={`上传到 ${e.name}`} sub={st.k === 'first' ? '上传样本建克隆 · 建好记下 voice id' : st.line} wrap disabled={!st.ok}
+      return <MenuItem key={e.id} icon="remote" label={`上传到 ${e.name}`} sub={st.k === 'first' ? '上传样本建克隆 · 建好记下 voice id' : st.k === 'failed' ? `${st.line} · 再传一次` : st.line} wrap disabled={st.fix !== 'upload' && st.k !== 'failed'}
         onClick={() => { setMenu(false); app.confirm({title: `上传到 ${e.name}？`, body: C.uploadNotice(v, p), confirmLabel: '上传', run: () => window.startVoiceClone(app, v, [e.provider])}); }} />;
     }).filter(Boolean);
     return (
@@ -179,7 +179,7 @@
                 {v.emotion ? <Chip>带情绪片段</Chip> : null}
                 {v.consent === 'unspecified' ? <Chip tone="neutral">未说明是否本人</Chip> : null}
                 {(v.signal || []).map((k) => <Chip key={k} tone="notice">{V.issueLabel(k)}</Chip>)}
-                {uploaded.map((k) => { const st = C.cloneStatus(v, k, {saved: app.cloudSaved, extra: app.cloudCustom}); return <Chip key={k} tone={CLOUD_TONE[st.k]} icon="remote" title={st.line}>{st.chip}</Chip>; })}
+                {uploaded.filter((k) => !busy.some((r) => r.id === k)).map((k) => { const st = C.cloneStatus(v, k, {saved: app.cloudSaved, extra: app.cloudCustom}); return <Chip key={k} tone={CLOUD_TONE[st.k]} icon="remote" title={st.line}>{st.chip}</Chip>; })}
                 {busy.map((r) => <Chip key={r.id} tone={RUN_CHIP[r.state].tone} icon="remote">{pname(r.id)} · {RUN_CHIP[r.state].text}</Chip>)}
                 {missingConsent.map((p) => { const st = C.cloneStatus(v, p, {saved: app.cloudSaved, extra: app.cloudCustom}); return <Chip key={p.id} tone={CLOUD_TONE[st.k]} icon="remote" title={st.line}>{st.chip}</Chip>; })}
               </span>
@@ -388,6 +388,8 @@
     const voices = app.voices;
     const patch = (id, p) => app.setVoices((list) => list.map((v) => (v.id === id ? {...v, ...p} : v)));
     const names = (ids) => ids.map((k) => (C.providerById(k, app.cloudCustom) || {name: k}).name).join('、');
+    /* 从选择器过来补授权声明 / 换样本的（fixVoiceClone）：补好就把这只音色交给回程，条上报上传进度、带人回去 */
+    const handBack = (id) => { const h = app.voiceHandoff; if (h && !h.voiceId) app.setVoiceHandoff({...h, voiceId: id}); };
     const finish = (made, uploads) => {
       const list = Array.isArray(made) ? made : [made];
       const up = uploads || [];
@@ -424,8 +426,9 @@
           onDone={(clip, up) => {
             patch(target.id, {consentClip: clip});
             setMode('list');
+            handBack(target.id);
             if (up.length) window.startVoiceClone(app, target, up);
-            app.toast(up.length ? `已存「${target.name}」的授权声明 · 正在重新上传到 ${names(up)}` : `已存「${target.name}」的授权声明`, 'positive');
+            if (!(app.voiceHandoff && up.length)) app.toast(up.length ? `已存「${target.name}」的授权声明 · 正在重新上传到 ${names(up)}` : `已存「${target.name}」的授权声明`, 'positive');
           }} /></div>;
       }
     }
@@ -438,8 +441,9 @@
           onDone={(draft, up) => {
             patch(id, {...draft, id, cloud: C.bindAfter(target, null, 'retake'), cloneRun: V.cloneAfter(target, pid, 'dismiss').cloneRun});
             setMode('list');
+            handBack(id);
             if (up.length) window.startVoiceClone(app, {id, name: draft.name}, up);
-            app.toast(up.length ? `已换上新样本 · 正在重新上传到 ${names(up)}` : `已给「${draft.name}」换上新样本`, 'positive');
+            if (!(app.voiceHandoff && up.length)) app.toast(up.length ? `已换上新样本 · 正在重新上传到 ${names(up)}` : `已给「${draft.name}」换上新样本`, 'positive');
           }} /></div>;
       }
     }

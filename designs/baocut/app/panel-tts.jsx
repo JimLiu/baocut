@@ -113,7 +113,8 @@
             pickKey="panel-tts" from={clone ? '「克隆声音」面板' : '「生成语音」面板'} reopen={{tab: 'audio', paneView: clone ? 'tts-clone' : 'tts'}}
             onChange={(val) => set(V.applyToForm(f, val, app.voices))} />
         </window.PRow>
-        <window.VoiceLine engine={f.engine} value={f.cloudVoice} lang={f.lang} text={f.text} />
+        <window.VoiceLine engine={f.engine} value={f.cloudVoice} lang={f.lang} text={f.text}
+          pickKey="panel-tts" from={clone ? '「克隆声音」面板' : '「生成语音」面板'} reopen={{tab: 'audio', paneView: clone ? 'tts-clone' : 'tts'}} />
         {cap.instruct ? (
           <window.PRow label="风格">
             <Field size="s" value={f.style} onChange={(e) => set({style: e.target.value})}

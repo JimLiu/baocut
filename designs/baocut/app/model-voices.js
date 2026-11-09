@@ -454,7 +454,8 @@
       /* 云端：档在本地、克隆在对方（ProfileUse::Remote）——能不能用看这只音色在这家的克隆状态 */
       const C = CLOUD();
       const st = C.cloneStatus(voice || {consent: 'self', dur: 7.8}, e.provider, opt);
-      return st.ok ? {ok: true, mode: 'preset', line: st.line, why: null, alt: null, cloud: st}
+      /* 没建过克隆的（fix: upload）算能用：建一次就行，选择器里选它就上传 */
+      return st.ok || st.fix === 'upload' ? {ok: true, mode: 'preset', line: st.line, why: null, alt: null, cloud: st}
         : {ok: false, mode: null, line: null, why: st.line, alt: st.k === 'unsupported' ? null : '换参考段或补一行许可', cloud: st};
     }
     if (!e || !e.models || !e.models.clone) {
@@ -645,7 +646,7 @@
       source: v.sourceDur ? {file: 'source.wav', seconds: v.sourceDur} : null,
       /* 种子随包走：导入的人用同一段参考 + 同一颗种子，本地引擎出的还是同一个人 */
       seed: v.seed, seeds: v.seeds && Object.keys(v.seeds).length ? v.seeds : null,
-      /* 授权录音随包走（它是本人对这段声音的授权，跟着声音），远端绑定不进导出包：voice id 是这台电脑这把密钥下的，别人导入后第一次用时再建 */
+      /* 授权录音随包走（它是本人对这段声音的授权，跟着声音），远端绑定不进导出包：voice id 是这台电脑这把密钥下的，别人导入后在选择器里选它时再建 */
       consentClip: v.consentClip && v.consentClip.dur > 0 ? Object.assign({file: 'consent.wav', seconds: v.consentClip.dur, language: v.consentClip.lang}, v.consentClip.lang === 'custom' ? {text: v.consentClip.text || ''} : {}) : null,
     }, null, 2);
   }
