@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { CredentialStoreError, FileCredentialStore, type CredentialStore } from '@baocut/runtime-storage';
+import { CredentialStoreError, FileCredentialStore, ReadOnlyCredentialStore, type CredentialStore } from '@baocut/runtime-storage';
 import { ModelServiceStore, maskCredential, type ModelServiceStorePaths } from './model-service-store.ts';
 
 const KEY = 'sk-test-ONLY-FOR-TESTS-store-0123456789';
@@ -369,3 +369,198 @@ describe('ModelServiceStore', () => {
     expect(JSON.parse(await fs.readFile(credentialsFile, 'utf8')).credentials).toEqual({});
   });
 });
+
+/** 内存里的「钥匙串」：记下每次调用（键，不含密钥）。 */
+function memoryKeychain(items: Record<string, string> = {}) {
+  const map = new Map(Object.entries(items));
+  const calls: string[] = [];
+  let failure: CredentialStoreError | null = null;
+  const store: CredentialStore = {
+    kind: 'keychain',
+    get: async (key) => {
+      calls.push(`get ${key}`);
+      if (failure) throw failure;
+      return map.get(key) ?? null;
+    },
+    has: async (key) => {
+      calls.push(`has ${key}`);
+      if (failure) throw failure;
+      return map.has(key);
+    },
+    set: async (key, value) => {
+      calls.push(`set ${key}`);
+      map.set(key, value);
+    },
+    delete: async (key) => {
+      calls.push(`delete ${key}`);
+      map.delete(key);
+    },
+  };
+  return { store, map, calls, fail: (error: CredentialStoreError | null) => (failure = error) };
+}
+
+describe('ModelServiceStore：链接账号（CLI 独立使用与发布 §7.1）', () => {
+  const OPENAI_KEY = 'sk-test-ONLY-linked-openai-0000aaaa';
+  const WORK_KEY = 'sk-test-ONLY-linked-work-1111bbbb';
+  const DEEPSEEK_KEY = 'sk-test-ONLY-linked-deepseek-2222cccc';
+  const OWN_KEY = 'sk-test-ONLY-own-openai-3333dddd';
+  let dir: string;
+  let source: string;
+  let paths: ModelServiceStorePaths;
+  let credentialsFile: string;
+  let keychain: ReturnType<typeof memoryKeychain>;
+  let workId: string;
+  /** 来源 Home 里的配置（用钥匙串存密钥，没有 model-credentials.json）。 */
+  let origin: ModelServiceStore;
+  const open = (linked: CredentialStore | null = new ReadOnlyCredentialStore(keychain.store)) =>
+    ModelServiceStore.open(paths, new FileCredentialStore(credentialsFile), undefined, { linked });
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-model-store-link-'));
+    source = path.join(dir, 'source');
+    paths = { modelServicesFile: path.join(dir, 'home', 'store', 'model-services.json') };
+    credentialsFile = path.join(dir, 'home', 'store', 'model-credentials.json');
+    keychain = memoryKeychain();
+    origin = await ModelServiceStore.open({ modelServicesFile: path.join(source, 'store', 'model-services.json') }, keychain.store);
+    await origin.updateProvider('openai', { enabled: true, credential: OPENAI_KEY }, () => 't0');
+    workId = await origin.addAccount('openai', { credential: WORK_KEY, label: 'work' }, () => 't0');
+    await origin.updateProvider('deepseek', { enabled: true, credential: DEEPSEEK_KEY }, () => 't0');
+    await origin.flush();
+    keychain.calls.length = 0;
+  });
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it('只登记描述、不抄密钥；调用经只读存放取；改以 ACCOUNT_LINKED 拒绝；移除只解除链接，来源的密钥还在', async () => {
+    const store = await open();
+    await store.addAccount('openai', { credential: OWN_KEY }, () => 't1');
+    const linked = await store.linkAccounts(source, {}, () => 't2');
+    // openai 的 main 在这边已经有了：另起一个 id；其余沿用来源的 id。
+    expect(linked).toEqual([
+      { providerId: 'openai', accountId: expect.not.stringMatching(/^main$/), sourceAccountId: 'main', created: true },
+      { providerId: 'openai', accountId: workId, sourceAccountId: workId, created: true },
+      { providerId: 'deepseek', accountId: 'main', sourceAccountId: 'main', created: true },
+    ]);
+    // 本 Home 没配置过的服务商连同开关一起建。
+    expect(store.configView('deepseek')).toMatchObject({
+      enabled: true,
+      enabledAt: 't2',
+      credential: 'set',
+      accounts: [{ accountId: 'main', masked: maskCredential(DEEPSEEK_KEY), enabled: true, credential: 'set', linked: { home: source } }],
+    });
+    expect(store.configView('openai').accounts?.map((a) => [a.label ?? a.masked, a.linked?.home ?? null])).toEqual([
+      [maskCredential(OWN_KEY), null],
+      [maskCredential(OPENAI_KEY), source],
+      ['work', source],
+    ]);
+    expect(await store.resolveCredential('deepseek')).toEqual({ accountId: 'main', secret: DEEPSEEK_KEY });
+    expect(await store.accountCredential('openai', workId)).toBe(WORK_KEY);
+    await store.flush();
+    const files = [await fs.readFile(paths.modelServicesFile, 'utf8'), await fs.readFile(credentialsFile, 'utf8')].join('\n');
+    for (const secret of [OPENAI_KEY, WORK_KEY, DEEPSEEK_KEY]) expect(files).not.toContain(secret);
+
+    // 改描述、密钥或开关都拒绝；只排序可以。
+    for (const patch of [{ label: 'x' }, { credential: 'sk-new-ONLY-0000zzzz' }, { enabled: false }, { region: null }]) {
+      await expect(store.updateAccount('deepseek', 'main', patch)).rejects.toMatchObject({
+        code: 'conflict',
+        details: { code: 'ACCOUNT_LINKED', providerId: 'deepseek', accountId: 'main', home: source },
+      });
+    }
+    await expect(store.updateProvider('deepseek', { credential: 'sk-new-ONLY-0000zzzz' })).rejects.toMatchObject({
+      details: { code: 'ACCOUNT_LINKED' },
+    });
+    const openaiIds = store.configView('openai').accounts!.map((a) => a.accountId);
+    await store.arrangeAccounts('openai', [workId, ...openaiIds.filter((id) => id !== workId)]);
+    expect((await store.resolveCredential('openai'))?.secret).toBe(WORK_KEY);
+
+    // 移除：只删这边的登记，从不调来源的 set / delete。
+    await store.removeAccount('openai', workId);
+    await store.removeAccount('deepseek', 'main');
+    expect(store.configView('deepseek')).toMatchObject({ credential: 'missing', accounts: [] });
+    expect(keychain.calls.filter((call) => !/^(get|has) /.test(call))).toEqual([]);
+    expect(keychain.map.get('provider:deepseek/main')).toBe(DEEPSEEK_KEY);
+    expect(keychain.map.get(`provider:openai/${workId}`)).toBe(WORK_KEY);
+    // 移除 Provider 也一样：自己的账号删密钥，链接的不碰。
+    expect(await store.removeProvider('openai')).toBe(true);
+    expect(keychain.map.get('provider:openai/main')).toBe(OPENAI_KEY);
+    expect(JSON.parse(await fs.readFile(credentialsFile, 'utf8')).credentials).toEqual({});
+  });
+
+  it('再链接一次只刷新描述；按服务商与账号筛选；没匹配上时 not-found；重开后还是链接账号', async () => {
+    const store = await open();
+    expect(await store.linkAccounts(source, { providerId: 'openai', accountId: workId })).toEqual([
+      { providerId: 'openai', accountId: workId, sourceAccountId: workId, created: true },
+    ]);
+    expect((await store.linkAccounts(source, { providerId: 'openai' })).map((item) => [item.sourceAccountId, item.created])).toEqual([
+      ['main', true],
+      [workId, false],
+    ]);
+    expect(store.configView('openai').accounts).toHaveLength(2);
+    await expect(store.linkAccounts(source, { providerId: 'gemini' })).rejects.toMatchObject({
+      code: 'not-found',
+      details: { code: 'ACCOUNT_NOT_FOUND', home: source, providerId: 'gemini' },
+    });
+    await store.flush();
+    const reopened = await open();
+    // 先链接的在前（按链接的先后加在最后）。
+    expect(reopened.configView('openai').accounts?.map((a) => [a.accountId, a.linked?.home, a.credential])).toEqual([
+      [workId, source, 'set'],
+      ['main', source, 'set'],
+    ]);
+    expect(await reopened.resolveCredential('openai')).toEqual({ accountId: workId, secret: WORK_KEY });
+  });
+
+  it('来源不能链接：同一个 Home、用文件存密钥、没有配置时 LINK_SOURCE_UNSUPPORTED；只看文件在不在', async () => {
+    const store = await open();
+    const home = path.dirname(path.dirname(paths.modelServicesFile));
+    await fs.mkdir(path.join(home, 'store'), { recursive: true });
+    await expect(store.linkAccounts(home)).rejects.toMatchObject({ code: 'conflict', details: { code: 'LINK_SOURCE_UNSUPPORTED' } });
+    const fileBacked = path.join(dir, 'file-backed');
+    await fs.mkdir(path.join(fileBacked, 'store'), { recursive: true });
+    await fs.copyFile(path.join(source, 'store', 'model-services.json'), path.join(fileBacked, 'store', 'model-services.json'));
+    await fs.writeFile(path.join(fileBacked, 'store', 'model-credentials.json'), 'not even json');
+    await expect(store.linkAccounts(fileBacked)).rejects.toMatchObject({ details: { code: 'LINK_SOURCE_UNSUPPORTED', home: fileBacked } });
+    await expect(store.linkAccounts(path.join(dir, 'nothing-here'))).rejects.toMatchObject({ details: { code: 'LINK_SOURCE_UNSUPPORTED' } });
+    expect(store.providerIds()).toEqual([]);
+  });
+
+  it('跟着来源走：改名照着改；来源里删了、读不了或没有只读存放时报不可用并写明来源；回到来源后重新可用', async () => {
+    const store = await open();
+    let notified = 0;
+    store.onAccountChange(() => notified++);
+    await store.linkAccounts(source);
+    await origin.updateAccount('openai', workId, { label: 'renamed-work' });
+    await origin.flush();
+    expect(store.configView('openai').accounts?.find((a) => a.accountId === workId)?.label).toBe('renamed-work');
+
+    // 来源里删了：这边的登记还在，但没有密钥，原因写明来源。
+    await origin.removeAccount('deepseek', 'main');
+    await origin.flush();
+    expect(store.configView('deepseek')).toMatchObject({ credential: 'missing', accounts: [{ accountId: 'main', credential: 'missing' }] });
+    expect(store.credentialProblem('deepseek')).toContain(source);
+    expect(await store.resolveCredential('deepseek')).toBeNull();
+
+    // 来源又有了：后台重查，有密钥后通知重算视图。
+    await origin.updateProvider('deepseek', { credential: DEEPSEEK_KEY });
+    await origin.flush();
+    expect(store.configView('deepseek').accounts?.[0]?.masked).toBe(maskCredential(DEEPSEEK_KEY));
+    for (let i = 0; i < 100 && !store.hasCredential('deepseek'); i++) await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(store.hasCredential('deepseek')).toBe(true);
+    expect(notified).toBeGreaterThan(0);
+
+    // 只读存放报错：跳过它，原因里有来源与错误。
+    keychain.fail(new CredentialStoreError('denied', 'keychain access denied'));
+    expect(await store.resolveCredential('deepseek')).toBeNull();
+    expect(store.credentialProblem('deepseek')).toContain('keychain access denied');
+    keychain.fail(null);
+    await store.flush();
+
+    // 没有只读存放（源码 Runtime 找不到 App 的助手）：链接账号都报不可用。
+    const blind = await open(null);
+    expect(blind.configView('openai')).toMatchObject({ credential: 'missing' });
+    expect(blind.credentialProblem('openai')).toContain(source);
+    expect(await blind.resolveCredential('openai')).toBeNull();
+  });
+});
+

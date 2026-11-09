@@ -51,6 +51,7 @@ import {
   removeDiscovery,
   resolveRuntimeHome,
   writeDiscovery,
+  type CredentialStore,
   type RuntimeHome,
 } from '@baocut/runtime-storage';
 import { AgentSetup, type AgentSetupOptions } from './agent-setup.ts';
@@ -60,7 +61,7 @@ import { CliEntryInstaller } from './agent-tools/cli-entry.ts';
 import { loadAgentGuidance } from './agent-tools/guidance.ts';
 import { TaskTools } from './agent-tools/task-tools.ts';
 import { ConversationTools } from './agent-tools/conversation-tools.ts';
-import { openCredentialStore, type CredentialStoreOptions } from './credentials.ts';
+import { openCredentialStore, openLinkedCredentialStore, type CredentialStoreOptions } from './credentials.ts';
 import { retitleFromLinkImports } from './conversation-titles.ts';
 import { JobInbox } from './job-inbox.ts';
 import { BotService } from './bot/bot-service.ts';
@@ -213,6 +214,11 @@ export interface StartRuntimeOptions {
   credentials?: CredentialStoreOptions['kind'];
   /** 钥匙串后端的助手命令。默认取 `BAOCUT_CREDENTIAL_HELPER`、打包的资源目录或仓库里构建出的 `credential-helper`。 */
   credentialHelper?: CredentialStoreOptions['helper'];
+  /**
+   * 链接账号（CLI 独立使用与发布 §7.1）读密钥的只读存放。默认按 `openLinkedCredentialStore` 从凭据存储与
+   * `BAOCUT_CREDENTIAL_HELPER` 推出；测试直接给一个实例，null 表示没有（链接账号报不可用）。
+   */
+  linkedCredentials?: CredentialStore | null;
   /** 对外服务（§4.8）的调节项。测试缩短服务审批的时限。 */
   services?: ServicesOptions;
   /**
@@ -518,6 +524,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       ...(options.credentials !== undefined ? { kind: options.credentials } : {}),
       ...(options.credentialHelper !== undefined ? { helper: options.credentialHelper } : {}),
     });
+    const linkedCredentials = options.linkedCredentials !== undefined ? options.linkedCredentials : openLinkedCredentialStore(credentials);
     // 发起端在 JobManager 之前：远端节点 Provider 是 JobManager 的 Provider 之一。
     const initiator = await openNodeInitiator(home, credentials, log, options.initiator);
     stops.add('initiator', () => initiator.close(), 'Stopping the node initiator failed');
@@ -580,6 +587,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const models = await openModelJobs({
       home,
       credentials,
+      linkedCredentials,
       videos,
       log,
       worker: () => modelWorker,

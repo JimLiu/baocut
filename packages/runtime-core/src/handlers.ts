@@ -708,6 +708,8 @@ export function createHandlers({
       'models.updateAccount': async (p) => ({ provider: await services.updateAccount(p) }),
       'models.removeAccount': async (p) => ({ provider: await services.removeAccount(p.providerId, p.accountId) }),
       'models.arrangeAccounts': async (p) => ({ provider: await services.arrangeAccounts(p) }),
+      // 链接账号（CLI 独立使用与发布 §7.1）：只读，密钥留在来源 Home 那边。
+      'models.linkAccounts': (p) => services.linkAccounts(p),
       // 用量（§6.10）：只读。
       'models.usage': (p) => services.usage(p),
       'models.setDefault': async (p) => ({ default: await services.setDefault(p.capability, p.providerId, p.modelId) }),

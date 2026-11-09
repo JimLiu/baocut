@@ -60,6 +60,11 @@ export const fr: ModelsMessages = {
                                    mais sans clé utilisable)
   baocut models accounts use <providerId> <accountId|name>
                                    Rendre prioritaire : placer ce compte en tête
+  baocut models accounts link --from <home> [--provider <id>] [--account <accountId>]
+                                   Lier en lecture seule les comptes d’un autre dossier BaoCut (comme ~/.baocut) : les clés restent
+                                   dans le trousseau du système de ce dossier et sont lues à l’appel, jamais copiées ; les appels
+                                   utilisent vos vrais comptes et sont facturés comme d’habitude. Changez les clés là-bas ; retirer
+                                   ici ne fait que délier. La source doit garder ses clés dans le trousseau du système
   baocut models usage [--period <${USAGE_PERIODS.join("|")}>] [--provider <id>]
                                    Appels, utilisation et dépenses des fournisseurs en ligne et Agents (30 derniers jours par défaut) :
                                    montants estimés selon les tarifs catalogue, déclarés par le fournisseur et coûts inconnus
@@ -225,7 +230,7 @@ export const fr: ModelsMessages = {
   usageRefresh: "Utilisation : baocut models refresh <providerId>",
   usageParameters: "Utilisation : baocut models parameters generateText [--effort <level|default>] [--concurrency <n|default>]",
   usageAccounts:
-    "Utilisation : baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>",
+    "Utilisation : baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account> | link --from <home> [--provider <id>] [--account <accountId>]",
   usageDir: "Utilisation : baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]",
   cancelledDiscarded: "Arrêté et partie téléchargée supprimée",
   cancelledKept: "Arrêté (partie téléchargée conservée ; relancez install pour reprendre)",
@@ -350,4 +355,9 @@ export const fr: ModelsMessages = {
   addNeedsFamily: '--hf et --file demandent --family : baocut models addable liste les familles qui acceptent votre fichier',
   unlisted: (bundleId) => `${bundleId} retiré de la liste des modèles`,
   removedUnlisted: 'C’était un modèle ajouté : il a aussi été retiré de la liste des modèles',
+  accountLinkedFrom: (home: string) => `lié depuis ${home}`,
+  linkedHeader: (home: string) => `Lié depuis ${home} :`,
+  linkNothing: (home: string) => `${home} n’a aucun compte à lier`,
+  linkBilling: 'Les appels avec des comptes liés utilisent vos vrais comptes et sont facturés comme d’habitude ; leurs clés restent dans le dossier source',
+  accountUnlinked: (name: string, home: string) => `${name} délié ; sa clé reste dans ${home}`,
 };

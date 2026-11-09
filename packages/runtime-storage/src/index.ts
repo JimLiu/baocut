@@ -15,6 +15,7 @@ export * from './credential-store.ts';
 export * from './file-credential-store.ts';
 export * from './keychain-credential-store.ts';
 export * from './credential-migration.ts';
+export * from './read-only-credential-store.ts';
 export * from './grant-store.ts';
 export * from './agent-prefs.ts';
 export * from './schedules.ts';

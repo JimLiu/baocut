@@ -4,6 +4,8 @@ import {
   RpcError,
   type AddProviderAccountRequest,
   type ArrangeProviderAccountsRequest,
+  type LinkProviderAccountsRequest,
+  type LinkProviderAccountsResult,
   type CapabilityView,
   type ConfigureProviderRequest,
   type ModelCapabilitiesView,
@@ -170,6 +172,18 @@ export class ModelServices {
     await this.#accountSource(providerId).removeAccount!(providerId, accountId);
     await this.refresh();
     return this.provider(providerId);
+  }
+
+  /** `models.linkAccounts`（CLI 独立使用与发布 §7.1）：返回链接到的账号与涉及的服务商的视图。 */
+  async linkAccounts(request: LinkProviderAccountsRequest): Promise<LinkProviderAccountsResult> {
+    const linked = await this.store.linkAccounts(request.home, {
+      ...(request.providerId !== undefined ? { providerId: request.providerId } : {}),
+      ...(request.accountId !== undefined ? { accountId: request.accountId } : {}),
+    });
+    await this.refresh();
+    const providers: ProviderView[] = [];
+    for (const providerId of new Set(linked.map((item) => item.providerId))) providers.push(await this.provider(providerId));
+    return { linked, providers };
   }
 
   async arrangeAccounts(request: ArrangeProviderAccountsRequest): Promise<ProviderView> {

@@ -147,6 +147,8 @@ export interface ModelJobsOptions {
   home: RuntimeHome;
   /** 在线 Provider 各账号的密钥（`provider:<providerId>/<accountId>`），与节点令牌共用一个实例（§6.8）。 */
   credentials: CredentialStore;
+  /** 链接账号（CLI 独立使用与发布 §7.1）的只读存放；null 时链接账号报不可用。 */
+  linkedCredentials?: CredentialStore | null;
   videos: VideoService;
   log: Logger;
   /** Model Worker 的命令；null 表示本地推理不可用。 */
@@ -335,7 +337,10 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     idleMs: options.idleMs,
     log,
   });
-  const store = await ModelServiceStore.open(home, options.credentials, undefined, { log: options.log.child('model-services') });
+  const store = await ModelServiceStore.open(home, options.credentials, undefined, {
+    log: options.log.child('model-services'),
+    linked: options.linkedCredentials ?? null,
+  });
   // 用量账本（§6.10）：在线与智能体 Provider 的每次真实调用记一条。
   const usageLog = options.log.child('usage');
   const usage = new UsageLedger(home.usageFile, { warn: (message, data) => usageLog.warn(message, data) });

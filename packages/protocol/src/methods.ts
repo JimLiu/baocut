@@ -84,6 +84,8 @@ import type { UsageReport, UsageRequest } from './usage.ts';
 import type {
   AddProviderAccountRequest,
   ArrangeProviderAccountsRequest,
+  LinkProviderAccountsRequest,
+  LinkProviderAccountsResult,
   ConfigureProviderRequest,
   UpdateProviderAccountRequest,
   ModelBundleStatus,
@@ -1178,6 +1180,12 @@ export interface RpcMethods extends BotRpcMethods {
   'models.removeAccount': { params: { providerId: string; accountId: string }; result: { provider: ProviderView } };
   /** 账号的新顺序（「设为首选」）：第一个启用且有密钥的账号生效。`order` 要恰好是现有账号的一个排列。 */
   'models.arrangeAccounts': { params: ArrangeProviderAccountsRequest; result: { provider: ProviderView } };
+  /**
+   * 从另一个 Runtime Home 只读地链接账号（CLI 独立使用与发布 §7.1）：只登记描述，密钥留在来源那边的系统钥匙串里，调用时经只读
+   * 存放读取。来源是同一个 Home、用文件存密钥或没有模型服务配置时 `conflict`（`LINK_SOURCE_UNSUPPORTED`）；给了筛选却没有匹配
+   * 的账号时 `not-found`。链接过的账号再链接只刷新描述。
+   */
+  'models.linkAccounts': { params: LinkProviderAccountsRequest; result: LinkProviderAccountsResult };
   /** 用量（只读，架构设计 §6.8）：按时段汇总用量账本，金额分报告、估算与未知。 */
   'models.usage': { params: UsageRequest; result: UsageReport };
   /** 设置或清除（`providerId: null`）一种能力的默认 Provider 与模型；不给 `modelId` 时用该 Provider 的默认模型。 */

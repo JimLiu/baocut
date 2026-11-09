@@ -4,6 +4,7 @@ import type { Logger } from '@baocut/harness';
 import {
   FileCredentialStore,
   KeychainCredentialStore,
+  ReadOnlyCredentialStore,
   migrateFileCredentials,
   type CredentialHelperCommand,
   type CredentialStore,
@@ -51,4 +52,20 @@ export async function openCredentialStore(home: RuntimeHome, log: Logger, option
   const keychain = new KeychainCredentialStore({ helper, ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}) });
   await migrateFileCredentials(file, keychain, scoped);
   return keychain;
+}
+
+/**
+ * 链接账号（CLI 独立使用与发布 §7.1）读密钥用的只读存放：本 Home 本来就用钥匙串时就是它（只读）；用文件时经正式版 App 里
+ * 签过名的助手只读地取，助手只认 `BAOCUT_CREDENTIAL_HELPER`（源码 CLI 拉起源码 Runtime 时指向装好的 App 的助手），不用仓库里
+ * cargo 编出来的那个：它每次重编签名都变，钥匙串会反复问。没有时 null，链接账号报不可用。
+ */
+export function openLinkedCredentialStore(
+  main: CredentialStore,
+  env: NodeJS.ProcessEnv = process.env,
+  options: { timeoutMs?: number } = {},
+): CredentialStore | null {
+  if (main.kind === 'keychain') return new ReadOnlyCredentialStore(main);
+  const command = env.BAOCUT_CREDENTIAL_HELPER;
+  if (!command) return null;
+  return new ReadOnlyCredentialStore(new KeychainCredentialStore({ helper: { command }, ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}) }));
 }

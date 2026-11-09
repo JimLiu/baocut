@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import {
   MODEL_SERVICE_CAPABILITIES,
   TEXT_EFFORTS,
@@ -65,6 +67,8 @@ const OPTIONS = {
   region: { type: 'string' },
   period: { type: 'string' },
   provider: { type: 'string' },
+  from: { type: 'string' },
+  account: { type: 'string' },
   all: { type: 'boolean' },
   family: { type: 'string' },
   hf: { type: 'string' },
@@ -260,7 +264,8 @@ async function parameters(ctx: Ctx, capability: string | undefined): Promise<Exi
 
 /**
  * 服务商的账号（架构设计 §6.8）：列出、添加（密钥只从标准输入读）、移除、设为首选。调用总是用第一个启用且有密钥的账号，
- * 出错不换下一个；`use` 把一个账号排到最前（`models.arrangeAccounts`）。输出只有掩码。
+ * 出错不换下一个；`use` 把一个账号排到最前（`models.arrangeAccounts`）。输出只有掩码。`link --from <home>` 从另一个 Runtime
+ * Home 只读地链接账号（CLI 独立使用与发布 §7.1）：路径在这边解析成绝对路径再交给 Runtime；移除链接账号只解除链接。
  */
 async function modelAccounts(ctx: Ctx, args: string[]): Promise<ExitCode> {
   const { client, values } = ctx;
@@ -283,13 +288,32 @@ async function modelAccounts(ctx: Ctx, args: string[]): Promise<ExitCode> {
     if (provider.config && !provider.config.enabled) out.push(`  ${M.providerNotEnabled(providerId)}`);
     return ctx.done(result, out);
   }
+  if (action === 'link') {
+    if (providerId || !values.from) throw ctx.usageError(usage);
+    const home = absoluteHome(values.from);
+    const result = await client.request('models.linkAccounts', {
+      home,
+      ...(values.provider !== undefined ? { providerId: values.provider } : {}),
+      ...(values.account !== undefined ? { accountId: values.account } : {}),
+    });
+    if (result.linked.length === 0) return ctx.done(result, [M.linkNothing(home)]);
+    const out = [M.linkedHeader(home)];
+    for (const provider of result.providers) {
+      out.push(...lines(provider));
+      if (provider.config && !provider.config.enabled) out.push(`  ${M.providerNotEnabled(provider.providerId)}`);
+    }
+    out.push(M.linkBilling);
+    return ctx.done(result, out);
+  }
   if (action === 'remove' || action === 'use') {
     if (!providerId || !accountRef) throw ctx.usageError(usage);
     const accounts = await providerAccounts(ctx, providerId);
     const account = ctx.parse(() => findAccount(accounts, accountRef));
     if (action === 'remove') {
       const result = await client.request('models.removeAccount', { providerId, accountId: account.accountId });
-      return ctx.done(result, [M.accountRemoved(account.label ?? account.masked), ...lines(result.provider)]);
+      const name = account.label ?? account.masked;
+      const removed = account.linked ? M.accountUnlinked(name, account.linked.home) : M.accountRemoved(name);
+      return ctx.done(result, [removed, ...lines(result.provider)]);
     }
     const order = accountOrderWithFirst(accounts, account.accountId);
     const result = await client.request('models.arrangeAccounts', { providerId, order });
@@ -301,6 +325,12 @@ async function modelAccounts(ctx: Ctx, args: string[]): Promise<ExitCode> {
     return ctx.done({ providerId: action, accounts }, formatAccountLines(accounts, ''));
   }
   throw ctx.usageError(usage);
+}
+
+/** `--from` 的路径：`~` 开头的按用户目录展开（引号里的 `~` shell 不展开），其余按当前目录解析成绝对路径。 */
+function absoluteHome(value: string): string {
+  if (value === '~' || value.startsWith('~/') || value.startsWith('~\\')) return path.join(os.homedir(), value.slice(1));
+  return path.resolve(value);
 }
 
 /** 一家服务商的账号（从能力视图里取它的配置）；不是在线服务商时报错。 */

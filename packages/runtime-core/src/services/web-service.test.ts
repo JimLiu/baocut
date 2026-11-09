@@ -570,6 +570,8 @@ describe('Web 服务', () => {
       ['models.updateAccount', { providerId: 'openai', accountId: 'main', enabled: false }],
       ['models.removeAccount', { providerId: 'openai', accountId: 'main' }],
       ['models.arrangeAccounts', { providerId: 'openai', order: ['main'] }],
+      // 链接账号（CLI 独立使用与发布 §7.1）读的是另一个 Runtime Home，只在 CLI 里做。
+      ['models.linkAccounts', { home: '/tmp/other-home' }],
       ['services.list', {}],
       ['services.web.createAccessLink', {}],
       ['services.mcp.createClient', { name: 'x' }],

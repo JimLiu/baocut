@@ -50,6 +50,11 @@ export const ru: ModelsMessages = {
                                    но без пригодного ключа)
   baocut models accounts use <providerId> <accountId|name>
                                    Сделать приоритетной: переместить эту запись в начало
+  baocut models accounts link --from <home> [--provider <id>] [--account <accountId>]
+                                   Привязать аккаунты из другой папки BaoCut (например, ~/.baocut) только для чтения: ключи остаются
+                                   в системной связке ключей той папки и читаются при вызове, без копирования; вызовы идут через ваши
+                                   настоящие аккаунты и оплачиваются как обычно. Меняйте ключи там; удаление здесь лишь отвязывает.
+                                   Источник должен хранить ключи в системной связке ключей
   baocut models usage [--period <${USAGE_PERIODS.join("|")}>] [--provider <id>]
                                    Вызовы, использование и расходы сетевых поставщиков и агентов (по умолчанию 30 дней):
                                    оценка по опубликованным ценам, данные поставщика и неизвестные расходы
@@ -210,7 +215,7 @@ export const ru: ModelsMessages = {
   usageRefresh: "Использование: baocut models refresh <providerId>",
   usageParameters: "Использование: baocut models parameters generateText [--effort <level|default>] [--concurrency <n|default>]",
   usageAccounts:
-    "Использование: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>",
+    "Использование: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account> | link --from <home> [--provider <id>] [--account <accountId>]",
   usageDir: "Использование: baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]",
   cancelledDiscarded: "Остановлено, загруженная часть удалена",
   cancelledKept: "Остановлено (загруженная часть сохранена; повторите install для возобновления)",
@@ -328,4 +333,9 @@ export const ru: ModelsMessages = {
   addNeedsFamily: 'Для --hf и --file нужен --family: baocut models addable показывает семейства, принимающие свой файл',
   unlisted: (bundleId) => `${bundleId} убран из списка моделей`,
   removedUnlisted: 'Это была добавленная модель, поэтому она также убрана из списка моделей',
+  accountLinkedFrom: (home) => `привязан из ${home}`,
+  linkedHeader: (home) => `Привязано из ${home}:`,
+  linkNothing: (home) => `В ${home} нет аккаунтов для привязки`,
+  linkBilling: 'Вызовы через привязанные аккаунты идут через ваши настоящие аккаунты и оплачиваются как обычно; ключи остаются в исходной папке',
+  accountUnlinked: (name, home) => `${name} отвязан; ключ остаётся в ${home}`,
 };

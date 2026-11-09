@@ -157,6 +157,8 @@ export {
 } from './transcribe-provider.ts';
 export {
   CREDENTIAL_UNAVAILABLE,
+  ACCOUNT_LINKED,
+  LINK_SOURCE_UNSUPPORTED,
   MAIN_ACCOUNT_ID,
   ModelServiceStore,
   accountCredentialKey,

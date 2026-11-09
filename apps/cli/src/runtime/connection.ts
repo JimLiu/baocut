@@ -247,7 +247,7 @@ export function resolveRuntimeLaunch(
   const entry = root && path.join(root, 'apps', 'runtime', 'src', 'main.ts');
   const repo: LaunchSpec | null =
     root && entry && fs.existsSync(entry)
-      ? { command: process.execPath, args: nodeArgs(entry, node), env: {}, source: 'repo', own: true, ...repoNodeRange(root) }
+      ? { command: process.execPath, args: nodeArgs(entry, node), env: appCredentialHelperEnv(env, platform), source: 'repo', own: true, ...repoNodeRange(root) }
       : null;
   if (repo && runtimeHome(env) !== path.resolve(defaultHome())) return repo;
   for (const app of packagedApps(env, platform, from)) {
@@ -282,6 +282,26 @@ export function ownCliCommand(
   const root = repoRoot(from);
   const main = root && path.join(root, 'apps', 'cli', 'src', 'main.ts');
   return main && fs.existsSync(main) ? { command: process.execPath, args: nodeArgs(main, node), entry: null } : null;
+}
+
+/**
+ * 链接账号（CLI 独立使用与发布 §7.1）读密钥用的助手：源码 Runtime 用文件存自己的密钥，读另一个 Home 的钥匙串条目要借装好的
+ * App 里签过名的助手（条目是它写的，同一个签名读取不会再问；仓库里 cargo 编出来的每次重编签名都变）。已经设了
+ * `BAOCUT_CREDENTIAL_HELPER` 时照用（它随环境传下去）；没装 App 时 {}，链接账号报读不了。只看文件在不在，不执行它。
+ */
+export function appCredentialHelperEnv(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+  from: string = path.dirname(fileURLToPath(import.meta.url)),
+  exists: (file: string) => boolean = fs.existsSync,
+): Record<string, string> {
+  if (env.BAOCUT_CREDENTIAL_HELPER) return {};
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  for (const app of packagedApps(env, platform, from)) {
+    const helper = paths.join(app.resources, 'bin', platform === 'win32' ? 'credential-helper.exe' : 'credential-helper');
+    if (exists(helper)) return { BAOCUT_CREDENTIAL_HELPER: helper };
+  }
+  return {};
 }
 
 /** 装好的 BaoCut 应用可能在的位置（Windows 的 NSIS 按用户安装、macOS 的 Applications）。 */

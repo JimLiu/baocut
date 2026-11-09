@@ -246,6 +246,7 @@ export function formatAccountLines(accounts: readonly ProviderAccountView[], ind
     if (account.region) parts.push(M.accountRegion(account.region));
     if (account.endpoint) parts.push(M.accountEndpoint(account.endpoint));
     if (account.lastUsedAt) parts.push(M.accountLastUsed(account.lastUsedAt));
+    if (account.linked) parts.push(M.accountLinkedFrom(account.linked.home));
     if (account.accountId === current) parts.push(M.accountCurrent);
     return `${indent}${parts.join('  ')}`;
   });

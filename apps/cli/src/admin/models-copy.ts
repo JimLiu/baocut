@@ -76,6 +76,11 @@ const en = {
                                    just without a usable key)
   baocut models accounts use <providerId> <accountId|name>
                                    Make it preferred: move this account to the top
+  baocut models accounts link --from <home> [--provider <id>] [--account <accountId>]
+                                   Link accounts from another BaoCut home (such as ~/.baocut) read-only: the keys stay in that
+                                   home's system keychain and are read at call time, never copied; calls use your real accounts
+                                   and are billed as usual. Change keys in that home; remove here only unlinks. The source must
+                                   keep its keys in the system keychain
   baocut models usage [--period <${USAGE_PERIODS.join('|')}>] [--provider <id>]
                                    Calls, usage, and spending for online providers and agents (last 30 days by default):
                                    amounts estimated from list prices, amounts reported by the provider, and unknown costs are
@@ -242,7 +247,7 @@ const en = {
   usageRefresh: 'Usage: baocut models refresh <providerId>',
   usageParameters: 'Usage: baocut models parameters generateText [--effort <level|default>] [--concurrency <n|default>]',
   usageAccounts:
-    'Usage: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>',
+    'Usage: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account> | link --from <home> [--provider <id>] [--account <accountId>]',
   usageDir: 'Usage: baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]',
   usageAdd: 'Usage: baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
   usageUnlist: 'Usage: baocut models unlist <bundleId>',
@@ -367,6 +372,11 @@ const en = {
   structuredOutput: 'structured output',
   subscription: 'included in a subscription, quota unknown',
   modelName: (id: string, label: string) => `${id} (${label})`,
+  accountLinkedFrom: (home: string) => `linked from ${home}`,
+  linkedHeader: (home: string) => `Linked from ${home}:`,
+  linkNothing: (home: string) => `${home} has no accounts to link`,
+  linkBilling: 'Calls with linked accounts use your real accounts and are billed as usual; their keys stay in the source home',
+  accountUnlinked: (name: string, home: string) => `Unlinked ${name}; its key stays in ${home}`,
 };
 
 export type ModelsMessages = typeof en;

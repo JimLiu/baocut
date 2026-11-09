@@ -48,6 +48,11 @@ export const ja: ModelsMessages = {
                                    使えるキーがない状態になります）
   baocut models accounts use <providerId> <accountId|name>
                                    優先に設定：このアカウントを先頭に移動
+  baocut models accounts link --from <home> [--provider <id>] [--account <accountId>]
+                                   別の BaoCut ホーム（~/.baocut など）からアカウントを読み取り専用でリンク：キーはそのホームの
+                                   システムキーチェーンに残り、呼び出し時に読むだけでコピーしません。呼び出しには実際の
+                                   アカウントを使い、通常どおり課金されます。キーの変更はそのホームで。ここでの削除はリンクの
+                                   解除だけです。リンク元はキーをシステムキーチェーンに保存している必要があります
   baocut models usage [--period <${USAGE_PERIODS.join('|')}>] [--provider <id>]
                                    オンラインのプロバイダと Agent の呼び出し回数、使用量、支出（既定は過去 30 日間）：
                                    定価からの見積もり額、プロバイダが報告した額、費用不明を分けて表示し、通貨は換算しません。
@@ -211,7 +216,7 @@ export const ja: ModelsMessages = {
   usageRefresh: '使い方：baocut models refresh <providerId>',
   usageParameters: '使い方：baocut models parameters generateText [--effort <level|default>] [--concurrency <n|default>]',
   usageAccounts:
-    '使い方：baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>',
+    '使い方：baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account> | link --from <home> [--provider <id>] [--account <accountId>]',
   usageDir: '使い方：baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]',
   usageAdd: '使い方：baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
   usageUnlist: '使い方：baocut models unlist <bundleId>',
@@ -333,4 +338,9 @@ export const ja: ModelsMessages = {
   structuredOutput: '構造化出力',
   subscription: 'サブスクリプションに含まれる、クォータ不明',
   modelName: (id, label) => `${id}（${label}）`,
+  accountLinkedFrom: (home) => `${home} からリンク`,
+  linkedHeader: (home) => `${home} からリンクしました：`,
+  linkNothing: (home) => `${home} にリンクできるアカウントはありません`,
+  linkBilling: 'リンクしたアカウントでの呼び出しは実際のアカウントを使い、通常どおり課金されます。キーはリンク元のホームに残ります',
+  accountUnlinked: (name, home) => `${name} のリンクを解除しました。キーは ${home} に残っています`,
 };

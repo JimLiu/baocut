@@ -18,6 +18,7 @@ import {
   packagedApps,
   packagedResourceEnv,
   resolveRuntimeLaunch,
+  appCredentialHelperEnv,
 } from './connection.ts';
 
 describe('Runtime 的入口与版本门', () => {
@@ -43,6 +44,22 @@ describe('Runtime 的入口与版本门', () => {
     expect(repo?.source).toBe('repo');
     expect(repo?.args[0]).toMatch(/apps[/\\]runtime[/\\]src[/\\]main\.ts$/);
     expect(fs.existsSync(repo!.args[0]!)).toBe(true);
+  });
+
+  it('源码 Runtime 借装好的 App 里的凭据助手读链接账号（§7.1）：已经设了 BAOCUT_CREDENTIAL_HELPER 时不覆盖', () => {
+    const seen: string[] = [];
+    const helper = '/Applications/BaoCut.app/Contents/Resources/bin/credential-helper';
+    const exists = (file: string) => {
+      seen.push(file);
+      return file === helper;
+    };
+    expect(appCredentialHelperEnv({}, 'darwin', '/repo/apps/cli/src/runtime', exists)).toEqual({ BAOCUT_CREDENTIAL_HELPER: helper });
+    expect(seen[0]).toBe(helper);
+    expect(appCredentialHelperEnv({ BAOCUT_CREDENTIAL_HELPER: '/x/helper' }, 'darwin', '/repo', exists)).toEqual({});
+    expect(appCredentialHelperEnv({}, 'darwin', '/repo', () => false)).toEqual({});
+    const win = appCredentialHelperEnv({ LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' }, 'win32', 'C:\\repo', (file) => file.endsWith('credential-helper.exe'));
+    expect(win).toEqual({ BAOCUT_CREDENTIAL_HELPER: 'C:\\Users\\u\\AppData\\Local\\Programs\\BaoCut\\resources\\bin\\credential-helper.exe' });
+    expect(appCredentialHelperEnv({}, 'linux', '/repo', () => true)).toEqual({});
   });
 
   it('源码入口：Node 不默认去掉类型标注时补 --experimental-strip-types；仓库的入口带上 engines.node', () => {

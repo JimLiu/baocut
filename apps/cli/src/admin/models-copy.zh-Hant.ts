@@ -39,6 +39,10 @@ export const zhHant: ModelsMessages = {
                                    移除一個帳號及其金鑰（移除最後一個帳號後供應商仍會保留，只是沒有可用的金鑰）
   baocut models accounts use <providerId> <accountId|name>
                                    設為首選：將這個帳號移到最前面
+  baocut models accounts link --from <主目錄> [--provider <id>] [--account <accountId>]
+                                   從另一個 BaoCut 主目錄（如 ~/.baocut）唯讀地連結帳號：金鑰留在那邊的系統鑰匙圈裡，呼叫時
+                                   讀取，從不複製；呼叫用的是你真實的帳號，照常計費。改金鑰要在那邊改；在這裡移除只解除連結。
+                                   來源必須把金鑰存在系統鑰匙圈裡
   baocut models usage [--period <${USAGE_PERIODS.join('|')}>] [--provider <id>]
                                    線上供應商與 Agent 的呼叫次數、用量與花費（預設為最近 30 天）：依牌價估算的金額、
                                    供應商回報的金額與費用未知的部分分開列出，不換算幣別；依供應商、能力、模型與帳號細分
@@ -194,7 +198,7 @@ export const zhHant: ModelsMessages = {
   usageRefresh: '用法：baocut models refresh <providerId>',
   usageParameters: '用法：baocut models parameters generateText [--effort <level|default>] [--concurrency <n|default>]',
   usageAccounts:
-    '用法：baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>',
+    '用法：baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account> | link --from <主目錄> [--provider <id>] [--account <accountId>]',
   usageDir: '用法：baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]',
   usageAdd: '用法：baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
   usageUnlist: '用法：baocut models unlist <bundleId>',
@@ -312,4 +316,9 @@ export const zhHant: ModelsMessages = {
   structuredOutput: '結構化輸出',
   subscription: '包含在訂閱中，額度未知',
   modelName: (id, label) => `${id}（${label}）`,
+  accountLinkedFrom: (home) => `連結自 ${home}`,
+  linkedHeader: (home) => `已從 ${home} 連結：`,
+  linkNothing: (home) => `${home} 裡沒有可連結的帳號`,
+  linkBilling: '連結帳號呼叫的是你真實的帳號，照常計費；金鑰留在來源主目錄那邊',
+  accountUnlinked: (name, home) => `已解除連結 ${name}；它的金鑰仍在 ${home}`,
 };

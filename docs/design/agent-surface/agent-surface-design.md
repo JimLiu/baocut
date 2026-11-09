@@ -288,6 +288,7 @@ export --video V --kind subtitles --format srt --bilingual
 - CLI 拉起的 Runtime 空闲（没有在用的连接、没有任务）满设置 `runtime.idleExitMinutes`（默认 10）自动退出，Agent 忘了停也不留后台进程。`baocut runtime status` 只查状态，不算在用：查询不推迟退出，报出的 `idleSince` 是查询之前的值。
 - 版本门：CLI 与 Runtime 的接口版本不同时以退出码 3 拒绝并说明哪一边要更新；不默默按旧参数解释。例外是同一份安装换版本：对方是 CLI 拉起的、空闲，而 CLI 会拉起的正是自己这份安装（同一个仓库或包着它的 App）时，请它停下再拉起自己的，结果里同样带 `runtime: { started: true }`；它忙着时拒绝的消息写明任务数与连接数，并说明空闲后重跑会自动替换。规则与桌面端那一侧见架构设计 §2.2「两份安装共用一个 Home」。接口版本相同、但连上的 Runtime 没有 CLI 目录快照里的命令时，以退出码 3 报 `RUNTIME_OUTDATED`，不说成没有这个命令。
 - 从仓库运行的 CLI：主目录不是默认的 `~/.baocut`（如 `BAOCUT_HOME=.dev/baocut-home`）时拉起仓库里的 Runtime，与 CLI 是同一份代码，还没发布的工具才调得到。默认主目录是用户的真实数据与钥匙串，开发中的代码不碰它，仍用装好的应用。
+- 隔离 Home 上要用真实账号时，`baocut models accounts link --from ~/.baocut` 把默认 Home 的账号只读地链接过来（管理桶，先征得用户同意）：密钥留在系统钥匙串里，调用时经装好的 App 里签过名的凭据助手读取，从不拷贝；调用用的是用户真实的账号，照常计费。改链接账号的密钥以 `ACCOUNT_LINKED` 拒绝，移除只解除链接。细节见 [CLI 独立使用与发布 §7.1](cli-standalone-design.md#71-只读链接账号)。
 - 不开桌面端只用 CLI 的后续方案（两份安装的版本规则、CLI 拉起的 Runtime 与桌面端一致、隔离 Home 只读链接账号、独立 CLI 包）见 [CLI 独立使用与发布](cli-standalone-design.md)，方案稿，实现时改写本节。
 
 ### 5.7 帮助的形态

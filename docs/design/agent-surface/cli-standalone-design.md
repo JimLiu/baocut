@@ -206,6 +206,16 @@ CLI 拉起的 Runtime 在有在用的连接、任务或开着的对外服务（W
 
 Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home 上仍用装好的 App 的 Runtime，开发中的代码不碰默认 Home。
 
+> 已实现（2026-11-08）。与上面的出入：
+> - 只读存放：本 Home 本来就用钥匙串时直接只读地用它；用文件时只认 `BAOCUT_CREDENTIAL_HELPER`。源码 CLI 拉起源码 Runtime 时，只要没设这个变量，就找装好的 App 的 `<resources>/bin/credential-helper`（只看文件在不在）指过去。
+> - 抄过来的描述还有 region 与账号级端点；本 Home 没配置过的服务商连同开关、端点、名字与声明的模型一起建。`accountId` 与已有账号重名时另起一个；再链接一次只刷新描述（`created: false`）。
+> - 「用钥匙串后端」按来源有没有 `store/model-credentials.json` 判断（钥匙串后端启动时迁走并删掉它），只看在不在、不读。同一个 Home、来源没有模型服务配置也报 `LINK_SOURCE_UNSUPPORTED`；给了筛选没匹配上报 `not-found`（`ACCOUNT_NOT_FOUND`）。
+> - `ACCOUNT_LINKED` 不只拦密钥：名字、开关、region、端点都跟着来源，一样拒绝；只排序可以。`models.configure` 的 `credential` 落到链接账号头上同样拒绝，`credential: null` 与 `removeProvider` 只解除链接。
+> - 跟着来源走：按来源 `model-services.json` 的修改时间与大小缓存，读视图时重读；账号回到来源或来源换了密钥（掩码变了）时在后台重查 `has`，变了就推 `capabilities.updated`。
+> - 协议方法是 `models.linkAccounts { home, providerId?, accountId? }`，浏览器不开放；视图里链接账号带 `linked: { home }`。桌面端与 Web 界面没改：链接账号只出现在 CLI 用的隔离 Home 里，App 不打开那里。
+>
+> 验证：存储与 Runtime 两层单测（假助手，含移除后来源的条目还在、助手只被调 `get` 与 `has`）；源码 CLI 在临时 Home 上经假助手链接假来源；又以真实的 `~/.baocut` 为来源（只读它的 `model-services.json`，假助手里没有密钥）链接再移除，`security find-generic-password`（不带 `-w`）查到真实条目前后都在。没做：经 App 的助手真读一次钥匙串里的密钥（不碰真实密钥）；Windows 未实测。
+
 ### 7.2 隔离 Home 的搭建
 
 源码 CLI 在非默认 Home 上会自己拉起仓库里的 Runtime，`engine-host` 与 web 构建也会回退到仓库的构建产物，只设 `BAOCUT_HOME` 就够。可以加 `baocut sandbox create <目录> [--link-accounts-from <home>]`：建 Home 与项目目录，写一份 `env.sh` / `env.ps1`，按需链接账号，打印怎么用。

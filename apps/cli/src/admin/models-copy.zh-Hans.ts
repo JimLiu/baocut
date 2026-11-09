@@ -39,6 +39,10 @@ export const zhHans: ModelsMessages = {
                                    移除一个账号与它的密钥（删掉最后一个账号时服务商还在，只是没有可用的密钥）
   baocut models accounts use <providerId> <accountId|名字>
                                    设为首选：把这个账号排到最前
+  baocut models accounts link --from <主目录> [--provider <id>] [--account <accountId>]
+                                   从另一个 BaoCut 主目录（如 ~/.baocut）只读地链接账号：密钥留在那边的系统钥匙串里，调用时
+                                   读取，从不拷贝；调用用的是你真实的账号，照常计费。改密钥要在那边改；在这里移除只解除链接。
+                                   来源必须把密钥存在系统钥匙串里
   baocut models usage [--period <${USAGE_PERIODS.join('|')}>] [--provider <id>]
                                    在线服务商与智能体的调用次数、用量与花费（默认最近 30 天）：按标价估算的、服务商
                                    报告的与费用未知的分开列，币种不换算；按服务商、能力、模型与账号拆分
@@ -193,7 +197,7 @@ export const zhHans: ModelsMessages = {
   usageRefresh: '用法：baocut models refresh <providerId>',
   usageParameters: '用法：baocut models parameters generateText [--effort <档位|default>] [--concurrency <n|default>]',
   usageAccounts:
-    '用法：baocut models accounts <providerId> | add <providerId> [--label <名字>] [--region <地区>] [--verify] | remove <providerId> <账号> | use <providerId> <账号>',
+    '用法：baocut models accounts <providerId> | add <providerId> [--label <名字>] [--region <地区>] [--verify] | remove <providerId> <账号> | use <providerId> <账号> | link --from <主目录> [--provider <id>] [--account <accountId>]',
   usageDir: '用法：baocut models dir [--set <路径> [--move|--switch] | --reset [--move|--switch]]',
   usageAdd: '用法：baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
   usageUnlist: '用法：baocut models unlist <bundleId>',
@@ -311,4 +315,9 @@ export const zhHans: ModelsMessages = {
   structuredOutput: '结构化输出',
   subscription: '订阅内，额度未知',
   modelName: (id, label) => `${id}（${label}）`,
+  accountLinkedFrom: (home) => `链接自 ${home}`,
+  linkedHeader: (home) => `已从 ${home} 链接：`,
+  linkNothing: (home) => `${home} 里没有可链接的账号`,
+  linkBilling: '链接账号调用的是你真实的账号，照常计费；密钥留在来源主目录那边',
+  accountUnlinked: (name, home) => `已解除链接 ${name}；它的密钥仍在 ${home}`,
 };

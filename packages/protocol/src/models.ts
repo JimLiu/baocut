@@ -909,6 +909,11 @@ export interface ProviderAccountView {
   /** 这个账号有没有密钥（凭据存储里查到的）。 */
   credential: 'set' | 'missing';
   status: ProviderAccountStatus;
+  /**
+   * 链接账号（CLI 独立使用与发布 §7.1）：密钥属于另一个 Runtime Home，这边只读，描述跟着来源走。改它以 `conflict`
+   * （`ACCOUNT_LINKED`）拒绝，移除只解除链接。
+   */
+  linked?: { home: string };
 }
 
 /** 在线与智能体 Provider 的配置（只读视图）：密钥只报告有没有，从不回显。 */
@@ -1146,6 +1151,30 @@ export interface UpdateProviderAccountRequest {
 export interface ArrangeProviderAccountsRequest {
   providerId: string;
   order: string[];
+}
+
+/**
+ * `models.linkAccounts`（CLI 独立使用与发布 §7.1）：从另一个 Runtime Home 只读地链接账号。`home` 是绝对路径；只给 `providerId`
+ * 时链接这个服务商的全部账号，再给 `accountId` 时只链接那一个，都不给时链接全部。
+ */
+export interface LinkProviderAccountsRequest {
+  home: string;
+  providerId?: string;
+  accountId?: string;
+}
+
+/** 链接到的一个账号：`accountId` 是本 Home 里的 id（和已有账号重名时另起），`created: false` 表示早就链接过、只刷新了描述。 */
+export interface LinkedProviderAccount {
+  providerId: string;
+  accountId: string;
+  sourceAccountId: string;
+  created: boolean;
+}
+
+export interface LinkProviderAccountsResult {
+  linked: LinkedProviderAccount[];
+  /** 涉及的服务商的新视图。 */
+  providers: ProviderView[];
 }
 
 export interface ModelsSnapshot {

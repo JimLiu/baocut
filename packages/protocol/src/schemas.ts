@@ -1568,6 +1568,7 @@ export const methodParamSchemas = {
     .strict(),
   'models.removeAccount': z.object({ providerId, accountId }).strict(),
   'models.arrangeAccounts': z.object({ providerId, order: z.array(accountId).min(1).max(50) }).strict(),
+  'models.linkAccounts': z.object({ home: absolutePath, providerId: providerId.optional(), accountId: accountId.optional() }).strict(),
   'models.usage': z.object({ period: z.enum(USAGE_PERIODS), providerId: providerId.optional() }).strict(),
   'models.setDefault': z.object({ capability: serviceCapability, providerId: providerId.nullable(), modelId: modelId.optional() }).strict(),
   'jobs.inspect': z.object({ jobId: id }).strict(),

@@ -46,6 +46,11 @@ export const ko: ModelsMessages = {
                                    쓸 수 있는 키만 없어짐)
   baocut models accounts use <providerId> <accountId|이름>
                                    우선 계정으로 설정: 이 계정을 맨 앞으로 옮깁니다
+  baocut models accounts link --from <home> [--provider <id>] [--account <accountId>]
+                                   다른 BaoCut 홈(예: ~/.baocut)의 계정을 읽기 전용으로 연결합니다. 키는 그 홈의 시스템 키체인에
+                                   남고 호출할 때 읽기만 하며 복사하지 않습니다. 호출에는 실제 계정을 쓰고 평소대로 과금됩니다.
+                                   키는 그 홈에서 바꾸세요. 여기서 제거하면 연결만 해제됩니다. 원본 홈은 키를 시스템 키체인에
+                                   저장해야 합니다
   baocut models usage [--period <${USAGE_PERIODS.join('|')}>] [--provider <id>]
                                    온라인 공급자와 Agent의 호출 수, 사용량, 지출(기본값은 최근 30일):
                                    정가로 추정한 금액, 공급자가 보고한 금액, 알 수 없는 비용을 따로 보여 주며
@@ -206,7 +211,7 @@ export const ko: ModelsMessages = {
   usageRefresh: '사용법: baocut models refresh <providerId>',
   usageParameters: '사용법: baocut models parameters generateText [--effort <강도|default>] [--concurrency <n|default>]',
   usageAccounts:
-    '사용법: baocut models accounts <providerId> | add <providerId> [--label <이름>] [--region <리전>] [--verify] | remove <providerId> <계정> | use <providerId> <계정>',
+    '사용법: baocut models accounts <providerId> | add <providerId> [--label <이름>] [--region <리전>] [--verify] | remove <providerId> <계정> | use <providerId> <계정> | link --from <home> [--provider <id>] [--account <accountId>]',
   usageDir: '사용법: baocut models dir [--set <경로> [--move|--switch] | --reset [--move|--switch]]',
   usageAdd: '사용법: baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
   usageUnlist: '사용법: baocut models unlist <bundleId>',
@@ -326,4 +331,9 @@ export const ko: ModelsMessages = {
   structuredOutput: '구조화된 출력',
   subscription: '구독에 포함, 할당량 알 수 없음',
   modelName: (id, label) => `${id}(${label})`,
+  accountLinkedFrom: (home) => `${home}에서 연결됨`,
+  linkedHeader: (home) => `${home}에서 연결했습니다:`,
+  linkNothing: (home) => `${home}에 연결할 계정이 없습니다`,
+  linkBilling: '연결된 계정으로 호출하면 실제 계정을 쓰고 평소대로 과금됩니다. 키는 원본 홈에 남아 있습니다',
+  accountUnlinked: (name, home) => `${name}의 연결을 해제했습니다. 키는 ${home}에 그대로 있습니다`,
 };

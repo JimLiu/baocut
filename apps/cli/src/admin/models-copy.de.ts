@@ -53,6 +53,11 @@ export const de: ModelsMessages = {
                                    jedoch ohne nutzbaren Schlüssel)
   baocut models accounts use <providerId> <accountId|name>
                                    Bevorzugtes Konto festlegen: Konto an die erste Stelle verschieben
+  baocut models accounts link --from <home> [--provider <id>] [--account <accountId>]
+                                   Konten aus einem anderen BaoCut-Ordner (etwa ~/.baocut) schreibgeschützt verknüpfen: Die Schlüssel
+                                   bleiben im Schlüsselbund des Systems dieses Ordners und werden beim Aufruf gelesen, nie kopiert;
+                                   Aufrufe nutzen deine echten Konten und werden wie gewohnt abgerechnet. Schlüssel dort ändern;
+                                   Entfernen hier hebt nur die Verknüpfung auf. Die Quelle muss den Schlüsselbund nutzen
   baocut models usage [--period <${USAGE_PERIODS.join("|")}>] [--provider <id>]
                                    Aufrufe, Nutzung und Ausgaben für Online-Anbieter und Agenten (standardmäßig letzte 30 Tage):
                                    anhand von Listenpreisen geschätzte Beträge, vom Anbieter gemeldete Beträge und unbekannte Kosten
@@ -220,7 +225,7 @@ export const de: ModelsMessages = {
   usageRefresh: "Verwendung: baocut models refresh <providerId>",
   usageParameters: "Verwendung: baocut models parameters generateText [--effort <level|default>] [--concurrency <n|default>]",
   usageAccounts:
-    "Verwendung: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>",
+    "Verwendung: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account> | link --from <home> [--provider <id>] [--account <accountId>]",
   usageDir: "Verwendung: baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]",
   cancelledDiscarded: "Gestoppt und heruntergeladenen Teil gelöscht",
   cancelledKept: "Gestoppt (der heruntergeladene Teil bleibt erhalten; führen Sie install erneut aus, um fortzufahren)",
@@ -345,4 +350,9 @@ export const de: ModelsMessages = {
   addNeedsFamily: '--hf und --file brauchen --family: baocut models addable zeigt die Familien, die eigene Dateien annehmen',
   unlisted: (bundleId) => `${bundleId} aus der Modellliste entfernt`,
   removedUnlisted: 'Es war ein hinzugefügtes Modell und wurde auch aus der Modellliste entfernt',
+  accountLinkedFrom: (home: string) => `verknüpft aus ${home}`,
+  linkedHeader: (home: string) => `Aus ${home} verknüpft:`,
+  linkNothing: (home: string) => `${home} hat keine Konten zum Verknüpfen`,
+  linkBilling: 'Aufrufe mit verknüpften Konten nutzen deine echten Konten und werden wie gewohnt abgerechnet; ihre Schlüssel bleiben im Quellordner',
+  accountUnlinked: (name: string, home: string) => `Verknüpfung von ${name} aufgehoben; der Schlüssel bleibt in ${home}`,
 };

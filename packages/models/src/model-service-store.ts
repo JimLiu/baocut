@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import {
   AGENT_PROVIDER_PREFIX,
   DEFAULT_TEXT_CONCURRENCY,
@@ -11,6 +13,7 @@ import {
   type ModelRef,
   type ModelServiceCapability,
   type ProviderAccountStatus,
+  type LinkedProviderAccount,
   type ProviderAccountView,
   type ProviderConfigView,
   type ProviderRefreshStatus,
@@ -43,6 +46,11 @@ import {
  *   `provider:<providerId>/main`，再写第 2 版的配置文件，最后删旧键（两种后端相同）。凭据存储读不了时记下原因、保留待迁移的
  *   标记（`legacyCredential`），下次打开再试，不当作没有密钥；中途停下时再来一遍结果相同。
  *
+ * - 链接账号（CLI 独立使用与发布 §7.1）：从另一个用钥匙串的 Runtime Home 登记过来的账号（`linked`），描述（名字、掩码、启用、
+ *   region、端点）每次读配置时按来源 Home 的配置文件刷新，密钥只读地从只读存放取（key 用来源的 accountId）。改它以 `conflict`
+ *   （`ACCOUNT_LINKED`）拒绝，移除只删本 Home 里的登记；来源里没有了、读不到密钥或没有只读存放时报 `missing-credential` 并写明
+ *   链接来源。
+ *
  * 读配置的方法只报告 `credential: 'set' | 'missing'` 与账号的掩码；各账号有没有密钥在打开时逐个查一次并记在内存里，密钥本身
  * 只经 `resolveCredential()` 在发请求时取，交给适配器，不缓存。凭据存储不可用时如实报告原因（`credentialProblem()`），
  * 不回退到别的存放。内存里的配置是权威，文件是它的快照；写入串行。默认值指向的 Provider 被删除后照样保留（§6.8）。
@@ -59,6 +67,14 @@ export interface StoredAccount {
   addedAt: string;
   lastUsedAt?: string;
   status: ProviderAccountStatus;
+  /** 链接账号（§7.1）：来源 Home 与它那边的 accountId。描述跟着来源走，密钥只读。 */
+  linked?: LinkedSource;
+}
+
+/** 链接账号的来源：Runtime Home 的绝对路径，与账号在那边的 id（钥匙串里的 key 用它）。 */
+export interface LinkedSource {
+  home: string;
+  accountId: string;
 }
 
 export interface StoredProvider {
@@ -103,6 +119,10 @@ export interface ModelServiceStorePaths {
 
 /** 凭据存储读写失败时网关错误的 `details.code`（命令与协议规范 §11）。 */
 export const CREDENTIAL_UNAVAILABLE = 'CREDENTIAL_UNAVAILABLE';
+/** 改链接账号时的 `details.code`（§7.1）：要在来源 Home 里改。 */
+export const ACCOUNT_LINKED = 'ACCOUNT_LINKED';
+/** 来源 Home 不能链接（同一个 Home、用文件存密钥、没有模型服务配置）时的 `details.code`。 */
+export const LINK_SOURCE_UNSUPPORTED = 'LINK_SOURCE_UNSUPPORTED';
 
 /** 账号的密钥在凭据存储里的 key（§6.8）。 */
 export function accountCredentialKey(providerId: string, accountId: string): string {
@@ -132,6 +152,14 @@ export class ModelServiceStore {
   readonly #file: JsonStoreFile;
   readonly #services: ServicesFile;
   readonly #credentials: CredentialStore;
+  /** 链接账号读密钥的只读存放（§7.1）；null 时链接账号报不可用。 */
+  readonly #linked: CredentialStore | null;
+  /** 链接来源的配置（按文件的修改时间与大小缓存；读不到时 null）。 */
+  readonly #sources = new Map<string, { stamp: string; services: ServicesFile | null }>();
+  /** 来源里已经没有的链接账号（`<providerId>/<accountId>`）。 */
+  readonly #linkedGone = new Set<string>();
+  /** 读链接账号的密钥失败的原因（不含密钥）。 */
+  readonly #linkedProblems = new Map<string, string>();
   /** 有密钥的账号（`<providerId>/<accountId>`；打开时查一次，之后随修改更新）。 */
   readonly #present = new Set<string>();
   /** 查不了或取不到密钥的 Provider 与原因（不含密钥）。 */
@@ -144,10 +172,11 @@ export class ModelServiceStore {
   readonly #migrationFailed = new Set<string>();
   #chain: Promise<void> = Promise.resolve();
 
-  private constructor(file: JsonStoreFile, services: ServicesFile, credentials: CredentialStore) {
+  private constructor(file: JsonStoreFile, services: ServicesFile, credentials: CredentialStore, linked: CredentialStore | null) {
     this.#file = file;
     this.#services = services;
     this.#credentials = credentials;
+    this.#linked = linked;
   }
 
   /**
@@ -162,7 +191,7 @@ export class ModelServiceStore {
     paths: ModelServiceStorePaths,
     credentials: CredentialStore,
     now: () => string = () => new Date().toISOString(),
-    options: { log?: StoreLog } = {},
+    options: { log?: StoreLog; linked?: CredentialStore | null } = {},
   ): Promise<ModelServiceStore> {
     const file = new JsonStoreFile(paths.modelServicesFile, options.log);
     const { value } = await file.read({
@@ -171,7 +200,7 @@ export class ModelServiceStore {
       tolerateReadErrors: true,
     });
     const { services, legacy } = parseServices(value);
-    const store = new ModelServiceStore(file, services, credentials);
+    const store = new ModelServiceStore(file, services, credentials, options.linked ?? null);
     const pendingDelete: string[] = [];
     let changed = legacy;
     for (const [providerId, provider] of Object.entries(services.providers)) {
@@ -180,8 +209,13 @@ export class ModelServiceStore {
       if (result === 'delete-legacy') pendingDelete.push(providerId);
       if (result !== 'failed') changed = true;
     }
+    if (store.#syncLinked({ save: false, recheck: false })) changed = true;
     for (const [providerId, provider] of Object.entries(services.providers)) {
       for (const account of provider.accounts) {
+        if (account.linked) {
+          await store.#checkLinked(providerId, account);
+          continue;
+        }
         try {
           if (await credentials.has(accountCredentialKey(providerId, account.accountId))) store.#present.add(presenceKey(providerId, account.accountId));
         } catch (error) {
@@ -245,6 +279,7 @@ export class ModelServiceStore {
 
   /** 有没有至少一个启用且有密钥的账号。 */
   hasCredential(providerId: string): boolean {
+    this.#syncLinked();
     return (this.#services.providers[providerId]?.accounts ?? []).some(
       (a) => a.enabled && this.#present.has(presenceKey(providerId, a.accountId)),
     );
@@ -252,15 +287,27 @@ export class ModelServiceStore {
 
   /** 第一个启用且有密钥的账号（不取密钥；描述与列模型用它的 region 与端点）。 */
   activeAccount(providerId: string): StoredAccount | null {
+    this.#syncLinked();
     const found = (this.#services.providers[providerId]?.accounts ?? []).find(
       (a) => a.enabled && this.#present.has(presenceKey(providerId, a.accountId)),
     );
     return found ? structuredClone(found) : null;
   }
 
-  /** 凭据存储读不了这个 Provider 的密钥时的原因；没有问题时 null。 */
+  /**
+   * 凭据存储读不了这个 Provider 的密钥时的原因；没有问题时 null。没有可用的账号、启用的链接账号又用不了时（§7.1），报第一个
+   * 链接账号的原因（写明来源）。
+   */
   credentialProblem(providerId: string): string | null {
-    return this.#problems.get(providerId) ?? null;
+    const own = this.#problems.get(providerId);
+    if (own) return own;
+    if (this.hasCredential(providerId)) return null;
+    for (const account of this.#services.providers[providerId]?.accounts ?? []) {
+      if (!account.enabled || !account.linked) continue;
+      const problem = this.#linkedProblem(providerId, account);
+      if (problem) return problem;
+    }
+    return null;
   }
 
   /** 给适配器的密钥（第一个启用且有密钥的账号的）。见 `resolveCredential()`。 */
@@ -273,11 +320,13 @@ export class ModelServiceStore {
    * 凭据存储不可用时抛 `CredentialStoreError` 并记下原因（之后的视图报告它）；成功时清掉原来记下的问题。
    */
   async resolveCredential(providerId: string): Promise<{ accountId: string; secret: string } | null> {
+    this.#syncLinked();
     const accounts = (this.#services.providers[providerId]?.accounts ?? []).filter((a) => a.enabled);
     try {
       for (const account of accounts) {
-        const secret = await this.#credentials.get(accountCredentialKey(providerId, account.accountId));
         const key = presenceKey(providerId, account.accountId);
+        // 链接账号读不到（来源里没了、没有只读存放、钥匙串报错）时跳过它，原因由 `credentialProblem()` 报告。
+        const secret = account.linked ? await this.#linkedSecret(providerId, account) : await this.#credentials.get(accountCredentialKey(providerId, account.accountId));
         if (secret === null) {
           this.#present.delete(key);
           continue;
@@ -301,6 +350,11 @@ export class ModelServiceStore {
 
   /** 一个账号的密钥（验证已保存的密钥时用）；没有时 null。凭据存储不可用时抛 `CredentialStoreError` 并记下原因。 */
   async accountCredential(providerId: string, accountId: string): Promise<string | null> {
+    const account = this.#services.providers[providerId]?.accounts.find((a) => a.accountId === accountId);
+    if (account?.linked) {
+      this.#syncLinked();
+      return this.#linkedSecret(providerId, account);
+    }
     try {
       return await this.#credentials.get(accountCredentialKey(providerId, accountId));
     } catch (error) {
@@ -311,6 +365,7 @@ export class ModelServiceStore {
 
   /** 只读视图：密钥只报告有没有，账号只有掩码。 */
   configView(providerId: string): ProviderConfigView {
+    this.#syncLinked();
     const stored = this.#services.providers[providerId];
     return {
       // 只有 Codex 出厂开着（`agent:claude` 要用户自己打开）；已保存的关闭选择优先，不为出厂值伪造启用时间（架构设计 §6.9）。
@@ -335,6 +390,7 @@ export class ModelServiceStore {
       ...(account.lastUsedAt ? { lastUsedAt: account.lastUsedAt } : {}),
       credential: this.#present.has(presenceKey(providerId, account.accountId)) ? 'set' : 'missing',
       status: { ...account.status },
+      ...(account.linked ? { linked: { home: account.linked.home } } : {}),
     };
   }
 
@@ -392,11 +448,13 @@ export class ModelServiceStore {
       const first = next.accounts[0];
       if (patch.credential === null) {
         if (first) {
-          await this.#credentialWrite(providerId, () => this.#credentials.delete(accountCredentialKey(providerId, first.accountId)));
-          this.#present.delete(presenceKey(providerId, first.accountId));
+          // 链接账号只删登记，不碰来源的密钥（§7.1）。
+          if (!first.linked) await this.#credentialWrite(providerId, () => this.#credentials.delete(accountCredentialKey(providerId, first.accountId)));
+          this.#forget(providerId, first.accountId);
           next.accounts.shift();
         }
       } else {
+        if (first?.linked) throw linkedConflict(providerId, first);
         const accountId = first?.accountId ?? this.#freshAccountId(next, MAIN_ACCOUNT_ID);
         const secret = patch.credential;
         await this.#credentialWrite(providerId, () => this.#credentials.set(accountCredentialKey(providerId, accountId), secret));
@@ -439,6 +497,7 @@ export class ModelServiceStore {
     const provider = this.#services.providers[providerId];
     const index = provider?.accounts.findIndex((a) => a.accountId === accountId) ?? -1;
     if (!provider || index < 0) throw accountNotFound(providerId, accountId);
+    this.assertAccountWritable(providerId, accountId, patch);
     const next: StoredAccount = { ...provider.accounts[index]! };
     if (patch.credential !== undefined) {
       const secret = patch.credential;
@@ -462,9 +521,11 @@ export class ModelServiceStore {
   /** 删一个账号与它的密钥（先删凭据）。没有这个账号时 `not-found`。删掉最后一个账号不移除 Provider。 */
   async removeAccount(providerId: string, accountId: string): Promise<void> {
     const provider = this.#services.providers[providerId];
-    if (!provider?.accounts.some((a) => a.accountId === accountId)) throw accountNotFound(providerId, accountId);
-    await this.#credentialWrite(providerId, () => this.#credentials.delete(accountCredentialKey(providerId, accountId)));
-    this.#present.delete(presenceKey(providerId, accountId));
+    const account = provider?.accounts.find((a) => a.accountId === accountId);
+    if (!provider || !account) throw accountNotFound(providerId, accountId);
+    // 链接账号只删本 Home 里的登记，来源的密钥不动（§7.1）。
+    if (!account.linked) await this.#credentialWrite(providerId, () => this.#credentials.delete(accountCredentialKey(providerId, accountId)));
+    this.#forget(providerId, accountId);
     this.#services.providers[providerId] = { ...provider, accounts: provider.accounts.filter((a) => a.accountId !== accountId) };
     await this.#save();
   }
@@ -510,12 +571,12 @@ export class ModelServiceStore {
     if (!provider) return false;
     for (const account of [...provider.accounts]) {
       try {
-        await this.#credentialWrite(providerId, () => this.#credentials.delete(accountCredentialKey(providerId, account.accountId)));
+        if (!account.linked) await this.#credentialWrite(providerId, () => this.#credentials.delete(accountCredentialKey(providerId, account.accountId)));
       } catch (error) {
         await this.#save().catch(() => {});
         throw error;
       }
-      this.#present.delete(presenceKey(providerId, account.accountId));
+      this.#forget(providerId, account.accountId);
       provider.accounts = provider.accounts.filter((a) => a.accountId !== account.accountId);
     }
     await this.#credentialWrite(providerId, () => this.#credentials.delete(providerCredentialKey(providerId)));
@@ -535,9 +596,202 @@ export class ModelServiceStore {
     await this.#save();
   }
 
+  /**
+   * 改链接账号（§7.1）以 `conflict`（`ACCOUNT_LINKED`）拒绝：它的密钥与描述都跟着来源 Home，要在那边改。只排序不算改。
+   * 验证之前先问，免得拿新的密钥白白请求一次供应商。
+   */
+  assertAccountWritable(providerId: string, accountId: string, patch: AccountPatch): void {
+    const account = this.#services.providers[providerId]?.accounts.find((a) => a.accountId === accountId);
+    if (account?.linked && Object.values(patch).some((value) => value !== undefined)) throw linkedConflict(providerId, account);
+  }
+
+  /**
+   * 把另一个 Runtime Home 里的账号链接过来（§7.1，`models.linkAccounts`）：登记描述（名字、掩码、启用、region、端点）并标上
+   * `linked`，不抄密钥。来源必须是另一个用钥匙串的 Home：同一个 Home，或来源还有 `store/model-credentials.json`（用文件存
+   * 密钥；钥匙串后端启动时会迁走并删掉它）时以 `conflict`（`LINK_SOURCE_UNSUPPORTED`）拒绝。只看那个文件在不在，不读它。
+   * 已经链接过的账号只刷新描述；本 Home 还没有配置过的服务商连同它的开关、端点与声明的模型一起建（启用的记下现在的时间）。
+   * 给了 `providerId` / `accountId` 却一个也没匹配上时 `not-found`。
+   */
+  async linkAccounts(
+    home: string,
+    filter: { providerId?: string; accountId?: string } = {},
+    now: () => string = () => new Date().toISOString(),
+  ): Promise<LinkedProviderAccount[]> {
+    const source = path.resolve(home);
+    if (sameDir(source, path.dirname(path.dirname(this.#file.file)))) throw linkUnsupported(M.linkSameHome(), source);
+    if (await pathExists(path.join(source, 'store', 'model-credentials.json'))) throw linkUnsupported(M.linkSourceFileBacked({ home: source }), source);
+    this.#sources.delete(source);
+    const services = this.#source(source);
+    if (!services) throw linkUnsupported(M.linkSourceEmpty({ home: source }), source);
+    const results: LinkedProviderAccount[] = [];
+    const touched: [string, StoredAccount][] = [];
+    for (const [providerId, from] of Object.entries(services.providers)) {
+      if (filter.providerId !== undefined && providerId !== filter.providerId) continue;
+      for (const origin of from.accounts) {
+        if (origin.linked || (filter.accountId !== undefined && origin.accountId !== filter.accountId)) continue;
+        const provider = (this.#services.providers[providerId] ??= newLinkedProvider(from, now));
+        const existing = provider.accounts.find((a) => a.linked && sameDir(a.linked.home, source) && a.linked.accountId === origin.accountId);
+        if (existing) {
+          copyDescription(existing, origin);
+          this.#linkedGone.delete(presenceKey(providerId, existing.accountId));
+          results.push({ providerId, accountId: existing.accountId, sourceAccountId: origin.accountId, created: false });
+          touched.push([providerId, existing]);
+          continue;
+        }
+        const account: StoredAccount = {
+          accountId: this.#freshAccountId(provider, origin.accountId),
+          label: origin.label,
+          masked: origin.masked,
+          enabled: origin.enabled,
+          ...(origin.region ? { region: origin.region } : {}),
+          ...(origin.endpoint ? { endpoint: origin.endpoint } : {}),
+          addedAt: now(),
+          status: { state: 'unknown' },
+          linked: { home: source, accountId: origin.accountId },
+        };
+        provider.accounts.push(account);
+        results.push({ providerId, accountId: account.accountId, sourceAccountId: origin.accountId, created: true });
+        touched.push([providerId, account]);
+      }
+    }
+    if (results.length === 0 && (filter.providerId !== undefined || filter.accountId !== undefined)) {
+      throw new RpcError('not-found', M.linkNoMatch({ home: source }), {
+        code: 'ACCOUNT_NOT_FOUND',
+        home: source,
+        ...(filter.providerId !== undefined ? { providerId: filter.providerId } : {}),
+        ...(filter.accountId !== undefined ? { accountId: filter.accountId } : {}),
+      });
+    }
+    for (const [providerId, account] of touched) await this.#checkLinked(providerId, account);
+    if (results.length > 0) await this.#save();
+    return results;
+  }
+
   /** 等待排队的写入（测试与停止时用）。 */
   flush(): Promise<void> {
     return this.#chain;
+  }
+
+  /** 一个账号离开配置：忘掉它的密钥状态。 */
+  #forget(providerId: string, accountId: string): void {
+    const key = presenceKey(providerId, accountId);
+    this.#present.delete(key);
+    this.#linkedGone.delete(key);
+    this.#linkedProblems.delete(key);
+  }
+
+  /** 链接来源的配置（按修改时间与大小缓存）。文件不在时 null；读坏了时沿用上一次读到的。 */
+  #source(home: string): ServicesFile | null {
+    const file = path.join(home, 'store', 'model-services.json');
+    let stamp = 'missing';
+    try {
+      const stat = fsSync.statSync(file);
+      stamp = `${stat.mtimeMs}:${stat.size}`;
+    } catch {
+      // 不在：来源的账号都算没了。
+    }
+    const cached = this.#sources.get(home);
+    if (cached?.stamp === stamp) return cached.services;
+    let services: ServicesFile | null = null;
+    if (stamp !== 'missing') {
+      try {
+        services = parseServices(JSON.parse(fsSync.readFileSync(file, 'utf8'))).services;
+      } catch {
+        services = cached?.services ?? null;
+      }
+    }
+    this.#sources.set(home, { stamp, services });
+    return services;
+  }
+
+  /**
+   * 按来源刷新链接账号的描述（§7.1「跟着来源走」）：来源里没有了的记为没了（没有密钥）。描述变了时落盘（`save: false` 时只
+   * 返回变没变）。账号回到来源里或描述变了（来源那边换了密钥）时在后台重查有没有密钥，变了就通知监听者重算视图
+   * （`recheck: false` 时不查，打开时由调用方统一查）。
+   */
+  #syncLinked(options: { save?: boolean; recheck?: boolean } = {}): boolean {
+    let changed = false;
+    const recheck: [string, StoredAccount][] = [];
+    for (const [providerId, provider] of Object.entries(this.#services.providers)) {
+      for (const account of provider.accounts) {
+        if (!account.linked) continue;
+        const key = presenceKey(providerId, account.accountId);
+        const linked = account.linked;
+        const origin = this.#source(linked.home)?.providers[providerId]?.accounts.find((a) => a.accountId === linked.accountId && !a.linked);
+        if (!origin) {
+          this.#linkedGone.add(key);
+          this.#present.delete(key);
+          continue;
+        }
+        const back = this.#linkedGone.delete(key);
+        const described = copyDescription(account, origin);
+        if (described) changed = true;
+        if (back || described) recheck.push([providerId, account]);
+      }
+    }
+    if (changed && options.save !== false) void this.#save().catch(() => {});
+    if (recheck.length > 0 && options.recheck !== false) void this.#recheckLinked(recheck);
+    return changed;
+  }
+
+  async #recheckLinked(accounts: [string, StoredAccount][]): Promise<void> {
+    let flipped = false;
+    for (const [providerId, account] of accounts) {
+      const key = presenceKey(providerId, account.accountId);
+      const before = this.#present.has(key);
+      await this.#checkLinked(providerId, account);
+      if (this.#present.has(key) !== before) flipped = true;
+    }
+    if (flipped) for (const listener of this.#listeners) listener();
+  }
+
+  /** 查一个链接账号有没有密钥（`has`，不取密钥），结果记进 `#present` 与 `#linkedProblems`。 */
+  async #checkLinked(providerId: string, account: StoredAccount): Promise<void> {
+    const key = presenceKey(providerId, account.accountId);
+    const linked = this.#linked;
+    if (!linked || this.#linkedGone.has(key) || !account.linked) {
+      this.#present.delete(key);
+      return;
+    }
+    try {
+      if (await linked.has(accountCredentialKey(providerId, account.linked.accountId))) this.#present.add(key);
+      else this.#present.delete(key);
+      this.#linkedProblems.delete(key);
+    } catch (error) {
+      this.#present.delete(key);
+      this.#linkedProblems.set(key, credentialProblem(error).message);
+    }
+  }
+
+  /** 取一个链接账号的密钥；用不了（来源里没了、没有只读存放、存放报错）时 null，原因记进 `#linkedProblems`。 */
+  async #linkedSecret(providerId: string, account: StoredAccount): Promise<string | null> {
+    const key = presenceKey(providerId, account.accountId);
+    const linked = this.#linked;
+    if (!linked || !account.linked || this.#linkedGone.has(key)) return null;
+    try {
+      const secret = await linked.get(accountCredentialKey(providerId, account.linked.accountId));
+      this.#linkedProblems.delete(key);
+      if (secret === null) this.#present.delete(key);
+      return secret;
+    } catch (error) {
+      this.#present.delete(key);
+      this.#linkedProblems.set(key, credentialProblem(error).message);
+      return null;
+    }
+  }
+
+  /** 链接账号用不了的原因（写明来源）；能用时 null。 */
+  #linkedProblem(providerId: string, account: StoredAccount): string | null {
+    if (!account.linked) return null;
+    const key = presenceKey(providerId, account.accountId);
+    const name = account.label ?? account.masked;
+    const { home } = account.linked;
+    if (this.#linkedGone.has(key)) return M.linkedSourceMissing({ account: name, home }).text;
+    if (!this.#linked) return M.linkedHelperMissing({ home }).text;
+    const failed = this.#linkedProblems.get(key);
+    if (failed) return M.linkedUnreadable({ account: name, home, reason: failed }).text;
+    if (!this.#present.has(key)) return M.linkedKeyMissing({ account: name, home }).text;
+    return null;
   }
 
   /** 新账号的 id：给了偏好且没被占用时用它，否则随机 8 位十六进制。 */
@@ -595,6 +849,67 @@ function emptyProvider(): StoredProvider {
   return { enabled: false, enabledAt: null, accounts: [] };
 }
 
+function linkedConflict(providerId: string, account: StoredAccount): RpcError {
+  const home = account.linked?.home ?? '';
+  return new RpcError('conflict', M.accountLinked({ home }), { code: ACCOUNT_LINKED, providerId, accountId: account.accountId, home });
+}
+
+function linkUnsupported(message: ConstructorParameters<typeof RpcError>[1], home: string): RpcError {
+  return new RpcError('conflict', message, { code: LINK_SOURCE_UNSUPPORTED, home });
+}
+
+/** 链接过来时本 Home 还没有这个服务商：连同开关、端点与声明的模型建一条（不抄列表与账号）。 */
+function newLinkedProvider(from: StoredProvider, now: () => string): StoredProvider {
+  return {
+    enabled: from.enabled,
+    enabledAt: from.enabled ? now() : null,
+    ...(from.endpoint ? { endpoint: from.endpoint } : {}),
+    ...(from.label ? { label: from.label } : {}),
+    ...(from.models ? { models: structuredClone(from.models) } : {}),
+    accounts: [],
+  };
+}
+
+/** 把来源账号的描述抄到链接账号上；有变化时 true。 */
+function copyDescription(account: StoredAccount, origin: StoredAccount): boolean {
+  let changed = false;
+  for (const field of ['label', 'masked', 'enabled'] as const) {
+    if (account[field] !== origin[field]) {
+      (account as unknown as Record<string, unknown>)[field] = origin[field];
+      changed = true;
+    }
+  }
+  for (const field of ['region', 'endpoint'] as const) {
+    if (account[field] === origin[field]) continue;
+    if (origin[field] === undefined) delete account[field];
+    else account[field] = origin[field];
+    changed = true;
+  }
+  return changed;
+}
+
+function sameDir(a: string, b: string): boolean {
+  const real = (dir: string) => {
+    try {
+      return fsSync.realpathSync.native(dir);
+    } catch {
+      return path.resolve(dir);
+    }
+  };
+  const left = real(a);
+  const right = real(b);
+  return process.platform === 'win32' || process.platform === 'darwin' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
+async function pathExists(file: string): Promise<boolean> {
+  try {
+    await fs.stat(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function presenceKey(providerId: string, accountId: string): string {
   return `${providerId}/${accountId}`;
 }
@@ -637,7 +952,14 @@ function parseAccount(raw: unknown): StoredAccount | null {
     addedAt: raw.addedAt,
     ...(typeof raw.lastUsedAt === 'string' ? { lastUsedAt: raw.lastUsedAt } : {}),
     status,
+    ...(parseLinked(raw.linked) ?? {}),
   };
+}
+
+function parseLinked(raw: unknown): { linked: LinkedSource } | null {
+  if (!isObject(raw) || typeof raw.home !== 'string' || !path.isAbsolute(raw.home)) return null;
+  if (typeof raw.accountId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,31}$/.test(raw.accountId)) return null;
+  return { linked: { home: raw.home, accountId: raw.accountId } };
 }
 
 /** 读第 1、2 版的文件。第 1 版的每个 Provider 都标为待迁移（`legacy` 为 true 表示文件要换成第 2 版）。 */

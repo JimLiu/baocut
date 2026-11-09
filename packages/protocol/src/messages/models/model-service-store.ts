@@ -20,6 +20,15 @@ const en = {
   orderMismatch: 'order must list each existing account of this service provider exactly once',
   credentialNotSaved: (p: { reason: string }) => `The credential was not saved: ${p.reason}`,
   accountNotFound: (p: { provider: string; account: string }) => `${p.provider} has no such account: ${p.account}`,
+  accountLinked: (p: { home: string }) => `This account is linked from ${p.home}; change or remove its key there`,
+  linkSameHome: 'Accounts cannot be linked from the same BaoCut home',
+  linkSourceFileBacked: (p: { home: string }) => `${p.home} keeps its keys in a file, not in the system keychain; only a home that uses the keychain can be linked`,
+  linkSourceEmpty: (p: { home: string }) => `No BaoCut model service settings were found in ${p.home}`,
+  linkNoMatch: (p: { home: string }) => `${p.home} has no matching account`,
+  linkedHelperMissing: (p: { home: string }) => `Keys of accounts linked from ${p.home} can't be read: the credential helper of the installed BaoCut app was not found`,
+  linkedSourceMissing: (p: { account: string; home: string }) => `Linked account ${p.account} is no longer in ${p.home}`,
+  linkedKeyMissing: (p: { account: string; home: string }) => `The key of linked account ${p.account} (from ${p.home}) is not in the system keychain`,
+  linkedUnreadable: (p: { account: string; home: string; reason: string }) => `The key of linked account ${p.account} (from ${p.home}) can't be read: ${p.reason}`,
 };
 
 export type ModelsModelServiceStoreMessages = typeof en;

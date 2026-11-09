@@ -50,6 +50,11 @@ export const pl: ModelsMessages = {
                                    ale bez użytecznego klucza)
   baocut models accounts use <providerId> <accountId|name>
                                    Ustaw jako preferowane: przenieś to konto na początek
+  baocut models accounts link --from <home> [--provider <id>] [--account <accountId>]
+                                   Połącz konta z innego folderu BaoCut (np. ~/.baocut) tylko do odczytu: klucze zostają w systemowym
+                                   pęku kluczy tamtego folderu i są czytane przy wywołaniu, nigdy kopiowane; wywołania używają twoich
+                                   prawdziwych kont i są rozliczane jak zwykle. Klucze zmieniaj tam; usunięcie tutaj tylko rozłącza.
+                                   Źródło musi trzymać klucze w systemowym pęku kluczy
   baocut models usage [--period <${USAGE_PERIODS.join("|")}>] [--provider <id>]
                                    Wywołania, użycie i wydatki dostawców online i agentów (domyślnie ostatnie 30 dni):
                                    szacunki według cennika, kwoty zgłoszone przez dostawcę i nieznane koszty
@@ -210,7 +215,7 @@ export const pl: ModelsMessages = {
   usageRefresh: "Użycie: baocut models refresh <providerId>",
   usageParameters: "Użycie: baocut models parameters generateText [--effort <level|default>] [--concurrency <n|default>]",
   usageAccounts:
-    "Użycie: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>",
+    "Użycie: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account> | link --from <home> [--provider <id>] [--account <accountId>]",
   usageDir: "Użycie: baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]",
   cancelledDiscarded: "Zatrzymano i usunięto pobraną część",
   cancelledKept: "Zatrzymano (pobrana część została zachowana; uruchom install ponownie, aby wznowić)",
@@ -328,4 +333,9 @@ export const pl: ModelsMessages = {
   addNeedsFamily: '--hf i --file wymagają --family: baocut models addable pokazuje rodziny, które przyjmują własny plik',
   unlisted: (bundleId) => `Usunięto ${bundleId} z listy modeli`,
   removedUnlisted: 'To był dodany model, więc usunięto go też z listy modeli',
+  accountLinkedFrom: (home) => `połączone z ${home}`,
+  linkedHeader: (home) => `Połączono z ${home}:`,
+  linkNothing: (home) => `W ${home} nie ma kont do połączenia`,
+  linkBilling: 'Wywołania przez połączone konta używają twoich prawdziwych kont i są rozliczane jak zwykle; klucze zostają w folderze źródłowym',
+  accountUnlinked: (name, home) => `Rozłączono ${name}; klucz zostaje w ${home}`,
 };

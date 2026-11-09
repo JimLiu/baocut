@@ -5,8 +5,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { BaoCutClient, applyModelsEvent } from '@baocut/client';
 import { fakeOpenAiHandler, startFakeProviderServer, type FakeProviderServer } from '@baocut/providers/testing';
 import type { ModelsSnapshot, ProviderCapabilityView } from '@baocut/protocol';
-import { resolveRuntimeHome, type CredentialHelperCommand, type RuntimeHome } from '@baocut/runtime-storage';
+import {
+  CredentialStoreError,
+  KeychainCredentialStore,
+  ReadOnlyCredentialStore,
+  resolveRuntimeHome,
+  type CredentialHelperCommand,
+  type CredentialStore,
+  type RuntimeHome,
+} from '@baocut/runtime-storage';
 import { FAKE_CREDENTIAL_HELPER } from '@baocut/runtime-storage/testing';
+import { openLinkedCredentialStore } from './credentials.ts';
 import { startRuntime, type RunningRuntime } from './runtime.ts';
 
 /**
@@ -213,3 +222,118 @@ describe('凭据存储（经 Runtime）', () => {
     }
   });
 });
+
+describe('链接账号（CLI 独立使用与发布 §7.1）', () => {
+  const inner = (kind: 'file' | 'keychain'): CredentialStore & { calls: string[] } => {
+    const calls: string[] = [];
+    return {
+      kind,
+      calls,
+      get: async (key) => (calls.push(`get ${key}`), 'secret'),
+      has: async (key) => (calls.push(`has ${key}`), true),
+      set: async (key) => void calls.push(`set ${key}`),
+      delete: async (key) => void calls.push(`delete ${key}`),
+    };
+  };
+
+  it('只读存放：本 Home 用钥匙串时包住它；用文件时只认 BAOCUT_CREDENTIAL_HELPER；set 与 delete 不碰底下的存放', async () => {
+    const keychain = inner('keychain');
+    const linked = openLinkedCredentialStore(keychain, {});
+    expect(linked).toBeInstanceOf(ReadOnlyCredentialStore);
+    expect(linked?.kind).toBe('keychain');
+    expect(await linked!.get('provider:openai/main')).toBe('secret');
+    expect(await linked!.has('provider:openai/main')).toBe(true);
+    await expect(linked!.set('provider:openai/main', 'x')).rejects.toBeInstanceOf(CredentialStoreError);
+    await expect(linked!.delete('provider:openai/main')).rejects.toMatchObject({ code: 'unsupported' });
+    expect(keychain.calls).toEqual(['get provider:openai/main', 'has provider:openai/main']);
+    // 文件后端（源码 Runtime）：没有 App 的助手时没有只读存放；有时经它只读地取（不用仓库里 cargo 编的助手）。
+    expect(openLinkedCredentialStore(inner('file'), {})).toBeNull();
+    const viaHelper = openLinkedCredentialStore(inner('file'), { BAOCUT_CREDENTIAL_HELPER: '/Applications/BaoCut.app/Contents/Resources/bin/credential-helper' });
+    expect(viaHelper).toBeInstanceOf(ReadOnlyCredentialStore);
+    expect(viaHelper?.kind).toBe('keychain');
+  });
+
+  let dir: string | undefined;
+  let runtime: RunningRuntime | undefined;
+  let client: BaoCutClient | undefined;
+  let openai: FakeProviderServer | undefined;
+  afterEach(async () => {
+    client?.close();
+    await runtime?.close();
+    await openai?.close();
+    if (dir) await fs.rm(dir, { recursive: true, force: true });
+    dir = runtime = client = openai = undefined;
+  });
+
+  it('文件后端的 Runtime 经只读助手链接另一个 Home 的账号：调用用来源的密钥；改以 ACCOUNT_LINKED 拒绝；移除不碰来源的条目', async () => {
+    openai = await startFakeProviderServer(fakeOpenAiHandler());
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-credentials-link-'));
+    const source = path.join(dir, 'source');
+    const helperDir = path.join(dir, 'helper');
+    await fs.mkdir(path.join(source, 'store'), { recursive: true });
+    await fs.mkdir(helperDir, { recursive: true });
+    // 来源：App 的 Home，密钥在「钥匙串」（假助手的 items.json）里，没有 model-credentials.json。
+    const masked = `${OPENAI_KEY.slice(0, 3)}…${OPENAI_KEY.slice(-4)}`;
+    await fs.writeFile(
+      path.join(source, 'store', 'model-services.json'),
+      JSON.stringify({
+        formatVersion: 2,
+        providers: {
+          openai: {
+            enabled: true,
+            enabledAt: '2026-11-01T00:00:00.000Z',
+            accounts: [{ accountId: 'main', label: 'App key', masked, enabled: true, addedAt: '2026-11-01T00:00:00.000Z', status: { state: 'ok' } }],
+          },
+        },
+        defaults: {},
+        parameters: {},
+      }),
+    );
+    await fs.writeFile(path.join(helperDir, 'items.json'), JSON.stringify({ 'provider:openai/main': OPENAI_KEY }));
+    const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'home') });
+    runtime = await startRuntime({
+      home,
+      drivers: () => [],
+      watchSpace: false,
+      engineHost: null,
+      modelWorker: null,
+      initiator: { discoverer: null },
+      linkedCredentials: new ReadOnlyCredentialStore(
+        new KeychainCredentialStore({ helper: { command: process.execPath, args: [FAKE_CREDENTIAL_HELPER, helperDir] } }),
+      ),
+      online: { baseUrls: { openai: `${openai.origin}/v1` }, http: { backoffMs: () => 10 } },
+    });
+    const { endpoint, token } = runtime.discovery;
+    client = new BaoCutClient({ resolve: async () => ({ endpoint, token }), client: { kind: 'cli', name: 'test', version: '0' }, reconnect: false });
+    await client.connect();
+
+    const result = await client.request('models.linkAccounts', { home: source });
+    expect(result.linked).toEqual([{ providerId: 'openai', accountId: 'main', sourceAccountId: 'main', created: true }]);
+    expect(result.providers[0]?.config).toMatchObject({
+      enabled: true,
+      credential: 'set',
+      accounts: [{ accountId: 'main', label: 'App key', masked, linked: { home: source } }],
+    });
+    // 调用用来源的密钥。
+    await client.request('models.configure', { providerId: 'openai', verify: true });
+    expect(openai.requests.at(-1)?.headers.authorization).toBe(`Bearer ${OPENAI_KEY}`);
+    await expect(client.request('models.updateAccount', { providerId: 'openai', accountId: 'main', credential: 'sk-new-never-stored-0000' })).rejects.toMatchObject({
+      code: 'conflict',
+      details: { code: 'ACCOUNT_LINKED', home: source },
+    });
+    await expect(client.request('models.linkAccounts', { home: home.root })).rejects.toMatchObject({ details: { code: 'LINK_SOURCE_UNSUPPORTED' } });
+    await expect(client.request('models.linkAccounts', { home: 'relative/home' })).rejects.toMatchObject({ code: 'invalid-request' });
+
+    // 移除只解除链接：来源的条目还在，助手只被调过 get 与 has。
+    const removed = await client.request('models.removeAccount', { providerId: 'openai', accountId: 'main' });
+    expect(removed.provider.config).toMatchObject({ credential: 'missing', accounts: [] });
+    expect(JSON.parse(await fs.readFile(path.join(helperDir, 'items.json'), 'utf8'))).toEqual({ 'provider:openai/main': OPENAI_KEY });
+    const ops = (await fs.readFile(path.join(helperDir, 'calls.jsonl'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => (JSON.parse(line) as { op: string }).op);
+    expect(new Set(ops)).toEqual(new Set(['has', 'get']));
+    expect(await homeText(home)).not.toContain(OPENAI_KEY);
+  });
+});
+

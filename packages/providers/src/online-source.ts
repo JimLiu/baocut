@@ -501,6 +501,14 @@ export class OnlineProviderSource implements ProviderSource {
       });
     }
     if (request.region !== undefined && request.region !== null) this.#checkRegion(id, request.region);
+    // 链接账号（CLI 独立使用与发布 §7.1）改不了：在验证新的密钥之前就拒绝。
+    this.#store.assertAccountWritable(id, account.accountId, {
+      label: request.label,
+      credential: request.credential,
+      enabled: request.enabled,
+      region: request.region,
+      endpoint: request.endpoint,
+    });
     if (request.verify) {
       const credential = request.credential ?? (await this.#accountSecret(id, account.accountId));
       if (!credential) throw new RpcError('invalid-request', PC.accountNoKeyToVerify());
