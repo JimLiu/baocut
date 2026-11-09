@@ -390,7 +390,9 @@
     const secs = Math.max(+(v.sourceDur || 0), +(v.dur || 0)).toFixed(1);
     if (needsConsentClip(p)) {
       const c = v.consentClip || {dur: 0};
-      return `要把「${v.name}」的样本（${secs} 秒）和授权录音（${(+c.dur).toFixed(1)} 秒）上传到 ${p.name} 建复刻音色；对方会核对两段是不是同一个人。建好的 voice id 记在这只音色上反复用（${p.clone.keep}）；删音色时会一并删除。`;
+      /* 2026-11-08：样本最长 3 分钟，比这家的上限长时只传前一段（Gemini 收 10–30 秒） */
+      const what = p.clone.max && +secs > p.clone.max ? `样本前 ${p.clone.max} 秒` : `样本（${secs} 秒）`;
+      return `要把「${v.name}」的${what}和授权录音（${(+c.dur).toFixed(1)} 秒）上传到 ${p.name} 建复刻音色；对方会核对两段是不是同一个人。建好的 voice id 记在这只音色上反复用（${p.clone.keep}）；删音色时会一并删除。`;
     }
     return `要把「${v.name}」的参考段（${secs} 秒）上传到 ${p.name} 建克隆。之后用这只音色会直接用对方的 voice id；删音色时会一并删除。`;
   }

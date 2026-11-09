@@ -23,8 +23,11 @@
      以前只录 5–12 秒照念一句；现在录的是**样本**：目标 30 秒（计时器到 30 自动停），麦克风或上传都行。
      本地引擎的 5–10 秒参考段从样本里截（前面那句台词，原文已知）；云端要长样本的（MiniMax ≥ 10、Gemini 10–30、
      ElevenLabs 建议 60）直接用整段。要**第二段录音**的只有 Gemini：同一个人念一句固定的授权声明
-     （接口核对两段是不是同一个人），声明有语言之分——实测中文常验不过，英文稳，所以语言是一个选项、英文是推荐值。 */
-  const SAMPLE = {min: 5, good: 10, target: 30, max: 30};
+     （接口核对两段是不是同一个人），声明有语言之分——实测中文常验不过，英文稳，所以语言是一个选项、英文是推荐值。
+     2026-11-08：30 秒一到就停常把人截在半句话上。现在样本最长 3 分钟（`max`），不在 30 秒停；进度条按 30 秒目标填满，
+     过了 30 秒说「够了，想多说就接着说」，只在最后 10 秒（`countdown`）倒数。各家只收自己那一段：Google Gemini 收 10–30 秒
+     （能力视图的 `voiceClone.sourceSeconds`），样本更长时明说「用前 30 秒」，由后端在停顿处截。 */
+  const SAMPLE = {min: 5, good: 10, target: 30, max: 180, countdown: 10};
   const CONSENT_REC = {min: 3, target: 8, max: 15};
   /** 授权声明原文：Google 官方表里的 30 个地区语言（`code` 是接口收的 `language_code`，同一语言的几个地区原文相同）。
    *  `verified` 是实测能过：只有英文稳；简体中文实测常验不过，其余没测过。除了表里的还能自定义一句（`custom`）——
@@ -74,12 +77,39 @@
   const phraseLabel = (ph) => (ph.region ? `${ph.label}（${ph.region}）` : ph.label);
   /** 「更多语言」菜单的项：表里除常用两种之外的，按原表次序；`sub` 是地区码 */
   const consentMore = () => CONSENT_PHRASES.filter((c) => CONSENT_COMMON.indexOf(c.code) < 0).map((c) => ({code: c.code, label: phraseLabel(c), sub: c.code}));
-  /** 样本停下后：`problem` 不为 null 就不给存；`short` 列出嫌它短的云端提供方（只提醒，不拦）。`providers` 是 [{name, clone}] */
+  /** 秒数的说法：`30 秒` / `3 分钟` / `1 分 30 秒` */
+  function secLabel(n) {
+    const s = Math.round(+n || 0);
+    if (s < 60) return `${s} 秒`;
+    const m = Math.floor(s / 60);
+    return s % 60 ? `${m} 分 ${s % 60} 秒` : `${m} 分钟`;
+  }
+  /** 录音进行中那一句与进度条。有 `countdown` 的（样本）进度条按目标填满，过了目标说够了、可以接着说，只在最后几秒倒数；
+   *  没有的（授权声明）照旧数还能录几秒。回 {text, pct}，`pct` 是 0–100 */
+  function liveHint(seconds, spec) {
+    const sp = spec || SAMPLE;
+    const s = Math.max(0, +seconds || 0);
+    const left = Math.max(0, sp.max - s);
+    const pct = Math.min(100, (s / (sp.countdown ? sp.target : sp.max)) * 100);
+    let text;
+    if (s < sp.min) text = `还差 ${(sp.min - s).toFixed(1)} 秒`;
+    else if (left <= 0.05) text = '到点自动停';
+    else if (sp.countdown && left <= sp.countdown) text = `还能录 ${Math.ceil(left)} 秒`;
+    else if (s < sp.target) text = `够了 · 到 ${secLabel(sp.target)}最好`;
+    else if (sp.countdown) text = `够了 · 想多说就接着说，最长 ${secLabel(sp.max)}`;
+    else text = `还能录 ${left.toFixed(1)} 秒`;
+    return {text, pct};
+  }
+  /** 样本停下后：`problem` 不为 null 就不给存；`short` 列出嫌它短的云端提供方（只提醒，不拦）；
+   *  `trim` 列出只用前一段的（样本比这家的上限长：`Google Gemini 用前 30 秒`）。`providers` 是 [{name, clone: {min, max}}] */
   function sampleVerdict(seconds, providers) {
     const s = +seconds || 0;
-    if (s < SAMPLE.min) return {problem: `只录到 ${s.toFixed(1)} 秒，至少要 ${SAMPLE.min} 秒——再来一遍`, short: []};
-    const short = (providers || []).filter((p) => p.clone && p.clone.min && s < p.clone.min).map((p) => `${p.name} 要 ${p.clone.min} 秒以上`);
-    return {problem: null, short, line: s < SAMPLE.good ? '够本地引擎用了 · 再长一点云端也能用' : s < SAMPLE.target ? '够了 · 念到 30 秒最好' : '够了'};
+    if (s < SAMPLE.min) return {problem: `只录到 ${s.toFixed(1)} 秒，至少要 ${SAMPLE.min} 秒——再来一遍`, short: [], trim: []};
+    const list = (providers || []).filter((p) => p.clone);
+    const short = list.filter((p) => p.clone.min && s < p.clone.min).map((p) => `${p.name} 要 ${p.clone.min} 秒以上`);
+    const trim = list.filter((p) => p.clone.max && s > p.clone.max).map((p) => `${p.name} 用前 ${secLabel(p.clone.max)}`);
+    const base = s < SAMPLE.good ? '够本地引擎用了 · 再长一点云端也能用' : s < SAMPLE.target ? `够了 · 念到 ${SAMPLE.target} 秒最好` : '够了';
+    return {problem: null, short, trim, line: trim.length ? `${base} · ${trim.join('，')}` : base};
   }
   /** 授权录音停下后能不能用 */
   function consentProblem(seconds) {
@@ -106,7 +136,7 @@
   }
   /* ---------- 克隆去哪些模型（2026-10-14 二轮：先选模型，再录） ----------
      `target` = {kind: 'local', id: <engine id>, name} 或 {kind: 'cloud', id: <provider id>, name, consent, connected}。
-     本机引擎总能用（种子就在本机）；云端列能克隆的提供方，没连密钥的也能先选——先把样本与授权声明录好，连上后第一次用时再建。 */
+     本机引擎总能用（种子就在本机）；云端列能克隆的提供方，没连密钥的也能先选——先把样本与授权声明录好，连上后在音色的 ⋯ 里上传。 */
   function cloneTargets(engineChips, providers, saved) {
     const local = (engineChips || []).filter((c) => c.ok).map((c) => ({kind: 'local', id: c.id, name: c.name}));
     const cloud = (providers || []).filter((p) => p.clone).map((p) => ({kind: 'cloud', id: p.id, name: p.name, consent: !!p.clone.consent, connected: !saved || saved.indexOf(p.id) >= 0}));
@@ -120,6 +150,166 @@
     steps.push({k: 'save', label: '保存'});
     return steps;
   }
+
+  /* ---------- 存好就上传（2026-11-08） ----------
+     以前存音色只存在本机，云端克隆藏在 ⋯ →「上传到 X」→ 确认，保存那一步还说「第一次用时建」（并不会：
+     architecture-design §5.9，没有有效克隆的合成以 VOICE_CLONE_REQUIRED 拒绝）。现在选了哪家云端、前提齐了，点保存就上传；
+     没齐的那一行照实说不上传和为什么。云端只在它就是入口那只模型时预选——存好就上传之后，替人勾上别家等于替人把声音发出去。 */
+
+  /** 采集页一开始勾哪些：本机引擎照旧全勾，云端只勾入口那一家（从模型页「克隆一只」过来时的 `entryId`） */
+  function initialPicks(targets, entryId) {
+    return (targets || []).filter((t) => t.kind === 'local' || t.id === entryId).map((t) => t.id);
+  }
+  /** 从某只云端模型过来：直接从「录样本」开始（第一步还能点「上一步」回去改） */
+  const startStep = (targets, entryId) => ((targets || []).some((t) => t.kind === 'cloud' && t.id === entryId) ? 1 : 0);
+  const sampleWhat = (s, spec) => (spec.max && s > spec.max ? `样本前 ${secLabel(spec.max)}` : `样本 ${(+s).toFixed(1)} 秒`);
+
+  /** 保存那一步：每个选中的模型落到哪、点保存会上传到哪几家、主按钮写什么、按钮旁那句外发说明。
+   *  `chosen` 是 cloneTargets 里选中的；`o` = {declared, sampleDur, refDur, consentClip: {dur} | null, consentCustom, providers}
+   *  （providers 给云端的 clone 规格；consentCustom = 授权声明念的是自定义的一句）。
+   *  一家云端能上传要四样都齐：连着密钥、勾了本人声明（§5.9：没有声明不上传）、样本够这家的下限、要授权声明的录了官方原文那段。 */
+  function savePlan(chosen, o) {
+    const opt = o || {};
+    const s = +opt.sampleDur || 0;
+    const clip = opt.consentClip && opt.consentClip.dur > 0 ? +opt.consentClip.dur : 0;
+    const rows = [];
+    const local = (chosen || []).filter((t) => t.kind === 'local');
+    if (local.length) {
+      rows.push({id: 'local', kind: 'local', name: '本机', k: 'local', tone: 'neutral',
+        line: `${local.map((t) => t.name).join(' / ')} · 用样本前 ${opt.refDur || WINDOW.max} 秒当参考段，每只引擎一颗种子`});
+    }
+    const uploads = [];
+    (chosen || []).filter((t) => t.kind === 'cloud').forEach((t) => {
+      const p = (opt.providers || []).find((x) => x.id === t.id);
+      const spec = (p && p.clone) || {};
+      const row = {id: t.id, kind: 'cloud', name: t.name};
+      if (!t.connected) {
+        Object.assign(row, {k: 'offline', tone: 'neutral', chip: '先不上传', line: `没连上 ${t.name} 的密钥 · 先存在本机，连上后在这只音色的 ⋯ 里上传`});
+      } else if (!opt.declared) {
+        Object.assign(row, {k: 'undeclared', tone: 'notice', chip: '不上传', line: '没勾「这是我自己的声音」· 不发给任何第三方；勾上就一起上传'});
+      } else if (spec.min && s < spec.min) {
+        Object.assign(row, {k: 'short', tone: 'notice', chip: '不上传', line: `样本只有 ${s.toFixed(1)} 秒，${t.name} 要 ${spec.min} 秒以上 · 回「录样本」录长一点`});
+      } else if (t.consent && !clip) {
+        Object.assign(row, {k: 'no-consent', tone: 'notice', chip: '不上传', line: `跳过了授权声明，${t.name} 没有它建不了 · 以后在这只音色的 ⋯ 里补录`});
+      } else if (t.consent && opt.consentCustom) {
+        Object.assign(row, {k: 'custom-consent', tone: 'notice', chip: '不上传', line: `${t.name} 只认官方原文，自定义的授权声明验不过 · 回「授权声明」换一种语言`});
+      } else {
+        const trimmed = spec.max && s > spec.max;
+        const what = sampleWhat(s, spec) + (t.consent ? `和授权声明（${clip.toFixed(1)} 秒）` : '');
+        Object.assign(row, {k: 'upload', tone: 'positive', chip: '保存后上传', what,
+          line: `保存后马上上传${what}${trimmed ? '，截在停顿处' : ''} · 建好记下 voice id`});
+        uploads.push(row);
+      }
+      rows.push(row);
+    });
+    const names = uploads.map((r) => r.name);
+    return {
+      rows, uploads: uploads.map((r) => r.id),
+      button: names.length ? `保存并上传到 ${names.length > 2 ? `${names.length} 家` : names.join('、')}` : '保存音色',
+      outflow: names.length
+        ? `会把${uploads.map((r) => `${r.what}发给 ${r.name}`).join('，')}，用来建克隆；其余都留在这台电脑上。`
+        : '只存在这台电脑上，不发给任何服务商。',
+    };
+  }
+
+  /* ---------- 上传中 / 建好 / 没建成 ----------
+     上传是一次任务（§5.9 `library.createVoiceClone`，kind: voiceClone）。原型把进度记在音色上：
+     `cloneRun: {<provider>: {state: 'uploading' | 'ready' | 'failed', error?}}`；建好就落进 `cloud.<provider>`（voice id），
+     这一项留成 ready 让行上报一声「建好了」，用户点「知道了」（dismiss）才清掉。 */
+  const CLONE_ETA = '一般半分钟内建好';
+  /** 这只音色在某家：uploading / failed / ready / null（没建过也没在建） */
+  function cloneState(v, providerId) {
+    const run = v && v.cloneRun && v.cloneRun[providerId];
+    if (run) return run.state;
+    return v && v.cloud && v.cloud[providerId] && v.cloud[providerId].voiceId ? 'ready' : null;
+  }
+  /** 这次会话里在建、刚建好或没建成的那几家（行上要报的）：[{id, state, error}] */
+  const cloneRuns = (v) => Object.keys((v && v.cloneRun) || {}).map((id) => Object.assign({id}, v.cloneRun[id]));
+  /** 状态变换，回音色的补丁：start 开始上传；ready 建好（`o.voiceId` 可给，落进 cloud）；fail 没建成（`o.error`）；dismiss 收起 */
+  function cloneAfter(v, providerId, action, o) {
+    const run = Object.assign({}, (v && v.cloneRun) || {});
+    const patch = {};
+    if (action === 'start') run[providerId] = {state: 'uploading'};
+    else if (action === 'fail') run[providerId] = {state: 'failed', error: (o && o.error) || {}};
+    else if (action === 'ready') run[providerId] = {state: 'ready'};
+    else delete run[providerId];
+    if (action === 'ready') patch.cloud = CLOUD().bindAfter(v, providerId, 'upload', Object.assign({at: '刚刚'}, o || {}));
+    patch.cloneRun = run;
+    return patch;
+  }
+
+  /* ---------- 没建成：原因 → 怎么办 → 一键去做 ----------
+     不把服务商的英文原话甩给人：先用大白话说原因，再给能照着做的办法，再给一个按钮直接去做；原话只当小字附在最后。
+     `err` = {code?, reason?, message?}：`reason` 是适配器归好的类（`PROVIDER_REJECTED` 的 `details.reason`，命令协议规范），`code` 是 Runtime 的错误码；
+     认不出的拒绝不带 `reason`，落到按这家要求排的自查清单。
+     `action.k`：consent（重录授权声明，存好自动重新上传）/ sample（录新样本）/ retry / provider（打开这家的设置）/ grant（同意外发并上传）。 */
+  function cloneChecklist(p) {
+    const spec = (p && p.clone) || {};
+    const range = spec.min && spec.max ? `${spec.min}–${spec.max} 秒` : spec.min ? `${spec.min} 秒以上` : '十几秒';
+    const list = [`样本是 ${range}干净、自然的说话`, '从头到尾只有一个成年人在说', '在安静的房间录，没有音乐和回声'];
+    if (spec.consent) list.push('样本和授权声明用同一只麦克风、在同一个房间录', '授权声明一字不差照着原文念');
+    return list;
+  }
+  function cloneFailure(err, provider) {
+    const e = err || {};
+    const p = provider || {name: '服务商', clone: {}};
+    const n = p.name;
+    const spec = p.clone || {};
+    const google = p.id === 'google';
+    const studio = google ? 'Google AI Studio' : `${n} 的后台`;
+    const range = spec.min && spec.max ? `${spec.min}–${spec.max} 秒` : `${spec.min || 10} 秒以上`;
+    const reConsent = {k: 'consent', label: '重录授权声明', sub: '存好后自动重新上传'};
+    const newSample = {k: 'sample', label: '录新样本', sub: '存好后自动重新上传'};
+    const retry = {k: 'retry', label: '重试'};
+    const settings = {k: 'provider', label: `打开 ${n} 设置`};
+    const REASONS = {
+      'speaker-mismatch': {title: '两段录音不像同一个人', cause: `${n} 把样本和授权声明对了一下，判断不是同一个人说的。`,
+        advice: ['请样本里的那个人自己念授权声明', '和样本用同一只麦克风、在同一个房间录，离麦克风的距离也差不多'], action: reConsent},
+      'consent-unrecognized': {title: '没听出授权声明', cause: `${n} 没在这段录音里认出官方那句授权声明。`,
+        advice: ['照着原文一字不差念完整句，不加不减', '念英文最稳；中文实测常验不过'], action: reConsent},
+      'source-duration': {title: '样本长度不合要求', cause: `${n} 只收 ${range}的说话，太短或太长都会退回。`,
+        advice: ['用麦克风录一段新样本，连着说 20 秒以上', '开头和结尾别留长段静音，中间别停太久',
+          spec.max ? `上传的文件先剪到 ${spec.max} 秒以内（录的会自动截）` : '上传的文件先剪短一些'], action: newSample},
+      'synthetic-audio': {title: '样本听起来不像真人录音', cause: `${n} 只收真人现录的声音，不收 AI 生成或带数字水印的音频。`,
+        advice: ['用麦克风现录一段', '别用配音成品、别家生成的语音'], action: newSample},
+      'audio-invalid': {title: '这段音频读不了', cause: `${n} 不接受这段音频的格式或大小。`,
+        advice: ['换成 WAV、MP3 或 FLAC，20 MB 以内', '或者直接用麦克风录'], action: newSample},
+      'voice-limit': {title: '音色存满了', cause: google ? 'Google Gemini 每个 API 项目最多存 200 只音色，这个项目已经满了。' : `${n} 账户里的音色数到上限了。`,
+        advice: [`到 ${studio} 删掉用不着的音色，再回来重试`], action: retry},
+      'feature-unavailable': {title: '这把密钥还不能克隆声音', cause: google ? 'Google Gemini 的复刻音色只对付费层级（Tier 1 及以上）的 API 项目开放。' : `${n} 的这个账户没开通克隆。`,
+        advice: [google ? '在 Google AI Studio 给这个项目开通结算，或换一把付费项目的密钥' : `在 ${n} 开通克隆，或换一把能用的密钥`], action: settings},
+    };
+    const CODES = {
+      PROVIDER_AUTH_FAILED: {reason: 'auth', title: '密钥不能用了', cause: `${n} 拒绝了这把密钥：可能过期、被删，或没有这项权限。`,
+        advice: ['在设置里换一把能用的密钥，再回来重试'], action: settings},
+      PROVIDER_QUOTA_EXCEEDED: {reason: 'quota', title: '请求太频繁', cause: `碰到了 ${n} 的频率或用量限制。`,
+        advice: ['等一两分钟再重试', `常碰到就去 ${studio} 看看配额`], action: retry},
+      PROVIDER_UNAVAILABLE: {reason: 'network', title: `连不上 ${n}`, cause: '网络断了，或者对方的服务暂时不可用。',
+        advice: ['检查网络或代理，再重试'], action: retry},
+      GRANT_REQUIRED: {reason: 'grant', title: `还没同意把录音发给 ${n}`, cause: '上传录音是一次数据外发，要先同意一次。',
+        advice: [`同意一次，以后往 ${n} 发音色录音不再问`], action: {k: 'grant', label: '同意并上传'}},
+    };
+    const hit = (e.reason && REASONS[e.reason] && Object.assign({reason: e.reason}, REASONS[e.reason])) || (e.code && CODES[e.code]) || null;
+    const d = hit || {reason: 'unknown', title: `没能在 ${n} 建好`, cause: `${n} 没说具体原因。照下面几条查一遍再试，多半能过：`,
+      advice: cloneChecklist(p), action: retry};
+    return Object.assign({}, d, {raw: e.message ? String(e.message) : '', code: e.code || null});
+  }
+  /** 演示挡位「下一次上传的结果」：原话是照服务商的口气编的演示文字 */
+  const CLONE_DEMO = [
+    {k: 'ok', label: '建好了'},
+    {k: 'speaker-mismatch', label: '两段不像同一个人', error: {code: 'PROVIDER_REJECTED', reason: 'speaker-mismatch', message: 'Consent verification failed: the speaker in consent_audio does not match the speaker in the source audio.'}},
+    {k: 'consent-unrecognized', label: '没听出授权声明', error: {code: 'PROVIDER_REJECTED', reason: 'consent-unrecognized', message: 'Consent verification failed: the consent statement was not recognized in consent_audio.'}},
+    {k: 'source-duration', label: '样本说话不够', error: {code: 'PROVIDER_REJECTED', reason: 'source-duration', message: 'Source audio must contain between 10 and 30 seconds of speech.'}},
+    {k: 'synthetic-audio', label: '疑似合成音频', error: {code: 'PROVIDER_REJECTED', reason: 'synthetic-audio', message: 'The provided audio appears to be synthetic or watermarked.'}},
+    {k: 'audio-invalid', label: '音频读不了', error: {code: 'PROVIDER_REJECTED', reason: 'audio-invalid', message: 'Invalid audio: unsupported encoding or payload too large.'}},
+    {k: 'voice-limit', label: '音色存满了', error: {code: 'PROVIDER_REJECTED', reason: 'voice-limit', message: 'Quota exceeded for stored voices per project.'}},
+    {k: 'feature-unavailable', label: '密钥不能克隆', error: {code: 'PROVIDER_REJECTED', reason: 'feature-unavailable', message: 'Voice replication is not available for this API project tier.'}},
+    {k: 'auth', label: '密钥失效', error: {code: 'PROVIDER_AUTH_FAILED', message: 'API key not valid. Please pass a valid API key.'}},
+    {k: 'quota', label: '请求太频繁', error: {code: 'PROVIDER_QUOTA_EXCEEDED', message: 'Resource has been exhausted (e.g. check quota).'}},
+    {k: 'network', label: '网络断了', error: {code: 'PROVIDER_UNAVAILABLE', message: 'fetch failed: ECONNRESET'}},
+    {k: 'grant', label: '没同意外发', error: {code: 'GRANT_REQUIRED', message: 'No grant covers sending audio to this provider.'}},
+    {k: 'unknown', label: '被拒但没说原因', error: {code: 'PROVIDER_REJECTED', message: 'Request contains an invalid argument.'}},
+  ];
   /** 种子：本地引擎没有 voice id，靠「同一段参考 + 同一颗种子」让每次生成都是同一个人 */
   const randomSeed = () => 1 + Math.floor(Math.random() * 2147483646);
   /** 新音色的默认名字：「我的声音」，重名时依次加「 2」「 3」…，用户可以再改 */
@@ -464,6 +654,7 @@
   const BC_VOICES = {
     REC, WINDOW, takeProblem, makeVoice, DEMO, fmtTime, sourceLine, metaLine, idLine, bindings, seedFor, voicesBoundTo, CONSENT, consentLabel,
     SAMPLE, CONSENT_REC, CONSENT_PHRASES, CONSENT_COMMON, consentPhrase, phraseLabel, consentMore, sampleVerdict, consentProblem, sampleScript, referenceFromSample, cloneTargets, cloneSteps, randomSeed, defaultVoiceName,
+    secLabel, liveHint, initialPicks, startStep, savePlan, CLONE_ETA, cloneState, cloneRuns, cloneAfter, cloneFailure, cloneChecklist, CLONE_DEMO,
     profileFor, engineChips, cloudChips, CLONE_MODELS, auditionModel, RUN_LINE,
     ISSUES, issueLabel, windowIssues, analyze, speakerLine, candidateLine, voicesFromPicks, saveLabel, STEPS,
     pickerGroups, valueLabel, valueOfForm, applyToForm, exportBundle, bundleName,

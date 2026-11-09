@@ -292,6 +292,7 @@
       "app/settings-usage.jsx",
       "app/settings-capability.jsx",
       "app/settings-glossary.jsx",
+      "app/settings-voice-clone.jsx",
       "app/settings-voice-capture.jsx",
       "app/settings-voices.jsx",
       "app/settings-update.jsx",
@@ -544,9 +545,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=a8b490f2d633",
-    "css": "generated/app.css?v=2e3c235e982e",
-    "bytes": 5252831
+    "js": "generated/app.js?v=a89f79898f0b",
+    "css": "generated/app.css?v=9902902fe312",
+    "bytes": 5277328
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -817,9 +818,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=e57dc8dc7dd6",
+    "js": "generated/web.js?v=9b74a4021c76",
     "css": "generated/web.css?v=14d3b5850ab6",
-    "bytes": 2899269
+    "bytes": 2913344
   },
   "components": {
     "file": "Components.html",

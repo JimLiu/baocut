@@ -332,7 +332,8 @@
   }
 
   /* ---------- 演示种子（共享简报 §2）：OpenAI 两个账号（其中一个限速）、DeepSeek、ElevenLabs、MiniMax 中国站各一个；
-     Anthropic 与 Google 已添加但没有账号（迁移后「未添加账号」的样子）。 ---------- */
+     Anthropic 已添加但没有账号（迁移后「未添加账号」的样子）。Google 2026-11-08 起也连着一把：
+     语音合成 › 模型里从 Gemini「克隆一只」要演示存好就上传，没连密钥就只能演示「先存在本机」。 ---------- */
   function seed(now) {
     const ago = (min) => new Date(now - min * 60000).toISOString();
     const ok = (min) => ({state: 'ok', at: ago(min)});
@@ -349,6 +350,7 @@
       deepseek: [{accountId: 'main', label: null, masked: 'sk-…e810', enabled: true, addedAt: ago(60 * 24 * 20), lastUsedAt: ago(90), status: ok(90)}],
       elevenlabs: [{accountId: 'main', label: null, masked: 'sk_…4b2d', enabled: true, addedAt: ago(60 * 24 * 30), lastUsedAt: ago(60 * 26), status: ok(60 * 26)}],
       minimax: [{accountId: 'main', label: '中国站', masked: 'eyJ…Q9xk', enabled: true, region: 'cn', addedAt: ago(60 * 24 * 8), lastUsedAt: ago(60 * 5), status: ok(60 * 5)}],
+      google: [{accountId: 'main', label: null, masked: 'AIza…7Hq2', enabled: true, addedAt: ago(60 * 24 * 6), lastUsedAt: ago(60 * 3), status: ok(60 * 3)}],
     };
     return {settings, accounts};
   }

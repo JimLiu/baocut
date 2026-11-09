@@ -257,7 +257,9 @@ test('Gemini 音色：30 只内置、默认 Kore（任何语言都是它）、�
   assert.match(first.line, /样本（29\.1 秒）与授权录音（7\.9 秒）/);
   assert.doesNotMatch(first.line, /过期/, 'Gemini 存着的音色不过期，不借 MiniMax 的那句');
   assert.match(C.uploadNotice(long, 'google'), /同一个人.*最多 200 只/);
-  const up = Object.assign({}, long, {cloud: C.bindAfter(long, 'google', 'upload', {at: '2026-10-07'})});
+  // 样本比 Gemini 的 30 秒长：告知里写只传前 30 秒
+  assert.match(C.uploadNotice(voice({id: 'e', sourceDur: 46.2, consentClip: {lang: 'en-US', dur: 7.9}}), 'google'), /的样本前 30 秒和授权录音/);
+  const up =Object.assign({}, long, {cloud: C.bindAfter(long, 'google', 'upload', {at: '2026-10-07'})});
   assert.match(up.cloud.google.voiceId, /^voice_/);
   assert.equal(C.cloneStatus(up, 'google').k, 'uploaded');
   assert.deepEqual(C.consentProviders(['google', 'elevenlabs']).map((p) => p.id), ['google']);

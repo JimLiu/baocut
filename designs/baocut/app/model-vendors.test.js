@@ -122,13 +122,13 @@ test('状态徽标：正常 / 密钥无效 / 限速 · 几点恢复 / 额度用�
 test('列表：已连接排前；副行是 host · N 个模型 · 能力词；摘要给掩码或账号数', () => {
   const {settings, accounts} = V.seed(NOW);
   const rows = V.list(settings, accounts, NOW);
-  assert.deepEqual(rows.map((r) => r.id), ['openai', 'elevenlabs', 'deepseek', 'minimax', 'anthropic', 'google']);
+  assert.deepEqual(rows.map((r) => r.id), ['openai', 'google', 'elevenlabs', 'deepseek', 'minimax', 'anthropic']);
   assert.match(rows[0].sub, /^api\.openai\.com · \d+ 个模型 · 文本 \/ 识别 \/ 合成 \/ 生图$/);
   assert.equal(rows[0].summary, '2 个账号');
   assert.equal(rows.find((r) => r.id === 'deepseek').summary, 'sk-…e810');
   assert.equal(rows.find((r) => r.id === 'anthropic').state.k, 'missing');
   assert.match(rows.find((r) => r.id === 'minimax').sub, /^api\.minimaxi\.com/, '中国站的基址');
-  assert.deepEqual(V.connectedIds(settings, accounts).sort(), ['deepseek', 'elevenlabs', 'minimax', 'openai']);
+  assert.deepEqual(V.connectedIds(settings, accounts).sort(), ['deepseek', 'elevenlabs', 'google', 'minimax', 'openai']);
   const off = Object.assign({}, settings, {openai: {enabled: false}});
   assert.equal(V.stateOf('openai', off, accounts, NOW).k, 'off');
   assert.ok(!V.connected('openai', off, accounts));
@@ -160,7 +160,7 @@ test('自建端点：custom:<slug>，撞名加序号；基址重复时找到那�
 test('能力页的 API 提供方模型与旧目录形状', () => {
   const {settings, accounts} = V.seed(NOW);
   const text = V.choices('text', settings, accounts, NOW);
-  assert.deepEqual(text.filter((c) => c.ready).map((c) => c.vendor.id), ['openai', 'deepseek', 'minimax']);
+  assert.deepEqual(text.filter((c) => c.ready).map((c) => c.vendor.id), ['openai', 'google', 'deepseek', 'minimax']);
   assert.equal(text.find((c) => c.vendor.id === 'anthropic').why, '未添加账号');
   assert.ok(V.isP1('minimax', 'tts') && V.isP1('groq', 'transcribe') && !V.isP1('openai', 'tts'));
   assert.ok(!V.choices('tts', settings, accounts, NOW).some((c) => c.vendor.id === 'minimax'), 'P1 能力不进能力页');
@@ -176,9 +176,9 @@ test('能力页的 API 提供方模型与旧目录形状', () => {
 test('能力页第 ④ 节的全目录：已连接 → 已添加没账号 → 未添加，同档按目录顺序', () => {
   const {settings, accounts} = V.seed(NOW);
   const text = V.capCatalog('text', settings, accounts, NOW);
-  assert.deepEqual(text.map((r) => r.id), ['openai', 'deepseek', 'minimax', 'anthropic', 'google', 'moonshot', 'qwen', 'zhipu',
+  assert.deepEqual(text.map((r) => r.id), ['openai', 'google', 'deepseek', 'minimax', 'anthropic', 'moonshot', 'qwen', 'zhipu',
     'volcengine', 'xai', 'mistral', 'groq', 'openrouter', 'siliconflow']);
-  assert.deepEqual(text.slice(0, 3).map((r) => r.ready), [true, true, true]);
+  assert.deepEqual(text.slice(0, 4).map((r) => r.ready), [true, true, true, true]);
   const anthropic = text.find((r) => r.id === 'anthropic');
   assert.ok(anthropic.added && !anthropic.ready && anthropic.state.k === 'missing');
   const moonshot = text.find((r) => r.id === 'moonshot');

@@ -28,8 +28,8 @@ test('麦克风门槛：短于 5 秒不给存，够了回 null', () => {
   assert.equal(V.takeProblem(11.9), null);
 });
 
-test('样本（2026-10-14）：目标 30 秒自动停；5 秒以下不给存，10 秒以下只提醒云端嫌短；授权声明 3 秒起、英文是推荐值', () => {
-  assert.deepEqual(V.SAMPLE, {min: 5, good: 10, target: 30, max: 30});
+test('样本（2026-10-14，11-08 放长）：目标 30 秒、最长 3 分钟；5 秒以下不给存，10 秒以下只提醒云端嫌短；授权声明 3 秒起、英文是推荐值', () => {
+  assert.deepEqual(V.SAMPLE, {min: 5, good: 10, target: 30, max: 180, countdown: 10});
   const providers = [{name: 'MiniMax', clone: {min: 10}}, {name: 'Google Gemini', clone: {min: 10, consent: true}}, {name: 'ElevenLabs', clone: {min: 1}}];
   assert.match(V.sampleVerdict(3.1, providers).problem, /只录到 3\.1 秒/);
   const mid = V.sampleVerdict(7.4, providers);
@@ -257,4 +257,155 @@ test('新音色的默认名字：重名时依次加编号', () => {
   assert.equal(V.defaultVoiceName([]), '我的声音');
   assert.equal(V.defaultVoiceName([{name: '主持人'}, {name: '我的声音'}]), '我的声音 2');
   assert.equal(V.defaultVoiceName([{name: '我的声音'}, {name: '我的声音 2'}]), '我的声音 3');
+});
+
+test('录样本（2026-11-08）：30 秒不停，过了目标说够了可以接着说，只在最后 10 秒倒数；进度条按目标填满', () => {
+  assert.equal(V.secLabel(30), '30 秒');
+  assert.equal(V.secLabel(180), '3 分钟');
+  assert.equal(V.secLabel(90), '1 分 30 秒');
+  assert.deepEqual(V.liveHint(2, V.SAMPLE), {text: '还差 3.0 秒', pct: 2 / 30 * 100});
+  assert.equal(V.liveHint(12, V.SAMPLE).text, '够了 · 到 30 秒最好');
+  const past = V.liveHint(30.1, V.SAMPLE);
+  assert.equal(past.text, '够了 · 想多说就接着说，最长 3 分钟', '30 秒不停');
+  assert.equal(past.pct, 100);
+  assert.equal(V.liveHint(169.9, V.SAMPLE).text, '够了 · 想多说就接着说，最长 3 分钟', '最后 10 秒之前不倒数');
+  assert.equal(V.liveHint(172.3, V.SAMPLE).text, '还能录 8 秒');
+  assert.equal(V.liveHint(180, V.SAMPLE).text, '到点自动停');
+  // 授权声明没有 countdown：照旧数还能录几秒，进度条按上限
+  assert.equal(V.liveHint(9, V.CONSENT_REC).text, '还能录 6.0 秒');
+  assert.equal(V.liveHint(5, V.CONSENT_REC).text, '够了 · 到 8 秒最好');
+  assert.equal(V.liveHint(7.5, V.CONSENT_REC).pct, 50);
+  // 样本比这家上限长：明说只用前一段
+  const gemini = {id: 'google', name: 'Google Gemini', clone: {min: 10, max: 30, consent: true}};
+  const eleven = {id: 'elevenlabs', name: 'ElevenLabs', clone: {min: 1, max: 300}};
+  const long = V.sampleVerdict(46.2, [gemini, eleven]);
+  assert.deepEqual(long.trim, ['Google Gemini 用前 30 秒']);
+  assert.equal(long.line, '够了 · Google Gemini 用前 30 秒');
+  assert.deepEqual(V.sampleVerdict(30, [gemini]).trim, [], '正好 30 秒不截');
+});
+
+const CT = global.window.BC_CLOUD_TTS || require('./model-cloud-tts.js');
+const GEMINI = CT.providerById('google');
+const pickTargets = () => V.cloneTargets(V.engineChips(), CT.providers(), ['google', 'elevenlabs']);
+
+test('采集页预选：本机引擎照旧全勾，云端只勾入口那一家；从云端模型过来直接进「录样本」', () => {
+  const targets = pickTargets();
+  const local = targets.filter((t) => t.kind === 'local').map((t) => t.id);
+  assert.deepEqual(V.initialPicks(targets, null), local, '从我的声音直接进：一家云端都不替人勾');
+  assert.deepEqual(V.initialPicks(targets, 'google'), local.concat('google'));
+  assert.ok(V.initialPicks(targets, 'google').indexOf('elevenlabs') < 0, '连着的别家也不勾');
+  assert.equal(V.startStep(targets, 'google'), 1);
+  assert.equal(V.startStep(targets, 'indextts2'), 0, '本机模型过来照旧从第一步');
+  assert.equal(V.startStep(targets, null), 0);
+});
+
+test('保存那一步：前提齐了的才上传；按钮说会发生什么；没齐的照实说不上传和为什么；按钮旁一句外发', () => {
+  const targets = pickTargets();
+  const g = targets.find((t) => t.id === 'google');
+  const local = targets.filter((t) => t.kind === 'local');
+  const e0 = () => targets.find((t) => t.id === 'elevenlabs');
+  const base = {declared: true, sampleDur: 46.2, refDur: 10, consentClip: {dur: 7.9}, providers: CT.providers()};
+  const ok = V.savePlan(local.concat(g), base);
+  assert.deepEqual(ok.uploads, ['google']);
+  assert.equal(ok.button, '保存并上传到 Google Gemini');
+  const row = ok.rows.find((r) => r.id === 'google');
+  assert.equal(row.k, 'upload');
+  assert.match(row.line, /^保存后马上上传样本前 30 秒和授权声明（7\.9 秒），截在停顿处/);
+  assert.equal(ok.outflow, '会把样本前 30 秒和授权声明（7.9 秒）发给 Google Gemini，用来建克隆；其余都留在这台电脑上。');
+  assert.equal(ok.rows[0].k, 'local');
+  assert.match(ok.rows[0].line, /用样本前 10 秒当参考段/);
+  // 30 秒以内不截，不写「截在停顿处」
+  assert.doesNotMatch(V.savePlan([g], Object.assign({}, base, {sampleDur: 24.6})).rows[0].line, /截在停顿处/);
+  // 四种不上传
+  const plan = (o, t) => V.savePlan([t || g], Object.assign({}, base, o));
+  assert.equal(plan({declared: false}).rows[0].k, 'undeclared');
+  assert.equal(plan({declared: false}).button, '保存音色');
+  assert.equal(plan({declared: false}).outflow, '只存在这台电脑上，不发给任何服务商。');
+  assert.equal(plan({consentClip: null}).rows[0].k, 'no-consent');
+  assert.match(plan({consentClip: null}).rows[0].line, /跳过了授权声明/);
+  assert.equal(plan({sampleDur: 7.4}).rows[0].k, 'short');
+  // 自定义的授权声明：Google 只认官方原文，注定验不过就不传
+  assert.equal(plan({consentCustom: true}).rows[0].k, 'custom-consent');
+  assert.deepEqual(plan({consentCustom: true}).uploads, []);
+  assert.equal(V.savePlan([e0()], Object.assign({}, base, {consentCustom: true})).rows[0].k, 'upload', '不要声明的家不受影响');
+  const off = plan({}, Object.assign({}, g, {connected: false}));
+  assert.equal(off.rows[0].k, 'offline');
+  assert.match(off.rows[0].line, /连上后在这只音色的 ⋯ 里上传/);
+  assert.deepEqual(off.uploads, []);
+  // 不要授权声明的家：只发样本；两家都齐就都传，按钮点名
+  const e = targets.find((t) => t.id === 'elevenlabs');
+  const both = V.savePlan([g, e], base);
+  assert.equal(both.button, '保存并上传到 Google Gemini、ElevenLabs');
+  assert.match(both.outflow, /样本 46\.2 秒发给 ElevenLabs/);
+  assert.equal(V.savePlan([], base).button, '保存音色');
+});
+
+test('上传中 / 建好 / 没建成：记在音色上，建好落进 cloud，点「知道了」才清掉', () => {
+  const v = V.makeVoice({id: 'v-new', name: '我的声音', consent: 'self', sourceDur: 46.2, consentClip: {dur: 7.9}});
+  assert.equal(V.cloneState(v, 'google'), null);
+  const up = Object.assign({}, v, V.cloneAfter(v, 'google', 'start'));
+  assert.equal(V.cloneState(up, 'google'), 'uploading');
+  assert.deepEqual(V.cloneRuns(up).map((r) => [r.id, r.state]), [['google', 'uploading']]);
+  const err = V.CLONE_DEMO.find((d) => d.k === 'speaker-mismatch').error;
+  const bad = Object.assign({}, up, V.cloneAfter(up, 'google', 'fail', {error: err}));
+  assert.equal(V.cloneState(bad, 'google'), 'failed');
+  assert.equal(bad.cloneRun.google.error.reason, 'speaker-mismatch');
+  const ready = Object.assign({}, bad, V.cloneAfter(bad, 'google', 'ready'));
+  assert.equal(V.cloneState(ready, 'google'), 'ready');
+  assert.match(ready.cloud.google.voiceId, /^voice_/);
+  assert.deepEqual(V.cloneRuns(ready).map((r) => [r.id, r.state]), [['google', 'ready']]);
+  assert.equal(CT.cloneStatus(ready, 'google').k, 'uploaded');
+  const seen = Object.assign({}, ready, V.cloneAfter(ready, 'google', 'dismiss'));
+  assert.deepEqual(V.cloneRuns(seen), []);
+  assert.equal(V.cloneState(seen, 'google'), 'ready');
+  assert.match(seen.cloud.google.voiceId, /^voice_/);
+});
+
+test('没建成的诊断：原因 → 办法 → 一键去做，原话只当附注', () => {
+  const d = (k) => V.cloneFailure(V.CLONE_DEMO.find((x) => x.k === k).error, GEMINI);
+  const mismatch = d('speaker-mismatch');
+  assert.equal(mismatch.title, '两段录音不像同一个人');
+  assert.match(mismatch.advice.join(' '), /同一只麦克风、在同一个房间/);
+  assert.deepEqual(mismatch.action, {k: 'consent', label: '重录授权声明', sub: '存好后自动重新上传'});
+  assert.match(mismatch.raw, /^Consent verification failed/);
+  assert.equal(d('consent-unrecognized').action.k, 'consent');
+  assert.match(d('consent-unrecognized').advice.join(' '), /一字不差.*英文最稳/);
+  assert.match(d('source-duration').cause, /10–30 秒.*太短或太长/);
+  assert.match(d('source-duration').advice[2], /剪到 30 秒以内/);
+  assert.equal(d('source-duration').action.k, 'sample');
+  assert.equal(d('synthetic-audio').action.k, 'sample');
+  assert.equal(d('audio-invalid').action.k, 'sample');
+  assert.match(d('voice-limit').cause, /最多存 200 只/);
+  assert.match(d('voice-limit').advice[0], /Google AI Studio/);
+  assert.equal(d('voice-limit').action.k, 'retry');
+  assert.match(d('feature-unavailable').cause, /Tier 1/);
+  assert.deepEqual(d('feature-unavailable').action, {k: 'provider', label: '打开 Google Gemini 设置'});
+  assert.equal(d('auth').action.k, 'provider');
+  assert.equal(d('auth').reason, 'auth');
+  assert.equal(d('quota').action.k, 'retry');
+  assert.equal(d('network').title, '连不上 Google Gemini');
+  assert.deepEqual(d('grant').action, {k: 'grant', label: '同意并上传'});
+  // 认不出的：给 Gemini 的那张清单，按规格写 10–30 秒，带两段同一麦克风与原文
+  const unknown = d('unknown');
+  assert.equal(unknown.reason, 'unknown');
+  assert.equal(unknown.action.k, 'retry');
+  assert.deepEqual(unknown.advice, ['样本是 10–30 秒干净、自然的说话', '从头到尾只有一个成年人在说', '在安静的房间录，没有音乐和回声',
+    '样本和授权声明用同一只麦克风、在同一个房间录', '授权声明一字不差照着原文念']);
+  assert.equal(unknown.raw, 'Request contains an invalid argument.');
+  assert.equal(unknown.code, 'PROVIDER_REJECTED');
+  // 演示挡位的原因与命令协议规范的 details.reason 一一对应，都挂在 PROVIDER_REJECTED 上
+  assert.deepEqual(V.CLONE_DEMO.filter((x) => x.error && x.error.reason).map((x) => [x.error.code, x.error.reason]),
+    ['speaker-mismatch', 'consent-unrecognized', 'source-duration', 'synthetic-audio', 'audio-invalid', 'voice-limit', 'feature-unavailable']
+      .map((r) => ['PROVIDER_REJECTED', r]));
+  // reason 优先于 code；不要授权声明的家清单里没有那两条；别家不写 Gemini 的专属说法
+  assert.equal(V.cloneFailure({code: 'PROVIDER_AUTH_FAILED', reason: 'voice-limit'}, GEMINI).reason, 'voice-limit');
+  const eleven = CT.providerById('elevenlabs');
+  assert.equal(V.cloneChecklist(eleven).length, 3);
+  assert.doesNotMatch(V.cloneFailure({reason: 'voice-limit'}, eleven).cause, /200/);
+  assert.equal(V.cloneFailure(null, eleven).raw, '');
+  // 演示挡位每一档（除了建好）都落到一条有标题、有办法、有按钮的诊断
+  V.CLONE_DEMO.filter((x) => x.error).forEach((x) => {
+    const r = V.cloneFailure(x.error, GEMINI);
+    assert.ok(r.title && r.cause && r.advice.length && r.action.label, x.k);
+  });
 });

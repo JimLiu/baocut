@@ -6,9 +6,21 @@
 .vlib p { color: var(--gray-700); font-size: 12px; line-height: 1.6; }
 .vlib .vlib-lede { margin-top: 8px; font-size: 14px; }
 
-/* 回程条：从面板的「克隆新音色…」过来 */
-.vlib-handoff { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 8px 12px; border-radius: 10px; background: var(--indigo-100); color: var(--indigo-1000); font-size: 12px; }
-.vlib-handoff > .ic { flex: none; }
+/* 回程条：从面板的「克隆新音色…」或模型页过来（S2 InlineAlert，settings-voice-clone.jsx VoiceHandoffBar） */
+.vlib-handoff { margin-top: 16px; }
+
+/* 云端克隆的状态：回程条与行里同一种 InlineAlert（上传中 / 建好了 / 没建成的诊断）。
+   S2 InlineAlert 默认 inline-block、随内容变宽；撑满栏宽，几条叠在一起才对得齐 */
+.vclone, .vlib-handoff { display: block; width: 100%; }
+.vclone__p { display: block; }
+.vclone__live { display: flex; align-items: center; gap: 8px; }
+.vclone__advice { margin: 4px 0 0; padding-left: 20px; }
+.vclone__advice li + li { margin-top: 2px; }
+.vclone__acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.vclone__note { display: block; margin-top: 12px; }
+.vclone__raw { display: block; margin-top: 4px; color: var(--gray-600); overflow-wrap: anywhere; }
+.vclone__demo { max-width: 320px; align-self: flex-end; }
+.vlib-row__clone { padding: 0 12px 12px 56px; }
 
 /* ---------- 列表 ---------- */
 .vlib-list { margin-top: 16px; border: 1px solid var(--gray-200); border-radius: 10px; overflow: visible; }
@@ -97,6 +109,7 @@
 .vlib-rec__big { flex: none; min-width: 120px; font-size: 20px; line-height: 1; color: var(--gray-800); font-variant-numeric: tabular-nums; }
 .vlib-rec__big.is-live { color: var(--red-900); }
 .vlib-rec__left { flex: none; min-width: 120px; text-align: right; }
+.vlib-rec__left.is-ending { color: var(--orange-1000); }
 .vlib-script--long { display: flex; flex-direction: column; gap: 8px; font-size: 16px; }
 .vlib-script__tail { color: var(--gray-600); font-style: italic; }
 .vlib-drop--tight { padding: 20px 24px; }
@@ -113,4 +126,6 @@
 .mvl__item b { font-weight: 500; }
 .mvl__none { color: var(--gray-500); }
 .mvl .mvl__go { gap: 2px; margin-left: 0; }
+.mvl__item--busy { gap: 6px; }
+.mvl .mvl__fail { gap: 4px; margin-left: 0; color: var(--red-900); }
 .vlib-row__ids { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }

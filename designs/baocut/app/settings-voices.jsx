@@ -10,7 +10,10 @@
    ⋯ 里多「上传到 X」「从 X 删除克隆」，试听克隆的模型 Picker 多一组云端；换参考段把已上传的绑定标成陈旧。
    2026-10-14：行上第三行写「凭什么认人」——每只本机引擎一颗种子、各家的 voice id、授权声明（可试听）；要授权录音的提供方（Gemini）
    连着而音色没有那段时亮一枚「缺授权录音」chip，⋯ 里「补录授权声明」走 ConsentCapture、「换种子」按引擎各一条。
-   模型页（语音合成 › 模型）每只能克隆的模型下有一行 ModelVoicesLine：绑着的音色 + 「克隆新音色」，带着 voiceHandoff.target 过来直接进采集页。 */
+   模型页（语音合成 › 模型）每只能克隆的模型下有一行 ModelVoicesLine：绑着的音色 + 「克隆新音色」，带着 voiceHandoff.target 过来直接进采集页。
+   2026-11-08（architecture-design §5.9）：存好就上传到选中的云端，回程条与行用 InlineAlert 报上传中 / 建好了 / 没建成；
+   没建成给诊断与一键去做（重录授权声明 / 录新样本 / 重试 / 同意外发 / 打开设置），⋯ 里的「上传到 X」也走同一条上传
+   （settings-voice-clone.jsx）。 */
 (function () {
   const {useState, useEffect, useRef} = React;
   const D = window.BC_DATA;
@@ -23,25 +26,7 @@
   const LETTER_FILES = ['tts-voice-zh-female.wav', 'tts-voice-zh-male.wav', 'tts-voice-en-female.wav', 'tts-voice-en-male.wav'];
   const DEMO_MEDIA = {name: '第 13 期访谈.mp4', dur: 206, overlaps: [[52.8, 54.6], [16.4, 17.3]], music: [[0, 12]]};
 
-  /* ---------- 回程条：从面板过来的 ---------- */
-
-  function HandoffBar() {
-    const app = useApp();
-    const h = app.voiceHandoff;
-    if (!h) return null;
-    const back = () => app.go(h.route);
-    return (
-      <div className="vlib-handoff" role="status">
-        <Ic n="info" className="ic--16" />
-        <span className="grow">
-          {h.voiceId ? `已存好 · 回到${h.from}，那里会直接选上这只音色` : `从${h.from}过来 · 录一段或从视频里取，存好后带你回去`}
-        </span>
-        {h.voiceId
-          ? <Btn variant="accent" size="s" onClick={back}>回去用它</Btn>
-          : <Btn variant="quiet" size="s" onClick={() => { app.setVoiceHandoff(null); back(); }}>不了，回去</Btn>}
-      </div>
-    );
-  }
+  /* 回程条（从面板或模型页过来的）在 settings-voice-clone.jsx：VoiceHandoffBar */
 
   /* ---------- 一只音色 ---------- */
 
@@ -145,7 +130,9 @@
     );
   }
 
-  function VoiceRow({v, onPatch, onDelete, onRetake, onConsent}) {
+  /* 云端克隆这次会话的状态：`covered` 是回程条已经在报的那一家（行上只留 chip，不重复报）；`onClone(pid, k)` 接诊断里的按钮 */
+  const RUN_CHIP = {uploading: {tone: 'accent', text: '上传中'}, failed: {tone: 'negative', text: '没建成'}};
+  function VoiceRow({v, onPatch, onDelete, onRetake, onConsent, covered, onClone}) {
     const app = useApp();
     const [menu, setMenu] = useState(false);
     const [renaming, setRenaming] = useState(false);
@@ -155,8 +142,11 @@
     const exportIt = () => copyToClipboard(V.exportBundle(v))
       .then(() => app.toast(`已复制 voice.json · 真机导出的是 ${V.bundleName(v)}（连参考录音一起）`, 'positive'));
     const uploaded = Object.keys(v.cloud || {}).filter((k) => v.cloud[k] && v.cloud[k].voiceId);
+    const runs = V.cloneRuns(v);
+    const busy = runs.filter((r) => RUN_CHIP[r.state]);
+    const pname = (k) => (C.providerById(k, app.cloudCustom) || {name: k}).name;
     /* 要授权录音的提供方（Gemini）连着、而这只音色没录那段：行上亮一枚 chip，不等到选它时才发现 */
-    const missingConsent = C.consentProviders(app.cloudSaved, app.cloudCustom).filter((p) => !C.hasConsentClip(v));
+    const missingConsent = C.consentProviders(app.cloudSaved, app.cloudCustom).filter((p) => !C.hasConsentClip(v) && !busy.some((r) => r.id === p.id));
     const del = () => app.confirm({
       title: `删除「${v.name}」？`,
       body: `用了它的视频下次生成时会退回默认音色；已经生成的配音不受影响。${uploaded.length ? `会一并删除 ${uploaded.map((k) => (C.providerById(k, app.cloudCustom) || {name: k}).name).join(' / ')} 上的克隆。` : ''}`,
@@ -169,10 +159,11 @@
       const st = C.cloneStatus(v, p, {saved: app.cloudSaved, extra: app.cloudCustom});
       if (st.k === 'uploaded' || st.k === 'stale' || st.k === 'orphan') {
         return <MenuItem key={e.id} icon="remote" label={`从 ${e.name} 删除克隆`} sub={st.k === 'orphan' ? '密钥已移除 · 只清本地绑定' : st.line} wrap
-          onClick={() => { setMenu(false); onPatch({cloud: C.bindAfter(v, e.provider, 'delete')}); app.toast(st.k === 'orphan' ? `已清掉 ${e.name} 的绑定 · 对方账户里的旧克隆要自己删` : `已从 ${e.name} 删除克隆 · 下次用时再传`); }} />;
+          onClick={() => { setMenu(false); onPatch({cloud: C.bindAfter(v, e.provider, 'delete')}); app.toast(st.k === 'orphan' ? `已清掉 ${e.name} 的绑定 · 对方账户里的旧克隆要自己删` : `已从 ${e.name} 删除克隆 · 要用时在这里再上传`); }} />;
       }
-      return <MenuItem key={e.id} icon="remote" label={`上传到 ${e.name}`} sub={st.line} wrap disabled={!st.ok}
-        onClick={() => { setMenu(false); app.confirm({title: `上传到 ${e.name}？`, body: C.uploadNotice(v, p), confirmLabel: '上传', run: () => { onPatch({cloud: C.bindAfter(v, e.provider, 'upload', {at: '刚刚'})}); app.toast(`已上传到 ${e.name} · 交互演示`, 'positive'); }}); }} />;
+      if (V.cloneState(v, e.provider) === 'uploading') return <MenuItem key={e.id} icon="remote" label={`上传到 ${e.name}`} sub={`正在上传 · ${V.CLONE_ETA}`} wrap disabled />;
+      return <MenuItem key={e.id} icon="remote" label={`上传到 ${e.name}`} sub={st.k === 'first' ? '上传样本建克隆 · 建好记下 voice id' : st.line} wrap disabled={!st.ok}
+        onClick={() => { setMenu(false); app.confirm({title: `上传到 ${e.name}？`, body: C.uploadNotice(v, p), confirmLabel: '上传', run: () => window.startVoiceClone(app, v, [e.provider])}); }} />;
     }).filter(Boolean);
     return (
       <div className={cx('vlib-row', audition && 'is-open')}>
@@ -189,6 +180,7 @@
                 {v.consent === 'unspecified' ? <Chip tone="neutral">未说明是否本人</Chip> : null}
                 {(v.signal || []).map((k) => <Chip key={k} tone="notice">{V.issueLabel(k)}</Chip>)}
                 {uploaded.map((k) => { const st = C.cloneStatus(v, k, {saved: app.cloudSaved, extra: app.cloudCustom}); return <Chip key={k} tone={CLOUD_TONE[st.k]} icon="remote" title={st.line}>{st.chip}</Chip>; })}
+                {busy.map((r) => <Chip key={r.id} tone={RUN_CHIP[r.state].tone} icon="remote">{pname(r.id)} · {RUN_CHIP[r.state].text}</Chip>)}
                 {missingConsent.map((p) => { const st = C.cloneStatus(v, p, {saved: app.cloudSaved, extra: app.cloudCustom}); return <Chip key={p.id} tone={CLOUD_TONE[st.k]} icon="remote" title={st.line}>{st.chip}</Chip>; })}
               </span>
             )}
@@ -223,6 +215,9 @@
             </Popover>
           </div>
         </div>
+        {runs.filter((r) => r.id !== covered).map((r) => (
+          <div key={r.id} className="vlib-row__clone"><window.VoiceCloneAlert v={v} pid={r.id} onAction={(k) => onClone(r.id, k)} /></div>
+        ))}
         {audition ? <Audition v={v} onPatch={onPatch} /> : null}
       </div>
     );
@@ -384,25 +379,41 @@
 
   function VoicesSection() {
     const app = useApp();
-    const [mode, setMode] = useState('list');   // list | mic | media | consent:<voiceId>
+    const [mode, setMode] = useState('list');   // list | mic | media | consent:<voiceId> | retake:<voiceId>:<provider>
     const [addMenu, setAddMenu] = useState(false);
+    window.useCloneWatch();
     /* 从模型页的「克隆新音色」过来：直接进采集页（预选那只模型） */
     const openAs = app.voiceHandoff && !app.voiceHandoff.voiceId ? app.voiceHandoff.open : null;
     useEffect(() => { if (openAs) setMode(openAs); }, [openAs]);
     const voices = app.voices;
     const patch = (id, p) => app.setVoices((list) => list.map((v) => (v.id === id ? {...v, ...p} : v)));
-    const finish = (made) => {
+    const names = (ids) => ids.map((k) => (C.providerById(k, app.cloudCustom) || {name: k}).name).join('、');
+    const finish = (made, uploads) => {
       const list = Array.isArray(made) ? made : [made];
+      const up = uploads || [];
       app.addVoices(list);
       setMode('list');
+      if (up.length) window.startVoiceClone(app, list[0], up);
       const h = app.voiceHandoff;
       if (h) {
         app.setVoiceHandoff({...h, voiceId: list[0].id});
-        app.toast(list.length > 1 ? `已存 ${list.length} 只音色 · 「${list[0].name}」会带回${h.from}` : `已存「${list[0].name}」`, 'positive',
-          {label: '回去用它', run: () => app.go(h.route)});
+        /* 回程条会接着报上传进度与「回去」；只有本地或不上传时才用 toast 提一句 */
+        if (!up.length) {
+          app.toast(list.length > 1 ? `已存 ${list.length} 只音色 · 「${list[0].name}」会带回${h.from}` : `已存「${list[0].name}」`, 'positive',
+            {label: '回去用它', run: () => app.go(h.route)});
+        }
       } else {
-        app.toast(list.length > 1 ? `已存 ${list.length} 只音色 · 生成语音、配音、试听里都能选` : `已存「${list[0].name}」 · 生成语音、配音、试听里都能选`, 'positive');
+        app.toast(list.length > 1 ? `已存 ${list.length} 只音色 · 生成语音、配音、试听里都能选`
+          : up.length ? `已存「${list[0].name}」 · 正在上传到 ${names(up)}` : `已存「${list[0].name}」 · 生成语音、配音、试听里都能选`, 'positive');
       }
+    };
+    /* 诊断里的一键去做（BC_VOICES.cloneFailure 的 action.k）与「知道了 / 收起」 */
+    const onClone = (v, pid, k) => {
+      if (k === 'consent') setMode('consent:' + v.id);
+      else if (k === 'sample') setMode(`retake:${v.id}:${pid}`);
+      else if (k === 'retry' || k === 'grant') window.startVoiceClone(app, v, [pid], {grant: k === 'grant'});
+      else if (k === 'provider') app.go(window.providerDetailRoute(pid));
+      else if (k === 'dismiss') app.setVoices((list) => list.map((x) => (x.id === v.id ? {...x, ...V.cloneAfter(x, pid, 'dismiss')} : x)));
     };
     if (mode === 'mic') return <div className="vlib"><window.VoiceCapture onDone={finish} onCancel={() => setMode('list')} /></div>;
     if (mode === 'media') return <div className="vlib"><MediaCapture onDone={finish} onCancel={() => setMode('list')} /></div>;
@@ -410,15 +421,35 @@
       const target = voices.find((v) => v.id === mode.slice(8));
       if (target) {
         return <div className="vlib"><window.ConsentCapture v={target} onCancel={() => setMode('list')}
-          onDone={(clip) => { patch(target.id, {consentClip: clip}); setMode('list'); app.toast(`已存「${target.name}」的授权声明 · Google Gemini 第一次用时会连样本一起上传`, 'positive'); }} /></div>;
+          onDone={(clip, up) => {
+            patch(target.id, {consentClip: clip});
+            setMode('list');
+            if (up.length) window.startVoiceClone(app, target, up);
+            app.toast(up.length ? `已存「${target.name}」的授权声明 · 正在重新上传到 ${names(up)}` : `已存「${target.name}」的授权声明`, 'positive');
+          }} /></div>;
       }
     }
+    /* 没建成时「录新样本」：给这只音色换样本（不另起一只），存好按计划重新上传；别家的旧克隆标成参考已换 */
+    if (String(mode).indexOf('retake:') === 0) {
+      const [, id, pid] = mode.split(':');
+      const target = voices.find((v) => v.id === id);
+      if (target) {
+        return <div className="vlib"><window.VoiceCapture base={target} entry={pid} onCancel={() => setMode('list')}
+          onDone={(draft, up) => {
+            patch(id, {...draft, id, cloud: C.bindAfter(target, null, 'retake'), cloneRun: V.cloneAfter(target, pid, 'dismiss').cloneRun});
+            setMode('list');
+            if (up.length) window.startVoiceClone(app, {id, name: draft.name}, up);
+            app.toast(up.length ? `已换上新样本 · 正在重新上传到 ${names(up)}` : `已给「${draft.name}」换上新样本`, 'positive');
+          }} /></div>;
+      }
+    }
+    const cover = window.voiceHandoffCover(app.voiceHandoff, voices);
 
     const addBtn = (
       <Picker size="s" icon="plus" value="克隆新音色" open={addMenu} popWidth={280}
         onClick={() => setAddMenu((x) => !x)} onClose={() => setAddMenu(false)}>
         <Menu>
-          <MenuItem icon="mic" label="录或上传一段样本" sub="先选给哪些模型用；30 秒样本；选了 Google Gemini 再念一句授权声明" onClick={() => { setAddMenu(false); setMode('mic'); }} />
+          <MenuItem icon="mic" label="录或上传一段样本" sub="先选给哪些模型用；30 秒左右的样本；选了 Google Gemini 再念一句授权声明" onClick={() => { setAddMenu(false); setMode('mic'); }} />
           <MenuItem icon="upload" label="从音频或视频里取…" sub="多人说话会分开，每人挑一段" onClick={() => { setAddMenu(false); setMode('media'); }} />
           <MenuRule />
           <MenuItem icon="download" label="导入音色包…" sub="别人导出的 .bcvoice" onClick={() => { setAddMenu(false); app.toast('交互演示 · 选一个 .bcvoice 文件夹'); }} />
@@ -431,15 +462,16 @@
         <h1 className="t-heading-sm">我的声音</h1>
         <p className="vlib-lede">
           录或上传一段 30 秒左右的样本，或从视频里取一个人的声音，存成音色。之后生成语音、克隆声音、翻译配音、试听里按名字选，
-          每只能克隆的引擎都能用；录音留在这台电脑上。选云端引擎（ElevenLabs / MiniMax / Google Gemini）时第一次用会先问一次，把样本上传给它建克隆并记下 voice id，随时可删；
+          每只能克隆的引擎都能用；录音留在这台电脑上。克隆时勾了云端模型（ElevenLabs / MiniMax / Google Gemini）的，保存时把样本上传给它建克隆、记下 voice id，随时可删；
           Google Gemini 还要本人念一句授权声明。
         </p>
-        <HandoffBar />
+        <window.VoiceHandoffBar onAction={onClone} />
         {voices.length ? (
           <>
             <div className="vlib-list">
               {voices.map((v) => (
                 <VoiceRow key={v.id} v={v} onPatch={(p) => patch(v.id, p)}
+                  covered={cover && cover.v.id === v.id ? cover.pid : null} onClone={(pid, k) => onClone(v, pid, k)}
                   onDelete={() => { app.setVoices((list) => list.filter((x) => x.id !== v.id)); app.toast(`已删除「${v.name}」`); }}
                   onRetake={() => { if (Object.keys(v.cloud || {}).length) patch(v.id, {cloud: C.bindAfter(v, null, 'retake')}); setMode(v.source.kind === 'media' ? 'media' : 'mic'); }}
                   onConsent={() => setMode('consent:' + v.id)} />
@@ -464,6 +496,7 @@
           Qwen3-TTS CustomVoice 接不了参考音频，OpenAI 的云端模型不能克隆，选了会明说，不会偷偷换成别的声音。
           「未说明是否本人」的音色不会上传到任何第三方。
         </div>
+        <window.CloneDemo />
       </div>
     );
   }
