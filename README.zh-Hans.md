@@ -189,6 +189,8 @@ Windows Command Prompt 中，先执行 `set "BAOCUT_HOME=.dev/baocut-home"`，�
 
 开发态桌面应用没开时，同一条命令会在这个主目录拉起仓库的 Runtime，还没发布的工具也调得到。不设 `BAOCUT_HOME` 时，CLI 用真实的 `~/.baocut` 和已安装应用的 Runtime，比那个应用新的命令会报 `RUNTIME_OUTDATED`。
 
+要一个单独的主目录来测试（比如交给 Agent 用），运行 `npm run cli -- sandbox create ~/baocut-sandbox`（加 `--link-accounts-from ~/.baocut` 只读地链接你的模型账号，调用照常计费）。它建好这个文件夹，并写入 `bin/baocut`（用这份仓库的命令行操作这个主目录）与 `env.sh` / `env.ps1`。`. ~/baocut-sandbox/env.sh` 之后，那个 shell 里的 `baocut` 和从它启动的 Agent 都用这个沙盒。
+
 ### 其他命令
 
 | 命令 | 作用 |

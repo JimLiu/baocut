@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline/promises';
 import type { ParseArgsOptionsConfig, parseArgs } from 'node:util';
@@ -31,12 +32,18 @@ export interface AdminNoun<O extends ParseArgsOptionsConfig = ParseArgsOptionsCo
   /** 与目录同名的名词（`models`、`jobs`、`space`、`library`、`skills`）只认这些子命令，其余交给派生命令。 */
   verbs?: readonly string[];
   partial?: true;
-  /** 不连 Runtime 的子命令：`ctx.client` 不可用。 */
-  offline?: readonly string[];
+  /** 不连 Runtime 的子命令：`ctx.client` 不可用。`true`：整个名词都不连（要连时自己连，连哪个 Home 由它定）。 */
+  offline?: readonly string[] | true;
   /** `baocut <名词> --help` 与 `baocut help <名词>` 的正文。 */
   usage: string;
   options: O;
   run(ctx: AdminRun<AdminValues<O>>): Promise<ExitCode>;
+}
+
+/** 用户给的目录：`~` 开头的按用户目录展开（引号里的 `~` shell 不展开），其余按 `cwd` 解析成绝对路径。 */
+export function absolutePath(value: string, cwd: string): string {
+  if (value === '~' || value.startsWith('~/') || value.startsWith('~\\')) return path.join(os.homedir(), value.slice(1));
+  return path.resolve(cwd, value);
 }
 
 /** 声明一个名词（保留旗标的字面类型）。 */

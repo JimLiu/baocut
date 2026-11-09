@@ -1,6 +1,6 @@
 # CLI 独立使用与发布：不开桌面端也能用，以及独立 CLI 包
 
-> 方案稿，2026-11-08。第一批（§12：§3、§5、§7.3、§8）已实现，第二、三批未做。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
+> 方案稿，2026-11-08。第一批（§12：§3、§5、§7.3、§8）与第二批（§4、§6.1、§7.1、§7.2、§7.4）已实现，第三批（§9 独立包）未做。目标：装了 BaoCut 的机器上，人和外部 Agent 在终端里直接用 `baocut` 完成 Agent 面的全部能力，不需要打开桌面窗口；同一个 Runtime Home 上无论谁先拉起 Runtime，行为都一样；再把 CLI 与 Runtime 打成独立包，与 App 同版本发布。
 >
 > 本文延伸 [Agent 面设计](agent-surface-design.md) 的 §5.6（Runtime 的归属）与 §8.2（放哪里），CLI 拉起 Runtime 的机制以[架构设计 §2.2](../../architecture/architecture-design.md#22-启动所有权与退出) 为准，这里只写要改的部分。制作流程的产品化（生产脚本编排、旁白片段剪裁、字幕断条等）不在本文。
 
@@ -220,6 +220,16 @@ Agent 面设计 §5.6 的另一半不变：从仓库运行的 CLI 在默认 Home
 
 源码 CLI 在非默认 Home 上会自己拉起仓库里的 Runtime，`engine-host` 与 web 构建也会回退到仓库的构建产物，只设 `BAOCUT_HOME` 就够。可以加 `baocut sandbox create <目录> [--link-accounts-from <home>]`：建 Home 与项目目录，写一份 `env.sh` / `env.ps1`，按需链接账号，打印怎么用。
 
+> 已实现（2026-11-08）：管理桶 `apps/cli/src/admin/sandbox.ts`。与上文的出入：
+>
+> - 只设 `BAOCUT_HOME` 不够：终端里的 `baocut` 常是 `~/.local/bin` 里 App 的那个，它在这个 Home 上拉起的是 App 的 Runtime，用钥匙串存密钥。所以除了 `<目录>/projects`，还写包装脚本 `bin/baocut`（Windows `bin\baocut.cmd`），里面设好 `BAOCUT_HOME` 与 `BAOCUT_PROJECTS_DIR`，用跑 `sandbox create` 的那个 Node 跑那份仓库的 `apps/cli/src/main.ts`。`env.sh`（macOS 与 Linux）与 `env.ps1`（带 BOM，Windows PowerShell 5.1 才按 UTF-8 读）设这两个变量与 `BAOCUT_CLI`（指向包装脚本），并把 `bin` 放到 PATH 最前。用脚本不用 shell 函数：从这个 shell 启动的 Agent 是子进程，看不到函数。
+> - 包装脚本钉住的是跑 `sandbox create` 的那份 checkout 与 Node；换了就再跑一次，对已有的沙盒只刷新这些文件（`refreshed: true`）。
+> - 拒绝，都在建任何东西之前：默认 Home（`INVALID_ARGUMENTS`）；不是从仓库运行的 CLI，或它在这个 Home 上拉起的 Runtime 不用文件存密钥（App 自带的 CLI、设了 `BAOCUT_RUNTIME_ENTRY`），以 `SANDBOX_NEEDS_SOURCE_CLI`（退出码 1）拒绝：钥匙串不分 Home，沙盒里存或删账号会动真实的条目；目录里已有文件、又不像 BaoCut Home 或沙盒（没有 `store`、`runtime.json`、`env.sh`、`env.ps1`）时 `INVALID_ARGUMENTS`。整个名词不经入口连 Runtime（`offline: true`），`baocut sandbox` 这样的用法错误也不会在当前 Home 上拉起 Runtime。
+> - `--link-accounts-from`：在沙盒上找到或拉起源码 Runtime，调 `models.linkAccounts`，输出与 `models accounts link` 相同。链接失败时沙盒留着，stderr 说明后报那个错误。
+> - 下载照 §5.2 进系统的下载文件夹，不在沙盒里。没写给 cmd 用的 `env.cmd`。
+>
+> 验证：单测（sh 与 PowerShell 的引号、Windows 的文件内容、在真的 sh 里 `. env.sh` 再跑包装脚本，路径带空格与单引号；默认 Home、App 的 CLI、钥匙串 Runtime、`BAOCUT_RUNTIME_ENTRY`、别人的文件夹都拒绝且不留东西）。源码 CLI 在路径带空格的临时目录上 `sandbox create --link-accounts-from` 经假助手链接假来源；再在 PATH 只有 `/usr/bin:/bin` 的 shell 里 `. env.sh`，`baocut status` 与 `models accounts` 用的是沙盒、复用那个 Runtime，最后 `runtime stop`。没做：Windows 与 PowerShell 未实测，`.cmd` 里的路径有非 ASCII 字符时 cmd 按代码页读，可能不对。
+
 ### 7.3 源码 Runtime 的 Node
 
 `resolveRuntimeLaunch` 用当前进程的 Node 直接跑 `apps/runtime/src/main.ts`。当前 Node 不带旗标时不去掉类型标注（`process.features.typescript` 为假，或它为真只是因为 CLI 自己带了 `--experimental-strip-types`）时补这个旗标；Node 版本不在仓库 `package.json` 的 `engines.node` 范围里时不拉起，以 `RUNTIME_START_FAILED` 报出要哪个版本（`checkRuntimeNode`），不留一行 `ERR_UNKNOWN_FILE_EXTENSION` 在 `cli-runtime.log` 里。
@@ -353,6 +363,8 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 | [桌面端 README「外部 Agent 与 CLI」](../../../apps/desktop/README.md#外部-agent-与-cli) | PATH 安装（macOS 与 Windows）与 cask；删掉「不自动向系统 PATH 写文件」 | §3 |
 | `skills/baocut/references/start.md` | 第 1 节加 `~/.local/bin/baocut` 与独立包位置；第 4 节「桌面端开着时直接用桌面端的那个」改成按版本规则；第 5 节先跑 `doctor` | §3、§4、§8 |
 
+第一、二批改完了上表中与它们有关的部分。还没改的：命令与协议规范里「把 CLI 拉起的 Runtime 改成常驻的方法」属于 §6.2，第一版不做，没有这个方法；架构设计 §12.11 的权限归属、§2.6 的分发渠道与 `start.md` 的独立包位置等第三批。
+
 ## 12. 实施顺序与验收
 
 **第一批（小改，可先做；已实现）**：§3 PATH 与 cask，§5 三项，§7.3，§8（不含构建一项）。
@@ -362,6 +374,7 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 **第二批（让 CLI 真正独立）**：§4，§6.1，§7.1，§7.2，§7.4。
 
 - 验收：§4.2 的组合（版本同或不同、空闲或忙、拉起者）各有单测；App 更新时有一个 CLI Runtime 在跑，macOS 与 Windows 各实测一次；链接账号能读、改密钥被拒、移除只解除链接，钥匙串条目还在（用 `security find-generic-password` 只查条目在不在，不读密钥）；Claude Code 与 Codex 各以 stdio 形式接上 MCP，Runtime 不在时能自己拉起。
+- 状态（2026-11-08）：已实现，各节的「已实现」写了与方案的出入与验证。验收没做到的：App 更新时有 CLI Runtime 在跑，macOS 与 Windows 都没实测；链接账号经假助手读，没经 App 的助手真读一次钥匙串里的密钥；Codex 只确认读得懂写进去的条目，没在它的会话里实际调用（Claude Code 实测连上）；Windows 上的入口、链接账号与 `sandbox create` 都没实测；§7.4 审片页的提示没做。已知缺口见 §4.3 的说明（协议版本不同、开着对外服务的旧版 CLI Runtime 不会空闲退出）。
 
 **第三批**：§9 独立包；之后再做按需组件（§9.7）。
 

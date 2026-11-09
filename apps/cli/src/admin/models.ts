@@ -1,5 +1,3 @@
-import os from 'node:os';
-import path from 'node:path';
 import {
   MODEL_SERVICE_CAPABILITIES,
   TEXT_EFFORTS,
@@ -7,6 +5,7 @@ import {
   type ConfigureProviderRequest,
   type DeclaredModel,
   type ImageModelInfo,
+  type LinkProviderAccountsResult,
   type ModelCapabilitiesView,
   type ModelCost,
   type ModelInfoBase,
@@ -22,7 +21,7 @@ import {
   type UsagePeriod,
 } from '@baocut/protocol';
 import type { ExitCode } from '../envelope.ts';
-import { defineNoun, readStdin, type AdminRun, type AdminValues } from './context.ts';
+import { absolutePath, defineNoun, readStdin, type AdminRun, type AdminValues } from './context.ts';
 import { M } from './models-copy.ts';
 import {
   accountOrderWithFirst,
@@ -262,6 +261,18 @@ async function parameters(ctx: Ctx, capability: string | undefined): Promise<Exi
   return ctx.done(result, [describeTextParameters(result.parameters)]);
 }
 
+/** 链接账号的结果给人读的几行（`models accounts link` 与 `sandbox create --link-accounts-from` 共用）。 */
+export function linkResultLines(result: LinkProviderAccountsResult, home: string): string[] {
+  if (result.linked.length === 0) return [M.linkNothing(home)];
+  const out = [M.linkedHeader(home)];
+  for (const provider of result.providers) {
+    out.push(describeProvider(provider), ...formatAccountLines(provider.config?.accounts ?? []));
+    if (provider.config && !provider.config.enabled) out.push(`  ${M.providerNotEnabled(provider.providerId)}`);
+  }
+  out.push(M.linkBilling);
+  return out;
+}
+
 /**
  * 服务商的账号（架构设计 §6.8）：列出、添加（密钥只从标准输入读）、移除、设为首选。调用总是用第一个启用且有密钥的账号，
  * 出错不换下一个；`use` 把一个账号排到最前（`models.arrangeAccounts`）。输出只有掩码。`link --from <home>` 从另一个 Runtime
@@ -290,20 +301,13 @@ async function modelAccounts(ctx: Ctx, args: string[]): Promise<ExitCode> {
   }
   if (action === 'link') {
     if (providerId || !values.from) throw ctx.usageError(usage);
-    const home = absoluteHome(values.from);
+    const home = absolutePath(values.from, ctx.cwd);
     const result = await client.request('models.linkAccounts', {
       home,
       ...(values.provider !== undefined ? { providerId: values.provider } : {}),
       ...(values.account !== undefined ? { accountId: values.account } : {}),
     });
-    if (result.linked.length === 0) return ctx.done(result, [M.linkNothing(home)]);
-    const out = [M.linkedHeader(home)];
-    for (const provider of result.providers) {
-      out.push(...lines(provider));
-      if (provider.config && !provider.config.enabled) out.push(`  ${M.providerNotEnabled(provider.providerId)}`);
-    }
-    out.push(M.linkBilling);
-    return ctx.done(result, out);
+    return ctx.done(result, linkResultLines(result, home));
   }
   if (action === 'remove' || action === 'use') {
     if (!providerId || !accountRef) throw ctx.usageError(usage);
@@ -325,12 +329,6 @@ async function modelAccounts(ctx: Ctx, args: string[]): Promise<ExitCode> {
     return ctx.done({ providerId: action, accounts }, formatAccountLines(accounts, ''));
   }
   throw ctx.usageError(usage);
-}
-
-/** `--from` 的路径：`~` 开头的按用户目录展开（引号里的 `~` shell 不展开），其余按当前目录解析成绝对路径。 */
-function absoluteHome(value: string): string {
-  if (value === '~' || value.startsWith('~/') || value.startsWith('~\\')) return path.join(os.homedir(), value.slice(1));
-  return path.resolve(value);
 }
 
 /** 一家服务商的账号（从能力视图里取它的配置）；不是在线服务商时报错。 */

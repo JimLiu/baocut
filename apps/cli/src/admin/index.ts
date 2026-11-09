@@ -16,6 +16,7 @@ import { mcp } from './mcp.ts';
 import { models } from './models.ts';
 import { nodes } from './nodes.ts';
 import { projects } from './projects.ts';
+import { sandbox } from './sandbox.ts';
 import { services } from './services.ts';
 import { settings } from './settings.ts';
 import { share } from './share.ts';
@@ -41,6 +42,7 @@ const NOUNS: readonly AdminNoun<ParseArgsOptionsConfig>[] = [
   skill,
   cliEntry,
   mcp,
+  sandbox,
   externalTools,
   services,
   share,
@@ -83,7 +85,7 @@ export const adminBucket: AdminBucket = {
     if (parsed.values.help) return output.text(noun.usage);
 
     const args = parsed.positionals.slice(1);
-    const offline = noun.offline?.includes(args[0] ?? '') ?? false;
+    const offline = noun.offline === true || (noun.offline?.includes(args[0] ?? '') ?? false);
     let client = null;
     if (!offline) {
       const { discovery, started } = await ensureRuntime(home, { start: parsed.values['no-start'] !== true });

@@ -193,6 +193,8 @@ In Windows Command Prompt, use `set "BAOCUT_HOME=.dev/baocut-home"` before the C
 
 With the development desktop closed, the same command starts the repository's Runtime in that home, so tools work before they are released. Without `BAOCUT_HOME`, the CLI uses your real `~/.baocut` and the installed app's Runtime, and commands newer than that app report `RUNTIME_OUTDATED`.
 
+For a separate home to test in, for example with an agent, run `npm run cli -- sandbox create ~/baocut-sandbox` (add `--link-accounts-from ~/.baocut` to link your model accounts read-only; calls are billed to them). It creates the folder, a `bin/baocut` that runs this checkout's CLI on it, and `env.sh` / `env.ps1`. After `. ~/baocut-sandbox/env.sh`, `baocut` in that shell and agents started from it use the sandbox.
+
 ### Other commands
 
 | Command | What it does |
