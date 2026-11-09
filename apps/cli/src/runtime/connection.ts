@@ -14,6 +14,7 @@ import {
   STANDALONE_PACKAGE_KIND,
   RpcError,
   decideRuntimeReuse,
+  idleOnMismatch,
   isLanguagePreference,
   mismatchFacts,
   parseStandaloneManifest,
@@ -758,14 +759,7 @@ async function replaceMismatched(
   options: { home: string; replace: boolean; env?: NodeJS.ProcessEnv },
 ): Promise<Session> {
   if (!(error instanceof ProtocolMismatchError)) throw error;
-  const decision = decideRuntimeReuse({
-    seeker: 'cli',
-    own: OWN_IDENTITY,
-    found: { ...discovery, launchedBy: error.launchedBy ?? discovery.launchedBy ?? null },
-    activity: error.launchedBy === 'cli' ? error.facts.activity : null,
-    seekerCounted: false,
-  });
-  if (decision.action !== 'replace') throw error;
+  if (error.launchedBy !== 'cli' || idleOnMismatch('cli', error.facts) !== true) throw error;
   if (!options.replace || !signalStop(discovery) || !(await exited(discovery))) throw error.plain();
   const next = await ensureRuntime(options.home, { start: true, env: options.env });
   return openSession(next, { ...options, replace: false });

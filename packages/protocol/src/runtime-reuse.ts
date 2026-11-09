@@ -76,19 +76,28 @@ export function idleExceptSeeker(seeker: RuntimeSeeker, activity: FoundActivity,
 }
 
 /**
- * 决定复用还是替换。`activity` 是对方的 `runtime.status`，协议版本不同时是握手拒绝里报的忙闲（`mismatchFacts`，这时
- * `seekerCounted` 为 false）；问不到时 null，这时不替换。
+ * 协议版本不同、握手被拒时对方空闲没有（§4.3），按握手拒绝里报的忙闲（`mismatchFacts`）；发起方没握上手，不在连接数里。只报了
+ * 任务数（没有连接数）时有任务算忙、没有任务也说不准；什么都没报时 null。握手被拒本身说明版本不同，不再比 `interfaceVersion`：
+ * 协议版本变了而接口版本没变时 `decideRuntimeReuse` 会判成复用。
+ */
+export function idleOnMismatch(seeker: RuntimeSeeker, facts: MismatchFacts): boolean | null {
+  if (facts.activity) return idleExceptSeeker(seeker, facts.activity, false);
+  return facts.activeJobs !== null && facts.activeJobs > 0 ? false : null;
+}
+
+/**
+ * 决定复用还是替换。`activity` 是对方的 `runtime.status`；问不到（协议版本不同，或还没问）时 null，这时不替换。协议版本不同时
+ * 改用 `idleOnMismatch`。
  */
 export function decideRuntimeReuse(input: {
   seeker: RuntimeSeeker;
   own: RuntimeIdentity;
   found: FoundRuntime;
   activity: FoundActivity | null;
-  seekerCounted?: boolean;
 }): RuntimeReuse {
-  const { seeker, own, found, activity, seekerCounted = true } = input;
+  const { seeker, own, found, activity } = input;
   if (sameRuntimeVersion(seeker, own, found)) return { action: 'reuse' };
-  if (found.launchedBy === 'cli' && activity && idleExceptSeeker(seeker, activity, seekerCounted)) return { action: 'replace' };
+  if (found.launchedBy === 'cli' && activity && idleExceptSeeker(seeker, activity)) return { action: 'replace' };
   if (seeker === 'cli') return { action: 'refuse' };
   return found.protocolVersion === own.protocolVersion ? { action: 'reuse-until-idle' } : { action: 'wait' };
 }

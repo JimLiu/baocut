@@ -135,7 +135,7 @@ App 的「重启并更新」在安装前除了自己的 Runtime，还要处理�
 > - CLI 只在它会拉起的是自己这份安装时替换，`--no-start`、`BAOCUT_RUNTIME_ENTRY` 或会拉起别处装的 App 时照版本门拒绝，免得替换后起的仍是另一个版本。
 > - 桌面端替换的时机是每分钟问一次 `runtime.status`；空闲的口径同 `runtime.stop`：桌面端发起时它自己的连接都不算（一个 Home 只有一个桌面端，含 Bot 后台服务），有 CLI 连着算在用。
 > - 有任务的 CLI Runtime 本来就由界面连着，它的任务已在屏障里；装之前（「重启并更新」与退出即安装）桌面端请它停下并等它退出，它还有 CLI 连着而拒绝时照旧安装。
-> - 协议版本不同时握手被拒，`runtime.status` 与 `runtime.stop` 都用不了（上文 3. 的「不给『现在停止它』」随之不再成立）：Runtime 拒绝握手时在 details 里报 `launchedBy`、`activeJobs` 与 `connections`，桌面端与 CLI 据此判断空闲（`mismatchFacts`，没握上手的一方不在连接数里），空闲就改发 `SIGTERM` 请它停下、等进程退出，再拉起自己的。这样开着对外服务（Web、MCP）、不会空闲退出的旧版 CLI Runtime 也换得掉；`baocut runtime stop` 走同一条路。只有带上这一改动的版本会报连接数，更早的版本自动替换不动它，`baocut runtime stop` 照停。
+> - 协议版本不同时握手被拒，`runtime.status` 与 `runtime.stop` 都用不了（上文 3. 的「不给『现在停止它』」随之不再成立）：Runtime 拒绝握手时在 details 里报 `launchedBy`、`activeJobs` 与 `connections`，桌面端与 CLI 据此判断空闲（`mismatchFacts`、`idleOnMismatch`，没握上手的一方不在连接数里），空闲就改发 `SIGTERM` 请它停下、等进程退出，再拉起自己的。这样开着对外服务（Web、MCP）、不会空闲退出的旧版 CLI Runtime 也换得掉；`baocut runtime stop` 走同一条路。只有带上这一改动的版本会报连接数，更早的版本自动替换不动它，`baocut runtime stop` 照停。
 > - 未实测：macOS 与 Windows 上「App 更新时有一个 CLI Runtime 在跑」；跨协议的替换只在单测与假的握手服务上验证过（还没有两个协议版本的真实构建）。Windows 上 `SIGTERM` 等于直接结束进程，旧版来不及按停止顺序收尾。
 
 ## 5. CLI 拉起的 Runtime 与桌面端一致

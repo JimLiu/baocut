@@ -1,4 +1,4 @@
-import { RpcError, idleExceptSeeker, type RuntimeDiscovery } from '@baocut/protocol';
+import { RpcError, idleOnMismatch, type RuntimeDiscovery } from '@baocut/protocol';
 import { M } from '../cli-copy.ts';
 import { CliError, EXIT, type ExitCode, type Output } from '../envelope.ts';
 import { ProtocolMismatchError, ensureRuntime, exited, findRuntime, isProcessAlive, openClient, signalStop } from './connection.ts';
@@ -92,11 +92,9 @@ export async function runtimeCommand(output: Output, home: string, args: readonl
  */
 async function stopMismatched(output: Output, discovery: RuntimeDiscovery, error: ProtocolMismatchError): Promise<ExitCode> {
   const launchedBy = error.launchedBy !== undefined ? error.launchedBy : discovery.launchedBy;
-  const { activeJobs, activity } = error.facts;
-  const busy = activity ? !idleExceptSeeker('cli', activity, false) : (activeJobs ?? 0) > 0;
-  if (launchedBy !== 'cli' || busy) throw error;
-  const stopped = signalStop(discovery) && (await exited(discovery, 20_000));
-  return output.success({ stopped, pid: discovery.pid, signalled: true });
+  if (launchedBy !== 'cli' || idleOnMismatch('cli', error.facts) === false) throw error;
+  const signalled = signalStop(discovery);
+  return output.success({ stopped: signalled && (await exited(discovery, 20_000)), pid: discovery.pid, signalled });
 }
 
 async function waitForExit(pid: number, timeoutMs: number): Promise<boolean> {

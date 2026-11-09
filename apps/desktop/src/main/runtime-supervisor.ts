@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
-import { decideRuntimeReuse, idleExceptSeeker, sameRuntimeVersion, type MessageRef, type RuntimeDiscovery, type RuntimeIdentity } from '@baocut/protocol';
+import { decideRuntimeReuse, idleOnMismatch, sameRuntimeVersion, type MessageRef, type RuntimeDiscovery, type RuntimeIdentity } from '@baocut/protocol';
 import { isDiscoveryLive, isRecordedProcessAlive, readDiscovery, type RuntimeHome } from '@baocut/runtime-storage';
 import { clientProbe, type FoundRuntimeProbe } from './found-runtime.ts';
 import { M } from './main-copy.ts';
@@ -147,8 +147,7 @@ export class RuntimeSupervisor {
         // CLI 拉起的、协议版本不同（§4.3）：忙闲取自握手的拒绝。空闲时发信号请它停下，等它退出再拉起自己的。在做事或问不到时
         // 不连，界面按重连退避再来要连接；它做完、空闲退出后这里拉起自己的。
         const facts = await this.#probe.mismatch(target);
-        const idle = facts.activity !== null && idleExceptSeeker('desktop', facts.activity);
-        if (!idle || !(await this.#replace(found, async () => this.#probe.signal(found.pid, found.startedAt)))) {
+        if (idleOnMismatch('desktop', facts) !== true || !(await this.#replace(found, async () => this.#probe.signal(found.pid, found.startedAt)))) {
           throw new Error(M.runtimeOlderCliBusy(found.runtimeVersion, facts.activeJobs || null));
         }
       } else if (!(await this.#replace(found))) {

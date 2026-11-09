@@ -10,12 +10,14 @@ import { packagedResourceEnv as desktopResourceEnv, packagedResources } from '..
 import { isDiscoveryLive, isEndpointRefused as storageEndpointRefused } from '../../../../packages/runtime-storage/src/discovery.ts';
 import { installEntryOf } from '../../../../packages/runtime-storage/src/install-identity.ts';
 import type { RuntimeDiscovery } from '@baocut/protocol';
+import { M } from '../cli-copy.ts';
 import { CliError, EXIT, Output, exitCodeFor } from '../envelope.ts';
 import { runtimeCommand } from './runtime-command.ts';
 import {
   ProtocolMismatchError,
   checkInterfaceVersion,
   checkRuntimeNode,
+  connectRuntime,
   ensureRuntime,
   findRuntime,
   interfaceMismatch,
@@ -282,6 +284,26 @@ describe('协议版本不同、握手被拒（CLI 独立使用与发布 §4.3）
     expect(old.facts).toEqual({ activeJobs: null, activity: null });
     expect(old.extra).toEqual({});
     expect(old.message).toBe(old.plain().message);
+  });
+
+  it('连接时走替换的判断：空闲而这次不替换（会拉起别处的 Runtime）时只报版本门，忙着时写明忙闲', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-mismatch-'));
+    const env = { BAOCUT_HOME: home, BAOCUT_RUNTIME_ENTRY: path.join(home, 'missing-runtime.js') };
+    const connect = async (details: Record<string, unknown>) => {
+      fs.writeFileSync(path.join(home, 'runtime.json'), JSON.stringify(discoveryOf(await mismatching(details))));
+      return (await connectRuntime({ home, start: true, env }).catch((error: unknown) => error)) as CliError;
+    };
+    try {
+      const idle = await connect({ launchedBy: 'cli', activeJobs: 0, connections: IDLE });
+      expect(idle).toBeInstanceOf(CliError);
+      expect(idle.code).toBe('PROTOCOL_MISMATCH');
+      expect(idle.message).toBe(M.protocolMismatch('client 0.6, runtime 0.5'));
+      const busy = await connect({ launchedBy: 'cli', activeJobs: 1, connections: IDLE });
+      expect(busy).toBeInstanceOf(ProtocolMismatchError);
+      expect(busy.message).toContain(M.runtimeBusyDetail(1, 0, 0));
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it('runtime stop 发信号停下 CLI 拉起的、空闲的那个；还有别的 CLI 连接时照版本门报，不停', async () => {

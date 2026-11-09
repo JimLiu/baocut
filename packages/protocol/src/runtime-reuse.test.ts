@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { decideRuntimeReuse, idleExceptSeeker, mismatchFacts, sameRuntimeVersion, type FoundActivity, type FoundRuntime, type RuntimeIdentity } from './runtime-reuse.ts';
+import { decideRuntimeReuse, idleExceptSeeker, idleOnMismatch, mismatchFacts, sameRuntimeVersion, type FoundActivity, type FoundRuntime, type RuntimeIdentity } from './runtime-reuse.ts';
 
 // CLI 独立使用与发布 §4.2 的组合：版本同或不同、空闲或忙、拉起者，桌面端与 CLI 各一遍。
 
@@ -91,12 +91,22 @@ describe('4. 协议版本不同：忙闲取自握手的拒绝（§4.3）', () =>
     expect(mismatchFacts(undefined)).toEqual({ activeJobs: null, activity: null });
   });
 
-  test('CLI：发起方没握上手，不在连接数里，一条 CLI 连接也算在用', () => {
-    const found = { ...SAME, protocolVersion: '0.5', interfaceVersion: '1' };
-    const input = { seeker: 'cli' as const, own: OWN, found, seekerCounted: false };
-    expect(decideRuntimeReuse({ ...input, activity: IDLE }).action).toBe('replace');
-    expect(decideRuntimeReuse({ ...input, activity: { ...IDLE, connections: { desktop: 0, cli: 1, agent: 0 } } }).action).toBe('refuse');
-    expect(decideRuntimeReuse({ ...input, activity: null }).action).toBe('refuse');
+  test('发起方没握上手，不在连接数里：CLI 发起时一条 CLI 连接也算在用，桌面端发起时桌面端的连接不算', () => {
+    const facts = (activity: FoundActivity) => ({ activeJobs: activity.activeJobs, activity });
+    expect(idleOnMismatch('cli', facts(IDLE))).toBe(true);
+    expect(idleOnMismatch('cli', facts({ ...IDLE, connections: { desktop: 0, cli: 1, agent: 0 } }))).toBe(false);
+    expect(idleOnMismatch('desktop', facts({ ...IDLE, connections: { desktop: 1, cli: 0, agent: 0 } }))).toBe(true);
+    expect(idleOnMismatch('desktop', facts(BUSY))).toBe(false);
+  });
+
+  test('只报了任务数时有任务算忙、没有任务说不准；什么都没报时说不准', () => {
+    expect(idleOnMismatch('cli', { activeJobs: 2, activity: null })).toBe(false);
+    expect(idleOnMismatch('cli', { activeJobs: 0, activity: null })).toBeNull();
+    expect(idleOnMismatch('desktop', { activeJobs: null, activity: null })).toBeNull();
+  });
+
+  test('协议版本变了而接口版本没变：decideRuntimeReuse 判成复用，所以握手被拒时不用它', () => {
+    expect(decide('cli', { ...SAME, protocolVersion: '0.5' }, IDLE)).toBe('reuse');
   });
 });
 
