@@ -213,7 +213,10 @@ export interface VoiceCloneRequest {
   config: AdapterConfig;
   /** 克隆在供应商那边的名字。 */
   name: string;
-  /** 参考录音（绝对路径）：整个上传；适配器给了 `sourceSeconds` 时比上限长的 WAV 只传开头一段。 */
+  /**
+   * 参考录音（绝对路径）：整个上传。适配器给了 `sourceSeconds` 时这是 Runtime 转好的 WAV（开头 `max + 3` 秒，`mediaType` 是
+   * `audio/wav`），比上限长的 WAV 只传开头一段。
+   */
   file: string;
   fileName: string;
   mediaType: string;
@@ -250,8 +253,9 @@ export interface VoiceCloneAdapter {
   /** 克隆要附上说话人本人念授权声明的录音；没有时由 Runtime 在提交前拒绝（`VOICE_CONSENT_CLIP_REQUIRED`）。 */
   readonly requiresConsentClip?: boolean;
   /**
-   * 供应商公开的参考录音时长范围（秒），进能力视图的 `voiceClone.sourceSeconds`。给了时适配器把比 `max` 长的 WAV 截到
-   * `max` 以内再上传（`trimWavHead`）；没有公开范围时不给，录音原样上传。
+   * 供应商公开的参考录音时长范围（秒），进能力视图的 `voiceClone.sourceSeconds`。给了时 Runtime 先用 ffmpeg 把参考录音的开头
+   * `max + 3` 秒转成 24 kHz 单声道 16 位 WAV 再交给适配器，适配器把比 `max` 长的 WAV 截到 `max` 以内再上传（`trimWavHead`）；
+   * 没有公开范围时不给，录音原样交给适配器、原样上传。
    */
   readonly sourceSeconds?: { readonly min: number; readonly max: number };
   createVoiceClone(request: VoiceCloneRequest): Promise<{ voiceId: string }>;

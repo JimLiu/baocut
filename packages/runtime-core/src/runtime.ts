@@ -708,6 +708,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         jobs: models.jobs,
         grants: models.grants,
         cloner: (providerId) => models.voiceCloner(providerId),
+        // 参考录音转 WAV（与媒体分析同一个 ffmpeg）。
+        ffmpeg: async () => ({ command: process.env.BAOCUT_FFMPEG || 'ffmpeg', env: await toolEnv() }),
         log: log.child('voice-clone'),
       }),
     );

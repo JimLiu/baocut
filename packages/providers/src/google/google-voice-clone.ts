@@ -12,8 +12,9 @@
 // 请求头（指南的 curl 没带，与别的 Gemini 请求一样带上）；音色已经不存在时删除的状态码（按 404 当作「远端已经没有」）；
 // 请求体的大小上限（参考录音只受库的上限约束，base64 之后再加授权声明录音，可能超过）；被拒时的原话（按关键词归类，
 // 见 `google-voice-clone-errors.ts`）。
-// 参考录音比 30 秒长的 WAV（界面录的样本至多 180 秒）只传开头不超过 30 秒、切在静音处的一段（`trimWavHead`）；别的格式原样上传，
-// 太长时由 Gemini 拒绝（`source-duration`）。
+// 适配器声明了 `sourceSeconds`，Runtime 先用 ffmpeg 把参考录音（MP3、FLAC、WAV……）的开头 33 秒转成 24 kHz 单声道 16 位 WAV
+// （文档建议的格式）再交过来；比 30 秒长的 WAV（界面录的样本至多 180 秒）只传开头不超过 30 秒、切在静音处的一段（`trimWavHead`）。
+// ffmpeg 读不出、Runtime 原样交来的别的格式原样上传，太长时由 Gemini 拒绝（`source-duration`）。
 import fs from 'node:fs/promises';
 import { ProviderFailure } from '@baocut/models';
 import { voiceCloneTimeoutMs, type VoiceCloneAdapter, type VoiceCloneDeleteRequest, type VoiceCloneRequest } from '../adapter.ts';

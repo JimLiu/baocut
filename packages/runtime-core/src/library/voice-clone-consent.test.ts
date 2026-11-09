@@ -54,6 +54,10 @@ describe('克隆要求授权声明录音的 Provider', () => {
         begin: async () => () => undefined,
       } as unknown as GrantService,
       cloner: () => cloner(requiresConsentClip),
+      // 这个 Provider 没有公开参考录音的时长范围：录音原样交出，不转 WAV。
+      ffmpeg: async () => {
+        throw new Error('ffmpeg is not used without sourceSeconds');
+      },
       log: { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined } as never,
     });
 

@@ -1,5 +1,7 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { Logger } from '@baocut/harness';
-import { TaskFailure, canonicalJson, sha256Hex, type JobManager, type TaskRun } from '@baocut/jobs';
+import { TaskFailure, audioToWav, canonicalJson, sha256Hex, type AudioToWavTool, type JobManager, type TaskRun } from '@baocut/jobs';
 import { ProviderFailure } from '@baocut/models';
 import {
   RpcError,
@@ -29,12 +31,24 @@ const CLONE_MODEL_ID = 'voice-clone';
 /** 删除远端克隆的期限。 */
 const REMOVE_TIMEOUT_MS = 60_000;
 
+/** 交给公开了时长范围的适配器的参考录音：24 kHz 单声道 16 位 PCM WAV（Gemini 建议的格式）。 */
+const CLONE_SAMPLE_RATE = 24_000;
+/**
+ * 比 `sourceSeconds.max` 多转的秒数：转出来的录音比上限长，适配器的 `trimWavHead` 才会在上限之前的最后 3 秒里找静音切开；
+ * 正好转到上限就切在转换的边上，可能切在字中间。
+ */
+const CLONE_CONVERT_MARGIN_SEC = 3;
+/** 转好的参考录音在任务 staging 里的名字。 */
+const CLONE_REFERENCE_WAV = 'clone-reference.wav';
+
 export interface VoiceCloneServiceOptions {
   store: LibraryStore;
   jobs: JobManager;
   grants: GrantService;
   /** 一个 Provider 的克隆接口；没有克隆接口（或不认识这个 Provider）时 null。 */
   cloner(providerId: string): VoiceCloner | null;
+  /** 参考录音转 WAV 用的 ffmpeg（与媒体分析同一个解析结果）；Provider 公开了参考录音的时长范围时才用。 */
+  ffmpeg: () => Promise<AudioToWavTool>;
   log: Logger;
 }
 
@@ -45,7 +59,9 @@ export interface VoiceCloneServiceOptions {
  *   （`VOICE_CONSENT_REQUIRED`）、Provider 有没有克隆接口（`VOICE_CLONE_UNSUPPORTED`）、要求本人念授权声明的 Provider
  *   有没有授权声明录音（`VOICE_CONSENT_CLIP_REQUIRED`）、是否启用、已有的有效克隆（`VOICE_CLONE_EXISTS`）、
  *   数据外发的授权与额度（数据种类 `audio`，§12.5）。不通过时不建任务。授权声明录音只交给要求它的 Provider。
- * - 执行时固定提交时的版本，再查一次授权声明，按授权预留、上传、结算；建好之后记进条目的 `clones[providerId]`，
+ * - 执行时固定提交时的版本，再查一次授权声明；Provider 公开了参考录音的时长范围（`sourceSeconds`）时，先用 ffmpeg 把参考
+ *   录音的开头转成 24 kHz 单声道 16 位 WAV（ffmpeg 不可用时 `MEDIA_TOOL_UNAVAILABLE`，不上传）；再按授权预留、上传、结算，
+ *   转出的临时文件随后删掉。建好之后记进条目的 `clones[providerId]`，
  *   记的是上传的那份参考录音的摘要，上传期间参考录音改了时直接是 `stale`。替换下来的过期克隆随后请求远端删除，
  *   删不掉时留一条告警（带它的 `voiceId`），不让任务失败。
  * - 删除先请求远端、成功（或远端已经没有）才清掉记录；远端失败时记录保留，以 Provider 的错误码报告。
@@ -192,56 +208,63 @@ export class VoiceCloneService {
         throw error;
       }
     }
-    let settle: Awaited<ReturnType<GrantService['begin']>>;
-    try {
-      grants.ensureDefault(providerId, cloner.label, 'synthesizeSpeech');
-      settle = await grants.begin({
-        recipient: providerId,
-        dataKinds: VOICE_CLONE_DATA_KINDS,
-        videoId: null,
-        taskId,
-        estimate: null,
-        label: cloner.label,
-        jobId: run.jobId,
-      });
-    } catch (error) {
-      if (error instanceof RpcError) {
-        const details = (error.details ?? {}) as Record<string, unknown>;
-        throw withMessageRef(new TaskFailure(typeof details.code === 'string' ? details.code : 'GRANT_REQUIRED', error.message, details), error);
-      }
-      throw error;
-    }
     const reference = entry.content.reference;
+    // 预留授权之前准备好要上传的参考录音：ffmpeg 不可用时任务失败，不占额度、不发请求。
+    const source = await this.#uploadSource(run, cloner, store.filePath(entry, reference), reference);
     const clip = cloner.requiresConsentClip ? entry.content.consentClip : undefined;
     const previous = store.cloneOf(frozen.id, providerId).clone;
-    run.phase('generating');
     let voiceId: string;
     try {
-      ({ voiceId } = await cloner.create({
-        name,
-        file: store.filePath(entry, reference),
-        fileName: reference.fileName,
-        mediaType: reference.mediaType,
-        description: entry.content.language ? `BaoCut voice (${entry.content.language})` : null,
-        ...(clip
-          ? {
-              consentClip: {
-                file: store.filePath(entry, clip.file),
-                fileName: clip.file.fileName,
-                mediaType: clip.file.mediaType,
-                language: clip.language,
-                text: clip.text,
-              },
-            }
-          : {}),
-        signal: run.signal,
-      }));
-      settle({ state: 'completed' });
-    } catch (error) {
-      settle({ state: 'failed' });
-      if (run.signal.aborted) throw error;
-      const failure = providerError(error, providerId);
-      throw new TaskFailure(failure.code, failure.message, failure.details);
+      let settle: Awaited<ReturnType<GrantService['begin']>>;
+      try {
+        grants.ensureDefault(providerId, cloner.label, 'synthesizeSpeech');
+        settle = await grants.begin({
+          recipient: providerId,
+          dataKinds: VOICE_CLONE_DATA_KINDS,
+          videoId: null,
+          taskId,
+          estimate: null,
+          label: cloner.label,
+          jobId: run.jobId,
+        });
+      } catch (error) {
+        if (error instanceof RpcError) {
+          const details = (error.details ?? {}) as Record<string, unknown>;
+          throw withMessageRef(new TaskFailure(typeof details.code === 'string' ? details.code : 'GRANT_REQUIRED', error.message, details), error);
+        }
+        throw error;
+      }
+      run.phase('generating');
+      try {
+        ({ voiceId } = await cloner.create({
+          name,
+          file: source.file,
+          fileName: source.fileName,
+          mediaType: source.mediaType,
+          description: entry.content.language ? `BaoCut voice (${entry.content.language})` : null,
+          ...(clip
+            ? {
+                consentClip: {
+                  file: store.filePath(entry, clip.file),
+                  fileName: clip.file.fileName,
+                  mediaType: clip.file.mediaType,
+                  language: clip.language,
+                  text: clip.text,
+                },
+              }
+            : {}),
+          signal: run.signal,
+        }));
+        settle({ state: 'completed' });
+      } catch (error) {
+        settle({ state: 'failed' });
+        if (run.signal.aborted) throw error;
+        const failure = providerError(error, providerId);
+        throw new TaskFailure(failure.code, failure.message, failure.details);
+      }
+    } finally {
+      // 转出的 WAV 只为这一次上传：传完或没传成都删掉。
+      if (source.converted) await fs.rm(source.file, { force: true }).catch(() => undefined);
     }
     run.phase('publishing');
     await store.recordClone(frozen.id, providerId, voiceId, reference.sha256);
@@ -268,6 +291,48 @@ export class VoiceCloneService {
     return { documentId: null, artifactId };
   }
 
+  /**
+   * 交给适配器的参考录音（架构设计 §6.4「音色克隆的请求」）。Provider 公开了收的时长（`sourceSeconds`）时，ffmpeg 把开头
+   * `max + 3` 秒转成 staging 里 24 kHz 单声道 16 位的 WAV：MP3、FLAC 这些格式也能由适配器的 `trimWavHead` 切在 `max` 之前的
+   * 静音处，WAV 也走同一条路。没有公开范围的 Provider（ElevenLabs）拿到原样的录音。
+   * ffmpeg 起不来（没装、不可执行）时任务以 `MEDIA_TOOL_UNAVAILABLE` 失败（带安装修法）；ffmpeg 读不出这份录音时原样交出，
+   * 由 Provider 判断（收不了时它以 `audio-invalid` 或 `source-duration` 拒绝）。
+   */
+  async #uploadSource(run: TaskRun, cloner: VoiceCloner, file: string, reference: LibraryEntry<'voices'>['content']['reference']): Promise<UploadSource> {
+    const original: UploadSource = { file, fileName: reference.fileName, mediaType: reference.mediaType, converted: false };
+    const range = cloner.sourceSeconds;
+    if (!range) return original;
+    const out = path.join(run.staging, CLONE_REFERENCE_WAV);
+    let ok: boolean;
+    try {
+      await fs.mkdir(run.staging, { recursive: true });
+      ok = await audioToWav({
+        tool: await this.#options.ffmpeg(),
+        file,
+        out,
+        signal: run.signal,
+        maxSec: range.max + CLONE_CONVERT_MARGIN_SEC,
+        sampleRate: CLONE_SAMPLE_RATE,
+        log: this.#options.log,
+      });
+    } catch (error) {
+      if (error instanceof ProviderFailure && error.kind === 'tool-unavailable') {
+        throw withMessageRef(new TaskFailure('MEDIA_TOOL_UNAVAILABLE', error.message, { ...error.details, providerId: cloner.providerId }), error);
+      }
+      throw error;
+    }
+    if (run.signal.aborted) {
+      await fs.rm(out, { force: true }).catch(() => undefined);
+      run.signal.throwIfAborted();
+    }
+    if (!ok) {
+      await fs.rm(out, { force: true }).catch(() => undefined);
+      this.#options.log.warn('Converting the clone reference failed; uploading it unchanged', { jobId: run.jobId, providerId: cloner.providerId });
+      return original;
+    }
+    return { file: out, fileName: `${path.parse(reference.fileName).name || 'reference'}.wav`, mediaType: 'audio/wav', converted: true };
+  }
+
   /** 授权声明以条目的当前版本为准（撤回声明是新版本）；条目删了时用固定的版本。 */
   #currentOrFrozen(frozen: LibraryEntry<'voices'>): LibraryEntry<'voices'> {
     try {
@@ -276,6 +341,14 @@ export class VoiceCloneService {
       return frozen;
     }
   }
+}
+
+/** 交给适配器的参考录音：库里的原件，或 staging 里转好的 WAV（`converted`，上传之后删掉）。 */
+interface UploadSource {
+  file: string;
+  fileName: string;
+  mediaType: string;
+  converted: boolean;
 }
 
 /** Provider 的失败换成任务错误：错误码、说明（已经去掉密钥）与不含请求头和地址的详情。 */

@@ -25,11 +25,10 @@ import {
   type ModelCatalog,
   type SpeechBundleProfile,
 } from '@baocut/models';
-import { ffmpegMissingRemedyMessage, killProcessTree } from '@baocut/process-host';
-import { refOf } from '@baocut/protocol';
-import { JobsFfmpeg } from '@baocut/protocol/messages/jobs/ffmpeg.ts';
+import { killProcessTree } from '@baocut/process-host';
 import { ModelsModelCatalog as MC } from '@baocut/protocol/messages/models/model-catalog.ts';
 import { JobsLocalProvider as L } from '@baocut/protocol/messages/jobs/local-provider.ts';
+import { audioToWav } from './audio-to-wav.ts';
 import { errorText, jobWarning, type JobText } from './job-text.ts';
 import { silentLog, type JobsLogger } from './jobs-logger.ts';
 import { modelWorkerHolder } from './resource-profiles.ts';
@@ -94,8 +93,6 @@ const OUTPUT_TAIL = 2000;
 const HEALTH_INTERVAL_MS = 250;
 /** 参考录音转码的上限。 */
 const FFMPEG_TIMEOUT_MS = 5 * 60_000;
-/** 与 Model Worker、在线 Provider 相同的解复用器白名单。 */
-const DEMUXER_ALLOWLIST = 'mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,aac,mp3,wav,flac,ogg';
 /** 参考录音转好的 WAV 在 staging 里的名字。 */
 const REFERENCE_WAV = 'reference.wav';
 /** 引擎拿不到原文的参考录音只转开头这么多秒；模型的说明给了建议时长时用它的上限。 */
@@ -299,71 +296,13 @@ export class LocalSpeechProvider implements GenerationProvider {
   }
 
   /**
-   * ffmpeg 把参考录音的第一条音轨转成单声道 16 位 WAV（保留采样率，由引擎自己重采样）。不经 shell，只许读本地文件。
+   * ffmpeg 把参考录音的第一条音轨转成单声道 16 位 WAV（保留采样率，由引擎自己重采样；`audioToWav`）。不经 shell，只许读本地文件。
    * `maxSec` 不是 null 时只转开头这么多秒（`-t`）。
    * ffmpeg 起不来（没装、不可执行）时抛 `tool-unavailable`：这不是录音读不出来，不能算成安装不完整。
    */
   async #toWav(file: string, out: string, signal: AbortSignal, maxSec: number | null): Promise<boolean> {
     const tool = await this.#ffmpeg();
-    const args = [
-      '-nostdin',
-      '-hide_banner',
-      '-protocol_whitelist',
-      'file',
-      '-v',
-      'error',
-      '-format_whitelist',
-      DEMUXER_ALLOWLIST,
-      '-i',
-      `file:${file}`,
-      '-map',
-      '0:a:0',
-      '-vn',
-      '-sn',
-      '-dn',
-      ...(maxSec !== null ? ['-t', String(maxSec)] : []),
-      '-ac',
-      '1',
-      '-c:a',
-      'pcm_s16le',
-      '-f',
-      'wav',
-      '-y',
-      `file:${out}`,
-    ];
-    return new Promise((resolve, reject) => {
-      const child = this.#spawn(tool.command, args, { env: tool.env, stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
-      let stderr = '';
-      child.stderr?.on('data', (chunk: Buffer) => {
-        stderr = (stderr + chunk.toString('utf8')).slice(-OUTPUT_TAIL);
-      });
-      const onAbort = () => child.kill('SIGKILL');
-      signal.addEventListener('abort', onAbort, { once: true });
-      const timer = setTimeout(() => child.kill('SIGKILL'), FFMPEG_TIMEOUT_MS);
-      let settled = false;
-      const settle = () => {
-        settled = true;
-        clearTimeout(timer);
-        signal.removeEventListener('abort', onAbort);
-      };
-      // 进程都没起来。找不到、不能执行：这台机器上没有能用的 ffmpeg，按外部工具的问题报告；别的系统错误（例如打开的文件
-      // 太多）不是没装 ffmpeg，照原样抛出，按内部错误处理。已经取消时照旧按取消处理。
-      child.once('error', (error: NodeJS.ErrnoException) => {
-        if (settled) return;
-        settle();
-        if (signal.aborted) return resolve(false);
-        if (!TOOL_MISSING_ERRNO.has(error.code ?? '')) return reject(error);
-        this.#log.warn('ffmpeg unavailable', { command: tool.command, code: error.code ?? null });
-        reject(ffmpegUnavailable(tool.command));
-      });
-      child.once('exit', (code) => {
-        if (settled) return;
-        settle();
-        // ffmpeg 的输出里有路径，只记日志，不进错误信息。
-        if (code !== 0 && !signal.aborted) this.#log.warn('reference conversion failed', { stderr: stderr.trim() });
-        resolve(code === 0);
-      });
-    });
+    return audioToWav({ tool, file, out, signal, maxSec, timeoutMs: FFMPEG_TIMEOUT_MS, log: this.#log, spawn: this.#spawn });
   }
 
   /** 这个模型包的服务：已在跑就用它，否则起一个并等它就绪。等待时被取消返回 null（正在起的服务照样起完，留给下次用）。 */
@@ -633,23 +572,6 @@ function builtinUnreadable(file: string): { message: JobText; details: Record<st
 /** 请求给出的参考录音读不出来：说出文件名，完整路径在 `details.file`。 */
 function fileUnreadable(file: string): { message: JobText; details: Record<string, unknown> } {
   return { message: referenceUnreadableMessage(file), details: { file } };
-}
-
-/** 起进程时算作「没有能用的 ffmpeg」的系统错误：找不到（含路径里有一段不是目录）、没有执行权限。 */
-const TOOL_MISSING_ERRNO = new Set(['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM']);
-
-/**
- * 这台机器上没有能用的 ffmpeg（找不到、不能执行）：参考录音没法转成引擎要的 WAV。按外部工具的问题报告
- * （`MEDIA_TOOL_UNAVAILABLE`，带按平台给的安装修法），不说成录音读不出来、也不说成安装不完整。修法作为嵌套的目录文字
- * （`ffmpegMissingRemedyMessage`）：存下的说明在别的语言的界面里整句重新生成，不会剩下生成时那种语言的一段。
- */
-function ffmpegUnavailable(command: string): ProviderFailure {
-  const remedy = ffmpegMissingRemedyMessage();
-  return new ProviderFailure('tool-unavailable', JobsFfmpeg.notFound({ command, remedy }), {
-    tool: 'ffmpeg',
-    remedy: remedy.text,
-    remedyRef: refOf(remedy),
-  });
 }
 
 /** 服务的错误回应：`{"error":{"message":…}}` 或纯文本；截短。 */

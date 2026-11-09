@@ -28,6 +28,7 @@ export {
   type LocalAudioCppSeparatorOptions,
   type LocalSeparator,
 } from './local-audio-cpp-separator.ts';
+export { audioToWav, type AudioToWavRequest, type AudioToWavTool } from './audio-to-wav.ts';
 export {
   LocalSpeechProvider,
   type LocalSpeechProviderOptions,

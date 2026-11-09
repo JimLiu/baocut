@@ -26,6 +26,13 @@ const ffprobe = (() => {
   }
 })();
 if (!ffprobe) console.warn('跳过音色克隆的测试：没有 ffprobe');
+const mp3Encoder = (() => {
+  try {
+    return execFileSync('ffmpeg', ['-hide_banner', '-encoders'], { encoding: 'utf8' }).includes('libmp3lame');
+  } catch {
+    return false;
+  }
+})();
 
 async function rejection(promise: Promise<unknown>): Promise<RpcError> {
   try {
@@ -312,6 +319,59 @@ describe.skipIf(!ffprobe)('音色克隆', () => {
     expect(JSON.stringify(job)).not.toContain(GOOGLE_KEY);
     const { entry: after } = await client.request('library.get', { library: 'voices', id: entry.id });
     expect(after.clones ?? {}).toEqual({});
+  });
+
+  it('Gemini 收到的参考录音：45 秒的 MP3（没有 MP3 编码器时 FLAC）经真实 ffmpeg 转成 24 kHz 单声道 WAV，截在 30 秒以内', async () => {
+    await client.request('models.configure', { providerId: 'google', enabled: true, credential: GOOGLE_KEY });
+    await client.request('grants.create', { recipient: 'google', dataKinds: ['audio'], purpose: '克隆音色', budgetMode: 'per-call-unknown-cost' });
+    const consent = path.join(dir, 'consent.wav');
+    await fs.writeFile(consent, wavFixture(1));
+    const long = path.join(dir, mp3Encoder ? 'long.mp3' : 'long.flac');
+    // 每 2 秒一拍：1.5 秒的音、0.5 秒静音。
+    const pulse = 'if(lt(mod(t\\,2)\\,1.5)\\,0.5*sin(2*PI*220*t)\\,0)';
+    execFileSync('ffmpeg', ['-hide_banner', '-v', 'error', '-f', 'lavfi', '-i', `aevalsrc=${pulse}|${pulse}:s=44100:c=stereo:d=45`, '-y', long]);
+    const { entry } = await client.request('library.put', {
+      library: 'voices',
+      content: {
+        name: 'My voice',
+        language: 'en-US',
+        transcript: 'hello',
+        origin: 'imported',
+        consent: { declared: true, statement: 'This is my own voice' },
+        consentClip: { language: 'en-US' },
+      },
+      source: { path: long },
+      consentSource: { path: consent },
+    });
+    expect((entry as LibraryEntry<'voices'>).content.reference.mediaType).toBe(mp3Encoder ? 'audio/mpeg' : 'audio/flac');
+    fake.handler = (request) =>
+      request.method === 'POST' && request.path === '/v1beta/voices'
+        ? { status: 200, json: { id: 'voice_replicated_1' } }
+        : { status: 404, json: { error: { code: 404, message: 'not found', status: 'NOT_FOUND' } } };
+    const { jobId } = await client.request('library.createVoiceClone', { id: entry.id, providerId: 'google', commandId: newId('cmd') });
+    const job = await settled(jobId);
+    expect(job.state).toBe('completed');
+    expect(fake.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /v1beta/voices']);
+    const body = fake.requests[0]!.json as { voice: { replicated: { source_audio: { mime_type: string; data: string } } } };
+    const source = body.voice.replicated.source_audio;
+    expect(source.mime_type).toBe('audio/wav');
+    const wav = Buffer.from(source.data, 'base64');
+    expect(wav.toString('ascii', 0, 4)).toBe('RIFF');
+    expect(wav.toString('ascii', 8, 12)).toBe('WAVE');
+    expect(wav.toString('ascii', 12, 16)).toBe('fmt ');
+    // 适配器写出的 WAV 只有 `fmt `（16 字节）与 `data` 两块。
+    expect({ format: wav.readUInt16LE(20), channels: wav.readUInt16LE(22), sampleRate: wav.readUInt32LE(24), bits: wav.readUInt16LE(34) }).toEqual({
+      format: 1,
+      channels: 1,
+      sampleRate: 24_000,
+      bits: 16,
+    });
+    expect(wav.toString('ascii', 36, 40)).toBe('data');
+    const seconds = wav.readUInt32LE(40) / (24_000 * 2);
+    expect(seconds).toBeLessThanOrEqual(30);
+    expect(seconds).toBeGreaterThan(27);
+    const { entry: after } = await client.request('library.get', { library: 'voices', id: entry.id });
+    expect(after.clones?.google).toMatchObject({ voiceId: 'voice_replicated_1', state: 'valid' });
   });
 
   it('localOnly：不请求远端，只清记录', async () => {
