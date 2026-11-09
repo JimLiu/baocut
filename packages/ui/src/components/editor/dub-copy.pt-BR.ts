@@ -34,6 +34,7 @@ export const ptBRDub: DubMessages = {
   voiceCustom: "ID da voz",
   voiceCustomPlaceholder: "ID de voz da sua conta no provedor",
   voiceHint: "Falantes com voz atribuída abaixo usam essa voz; os demais usam a escolhida aqui.",
+  voiceNotReady: (line: string) => `${line} · a dublagem pode começar quando o clone estiver pronto`,
   voiceCustomEmpty: "Informe ID de voz ou escolha outra voz",
   speakers: "Falante",
   speakersAside: (n: number) => `${n}`,

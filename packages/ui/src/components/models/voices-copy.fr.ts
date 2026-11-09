@@ -265,6 +265,7 @@ La voix est toujours ici. Réessayez plus tard ou supprimez seulement l’enregi
     handoffFailed: (voice, label) => `« ${voice} » est enregistrée, mais le clone chez ${label} n’a pas été créé · la marche à suivre s’affiche sous la voix`,
     handoffNotUploaded: label => `Enregistrée · pas encore envoyée à ${label} ; quand vous serez prêt, envoyez-la depuis le menu ⋯ de la voix`,
     backTo: name => `Revenir à « ${name} »`,
+    handoffConsent: (from, label) => `Depuis « ${from} » · enregistrez la déclaration de consentement et elle sera envoyée à ${label} pour créer cette voix ; une fois prête, revenez d’ici`,
   },
   cloneFailure: {
     detail: message => `Détails : ${message}`,

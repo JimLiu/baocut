@@ -189,6 +189,7 @@ myVoices: { offline: 'Giọng hiện sau khi Runtime kết nối.', add: 'Thêm 
     handoffFailed: (voice, label) => `Đã lưu “${voice}” nhưng chưa tạo được bản nhân bản trên ${label} · cách xử lý hiện bên dưới giọng`,
     handoffNotUploaded: label => `Đã lưu · chưa tải lên ${label}; khi sẵn sàng, hãy tải lên từ menu ⋯ của giọng`,
     backTo: name => `Quay lại “${name}”`,
+    handoffConsent: (from, label) => `Từ “${from}” · ghi âm lời đồng ý, bản ghi sẽ được tải lên ${label} để tạo giọng này; khi xong, quay lại từ đây`,
   },
   cloneFailure: {
     detail: message => `Chi tiết: ${message}`,

@@ -33,6 +33,7 @@ export const ruDub: DubMessages = {
   voiceCustom: "ID голоса",
   voiceCustomPlaceholder: "ID голоса из учётной записи поставщика",
   voiceHint: "Говорящие с назначенным ниже голосом используют его; остальные — выбранный здесь.",
+  voiceNotReady: (line: string) => `${line} · дубляж можно начать, когда клон будет готов`,
   voiceCustomEmpty: "Сначала введите ID голоса или выберите другой голос",
   speakers: "Спикеры",
   speakersAside: (n: number) => `${n}`,

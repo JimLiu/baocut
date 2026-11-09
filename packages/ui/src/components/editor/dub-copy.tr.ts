@@ -28,6 +28,7 @@ export const trDub: DubMessages = {
   voiceCustom: "Ses ID",
   voiceCustomPlaceholder: "Sağlayıcı hesabınızdaki ses ID",
   voiceHint: "Aşağıda ses atanmış konuşmacılar onu kullanır; diğerleri burada seçileni kullanır.",
+  voiceNotReady: (line: string) => `${line} · klon hazır olunca dublaj başlayabilir`,
   voiceCustomEmpty: "Önce ses ID girin veya başka ses seçin",
   speakers: "Konuşmacılar",
   speakersAside: (n) => `${n}`,

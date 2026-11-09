@@ -268,6 +268,7 @@ export const ru: VoicesMessages = {
     handoffFailed: (voice, label) => `«${voice}» сохранён, но клон в ${label} не создан · что делать, показано под голосом`,
     handoffNotUploaded: label => `Сохранено · в ${label} пока не отправлено; когда будете готовы, отправьте через меню ⋯ голоса`,
     backTo: name => `Вернуться к «${name}»`,
+    handoffConsent: (from, label) => `Из «${from}» · запишите заявление о согласии, и оно будет загружено в ${label} для создания этого голоса; когда он будет готов, вернитесь отсюда`,
   },
   cloneFailure: {
     detail: message => `Подробности: ${message}`,

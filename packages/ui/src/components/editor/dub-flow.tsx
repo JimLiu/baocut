@@ -52,7 +52,8 @@ import { bundleName } from '../../model/models-local.ts';
 import { textModelLine } from '../../model/models-text.ts';
 import { requestEffort } from '../../model/text-model-choice.ts';
 import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
-import { speechModelLine } from '../../model/tools-tts.ts';
+import { libraryIdOf, speechModelLine, type SpeechOption } from '../../model/tools-tts.ts';
+import { libraryVoiceStatus } from '../../model/voice-picker.ts';
 import { existingTranslations } from '../../model/translate-setup.ts';
 import { isStale, pairRows, readTranslation, speechSentences } from '../../model/translation-doc.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -63,6 +64,7 @@ import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { useVoices } from '../../state/voices-store.ts';
 import { InstallDialog } from '../models/install-dialog.tsx';
+import { useCloneActivity, useCloneFix, useHandoffClaim, VoiceFixLine } from '../voice-clone-fix.tsx';
 import { TextModelPicker } from '../text-model-picker.tsx';
 import { ModelGate, ModelLine } from '../tools/tool-model.tsx';
 import { SectionLink } from '../tools/tool-parts.tsx';
@@ -244,14 +246,23 @@ function DubSetupPage({
   const toVoices = () => go({ tab: 'models', category: 'tts', page: 'voices' });
   const voiceSection = useRef<HTMLDivElement>(null);
 
+  const activity = useCloneActivity();
   const paramChoices = useMemo(
-    () => voiceChoices({ info, providerId, providerLabel, library, defaultLabel: C.voiceDefault, forParams: true }),
-    [info, providerId, providerLabel, library],
+    () => voiceChoices({ info, providerId, providerLabel, library, defaultLabel: C.voiceDefault, forParams: true, option: voiceModel, activity }),
+    [info, providerId, providerLabel, library, voiceModel, activity],
   );
   const [voicePick, setVoicePick] = useState<string>('default');
+  // 默认音色选了还没在这家建好的我的声音：选上再去补那一步；去我的声音补完回来时这一页重新挂上，认领回程选回那一只。
+  const fixer = useCloneFix({ key: `pick:dub:${videoId}`, from: C.title });
+  useHandoffClaim(`pick:dub:${videoId}`, setVoicePick);
   const [customVoice, setCustomVoice] = useState('');
   const voiceChoice = paramChoices.find((c) => c.key === voicePick && !c.disabled) ?? paramChoices.find((c) => !c.disabled) ?? null;
   const paramVoice = voiceChoice?.key === 'custom' ? customVoice.trim() || null : (voiceChoice?.voice ?? null);
+  // 默认音色是我的声音时在这家的现状：还没建好时控件下写现状与补的按钮，开始前拦下（Runtime 启动时就会拒绝）。
+  const paramLibrary = voiceChoice ? libraryIdOf(voiceChoice.key) : null;
+  const paramEntry = paramLibrary !== null ? library.find((e) => e.id === paramLibrary) : undefined;
+  const paramStatus = paramEntry && voiceModel ? libraryVoiceStatus(paramEntry, voiceModel, activity) : null;
+  const paramBlocked = paramStatus && !paramStatus.ok ? paramStatus : null;
 
   // ---- 翻译 ----
   const textModels = useMemo(() => (view ? translateModelOptions(textModelOptions(view)) : []), [view]);
@@ -309,6 +320,11 @@ function DubSetupPage({
     if (!voiceReady) {
       voiceSection.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       ToastQueue.neutral(voiceModels.length ? (voiceModel?.why ?? C.ttsMissingTitle) : C.ttsMissingTitle, { timeout: 4000 });
+      return;
+    }
+    if (paramBlocked) {
+      voiceSection.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      ToastQueue.neutral(paramBlocked.line, { timeout: 4000 });
       return;
     }
     if (voiceChoice?.key === 'custom' && !paramVoice) {
@@ -454,7 +470,18 @@ function DubSetupPage({
               <h3 className={secTitle}>{C.voice}</h3>
               <SectionLink onPress={toVoices}>{C.manageVoices}</SectionLink>
             </div>
-            <VoicePicker label={C.voicePicker} choices={paramChoices} selectedKey={voiceChoice?.key ?? null} onSelect={setVoicePick} />
+            <VoicePicker
+              label={C.voicePicker}
+              choices={paramChoices}
+              selectedKey={voiceChoice?.key ?? null}
+              onSelect={(key) => {
+                setVoicePick(key);
+                const choice = paramChoices.find((c) => c.key === key);
+                const id = libraryIdOf(key);
+                const entry = id !== null ? library.find((e) => e.id === id) : undefined;
+                if (choice?.fix && choice.fix !== 'wait' && entry && voiceModel) fixer.run(entry, voiceModel, choice.fix);
+              }}
+            />
             {voiceChoice?.key === 'custom' ? (
               <TextField
                 aria-label={C.voiceCustom}
@@ -465,7 +492,17 @@ function DubSetupPage({
                 onChange={setCustomVoice}
               />
             ) : null}
+            {paramBlocked && paramEntry && voiceModel ? (
+              <VoiceFixLine
+                className={warn}
+                line={paramBlocked.fix === 'wait' || !paramBlocked.fix ? paramBlocked.line : C.voiceNotReady(paramBlocked.line)}
+                fix={paramBlocked.fix}
+                provider={voiceModel.provider}
+                onFix={() => paramBlocked.fix && fixer.run(paramEntry, voiceModel, paramBlocked.fix)}
+              />
+            ) : null}
             <p className={hint}>{C.voiceHint}</p>
+            {fixer.dialog}
 
             <SpeakerSection
               runtime={runtime}
@@ -479,6 +516,7 @@ function DubSetupPage({
               providerLabel={providerLabel}
               paramVoice={paramVoice}
               library={library}
+              option={voiceModel}
               editable={editable}
             />
           </>
@@ -704,6 +742,7 @@ function SpeakerSection({
   providerLabel,
   paramVoice,
   library,
+  option,
   editable,
 }: {
   runtime: RuntimeSession;
@@ -717,19 +756,30 @@ function SpeakerSection({
   providerLabel: string;
   paramVoice: string | null;
   library: readonly LibraryEntrySummary[];
+  /** 所选的声音模型：库里的音色按它写现状，补得上的选上再补。 */
+  option: SpeechOption | null;
   editable: boolean;
 }) {
   const { undo } = useEditorActions();
+  const activity = useCloneActivity();
+  // 说话人绑定选了还没在这家建好的我的声音：绑上再去补那一步；绑定已经写进视频，回来时只清掉回程。
+  const fixKey = `pick:dub-speaker:${videoId}`;
+  const fixer = useCloneFix({ key: fixKey, from: C.title });
+  useHandoffClaim(fixKey, () => {});
+  const fixVoice = (voiceId: string, fix: Parameters<typeof fixer.run>[2]) => {
+    const entry = library.find((e) => e.id === voiceId);
+    if (entry && option && fix !== 'wait') fixer.run(entry, option, fix);
+  };
   const selection = useVideoSelection(runtime, videoId, documents);
   const [writing, setWriting] = useState(false);
   const bindings = useMemo(() => selection?.selection?.speakerVoices ?? [], [selection]);
   const rows = useMemo(
-    () => speakerRows({ speakers, bindings, documentId: speechId, providerId, providerLabel, voice: paramVoice, info, library }),
-    [speakers, bindings, speechId, providerId, providerLabel, paramVoice, info, library],
+    () => speakerRows({ speakers, bindings, documentId: speechId, providerId, providerLabel, voice: paramVoice, info, library, option, activity }),
+    [speakers, bindings, speechId, providerId, providerLabel, paramVoice, info, library, option, activity],
   );
   const choices = useMemo(
-    () => voiceChoices({ info, providerId, providerLabel, library, defaultLabel: C.bindingNone, forParams: false }),
-    [info, providerId, providerLabel, library],
+    () => voiceChoices({ info, providerId, providerLabel, library, defaultLabel: C.bindingNone, forParams: false, option, activity }),
+    [info, providerId, providerLabel, library, option, activity],
   );
 
   const bind = async (speaker: SpeakerRow, choice: VoiceChoice) => {
@@ -748,6 +798,9 @@ function SpeakerSection({
         onAction: () => void undo({ transaction: result.receipt.transactionId }),
         shouldCloseOnAction: true,
       });
+      // 绑的是还没在这家建好的我的声音：绑上了再去补那一步（在传的就等它）。
+      const id = choice.fix ? libraryIdOf(choice.key) : null;
+      if (id !== null && choice.fix) fixVoice(id, choice.fix);
     } catch (error) {
       ToastQueue.negative(C.bindingFailed(messageOf(error)), { timeout: 5000 });
     } finally {
@@ -781,11 +834,13 @@ function SpeakerSection({
               providerLabel={providerLabel}
               isDisabled={!editable || writing}
               onBind={(choice) => void bind(r, choice)}
+              onFix={r.fix ? () => fixVoice(r.fix!.voiceId, r.fix!.kind) : undefined}
             />
           ))}
         </div>
       )}
       {rows.length ? <p className={hint}>{editable ? C.speakersNote : C.bindingReadOnly}</p> : null}
+      {fixer.dialog}
     </>
   );
 }
@@ -798,6 +853,7 @@ function SpeakerLine({
   providerLabel,
   isDisabled,
   onBind,
+  onFix,
 }: {
   row: SpeakerRow;
   choices: readonly VoiceChoice[];
@@ -806,6 +862,8 @@ function SpeakerLine({
   providerLabel: string;
   isDisabled: boolean;
   onBind(choice: VoiceChoice): void;
+  /** 生效的那只我的声音还没在这家建好、补得上：去补那一步。 */
+  onFix?: () => void;
 }) {
   const binding: SpeakerVoiceBinding | null = r.binding;
   const known = binding ? choiceKeyOf(binding.voice, choices) : 'default';
@@ -836,7 +894,16 @@ function SpeakerLine({
       />
       <span className={effective}>{C.effective(r.effective.label, r.effective.source === 'default' ? null : DUB_SPEAKER_SOURCE[r.effective.source])}</span>
       {r.bindingIgnored ? <span className={warn}>{C.bindingIgnored(providerLabel)}</span> : null}
-      {r.warning ? <span className={warn}>{C.speakerWarning(r.warning)}</span> : null}
+      {r.warning ? (
+        <VoiceFixLine
+          inline
+          className={warn}
+          line={C.speakerWarning(r.warning)}
+          fix={onFix ? (r.fix?.kind ?? null) : null}
+          provider={providerLabel}
+          onFix={() => onFix?.()}
+        />
+      ) : null}
     </div>
   );
 }

@@ -53,7 +53,7 @@ import { useJobs } from '../../state/jobs-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useVoiceClones } from '../../state/voice-clone-store.ts';
-import { useVoiceHandoff } from '../../state/voice-handoff-store.ts';
+import { useVoiceHandoff, type VoiceHandoff } from '../../state/voice-handoff-store.ts';
 import { useVoices } from '../../state/voices-store.ts';
 import { localSpeechModels } from '../../model/models-tts-local.ts';
 import {
@@ -217,10 +217,27 @@ export function MyVoices() {
 
   // 从模型页那一行的「克隆新音色」过来：直接打开采集、预选那只模型；打开一次就把 `open` 摘掉，回来不再自动开。
   useEffect(() => {
-    if (!handoff?.open || handoff.voiceId) return;
+    if (handoff?.open !== 'mic' || handoff.voiceId) return;
     setHandoff({ ...handoff, open: undefined });
     if (canCapture) setView({ kind: 'capture', preselect: handoff.target?.id ?? null });
   }, [handoff, canCapture, setHandoff]);
+
+  /** 从音色选择器过来补的一步（`handoff.task`）：给那只音色补录授权声明，存好就上传到那家。 */
+  const resumeTask = (h: VoiceHandoff) => {
+    const voice = h.task ? voices.find((v) => v.id === h.task!.voiceId) : undefined;
+    if (!voice || !canCapture || h.target?.kind !== 'cloud') return false;
+    const providerId = h.target.id;
+    const label = providers.find((p) => p.providerId === providerId)?.label ?? providerId;
+    setView({ kind: 'consent', voice, resubmit: { providerId, label } });
+    return true;
+  };
+  // 到了就打开那一步；我的声音还没读到时等一等。打开一次就把 `open` 摘掉，取消后由回程条上的按钮再开。
+  useEffect(() => {
+    if (handoff?.open !== 'task' || handoff.voiceId || !ready) return;
+    setHandoff({ ...handoff, open: undefined });
+    resumeTask(handoff);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在回程变了、我的声音读到时开一次
+  }, [handoff, ready]);
 
   const reseed = async (voice: LibraryEntrySummary, modelId: string) => {
     const entry = entryOf(voice);
@@ -452,21 +469,29 @@ export function MyVoices() {
   }
   const consentEntry = view?.kind === 'consent' ? entryOf(view.voice) : null;
   if (view?.kind === 'consent' && consentEntry && connected) {
+    const forTask = handoff?.task?.voiceId === view.voice.id;
     return (
-      <ConsentCapture
-        entry={consentEntry}
-        needed={consentProviders(targets).map((t) => t.name)}
-        resubmit={view.resubmit ?? null}
-        tip={view.tip ?? null}
-        onCancel={() => setView(null)}
-        onSaved={() => setView(null)}
-      />
+      <>
+        {forTask ? <HandoffBar /> : null}
+        <ConsentCapture
+          entry={consentEntry}
+          needed={consentProviders(targets).map((t) => t.name)}
+          resubmit={view.resubmit ?? null}
+          tip={view.tip ?? null}
+          onCancel={() => setView(null)}
+          onSaved={() => {
+            // 从选择器过来补的：存好（已经开始上传）就把这只交给回程，条上跟着那家的克隆走、带人回去。
+            if (forTask) saved(view.voice.id);
+            setView(null);
+          }}
+        />
+      </>
     );
   }
 
   return (
     <>
-      <HandoffBar />
+      <HandoffBar onResume={handoff?.task && !handoff.voiceId && canCapture ? () => resumeTask(handoff) : undefined} />
       <Lede first title={VOICES_COPY.title} desc={VOICES_COPY.lede} action={connected && ready && voices.length ? addMenu : null} />
       {body}
       <p className={foot}>{COPY.foot}</p>
@@ -485,7 +510,7 @@ export function MyVoices() {
  * 从模型页某家云端过来、存好之后，跟着那家的克隆走：在传（转圈与要多久）、建好了（回去的主按钮）、没建成（原因与补救在那一行）、
  * 这次没上传。不把人送去任务页。
  */
-function HandoffBar() {
+function HandoffBar({ onResume }: { onResume?: () => void }) {
   const handoff = useVoiceHandoff((s) => s.handoff);
   const setHandoff = useVoiceHandoff((s) => s.setHandoff);
   const goTo = useShell((s) => s.go);
@@ -496,8 +521,8 @@ function HandoffBar() {
   if (!handoff) return null;
   const quick = handoff.key.startsWith('quick:');
   const back = () => {
-    // 模型页那一行的回程没人认领：回去时清掉；试听那一行（`quick:`）回去后自己认领再清。
-    if (!quick) setHandoff(null);
+    // 模型页那一行的回程没人认领：回去时清掉；试听那一行（`quick:`）与音色选择器（`pick:`）回去后自己认领再清。
+    if (!quick && !handoff.key.startsWith('pick:')) setHandoff(null);
     goTo(handoff.route);
   };
   const voice = handoff.voiceId ? (voices.find((v) => v.id === handoff.voiceId) ?? null) : null;
@@ -537,6 +562,30 @@ function HandoffBar() {
         </div>
       );
     }
+  }
+  if (handoff.task && !handoff.voiceId && handoff.target?.kind === 'cloud') {
+    const target = handoff.target.id;
+    const label = cloneProviders(capabilities).find((p) => p.providerId === target)?.label ?? target;
+    return (
+      <div className={handoffBar({})} role="status">
+        <InfoIcon />
+        <span className={handoffText}>{CC.handoffConsent(handoff.from, label)}</span>
+        {onResume ? (
+          <Button variant="accent" size="S" onPress={onResume}>
+            {CC.recordConsent}
+          </Button>
+        ) : null}
+        <ActionButton
+          isQuiet
+          size="S"
+          onPress={() => {
+            setHandoff(null);
+            goTo(handoff.route);
+          }}>
+          <Text>{TTS.handoffCancel}</Text>
+        </ActionButton>
+      </div>
+    );
   }
   return (
     <div className={handoffBar({})} role="status">

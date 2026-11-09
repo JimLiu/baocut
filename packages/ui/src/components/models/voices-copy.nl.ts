@@ -181,6 +181,7 @@ export const nl: VoicesMessages = { myVoices: {
     handoffFailed: (voice, label) => `‘${voice}’ is opgeslagen, maar de kloon bij ${label} is niet gemaakt · wat je kunt doen, staat onder de stem`,
     handoffNotUploaded: label => `Opgeslagen · nog niet geüpload naar ${label}; upload hem als je zover bent via het ⋯-menu van de stem`,
     backTo: name => `Terug naar ‘${name}’`,
+    handoffConsent: (from, label) => `Vanuit ‘${from}’ · neem de toestemmingsverklaring op, dan wordt die naar ${label} geüpload om deze stem te maken; als die klaar is, ga je hiervandaan terug`,
   },
   cloneFailure: {
     detail: message => `Details: ${message}`,

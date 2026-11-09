@@ -32,6 +32,7 @@ export const nlDub: DubMessages = {
   voiceCustom: "Stem-ID",
   voiceCustomPlaceholder: "Stem-ID uit je aanbiederaccount",
   voiceHint: "Sprekers met een hieronder toegewezen stem gebruiken die; de rest gebruikt de stem die hier is gekozen.",
+  voiceNotReady: (line: string) => `${line} · nasynchronisatie kan starten zodra de kloon klaar is`,
   voiceCustomEmpty: "Voer eerst een stem-ID in of kies een andere stem",
   speakers: "Sprekers",
   speakersAside: (n: number) => `${n}`,

@@ -19,6 +19,8 @@ import { recipientName } from './data-grants.ts';
 import { langName } from './tools-models.ts';
 import { sameLanguage, TARGET_LANGUAGES, type TextModelChoice } from './translate-setup.ts';
 import { speechSentences } from './translation-doc.ts';
+import type { SpeechOption } from './tools-tts.ts';
+import { libraryVoiceStatus, type CloneActivity, type CloneFix } from './voice-picker.ts';
 import { zhHans } from './dub-setup.zh-Hans.ts';
 import { zhHant } from './dub-setup.zh-Hant.ts';
 import { ja } from './dub-setup.ja.ts';
@@ -269,6 +271,23 @@ export interface VoiceChoice {
   providerId?: string;
   /** 不能选的原因；能选时 null。 */
   disabled: string | null;
+  /** 库里的音色在这家还用不了、但补得上：选上之后怎么补（同共享选择器 `libraryVoiceStatus`）。 */
+  fix?: CloneFix | null;
+}
+
+/**
+ * 库里的一只在所选声音模型上的现状：给了模型（`option`）时同共享选择器（补得上的带 `fix`），没给时只按条目判断。
+ * 用得上时 `problem` 为 null。
+ */
+function libraryState(
+  entry: LibraryEntrySummary | undefined,
+  clone: { option: SpeechOption | null; activity?: CloneActivity },
+  providerId: string | null,
+  providerLabel: string,
+): { problem: string | null; act: string | null; fix: CloneFix | null } {
+  if (!entry || !clone.option) return { problem: libraryVoiceProblem(entry, providerId, providerLabel), act: null, fix: null };
+  const st = libraryVoiceStatus(entry, clone.option, clone.activity);
+  return st.ok ? { problem: null, act: null, fix: null } : { problem: st.line, act: st.act, fix: st.fix };
 }
 
 /**
@@ -282,10 +301,14 @@ export function voiceChoices(options: {
   providerLabel: string;
   library: readonly LibraryEntrySummary[];
   defaultLabel: string;
-  /** 参数音色的下拉（库里的音色要能用才能选；可以手填）。 */
+  /** 参数音色的下拉（库里的音色要能用、或补得上才能选；可以手填）。 */
   forParams: boolean;
+  /** 所选的声音模型与这次运行里的克隆进展：给了时库里的音色按共享选择器写现状，补得上的能选（选上再补）。 */
+  option?: SpeechOption | null;
+  activity?: CloneActivity;
 }): VoiceChoice[] {
   const { info, providerId, providerLabel, library, defaultLabel, forParams } = options;
+  const clone = { option: options.option ?? null, activity: options.activity };
   const list: VoiceChoice[] = [];
   const preset = info?.defaultVoice ? (info.voices.find((v) => v.voiceId === info.defaultVoice)?.label ?? info.defaultVoice) : null;
   list.push({
@@ -306,13 +329,14 @@ export function voiceChoices(options: {
     });
   }
   for (const entry of library) {
-    const problem = libraryVoiceProblem(entry, providerId, providerLabel);
+    const { problem, act, fix } = libraryState(entry, clone, providerId, providerLabel);
     list.push({
       key: `library:${entry.id}`,
       label: entry.name,
-      description: problem ? M.myVoiceProblem(problem) : M.myVoice,
+      description: problem ? M.myVoiceProblem(act ? `${problem} · ${act}` : problem) : M.myVoice,
       voice: `${LIBRARY_PREFIX}${entry.id}`,
-      disabled: forParams && problem ? problem : null,
+      disabled: forParams && problem && !fix ? problem : null,
+      fix,
     });
   }
   if (forParams && info?.voiceModes.includes('custom')) {
@@ -338,6 +362,8 @@ export interface SpeakerRow {
   effective: { label: string; source: DubVoiceSource };
   /** 生效的是库里的音色、却在这家服务商上用不上：这位说话人的句子不会合成。 */
   warning: string | null;
+  /** 那只库里的音色补得上：哪一只、怎么补（行上的按钮）。 */
+  fix: { voiceId: string; kind: CloneFix } | null;
 }
 
 /**
@@ -353,8 +379,12 @@ export function speakerRows(options: {
   voice: string | null;
   info: SpeechModelInfo | null;
   library: readonly LibraryEntrySummary[];
+  /** 同 `voiceChoices`：给了时库里的音色按共享选择器写现状与怎么补。 */
+  option?: SpeechOption | null;
+  activity?: CloneActivity;
 }): SpeakerRow[] {
   const { speakers, bindings, documentId, providerId, providerLabel, voice, info, library } = options;
+  const clone = { option: options.option ?? null, activity: options.activity };
   const fallback = (): SpeakerRow['effective'] => {
     if (voice) return { label: voiceName(voice, info, library), source: 'params' };
     const preset = info?.defaultVoice ? voiceName(info.defaultVoice, info, library) : null;
@@ -366,14 +396,9 @@ export function speakerRows(options: {
     const used = binding && !ignored ? binding : null;
     const effectiveVoice = used ? used.voice : voice;
     const libraryId = effectiveVoice ? libraryVoiceId(effectiveVoice) : null;
-    const warning =
-      libraryId !== null
-        ? libraryVoiceProblem(
-            library.find((e) => e.id === libraryId),
-            providerId,
-            providerLabel,
-          )
-        : null;
+    const state = libraryId !== null ? libraryState(library.find((e) => e.id === libraryId), clone, providerId, providerLabel) : null;
+    const warning = state?.problem ?? null;
+    const fix = libraryId !== null && state?.fix ? { voiceId: libraryId, kind: state.fix } : null;
     return {
       speakerId: s.speakerId,
       name: s.name,
@@ -382,6 +407,7 @@ export function speakerRows(options: {
       bindingIgnored: ignored,
       effective: used ? { label: voiceName(used.voice, info, library), source: 'video' } : fallback(),
       warning,
+      fix,
     };
   });
 }

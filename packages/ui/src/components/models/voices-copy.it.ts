@@ -190,6 +190,7 @@ La voce è ancora qui. Puoi riprovare più tardi o eliminare solo il registro e 
     handoffFailed: (voice, label) => `“${voice}” è salvata, ma il clone su ${label} non è stato creato · cosa fare è indicato sotto la voce`,
     handoffNotUploaded: label => `Salvata · non ancora caricata su ${label}; quando vuoi, caricala dal menu ⋯ della voce`,
     backTo: name => `Torna a “${name}”`,
+    handoffConsent: (from, label) => `Da “${from}” · registra la dichiarazione di consenso e verrà caricata su ${label} per creare questa voce; quando è pronta, torna indietro da qui`,
   },
   cloneFailure: {
     detail: message => `Dettagli: ${message}`,

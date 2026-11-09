@@ -263,6 +263,7 @@ export const de: VoicesMessages = {
     handoffFailed: (voice, label) => `„${voice}“ ist gespeichert, aber der Klon bei ${label} wurde nicht erstellt · was zu tun ist, steht unter der Stimme`,
     handoffNotUploaded: label => `Gespeichert · noch nicht an ${label} hochgeladen; wenn Sie so weit sind, über das ⋯-Menü der Stimme hochladen`,
     backTo: name => `Zurück zu „${name}“`,
+    handoffConsent: (from, label) => `Aus „${from}“ · Nimm die Einverständniserklärung auf, dann wird sie zu ${label} hochgeladen, um diese Stimme zu erstellen; ist sie fertig, geht es von hier zurück`,
   },
   cloneFailure: {
     detail: message => `Details: ${message}`,

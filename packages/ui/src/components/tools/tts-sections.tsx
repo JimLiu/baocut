@@ -16,7 +16,8 @@ import {
   type SpeechOption,
   type TtsDraft,
 } from '../../model/tools-tts.ts';
-import { voiceValueLine } from '../../model/voice-picker.ts';
+import { selectedCloneFix, voiceValueLine } from '../../model/voice-picker.ts';
+import { useCloneActivity, useCloneFix, useHandoffClaim, VoiceFixLine } from '../voice-clone-fix.tsx';
 import { VoicePicker } from '../voice-picker.tsx';
 import { detail, detailGrow, Indent, Row, Section, SectionLink } from './tool-parts.tsx';
 import { TTS_COPY } from './tools-copy.ts';
@@ -59,12 +60,25 @@ type Patch = (patch: Partial<TtsDraft>) => void;
 /** 声音（设计稿 `CloudVoiceSection` 317-370）：音色（共享选择器：默认 · 我的声音 · 这家的音色 · 手填）、风格与念法卡、语速。 */
 export function VoiceSection({ draft, option, voices, patch }: { draft: TtsDraft; option: SpeechOption; voices: MyVoices; patch: Patch }) {
   const info = option.info;
+  // 选了还没在这家建好的我的声音：选上再去补那一步，控件下那一句跟一个补的按钮；去我的声音补完回来时认领回程。
+  const activity = useCloneActivity();
+  const fixer = useCloneFix({ key: 'pick:tool-tts', from: TTS_COPY.title });
+  useHandoffClaim('pick:tool-tts', (voice) => patch({ voice }));
+  const pending = selectedCloneFix(draft, option, voices, activity);
   const voiceKey = voiceKeyFor(draft, info);
   const range = info.speedRange;
   return (
     <Section title={TTS_COPY.voice}>
       <Row label={TTS_COPY.voiceLabel}>
-        <VoicePicker label={TTS_COPY.voiceLabel} styles={voicePicker} draft={draft} option={option} voices={voices} onChange={(voice) => patch({ voice })} />
+        <VoicePicker
+          label={TTS_COPY.voiceLabel}
+          styles={voicePicker}
+          draft={draft}
+          option={option}
+          voices={voices}
+          onChange={(voice) => patch({ voice })}
+          onFix={(voice, fix) => fixer.run(voice, option, fix)}
+        />
         {voiceKey === 'custom' && customVoiceAllowed(info) ? (
           <TextField
             aria-label={TTS_COPY.customVoice}
@@ -77,8 +91,16 @@ export function VoiceSection({ draft, option, voices, patch }: { draft: TtsDraft
         ) : null}
       </Row>
       <Indent>
-        <span className={detail}>{voiceValueLine(draft, option, voices)}</span>
+        <VoiceFixLine
+          inline
+          className={detail}
+          line={voiceValueLine(draft, option, voices, activity)}
+          fix={pending?.fix ?? null}
+          provider={option.provider}
+          onFix={() => pending && fixer.run(pending.voice, option, pending.fix)}
+        />
       </Indent>
+      {fixer.dialog}
 
       {info.acceptsInstructions ? (
         <>

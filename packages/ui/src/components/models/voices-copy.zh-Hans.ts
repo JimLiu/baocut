@@ -260,6 +260,7 @@ export const zhHans: VoicesMessages = {
     handoffFailed: (voice, label) => `「${voice}」已保存，但没能在 ${label} 上建好克隆 · 原因和办法写在音色下面`,
     handoffNotUploaded: label => `已保存 · 还没上传到 ${label}；准备好后在音色的 ⋯ 里上传`,
     backTo: name => `回到「${name}」`,
+    handoffConsent: (from, label) => `从「${from}」过来 · 补录好授权声明就上传到 ${label} 建这只音色，建好从这里回去`,
   },
   cloneFailure: {
     detail: message => `详情：${message}`,

@@ -262,6 +262,7 @@ export const ko: VoicesMessages = {
     handoffFailed: (voice, label) => `“${voice}”은(는) 저장됐지만 ${label}에서 복제를 만들지 못했습니다 · 해결 방법은 음성 아래에 표시됩니다`,
     handoffNotUploaded: label => `저장됨 · 아직 ${label}에 업로드하지 않았습니다. 준비되면 음성의 ⋯ 메뉴에서 업로드하세요`,
     backTo: name => `“${name}”(으)로 돌아가기`,
+    handoffConsent: (from, label) => `“${from}”에서 옴 · 동의 문구를 녹음하면 ${label}에 업로드해 이 목소리를 만듭니다. 완료되면 여기서 돌아가세요`,
   },
   cloneFailure: {
     detail: message => `자세한 내용: ${message}`,

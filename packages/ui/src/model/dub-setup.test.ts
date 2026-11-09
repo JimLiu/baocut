@@ -16,6 +16,7 @@ import {
   withBinding,
   type DubSetup,
 } from './dub-setup.ts';
+import type { SpeechOption } from './tools-tts.ts';
 
 const doc = (id: string, kind: string, extra: Partial<DocumentRecord> = {}): DocumentRecord => ({
   id,
@@ -206,6 +207,71 @@ describe('说话人与音色', () => {
     const binding = voiceChoices({ info: info(), providerId: 'elevenlabs', providerLabel: 'ElevenLabs', library, defaultLabel: '不绑定', forParams: false });
     expect(binding.find((c) => c.key === 'library:c')?.disabled).toBeNull();
     expect(binding.find((c) => c.key === 'preset:nova')).toMatchObject({ voice: 'nova', providerId: 'elevenlabs' });
+  });
+
+  it('给了所选模型：库里还没建好、补得上的参数音色也能选（选上再补），带怎么补；补不上的照样不能选', () => {
+    const elevenInfo = info({ modelId: 'eleven_v3', voiceModes: ['preset', 'custom'] });
+    const eleven: SpeechOption = {
+      key: 'elevenlabs/eleven_v3',
+      providerId: 'elevenlabs',
+      provider: 'ElevenLabs',
+      modelId: 'eleven_v3',
+      label: 'Eleven v3',
+      connected: true,
+      usable: true,
+      why: null,
+      info: elevenInfo,
+    };
+    const library = [
+      entry('a'),
+      entry('b', { clones: [] }),
+      entry('c', { consentDeclared: false, clones: [] }),
+      entry('d', { clones: [{ providerId: 'elevenlabs', state: 'stale' }] }),
+    ];
+    const params = voiceChoices({
+      info: elevenInfo,
+      providerId: 'elevenlabs',
+      providerLabel: 'ElevenLabs',
+      library,
+      defaultLabel: '模型默认',
+      forParams: true,
+      option: eleven,
+      activity: { jobs: [], attempts: {} },
+    });
+    expect(params.filter((c) => c.key.startsWith('library:')).map((c) => [c.key, c.disabled, c.fix])).toEqual([
+      ['library:a', null, null],
+      ['library:b', null, 'upload'],
+      ['library:c', null, 'declare'],
+      ['library:d', null, 'upload'],
+    ]);
+    expect(params.find((c) => c.key === 'library:b')?.description).toContain('选它就上传');
+
+    const presetOnly: SpeechOption = { ...eleven, providerId: 'openai', provider: 'OpenAI', info: info() };
+    const blocked = voiceChoices({
+      info: info(),
+      providerId: 'openai',
+      providerLabel: 'OpenAI',
+      library,
+      defaultLabel: '模型默认',
+      forParams: true,
+      option: presetOnly,
+    });
+    expect(blocked.find((c) => c.key === 'library:b')).toMatchObject({ fix: null });
+    expect(blocked.find((c) => c.key === 'library:b')?.disabled).not.toBeNull();
+
+    const rows = speakerRows({
+      speakers: [{ speakerId: 'S1', name: '主持人', sentences: 3 }],
+      bindings: [{ documentId: 'speech', speakerId: 'S1', voice: 'library:b' }],
+      documentId: 'speech',
+      providerId: 'elevenlabs',
+      providerLabel: 'ElevenLabs',
+      voice: null,
+      info: elevenInfo,
+      library,
+      option: eleven,
+    });
+    expect(rows[0]).toMatchObject({ fix: { voiceId: 'b', kind: 'upload' } });
+    expect(rows[0]!.warning).toContain('ElevenLabs');
   });
 
   it('改绑定：原位换掉、去掉或追加；库里音色不带 providerId', () => {

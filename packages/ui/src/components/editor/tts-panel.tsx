@@ -32,7 +32,7 @@ import {
   type SpeechOption,
   type TtsDraft,
 } from '../../model/tools-tts.ts';
-import { cloneVoiceKey, voiceValueLine } from '../../model/voice-picker.ts';
+import { cloneVoiceKey, selectedCloneFix, voiceValueLine } from '../../model/voice-picker.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useJobs } from '../../state/jobs-store.ts';
@@ -44,6 +44,7 @@ import { ModelGate, ModelLine } from '../tools/tool-model.tsx';
 import { Gate, RecordCard, SectionLink, submitOnModEnter, ToolTextArea } from '../tools/tool-parts.tsx';
 import { GATE_COPY, RECORD_COPY, TTS_COPY } from '../tools/tools-copy.ts';
 import { useArtifactUrl, useCancelJob, useRecordRetry, useSubmitFailed } from '../tools/use-tool-records.ts';
+import { useCloneActivity, useCloneFix, useHandoffClaim, VoiceFixLine } from '../voice-clone-fix.tsx';
 import { VoicePicker } from '../voice-picker.tsx';
 import { useEditorActions } from './editor-context.tsx';
 import { AUDIO_GEN_COPY as C } from './media-gen-copy.ts';
@@ -259,7 +260,7 @@ export function TtsPanel({ videoId, page, sequence, assets }: { videoId: Id; pag
           />
         )}
 
-        {option ? <VoiceRows key={option.key} draft={draft} option={option} voices={myVoices} setDraft={setDraft} /> : null}
+        {option ? <VoiceRows key={option.key} draft={draft} option={option} voices={myVoices} setDraft={setDraft} fixKey={`pick:tts:${videoId}`} from={title} /> : null}
       </div>
       <div className={footer}>
         <Button variant="accent" styles={field} isDisabled={!option?.usable || !editable} isPending={submitting} onPress={generate}>
@@ -283,9 +284,30 @@ function SubHead({ title, aside }: { title: string; aside?: ReactNode }) {
   );
 }
 
-/** 音色、风格、语速、语言（设计稿 `CloudRows`）：窄栏里一项一行。 */
-function VoiceRows({ draft, option, voices, setDraft }: { draft: TtsDraft; option: SpeechOption; voices: MyVoices; setDraft: (p: Partial<TtsDraft>) => void }) {
+/**
+ * 音色、风格、语速、语言（设计稿 `CloudRows`）：窄栏里一项一行。选了还没在这家建好的我的声音时去补那一步
+ * （`fixKey` / `from` 是去我的声音补时的回程）。
+ */
+function VoiceRows({
+  draft,
+  option,
+  voices,
+  setDraft,
+  fixKey,
+  from,
+}: {
+  draft: TtsDraft;
+  option: SpeechOption;
+  voices: MyVoices;
+  setDraft: (p: Partial<TtsDraft>) => void;
+  fixKey: string;
+  from: string;
+}) {
   const info = option.info;
+  const activity = useCloneActivity();
+  const fixer = useCloneFix({ key: fixKey, from });
+  useHandoffClaim(fixKey, (voice) => setDraft({ voice }));
+  const pending = selectedCloneFix(draft, option, voices, activity);
   const voiceKey = voiceKeyFor(draft, info);
   const range = info.speedRange;
   const languages = languageOptions(info.languages);
@@ -293,7 +315,15 @@ function VoiceRows({ draft, option, voices, setDraft }: { draft: TtsDraft; optio
   return (
     <>
       <SubHead title={TTS_COPY.voiceLabel} />
-      <VoicePicker label={TTS_COPY.voiceLabel} styles={field} draft={draft} option={option} voices={voices} onChange={(voice) => setDraft({ voice })} />
+      <VoicePicker
+        label={TTS_COPY.voiceLabel}
+        styles={field}
+        draft={draft}
+        option={option}
+        voices={voices}
+        onChange={(voice) => setDraft({ voice })}
+        onFix={(voice, fix) => fixer.run(voice, option, fix)}
+      />
       {voiceKey === 'custom' && customVoiceAllowed(info) ? (
         <TextField
           aria-label={TTS_COPY.customVoice}
@@ -304,7 +334,14 @@ function VoiceRows({ draft, option, voices, setDraft }: { draft: TtsDraft; optio
           onChange={(customVoice) => setDraft({ customVoice })}
         />
       ) : null}
-      <p className={hint}>{voiceValueLine(draft, option, voices)}</p>
+      <VoiceFixLine
+        className={hint}
+        line={voiceValueLine(draft, option, voices, activity)}
+        fix={pending?.fix ?? null}
+        provider={option.provider}
+        onFix={() => pending && fixer.run(pending.voice, option, pending.fix)}
+      />
+      {fixer.dialog}
 
       {info.acceptsInstructions ? (
         <>

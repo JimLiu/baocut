@@ -31,6 +31,7 @@ export const zhHantDub: DubMessages = {
   voiceCustom: '音色 ID',
   voiceCustomPlaceholder: '供應商帳號中的音色 ID',
   voiceHint: '下方已指定音色的說話者使用自己的音色；其餘說話者使用這裡選擇的音色。',
+  voiceNotReady: (line: string) => `${line} · 建好才能開始配音`,
   voiceCustomEmpty: '請先輸入音色 ID，或選擇其他音色',
   speakers: '說話者',
   speakersAside: (n: number) => `${n} 位`,

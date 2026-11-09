@@ -266,6 +266,7 @@ Głos nadal tutaj. Spróbuj później lub usuń tylko zapis i głos na komputerz
     handoffFailed: (voice, label) => `Głos „${voice}” zapisano, ale klon u dostawcy ${label} nie powstał · co zrobić, widać pod głosem`,
     handoffNotUploaded: label => `Zapisano · jeszcze nie przesłano do ${label}; gdy zechcesz, prześlij z menu ⋯ głosu`,
     backTo: name => `Wróć do „${name}”`,
+    handoffConsent: (from, label) => `Z „${from}” · nagraj oświadczenie o zgodzie, a zostanie przesłane do ${label}, aby utworzyć ten głos; gdy będzie gotowy, wróć stąd`,
   },
   cloneFailure: {
     detail: message => `Szczegóły: ${message}`,

@@ -30,6 +30,7 @@ export const zhDub: DubMessages = {
   voiceCustom: '音色 ID',
   voiceCustomPlaceholder: '服务商账号里的音色 ID',
   voiceHint: '说话人在下面绑定了音色时用绑定的；没绑定的用这里选的。',
+  voiceNotReady: (line: string) => `${line} · 建好才能开始配音`,
   voiceCustomEmpty: '先填音色 ID，或选别的音色',
   speakers: '说话人',
   speakersAside: (n: number) => `${n} 位`,

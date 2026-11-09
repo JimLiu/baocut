@@ -262,6 +262,7 @@ export const ja: VoicesMessages = {
     handoffFailed: (voice, label) => `「${voice}」は保存されましたが、${label} でのクローンは作成されませんでした · 対処法は声の下に表示されます`,
     handoffNotUploaded: label => `保存しました · ${label} にはまだアップロードしていません。準備ができたら声の ⋯ メニューからアップロードしてください`,
     backTo: name => `「${name}」に戻る`,
+    handoffConsent: (from, label) => `「${from}」から · 同意の宣言を録音すると ${label} にアップロードしてこの声を作成します。できたらここから戻れます`,
   },
   cloneFailure: {
     detail: message => `詳細：${message}`,

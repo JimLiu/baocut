@@ -189,6 +189,7 @@ myVoices: { offline: 'Runtime bağlanınca sesler görünür.', add: 'Ses ekle',
     handoffFailed: (voice, label) => `“${voice}” kaydedildi, ancak ${label} üzerinde klon oluşturulamadı · ne yapılacağı sesin altında görünür`,
     handoffNotUploaded: label => `Kaydedildi · henüz ${label} sağlayıcısına yüklenmedi; hazır olduğunuzda sesin ⋯ menüsünden yükleyin`,
     backTo: name => `“${name}” öğesine dön`,
+    handoffConsent: (from, label) => `“${from}” üzerinden · onay beyanını kaydedin, bu sesi oluşturmak için ${label} hizmetine yüklenir; hazır olunca buradan dönün`,
   },
   cloneFailure: {
     detail: message => `Ayrıntılar: ${message}`,

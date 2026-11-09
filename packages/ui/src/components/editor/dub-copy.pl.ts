@@ -33,6 +33,7 @@ export const plDub: DubMessages = {
   voiceCustom: "ID głosu",
   voiceCustomPlaceholder: "ID głosu z konta dostawcy",
   voiceHint: "Mówcy z głosem przypisanym poniżej używają go; pozostali używają wybranego tutaj.",
+  voiceNotReady: (line: string) => `${line} · dubbing można zacząć, gdy klon będzie gotowy`,
   voiceCustomEmpty: "Najpierw wpisz ID głosu lub wybierz inny głos",
   speakers: "Mówcy",
   speakersAside: (n: number) => `${n}`,

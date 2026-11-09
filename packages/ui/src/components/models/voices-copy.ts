@@ -317,6 +317,8 @@ const en = {
     handoffFailed: (voice: string, label: string) => `“${voice}” is saved, but the clone on ${label} wasn’t created · what to do is shown under the voice`,
     handoffNotUploaded: (label: string) => `Saved · not uploaded to ${label} yet; when you’re ready, upload it from the voice’s ⋯ menu`,
     backTo: (name: string) => `Back to “${name}”`,
+    /** 从音色选择器过来补录授权声明（还没存）：存好就上传到那家，建好从这里回去。 */
+    handoffConsent: (from: string, label: string) => `From “${from}” · record the consent statement and it’s uploaded to ${label} to create this voice; once it’s ready, go back from here`,
   },
   /**
    * 克隆没建成（我的声音那一行、回程条）：原因、怎么办与一键补救。按 Runtime 报的错误码与 `details.reason`

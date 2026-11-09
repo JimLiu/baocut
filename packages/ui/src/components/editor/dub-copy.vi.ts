@@ -28,6 +28,7 @@ export const viDub: DubMessages = {
   voiceCustom: "ID giọng",
   voiceCustomPlaceholder: "ID giọng từ tài khoản nhà cung cấp",
   voiceHint: "Người nói được gán giọng bên dưới dùng giọng đó; còn lại dùng giọng chọn ở đây.",
+  voiceNotReady: (line: string) => `${line} · có thể bắt đầu lồng tiếng khi bản sao xong`,
   voiceCustomEmpty: "Nhập ID giọng trước hoặc chọn giọng khác",
   speakers: "Người nói",
   speakersAside: (n) => `${n}`,

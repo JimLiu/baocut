@@ -182,6 +182,7 @@ export const es: VoicesMessages = {
     handoffFailed: (voice, label) => `«${voice}» está guardada, pero no se creó el clon en ${label} · qué hacer se muestra debajo de la voz`,
     handoffNotUploaded: label => `Guardada · aún no se subió a ${label}; cuando quieras, súbela desde el menú ⋯ de la voz`,
     backTo: name => `Volver a «${name}»`,
+    handoffConsent: (from, label) => `Desde «${from}» · graba la declaración de consentimiento y se subirá a ${label} para crear esta voz; cuando esté lista, vuelve desde aquí`,
   },
   cloneFailure: {
     detail: message => `Detalles: ${message}`,

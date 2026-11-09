@@ -265,6 +265,7 @@ A voz ainda está aqui. Tente depois ou exclua só o registro e voz locais. O cl
     handoffFailed: (voice, label) => `“${voice}” está salva, mas o clone em ${label} não foi criado · o que fazer aparece abaixo da voz`,
     handoffNotUploaded: label => `Salva · ainda não enviada a ${label}; quando estiver pronto, envie pelo menu ⋯ da voz`,
     backTo: name => `Voltar para “${name}”`,
+    handoffConsent: (from, label) => `De “${from}” · grave a declaração de consentimento e ela será enviada para ${label} para criar esta voz; quando estiver pronta, volte por aqui`,
   },
   cloneFailure: {
     detail: message => `Detalhes: ${message}`,

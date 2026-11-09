@@ -31,6 +31,7 @@ export const koDub: DubMessages = {
   voiceCustom: '목소리 ID',
   voiceCustomPlaceholder: '공급자 계정의 목소리 ID',
   voiceHint: '아래에서 목소리를 지정한 화자는 그 목소리를 사용하고, 나머지는 여기서 고른 목소리를 사용합니다.',
+  voiceNotReady: (line: string) => `${line} · 완료되면 더빙을 시작할 수 있습니다`,
   voiceCustomEmpty: '먼저 목소리 ID를 입력하거나 다른 목소리를 선택하세요',
   speakers: '화자',
   speakersAside: (n: number) => `${n}명`,

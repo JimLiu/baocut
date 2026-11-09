@@ -32,6 +32,7 @@ export const deDub: DubMessages = {
   voiceCustom: "Stimmen-ID",
   voiceCustomPlaceholder: "Stimmen-ID aus Ihrem Anbieterkonto",
   voiceHint: "Sprecher mit unten zugewiesener Stimme verwenden diese; alle anderen die hier gewählte.",
+  voiceNotReady: (line: string) => `${line} · die Vertonung kann starten, sobald der Klon fertig ist`,
   voiceCustomEmpty: "Zuerst eine Stimmen-ID eingeben oder eine andere Stimme auswählen",
   speakers: "Sprecher",
   speakersAside: (n: number) => `${n}`,

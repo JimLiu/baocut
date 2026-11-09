@@ -35,6 +35,7 @@ export const frDub: DubMessages = {
   voiceCustom: "Identifiant de voix",
   voiceCustomPlaceholder: "Identifiant de voix du compte fournisseur",
   voiceHint: "Les locuteurs ayant une voix ci-dessous l’utilisent ; les autres utilisent celle choisie ici.",
+  voiceNotReady: (line: string) => `${line} · le doublage pourra commencer une fois le clone prêt`,
   voiceCustomEmpty: "Saisissez un identifiant de voix ou choisissez une autre voix",
   speakers: "Locuteurs",
   speakersAside: (n: number) => `${n}`,

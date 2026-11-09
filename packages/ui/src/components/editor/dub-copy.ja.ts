@@ -31,6 +31,7 @@ export const jaDub: DubMessages = {
   voiceCustom: '声の ID',
   voiceCustomPlaceholder: 'プロバイダのアカウントにある声の ID',
   voiceHint: '下で声が割り当てられている話者はその声を、それ以外の話者はここで選んだ声を使います。',
+  voiceNotReady: (line: string) => `${line} · 完成すると吹き替えを開始できます`,
   voiceCustomEmpty: '先に声の ID を入力するか、別の声を選んでください',
   speakers: '話者',
   speakersAside: (n: number) => `${n} 人`,

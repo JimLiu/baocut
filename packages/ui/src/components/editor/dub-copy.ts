@@ -53,6 +53,7 @@ const dub = {
   voiceCustom: 'Voice ID',
   voiceCustomPlaceholder: 'Voice ID from your provider account',
   voiceHint: 'Speakers with a voice assigned below use it; the rest use the one chosen here.',
+  voiceNotReady: (line: string) => `${line} · dubbing can start once the clone is ready`,
   voiceCustomEmpty: 'Enter a voice ID first, or choose another voice',
   speakers: 'Speakers',
   speakersAside: (n: number) => `${n}`,
