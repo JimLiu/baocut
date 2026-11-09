@@ -192,8 +192,8 @@ const sizeOf = (canvas: CanvasSize): CanvasSize => ({ width: canvas.width, heigh
 
 /**
  * `place` → 盒：帧计划画层用的同一个框（`render-graph` 的 `item_box`，经 `editor-wasm` 同步调）。媒体的框高按 `assets` 里
- * 源的显示宽高比（含裁剪），查不到时按画布的；贴纸与占位框的素材是图片或视频时按媒体摆；文字按渲染器量的排版高，
- * 挂在 `verticalAlign` 钉住的那一处（没量到时正方）。
+ * 源的显示宽高比（含裁剪），查不到时按画布的；贴纸与占位框的素材是图片或视频时按媒体摆，角色贴纸的框高按角色画布；
+ * 文字按渲染器量的排版高，挂在 `verticalAlign` 钉住的那一处（没量到时正方）。
  */
 export function poseOf(item: PlacedItem, canvas: CanvasSize, assets?: Assets): Pose {
   const { cx, cy, w, h, rotation } = stageBox(stageItem(item, canvas), sizeOf(canvas), stageAsset(item, assets));

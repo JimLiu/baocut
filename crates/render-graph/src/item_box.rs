@@ -223,11 +223,13 @@ fn frame_of<'a>(item: &ItemGeometry<'a>) -> Frame<'a> {
     };
     // 贴纸与占位框只在素材是图片或视频时按媒体摆。
     let visual_asset = matches!(item.asset.map(|a| a.kind), Some(AssetKind::Image | AssetKind::Video));
+    // 角色贴纸也按媒体摆：框高按角色画布（导入时记在 `video` 里），与帧光栅画角色的框同一份；不知道角色画布时照旧按贴纸摆。
+    let puppet = item.asset.is_some_and(|a| a.kind == AssetKind::Puppet && a.display.is_some());
     match item.kind {
         VisualKind::Video => media(ElementKind::Video, cropped_size(display, item.crop)),
         VisualKind::Image => media(ElementKind::Image, cropped_size(display, item.crop)),
         VisualKind::Whiteboard => media(ElementKind::Whiteboard, display),
-        VisualKind::Sticker if visual_asset => media(ElementKind::Sticker, display),
+        VisualKind::Sticker if visual_asset || puppet => media(ElementKind::Sticker, display),
         VisualKind::Sticker => Frame::Static {
             kind: ElementKind::Sticker,
             geometry: ElementGeometry {
@@ -635,6 +637,48 @@ mod tests {
             place_from_box(&template, moved, CANVAS),
             change(Some(25.0), None, Some(10.0), None, None)
         );
+    }
+
+    #[test]
+    fn character_stickers_use_the_character_canvas_box() {
+        // 元素面板放内置主播的位置（16:9 右下）：框高按角色画布 1024×1536，下沿伸出画面。
+        let place = Place {
+            x: Some(84.0),
+            y: Some(73.3),
+            w: Some(30.0),
+            ..Place::default()
+        };
+        let props = StickerProps::new("asset");
+        let puppet = |display| ItemGeometry {
+            sticker: Some(&props),
+            asset: Some(AssetFacts {
+                kind: AssetKind::Puppet,
+                display,
+            }),
+            ..geometry(VisualKind::Sticker, &place)
+        };
+        let host = puppet(Some((1024.0, 1536.0)));
+        let b = item_box(&host, CANVAS);
+        assert!((b.width - 576.0).abs() < 1e-9);
+        assert!((b.height - 864.0).abs() < 1e-9);
+        assert!(b.cy + b.height / 2.0 > CANVAS.1);
+        assert_eq!(place_from_box(&host, pose(b), CANVAS), PlaceChange::default());
+        // 只拉高：高写进 `scaleY`，按角色画布的自然高算。
+        let taller = BoxPose {
+            height: 864.0 * 1.25,
+            ..pose(b)
+        };
+        assert_eq!(place_from_box(&host, taller, CANVAS).scale_y, Some(1.25));
+        // 不知道角色画布（素材没记 `video`）时照旧是贴纸的静态盒。
+        let unknown = item_box(&puppet(None), CANVAS);
+        let plain = item_box(
+            &ItemGeometry {
+                sticker: Some(&props),
+                ..geometry(VisualKind::Sticker, &place)
+            },
+            CANVAS,
+        );
+        assert_eq!(unknown, plain);
     }
 
     #[test]
