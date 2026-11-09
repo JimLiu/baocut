@@ -121,4 +121,8 @@ export const zhHans: RcSkillsMessages = {
   agentSkillBadRoot: (p) => `请选一个具体的文件夹，不能是文件系统根目录、用户主目录，或 Agent 的配置目录、skills 目录：${p.path}`,
   agentSkillRootMissing: (p) => `找不到这个文件夹：${p.path}`,
   agentSkillLocalOnly: '只能在桌面应用或命令行里为其他 Agent 安装 BaoCut 说明书',
+  cliEntryUnavailable: '这个 Runtime 不是从安装好的 BaoCut App 拉起的，没有可供 baocut 指向的 App 命令行。请在 BaoCut App 里安装',
+  cliEntryTaken: (p) => `${p.path} 已经存在，不是 BaoCut 放的。BaoCut 不会替换或删除它：移走或改名后再试`,
+  cliEntryPathFailed: (p) => `baocut 已经放进 ${p.dir}，但没能把这个文件夹加进用户 PATH。请自己加：在开始菜单里搜索「编辑账户的环境变量」`,
+  cliEntryLocalOnly: '只能在桌面应用或命令行里安装 baocut 命令',
 };

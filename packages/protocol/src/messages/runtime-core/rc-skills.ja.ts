@@ -131,4 +131,8 @@ export const ja: RcSkillsMessages = {
   agentSkillBadRoot: (p) => `特定のフォルダを選んでください。ファイルシステムのルート、ホームフォルダ、Agent の設定フォルダや skills フォルダは選べません：${p.path}`,
   agentSkillRootMissing: (p) => `フォルダが見つかりません：${p.path}`,
   agentSkillLocalOnly: 'ほかのエージェント向けの BaoCut スキルのインストールは、デスクトップアプリと CLI でのみ行えます',
+  cliEntryUnavailable: 'この Runtime はインストール済みの BaoCut アプリから起動されていないため、baocut の参照先になるアプリのコマンドラインがありません。BaoCut アプリからインストールしてください',
+  cliEntryTaken: (p) => `${p.path} はすでに存在し、BaoCut が置いたものではありません。BaoCut は置き換えも削除もしません。移動するか名前を変えてから、もう一度試してください`,
+  cliEntryPathFailed: (p) => `baocut は ${p.dir} にありますが、BaoCut はこのフォルダをユーザーの PATH に追加できませんでした。手動で追加してください：スタートメニューで「アカウントの環境変数を編集」を検索します`,
+  cliEntryLocalOnly: 'baocut コマンドのインストールは、デスクトップアプリと CLI でのみ行えます',
 };

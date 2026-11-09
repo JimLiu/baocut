@@ -84,9 +84,9 @@ function fitVerbs(verbs: readonly string[], width: number): string {
   return line ? `${line} · …` : '…';
 }
 
-/** `models configure|accounts|usage|…`：最多列三个，其余用省略号（一屏帮助有行数上限，全部子命令见 `help <名词>`）。 */
+/** `models configure|accounts|…`：最多列两个，其余用省略号（一屏帮助有行数上限，全部子命令见 `help <名词>`）。 */
 function shortVerbs(verbs: readonly string[]): string {
-  return verbs.length > 3 ? `${verbs.slice(0, 3).join('|')}|…` : verbs.join('|');
+  return verbs.length > 2 ? `${verbs.slice(0, 2).join('|')}|…` : verbs.join('|');
 }
 
 function ordered(names: string[], preferred: readonly string[]): string[] {

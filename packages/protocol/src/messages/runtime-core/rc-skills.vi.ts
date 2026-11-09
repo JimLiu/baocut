@@ -29,4 +29,8 @@ renderErrorAt: (p) => `${p.file}:${p.line}: ${p.message}`, renderErrorIn: (p) =>
   agentSkillBadRoot: (p) => `Hãy cài vào một thư mục cụ thể, không phải gốc hệ thống tệp, thư mục chính của bạn hay thư mục cấu hình hoặc skills của agent: ${p.path}`,
   agentSkillRootMissing: (p) => `Không tìm thấy thư mục: ${p.path}`,
   agentSkillLocalOnly: 'Chỉ có thể cài skill BaoCut cho các agent khác trong ứng dụng máy tính và CLI',
+  cliEntryUnavailable: 'Runtime này không được khởi động từ ứng dụng BaoCut đã cài, nên không có dòng lệnh của ứng dụng để baocut trỏ tới. Hãy cài từ ứng dụng BaoCut',
+  cliEntryTaken: (p) => `${p.path} đã tồn tại và không phải do BaoCut đặt vào. BaoCut không thay thế hay xóa nó: hãy di chuyển hoặc đổi tên rồi thử lại`,
+  cliEntryPathFailed: (p) => `baocut nằm trong ${p.dir}, nhưng BaoCut không thêm được thư mục đó vào PATH của người dùng. Hãy tự thêm: tìm “Chỉnh sửa biến môi trường cho tài khoản của bạn” trong menu Start`,
+  cliEntryLocalOnly: 'Chỉ có thể cài lệnh baocut trong ứng dụng máy tính và CLI',
 };

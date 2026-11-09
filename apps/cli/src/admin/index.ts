@@ -5,6 +5,7 @@ import { CliError, EXIT, type ExitCode } from '../envelope.ts';
 import { ensureRuntime, openClient } from '../runtime/connection.ts';
 import { approvals } from './approvals.ts';
 import { chat } from './chat.ts';
+import { cliEntry } from './cli-entry.ts';
 import { AdminRun, COMMON_OPTIONS, type AdminNoun } from './context.ts';
 import { externalTools } from './external-tools.ts';
 import { fonts } from './fonts.ts';
@@ -37,10 +38,11 @@ const NOUNS: readonly AdminNoun<ParseArgsOptionsConfig>[] = [
   library,
   skills,
   projects,
+  skill,
+  cliEntry,
+  mcp,
   externalTools,
   services,
-  mcp,
-  skill,
   share,
   nodes,
   settings,

@@ -55,6 +55,7 @@ import {
 import { AgentSetup, type AgentSetupOptions } from './agent-setup.ts';
 import { remoteCalls, type ActiveWork } from './active-work.ts';
 import { AgentGrants } from './agent-tools/grants.ts';
+import { CliEntryInstaller } from './agent-tools/cli-entry.ts';
 import { loadAgentGuidance } from './agent-tools/guidance.ts';
 import { TaskTools } from './agent-tools/task-tools.ts';
 import { ConversationTools } from './agent-tools/conversation-tools.ts';
@@ -1488,6 +1489,14 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       env: toolEnv,
     });
     log.info('Runtime ready', { instanceId, endpoint, home: home.root, launchedBy: info.launchedBy });
+    // 桌面端拉起时，终端里的 `baocut` 若是 BaoCut 放的、还指向移动前的 App，改指向这一个（CLI 独立使用与发布 §3.2）。
+    if (info.launchedBy === null) {
+      try {
+        if (new CliEntryInstaller({ home: home.root }).repair()) log.info('Command line entry repointed to this app');
+      } catch (error) {
+        log.warn('Command line entry repair failed', { error: String(error) });
+      }
+    }
 
     let closing: Promise<void> | null = null;
     const close = () =>

@@ -90,10 +90,11 @@ describe('runCli：不为拼错的命令或帮助拉起 Runtime（Agent 面设�
     expect(result.stdout).toMatch(/baocut videos delete .*--yes/);
   });
 
-  it('help skill、help mcp 有用法，不连 Runtime', async () => {
+  it('help skill、help mcp、help cli 有用法，不连 Runtime', async () => {
     for (const [noun, usage] of [
       ['skill', 'baocut skill install [--dir'],
       ['mcp', 'baocut mcp install --agent'],
+      ['cli', 'baocut cli install'],
     ]) {
       const help = await cli(['help', noun!]);
       expect(help.code, noun).toBe(0);

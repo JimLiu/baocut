@@ -47,9 +47,29 @@ export const ko: SkillsMessages = {
   statusCli: (entry) => `CLI       ${entry ?? '포함되지 않음(개발 빌드)'}`,
   statusOnPath: (path, target, fromApp) => `터미널    ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (이 앱의 것)' : ' (이 앱의 것이 아님)'}`,
   statusNotOnPath: (command) => `터미널    PATH에 baocut이 없습니다${command ? `. 어느 터미널에서나 쓰려면: ${command}` : ''}`,
-  statusAddToPath: (dir) => `터미널    PATH에 baocut이 없습니다. 어느 터미널에서나 쓰려면 ${dir}을(를) 사용자 PATH에 추가하세요`,
   appOutsideApplications: 'BaoCut이 응용 프로그램 폴더 밖에서 실행 중입니다. 앱을 옮기거나 지우면 링크가 끊어집니다',
   globalHeading: '전역',
   state: { none: '설치 안 됨', current: '최신', stale: '오래됨', broken: '깨진 링크', foreign: '다른 항목이 있음(건드리지 않음)' },
   mode: { link: '링크', copy: '복사본' },
+
+  cliHelp: `사용법:
+  baocut cli install               baocut을 PATH에 두고 BaoCut 앱 안의 명령줄을 가리키게 합니다. macOS: ~/.local/bin/baocut에
+                                   심볼릭 링크. Windows: %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd를 두고 그 폴더를 사용자
+                                   PATH에 추가합니다. 관리자 권한이 필요 없습니다
+  baocut cli status                baocut이 놓인 위치, 이 앱을 가리키는지, 터미널이 실제로 찾는 baocut
+  baocut cli remove                baocut cli install이 둔 것을 제거합니다. 그 위치에 BaoCut이 두지 않은 것은 절대 바꾸거나
+                                   지우지 않습니다`,
+  cliStatusEntry: (path, target, state) => `진입점    ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `앱        ${entry ?? '포함된 명령줄 없음(개발 빌드): BaoCut 앱에서 설치하세요'}`,
+  cliStatusTerminal: (found) => `터미널    ${found ?? 'baocut을 찾을 수 없음'}`,
+  cliStatusUnchecked: '터미널    터미널의 PATH를 확인하지 못했습니다. 새 터미널을 열고 baocut version을 실행해 보세요',
+  cliShadowed: (found, dir) => `터미널    ${found}을(를) 먼저 찾습니다. 이것을 쓰려면 그것을 제거하거나 ${dir}을(를) PATH에서 더 앞에 두세요`,
+  cliPathHint: (dir, line, file) => `${dir}이(가) 아직 터미널의 PATH에 없습니다. 다음 줄을 ${file ?? '셸 설정 파일'}에 추가한 뒤 새 터미널을 여세요:\n  ${line}`,
+  cliInstalled: (path, target) => `설치함: ${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir}이(가) 사용자 PATH에 있습니다. 새 터미널을 열면 baocut을 쓸 수 있습니다`,
+  cliRemoved: (path) => `제거함: ${path}`,
+  cliNothingToRemove: (path) => `${path}에 제거할 것이 없습니다`,
+  cliInstallHint: 'baocut cli install로 baocut을 PATH에 둘 수 있습니다',
+  cliFixHint: 'baocut cli install로 이 앱을 가리키게 고칠 수 있습니다',
+  cliState: { none: '설치 안 됨', current: '이 앱을 가리킴', stale: '다른 BaoCut을 가리킴', broken: '더 이상 없는 위치를 가리킴', foreign: '다른 항목이 있음(건드리지 않음)' },
 };

@@ -159,13 +159,13 @@ describe('baocut skill status', () => {
     expect(text).toMatch(/baocut skill install/);
   });
 
-  it('不在 PATH 上：macOS 给软链接命令，Windows 让把安装目录加进 PATH', () => {
+  it('不在 PATH 上：给出用 App 入口自己跑一次 cli install 的命令（不要 sudo）', () => {
     const base = status([location(null, '.agents/skills'), location(null, '.claude/skills')]);
-    expect(formatSkillStatus(base, env, 'darwin').join('\n')).toContain(
-      "ln -sf '/Applications/BaoCut.app/Contents/MacOS/baocut-cli' /usr/local/bin/baocut",
-    );
+    const mac = formatSkillStatus(base, env, 'darwin').join('\n');
+    expect(mac).toContain("'/Applications/BaoCut.app/Contents/MacOS/baocut-cli' cli install");
+    expect(mac).not.toContain('sudo');
     const win = { ...base, cli: { entry: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\baocut.cmd', onPath: null } };
-    expect(formatSkillStatus(win, env, 'win32').join('\n')).toContain('C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut');
+    expect(formatSkillStatus(win, env, 'win32').join('\n')).toContain('"C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\baocut.cmd" cli install');
     const onPath = { ...base, cli: { ...base.cli, onPath: { path: '/usr/local/bin/baocut', target: base.cli.entry, fromApp: true } } };
     expect(formatSkillStatus(onPath, env, 'darwin').join('\n')).toContain('/usr/local/bin/baocut → /Applications/BaoCut.app');
   });

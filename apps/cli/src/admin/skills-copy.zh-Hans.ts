@@ -43,9 +43,28 @@ export const zhHans: SkillsMessages = {
   statusCli: (entry) => `命令行    ${entry ?? '未随包（开发版）'}`,
   statusOnPath: (path, target, fromApp) => `终端      ${path}${target ? ` → ${target}` : ''}${fromApp ? '（就是这个应用的）' : '（不是这个应用的）'}`,
   statusNotOnPath: (command) => `终端      PATH 里没有 baocut${command ? `；想在任何终端里用：${command}` : ''}`,
-  statusAddToPath: (dir) => `终端      PATH 里没有 baocut；想在任何终端里用，把 ${dir} 加进用户的 PATH`,
   appOutsideApplications: 'BaoCut 不是从「应用程序」文件夹运行的：移动或删除应用后软链接会失效',
   globalHeading: '全局',
   state: { none: '未安装', current: '最新', stale: '过期', broken: '链接失效', foreign: '已有别的东西（不动它）' },
   mode: { link: '软链接', copy: '副本' },
+
+  cliHelp: `用法：
+  baocut cli install               把 baocut 放进 PATH，指向 BaoCut 应用里的命令行。macOS：在 ~/.local/bin/baocut 放软链接；
+                                   Windows：写 %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd，并把这个文件夹加进用户的 PATH。
+                                   不要管理员权限
+  baocut cli status                baocut 放在哪、是不是指向这个应用，以及终端里实际会用哪个 baocut
+  baocut cli remove                移除 baocut cli install 放的东西。那个位置上不是 BaoCut 放的东西永不替换或删除`,
+  cliStatusEntry: (path, target, state) => `入口      ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `应用      ${entry ?? '没有自带命令行（开发版）：请在 BaoCut 应用里安装'}`,
+  cliStatusTerminal: (found) => `终端      ${found ?? '找不到 baocut'}`,
+  cliStatusUnchecked: '终端      查不出终端的 PATH：新开一个终端，运行 baocut version 看看',
+  cliShadowed: (found, dir) => `终端      先找到的是 ${found}。想用这一个，先移除它，或把 ${dir} 放到 PATH 里更靠前的位置`,
+  cliPathHint: (dir, line, file) => `${dir} 还不在终端的 PATH 里。把下面这行加进 ${file ?? 'shell 的配置文件'}，再新开一个终端：\n  ${line}`,
+  cliInstalled: (path, target) => `已装好 ${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir} 已加进用户的 PATH：新开一个终端就能用 baocut`,
+  cliRemoved: (path) => `已移除 ${path}`,
+  cliNothingToRemove: (path) => `${path} 没有要移除的东西`,
+  cliInstallHint: 'baocut cli install 把 baocut 放进 PATH',
+  cliFixHint: 'baocut cli install 让它改指向这个应用',
+  cliState: { none: '未安装', current: '指向这个应用', stale: '指向另一份 BaoCut', broken: '指向的位置已经不在了', foreign: '已有别的东西（不动它）' },
 };

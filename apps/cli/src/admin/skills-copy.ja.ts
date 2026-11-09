@@ -47,9 +47,29 @@ export const ja: SkillsMessages = {
   statusCli: (entry) => `CLI       ${entry ?? '同梱なし（開発版）'}`,
   statusOnPath: (path, target, fromApp) => `ターミナル ${path}${target ? ` → ${target}` : ''}${fromApp ? '（このアプリのもの）' : '（このアプリのものではありません）'}`,
   statusNotOnPath: (command) => `ターミナル PATH に baocut がありません${command ? `。どのターミナルでも使うには：${command}` : ''}`,
-  statusAddToPath: (dir) => `ターミナル PATH に baocut がありません。どのターミナルでも使うには ${dir} をユーザーの PATH に追加してください`,
   appOutsideApplications: 'BaoCut が「アプリケーション」フォルダ以外から実行されています。アプリを移動または削除するとリンクが切れます',
   globalHeading: 'グローバル',
   state: { none: '未インストール', current: '最新', stale: '古い', broken: 'リンク切れ', foreign: '別のものがあります（触りません）' },
   mode: { link: 'リンク', copy: 'コピー' },
+
+  cliHelp: `使い方：
+  baocut cli install               baocut を PATH に置き、BaoCut アプリ内のコマンドラインを指すようにします。macOS：
+                                   ~/.local/bin/baocut にシンボリックリンク。Windows：%LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd を
+                                   置き、そのフォルダをユーザーの PATH に追加します。管理者権限は不要です
+  baocut cli status                baocut の置き場所、このアプリを指しているか、ターミナルが実際に見つける baocut
+  baocut cli remove                baocut cli install が置いたものを削除します。その場所にある BaoCut が置いたのではないものは
+                                   置き換えも削除もしません`,
+  cliStatusEntry: (path, target, state) => `エントリ   ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `アプリ     ${entry ?? '同梱のコマンドラインなし（開発版）：BaoCut アプリからインストールしてください'}`,
+  cliStatusTerminal: (found) => `ターミナル ${found ?? 'baocut が見つかりません'}`,
+  cliStatusUnchecked: 'ターミナル ターミナルの PATH を確認できませんでした。新しいターミナルを開いて baocut version を実行してください',
+  cliShadowed: (found, dir) => `ターミナル 先に ${found} が見つかります。こちらを使うには、それを削除するか、${dir} を PATH のより前に置いてください`,
+  cliPathHint: (dir, line, file) => `${dir} はまだターミナルの PATH にありません。次の行を ${file ?? 'シェルの設定ファイル'} に追加してから、新しいターミナルを開いてください：\n  ${line}`,
+  cliInstalled: (path, target) => `インストールしました：${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir} はユーザーの PATH に入っています。新しいターミナルを開くと baocut を使えます`,
+  cliRemoved: (path) => `削除しました：${path}`,
+  cliNothingToRemove: (path) => `${path} に削除するものはありません`,
+  cliInstallHint: 'baocut cli install で baocut を PATH に置けます',
+  cliFixHint: 'baocut cli install でこのアプリを指すように直せます',
+  cliState: { none: '未インストール', current: 'このアプリを指しています', stale: '別の BaoCut を指しています', broken: 'もう存在しない場所を指しています', foreign: '別のものがあります（触りません）' },
 };

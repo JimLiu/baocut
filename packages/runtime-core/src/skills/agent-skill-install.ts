@@ -12,6 +12,7 @@ import {
   type AgentSkillTarget,
 } from '@baocut/protocol';
 import { RcSkills } from '@baocut/protocol/messages/runtime-core';
+import { findCliOnPath } from '../agent-tools/cli-entry.ts';
 import { AGENT_SKILL_ENTRY, AGENT_SKILL_ID } from './agent-skill-renderer.ts';
 import { parseSkillFrontmatter } from './skill-frontmatter.ts';
 
@@ -251,28 +252,6 @@ export function skillMeta(dir: string): { name: string | null; version: string |
   const parsed = parseSkillFrontmatter(raw);
   if (!parsed.ok) return null;
   return { name: parsed.fields.get('name') || null, version: parsed.fields.get('version') || null };
-}
-
-/**
- * 终端里的 `baocut`：先按 PATH，再看常见的安装位置（从 Finder 打开的 App 拿到的 PATH 很短）。Windows 认 `.cmd` 与 `.exe`。
- */
-export function findCliOnPath(env: NodeJS.ProcessEnv, userHome: string, platform: NodeJS.Platform = process.platform): string | null {
-  const win = platform === 'win32';
-  const delimiter = win ? ';' : ':';
-  const dirs = (env.PATH ?? env.Path ?? '').split(delimiter).filter(Boolean);
-  if (!win) dirs.push('/usr/local/bin', '/opt/homebrew/bin', path.join(userHome, '.local', 'bin'), path.join(userHome, 'bin'));
-  const names = win ? ['baocut.cmd', 'baocut.exe'] : ['baocut'];
-  for (const dir of dirs) {
-    for (const name of names) {
-      const file = path.join(dir, name);
-      try {
-        if (fs.statSync(file).isFile()) return file;
-      } catch {
-        // 下一个。
-      }
-    }
-  }
-  return null;
 }
 
 // ---- 文件 ----

@@ -36,9 +36,29 @@ skillHelp: `Cách dùng:
   statusCli: (entry) => `CLI       ${entry ?? 'không kèm theo (bản phát triển)'}`,
   statusOnPath: (path, target, fromApp) => `Terminal  ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (của ứng dụng này)' : ' (không phải của ứng dụng này)'}`,
   statusNotOnPath: (command) => `Terminal  baocut không có trong PATH${command ? `; để dùng ở mọi terminal: ${command}` : ''}`,
-  statusAddToPath: (dir) => `Terminal  baocut không có trong PATH; để dùng ở mọi terminal, thêm ${dir} vào PATH của người dùng`,
   appOutsideApplications: 'BaoCut không chạy từ thư mục Ứng dụng: liên kết sẽ hỏng nếu bạn di chuyển hoặc xoá ứng dụng',
   globalHeading: 'Toàn cục',
   state: { none: 'Chưa cài', current: 'Mới nhất', stale: 'Đã cũ', broken: 'Liên kết hỏng', foreign: 'Có thứ khác ở đó (không đụng tới)' },
   mode: { link: 'Liên kết', copy: 'Bản sao' },
+
+  cliHelp: `Cách dùng:
+  baocut cli install               Đặt baocut vào PATH, trỏ tới dòng lệnh trong ứng dụng BaoCut. macOS: liên kết tại
+                                   ~/.local/bin/baocut. Windows: %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd, kèm thư mục đó
+                                   được thêm vào PATH của người dùng. Không cần quyền quản trị
+  baocut cli status                baocut nằm ở đâu, có trỏ tới ứng dụng này không, và terminal của bạn tìm thấy baocut nào
+  baocut cli remove                Gỡ những gì baocut cli install đã đặt. Thứ nằm ở đường dẫn đó mà không do BaoCut đặt thì
+                                   không bao giờ bị thay hay xoá`,
+  cliStatusEntry: (path, target, state) => `Lệnh      ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `Ứng dụng  ${entry ?? 'không kèm dòng lệnh (bản phát triển): hãy cài từ ứng dụng BaoCut'}`,
+  cliStatusTerminal: (found) => `Terminal  ${found ?? 'không tìm thấy baocut'}`,
+  cliStatusUnchecked: 'Terminal  không kiểm tra được PATH của terminal: mở terminal mới và chạy baocut version',
+  cliShadowed: (found, dir) => `Terminal  tìm thấy ${found} trước. Để dùng bản này, hãy gỡ bản kia hoặc đặt ${dir} lên trước trong PATH`,
+  cliPathHint: (dir, line, file) => `${dir} chưa có trong PATH của terminal. Thêm dòng này vào ${file ?? 'cấu hình shell của bạn'}, rồi mở terminal mới:\n  ${line}`,
+  cliInstalled: (path, target) => `Đã cài ${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir} đã có trong PATH của người dùng: mở terminal mới để dùng baocut`,
+  cliRemoved: (path) => `Đã gỡ ${path}`,
+  cliNothingToRemove: (path) => `Không có gì để gỡ ở ${path}`,
+  cliInstallHint: 'baocut cli install đặt baocut vào PATH',
+  cliFixHint: 'baocut cli install sẽ trỏ nó tới ứng dụng này',
+  cliState: { none: 'Chưa cài', current: 'Trỏ tới ứng dụng này', stale: 'Trỏ tới một BaoCut khác', broken: 'Trỏ tới vị trí không còn tồn tại', foreign: 'Có thứ khác ở đó (không đụng tới)' },
 };

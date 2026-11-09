@@ -131,6 +131,8 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   'brands.openHandle',
   // 给外部 Agent 装说明书（Agent 面设计 §8.2）只看状态：装与移除往用户主目录或任意文件夹写软链接，只在桌面界面与 CLI 里做。
   'agentSkill.status',
+  // 终端里的 `baocut` 入口（CLI 独立使用与发布 §3.2）同样只看状态。
+  'cliEntry.status',
 ];
 
 /**
@@ -264,6 +266,7 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'brands.readFile',
   'brands.openHandle',
   'agentSkill.status',
+  'cliEntry.status',
 ];
 
 /** 订阅这些主题要求白名单里有对应的读取方法；其余主题（目录、会话、任务、Space、视频）随会话开放。 */

@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RpcError, type AgentSkillLocation } from '@baocut/protocol';
-import { AGENT_SKILL_DIRS_FILE, AgentSkillInstaller, findCliOnPath } from './agent-skill-install.ts';
+import { findCliOnPath } from '../agent-tools/cli-entry.ts';
+import { AGENT_SKILL_DIRS_FILE, AgentSkillInstaller } from './agent-skill-install.ts';
 
 /** Agent 面设计 §8.2：给外部 Agent 装说明书的位置、状态与装法。 */
 
@@ -194,7 +195,7 @@ describe('agent skill installer', () => {
     const app = path.join(dir, 'BaoCut.app', 'Contents', 'MacOS');
     fs.mkdirSync(app, { recursive: true });
     const entry = path.join(app, 'baocut-cli');
-    fs.writeFileSync(entry, '#!/bin/sh\n');
+    fs.writeFileSync(entry, '#!/bin/sh\n', { mode: 0o755 });
     const bin = path.join(dir, 'bin');
     fs.mkdirSync(bin);
     fs.symlinkSync(entry, path.join(bin, 'baocut'));

@@ -8,6 +8,7 @@ import {
   type AgentSkillTarget,
 } from '@baocut/protocol';
 import { CliError } from '../envelope.ts';
+import { cliInstallCommand } from './cli-entry.ts';
 import { defineNoun } from './context.ts';
 import { M } from './skills-copy.ts';
 
@@ -108,8 +109,7 @@ export function formatSkillStatus(status: AgentSkillStatus, env: NodeJS.ProcessE
   ];
   const onPath = status.cli.onPath;
   if (onPath) lines.push(M.statusOnPath(tilde(onPath.path), onPath.target && tilde(onPath.target), onPath.fromApp));
-  else if (status.cli.entry && platform === 'win32') lines.push(M.statusAddToPath(path.win32.dirname(status.cli.entry)));
-  else lines.push(M.statusNotOnPath(status.cli.entry ? linkCommand(status.cli.entry) : null));
+  else lines.push(M.statusNotOnPath(status.cli.entry ? cliInstallCommand(status.cli.entry, platform) : null));
   if (status.appOutsideApplications) lines.push(M.appOutsideApplications);
   // 全局的写 `~/…`，按目录的在文件夹标题下写相对它的路径。
   const groups: [string, AgentSkillLocation[]][] = [[M.globalHeading, status.locations.filter((l) => l.root === null)]];
@@ -124,9 +124,4 @@ export function formatSkillStatus(status: AgentSkillStatus, env: NodeJS.ProcessE
     });
   }
   return lines;
-}
-
-/** macOS 上让终端里的 `baocut` 指向 App 自带的入口：在 `/usr/local/bin` 放一个软链接（要管理员权限，BaoCut 不替用户做）。 */
-export function linkCommand(entry: string): string {
-  return `sudo mkdir -p /usr/local/bin && sudo ln -sf '${entry}' /usr/local/bin/baocut`;
 }

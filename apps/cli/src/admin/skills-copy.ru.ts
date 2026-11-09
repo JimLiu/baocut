@@ -41,9 +41,30 @@ export const ru: SkillsMessages = {
   statusCli: (entry) => `CLI       ${entry ?? 'не входит в сборку (сборка для разработки)'}`,
   statusOnPath: (path, target, fromApp) => `Терминал  ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (из этого приложения)' : ' (не из этого приложения)'}`,
   statusNotOnPath: (command) => `Терминал  baocut нет в PATH${command ? `; чтобы пользоваться им в любом терминале: ${command}` : ''}`,
-  statusAddToPath: (dir) => `Терминал  baocut нет в PATH; чтобы пользоваться им в любом терминале, добавьте ${dir} в PATH пользователя`,
   appOutsideApplications: 'BaoCut запущен не из папки «Программы»: ссылки сломаются, если переместить или удалить приложение',
   globalHeading: 'Глобально',
   state: { none: 'Не установлен', current: 'Актуален', stale: 'Устарел', broken: 'Сломанная ссылка', foreign: 'Там что-то другое (не трогаем)' },
   mode: { link: 'Ссылка', copy: 'Копия' },
+
+  cliHelp: `Использование:
+  baocut cli install               Помещает baocut в PATH: он указывает на командную строку внутри приложения BaoCut. macOS:
+                                   ссылка ~/.local/bin/baocut. Windows: %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd, а эта папка
+                                   добавляется в PATH пользователя. Права администратора не нужны
+  baocut cli status                Где лежит baocut, указывает ли он на это приложение и какой baocut находит ваш терминал
+  baocut cli remove                Удаляет то, что поместил baocut cli install. То, что лежит по этому пути и было
+                                   положено туда не BaoCut, никогда не заменяется и не удаляется`,
+  cliStatusEntry: (path, target, state) => `Команда   ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `Программа ${entry ?? 'нет встроенной командной строки (сборка для разработки): установите baocut из приложения BaoCut'}`,
+  cliStatusTerminal: (found) => `Терминал  ${found ?? 'baocut не найден'}`,
+  cliStatusUnchecked: 'Терминал  не удалось проверить PATH терминала: откройте новый терминал и выполните baocut version',
+  cliShadowed: (found, dir) => `Терминал  сначала находит ${found}. Чтобы пользоваться этим, удалите тот или поставьте ${dir} раньше в PATH`,
+  cliPathHint: (dir, line, file) =>
+    `${dir} пока нет в PATH терминала. Добавьте эту строку в ${file ?? 'конфигурацию оболочки'} и откройте новый терминал:\n  ${line}`,
+  cliInstalled: (path, target) => `Установлено: ${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir} есть в PATH пользователя: откройте новый терминал, чтобы пользоваться baocut`,
+  cliRemoved: (path) => `Удалено: ${path}`,
+  cliNothingToRemove: (path) => `По пути ${path} нечего удалять`,
+  cliInstallHint: 'baocut cli install помещает baocut в PATH',
+  cliFixHint: 'baocut cli install перенаправит его на это приложение',
+  cliState: { none: 'Не установлен', current: 'Указывает на это приложение', stale: 'Указывает на другой BaoCut', broken: 'Указывает на место, которого больше нет', foreign: 'Там что-то другое (не трогаем)' },
 };

@@ -125,4 +125,10 @@ export const nl: RcSkillsMessages = {
   agentSkillBadRoot: (p: { path: string }) => `Installeer in een specifieke map, niet in de hoofdmap van het bestandssysteem, je thuismap of de configuratie- of skillsmap van een agent: ${p.path}`,
   agentSkillRootMissing: (p: { path: string }) => `Map niet gevonden: ${p.path}`,
   agentSkillLocalOnly: 'De BaoCut-skill voor andere agents installeren kan alleen in de desktop-app en de CLI',
+  cliEntryUnavailable:
+    'Deze Runtime is niet gestart vanuit de geïnstalleerde BaoCut-app, dus er is geen opdrachtregel van de app waar baocut naar kan verwijzen. Installeer het vanuit de BaoCut-app',
+  cliEntryTaken: (p: { path: string }) => `${p.path} bestaat al en is niet door BaoCut neergezet. BaoCut vervangt of verwijdert het niet: verplaats het of geef het een andere naam en probeer het opnieuw`,
+  cliEntryPathFailed: (p: { dir: string }) =>
+    `baocut staat in ${p.dir}, maar BaoCut kon die map niet aan je gebruikers-PATH toevoegen. Voeg hem zelf toe: zoek in het menu Start naar ‘Omgevingsvariabelen voor uw account bewerken’`,
+  cliEntryLocalOnly: 'Het baocut-commando installeren kan alleen in de desktop-app en de CLI',
 };

@@ -32,4 +32,8 @@ export const es: RcSkillsMessages = {
   agentSkillBadRoot: (p) => `Instala en una carpeta concreta, no en la raíz del sistema de archivos, tu carpeta personal ni la carpeta de configuración o de skills de un agente: ${p.path}`,
   agentSkillRootMissing: (p) => `No se encuentra la carpeta: ${p.path}`,
   agentSkillLocalOnly: 'Instalar la skill de BaoCut para otros agentes solo está disponible en la app de escritorio y en la CLI',
+  cliEntryUnavailable: 'Este Runtime no se inició desde la app de BaoCut instalada, así que no hay una línea de comandos de la app a la que baocut pueda apuntar. Instálalo desde la app de BaoCut',
+  cliEntryTaken: (p) => `${p.path} ya existe y no lo puso BaoCut. BaoCut no lo reemplaza ni lo borra: muévelo o cámbiale el nombre y vuelve a intentarlo`,
+  cliEntryPathFailed: (p) => `baocut está en ${p.dir}, pero BaoCut no pudo añadir esa carpeta al PATH de tu usuario. Añádela tú: busca «Editar las variables de entorno de esta cuenta» en el menú Inicio`,
+  cliEntryLocalOnly: 'Instalar el comando baocut solo está disponible en la app de escritorio y en la CLI',
 };

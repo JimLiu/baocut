@@ -146,6 +146,32 @@ export interface AgentSkillStatus {
 }
 
 /**
+ * 终端里的 `baocut` 入口（CLI 独立使用与发布 §3.2）：`none` 没有；`current` 指向本 App 的入口；`stale` 指向另一份 BaoCut 入口
+ * （例如移动前的 App）；`broken` 指向的位置不在了；`foreign` 那里有一个不是 BaoCut 入口的东西，BaoCut 永不覆盖或删除它。
+ */
+export type CliEntryState = 'none' | 'current' | 'stale' | 'broken' | 'foreign';
+
+/** `cliEntry.status` 与写操作的结果。 */
+export interface CliEntryStatus {
+  /** App 自带的命令行入口（macOS `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 安装目录里的 `baocut.cmd`）；源码 Runtime 为 null，这时装不了。 */
+  entry: string | null;
+  /** BaoCut 放入口的位置：macOS 与 Linux 是 `~/.local/bin/baocut`（软链接），Windows 是 `%LOCALAPPDATA%\BaoCut\bin\baocut.cmd`（转发脚本）。 */
+  path: string;
+  state: CliEntryState;
+  /** 软链接指向、或转发脚本转发到的位置；`none` 与认不出的 `foreign` 为 null。 */
+  target: string | null;
+  /** 这个位置是 BaoCut 放的，而且还是放时的样子（记在 Runtime Home 的 `cli-entry.json`）：App 启动时只修这种。 */
+  managed: boolean;
+  /**
+   * 终端里会找到哪个 `baocut`：macOS 与 Linux 按用户登录交互 shell 的 PATH 找，Windows 按注册表里的系统与用户 PATH 找。
+   * `found` 为 null 是没找到；`dirOnPath` 指 `path` 所在的目录在这个 PATH 上。整个为 null 是查不出（超时、没有 shell）。
+   */
+  shell: { found: string | null; dirOnPath: boolean } | null;
+  /** `path` 所在的目录不在 PATH 上时要加进 shell 配置的那一行与文件（不认识的 shell 时 `file` 为 null）；Windows 安装时自己加，为 null。 */
+  pathHint: { line: string; file: string | null } | null;
+}
+
+/**
  * 工具名与参数名在 CLI 上的写法（Agent 面设计 §4.1）。CLI 的命令树与旗标、Runtime 给 CLI 渲染的 `next`、说明书的渲染器
  * （`agent-skill-renderer.ts`）与 craft 同步脚本共用这一份规则：
  *

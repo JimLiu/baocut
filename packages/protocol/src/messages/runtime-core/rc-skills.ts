@@ -145,6 +145,14 @@ const en = {
   agentSkillBadRoot: (p: { path: string }) => `Install into a specific folder, not the file system root, your home folder, or an agent's config or skills folder: ${p.path}`,
   agentSkillRootMissing: (p: { path: string }) => `Folder not found: ${p.path}`,
   agentSkillLocalOnly: 'Installing the BaoCut skill for other agents is only available in the desktop app and the CLI',
+
+  // 终端里的 `baocut` 入口（cliEntry.*，CLI 独立使用与发布 §3.2）
+  cliEntryUnavailable:
+    "This Runtime didn't start from the installed BaoCut app, so there's no app command line for baocut to point to. Install it from the BaoCut app",
+  cliEntryTaken: (p: { path: string }) => `${p.path} already exists and BaoCut didn't put it there. BaoCut won't replace or delete it: move or rename it, then try again`,
+  cliEntryPathFailed: (p: { dir: string }) =>
+    `baocut is in ${p.dir}, but BaoCut couldn't add that folder to your user PATH. Add it yourself: search the Start menu for "Edit environment variables for your account"`,
+  cliEntryLocalOnly: 'Installing the baocut command is only available in the desktop app and the CLI',
 };
 
 export type RcSkillsMessages = typeof en;

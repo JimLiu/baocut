@@ -14,7 +14,7 @@ Electron 升级同时更新 `package.json`、根 lockfile 与安装脚本许可�
 
 ## 外部 Agent 与 CLI
 
-桌面构建把当前 CLI、离线工具目录和 Runtime 放在同一个 App 中。macOS 的入口是 `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 是安装目录里的 `baocut.cmd`；两者都使用包内的 Electron，无需另装 Node，也不自动向系统 PATH 写文件（`baocut skill status` 与 Skills 页给出可复制的命令）。把该入口的完整路径设为 `BAOCUT_CLI`，或通过绝对路径调用。macOS 的启动器也支持用户自己建立的符号链接；打包时用 Xcode 的 clang 编译为与宿主相同架构的 Mach-O，随 App 签名，避免脚本放在 `Contents/MacOS` 造成嵌套代码签名失败。
+桌面构建把当前 CLI、离线工具目录和 Runtime 放在同一个 App 中。macOS 的入口是 `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 是安装目录里的 `baocut.cmd`；两者都使用包内的 Electron，无需另装 Node。让终端直接找到 `baocut`：用入口的完整路径跑一次 `cli install`（如 `/Applications/BaoCut.app/Contents/MacOS/baocut-cli cli install`），或在 Skills 页「在终端或其他应用的 Agent 里使用 BaoCut」卡片里安装。macOS 在 `~/.local/bin/baocut` 放指向入口的软链接，Windows 在 `%LOCALAPPDATA%\BaoCut\bin` 放转发用的 `baocut.cmd` 并把这个目录加进用户 PATH（对新开的终端生效）；都不要管理员权限，那里已有不是 BaoCut 放的文件时不覆盖。`~/.local/bin` 不在 shell 的 PATH 上时 `baocut cli status` 给出要加进配置的那一行；App 被移动后，下次启动会把自己装的链接改指向新位置。也可以把入口的完整路径设为 `BAOCUT_CLI`，或通过绝对路径调用。macOS 的启动器也支持用户自己建立的符号链接；打包时用 Xcode 的 clang 编译为与宿主相同架构的 Mach-O，随 App 签名，避免脚本放在 `Contents/MacOS` 造成嵌套代码签名失败。
 
 先运行入口的 `version`：没有 Runtime 时只报告 CLI 版本，已有 Runtime 时检查工具接口是否兼容；不要用 App 的营销版本号代替这个检查。确认后可用该入口执行 `skill install`：默认在 `~/.agents/skills/baocut` 与 `~/.claude/skills/baocut` 放指向包内 `resources/agent-skill/baocut` 的软链接，之后随 App 更新，不用重装；`--dir <文件夹>` 装到任意文件夹，`--copy` 改为复制。CLI 优先启动自身所在 App 的 Runtime、读取同一包的说明书；显式的 `BAOCUT_RUNTIME_ENTRY` 仍优先。
 

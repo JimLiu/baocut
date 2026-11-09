@@ -46,9 +46,28 @@ export const zhHant: SkillsMessages = {
   statusCli: (entry) => `命令列    ${entry ?? '未隨附（開發版）'}`,
   statusOnPath: (path, target, fromApp) => `終端機    ${path}${target ? ` → ${target}` : ''}${fromApp ? '（就是這個應用程式的）' : '（不是這個應用程式的）'}`,
   statusNotOnPath: (command) => `終端機    PATH 裡沒有 baocut${command ? `；想在任何終端機使用：${command}` : ''}`,
-  statusAddToPath: (dir) => `終端機    PATH 裡沒有 baocut；想在任何終端機使用，請把 ${dir} 加入使用者的 PATH`,
   appOutsideApplications: 'BaoCut 不是從「應用程式」資料夾執行：移動或刪除應用程式後符號連結會失效',
   globalHeading: '全域',
   state: { none: '未安裝', current: '最新', stale: '已過期', broken: '連結失效', foreign: '已有其他東西（不動它）' },
   mode: { link: '符號連結', copy: '副本' },
+
+  cliHelp: `用法：
+  baocut cli install               把 baocut 放進 PATH，指向 BaoCut 應用程式內的命令列。macOS：在 ~/.local/bin/baocut 放符號連結；
+                                   Windows：寫入 %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd，並把這個資料夾加入使用者的 PATH。
+                                   不需要管理員權限
+  baocut cli status                baocut 放在哪、是否指向這個應用程式，以及終端機實際會用哪個 baocut
+  baocut cli remove                移除 baocut cli install 放的東西。那個位置上不是 BaoCut 放的東西永不取代或刪除`,
+  cliStatusEntry: (path, target, state) => `入口      ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `應用程式  ${entry ?? '沒有內建命令列（開發版）：請在 BaoCut 應用程式裡安裝'}`,
+  cliStatusTerminal: (found) => `終端機    ${found ?? '找不到 baocut'}`,
+  cliStatusUnchecked: '終端機    查不出終端機的 PATH：開啟新的終端機，執行 baocut version 看看',
+  cliShadowed: (found, dir) => `終端機    先找到的是 ${found}。想用這一個，請先移除它，或把 ${dir} 放到 PATH 中更前面的位置`,
+  cliPathHint: (dir, line, file) => `${dir} 還不在終端機的 PATH 裡。把下面這行加入 ${file ?? 'shell 的設定檔'}，再開啟新的終端機：\n  ${line}`,
+  cliInstalled: (path, target) => `已安裝 ${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir} 已加入使用者的 PATH：開啟新的終端機就能使用 baocut`,
+  cliRemoved: (path) => `已移除 ${path}`,
+  cliNothingToRemove: (path) => `${path} 沒有要移除的東西`,
+  cliInstallHint: 'baocut cli install 會把 baocut 放進 PATH',
+  cliFixHint: 'baocut cli install 會讓它改指向這個應用程式',
+  cliState: { none: '未安裝', current: '指向這個應用程式', stale: '指向另一份 BaoCut', broken: '指向的位置已經不存在', foreign: '已有其他東西（不動它）' },
 };

@@ -41,9 +41,30 @@ export const pl: SkillsMessages = {
   statusCli: (entry) => `CLI       ${entry ?? 'nie dołączone (wersja deweloperska)'}`,
   statusOnPath: (path, target, fromApp) => `Terminal  ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (z tej aplikacji)' : ' (nie z tej aplikacji)'}`,
   statusNotOnPath: (command) => `Terminal  baocut nie ma w PATH${command ? `; aby używać go w każdym terminalu: ${command}` : ''}`,
-  statusAddToPath: (dir) => `Terminal  baocut nie ma w PATH; aby używać go w każdym terminalu, dodaj ${dir} do PATH użytkownika`,
   appOutsideApplications: 'BaoCut nie działa z folderu Aplikacje: dowiązania przestaną działać, jeśli przeniesiesz lub usuniesz aplikację',
   globalHeading: 'Globalnie',
   state: { none: 'Nie zainstalowano', current: 'Aktualny', stale: 'Nieaktualny', broken: 'Uszkodzone dowiązanie', foreign: 'Jest tam coś innego (bez zmian)' },
   mode: { link: 'Dowiązanie', copy: 'Kopia' },
+
+  cliHelp: `Użycie:
+  baocut cli install               Umieszcza baocut w PATH, wskazując na wiersz poleceń w aplikacji BaoCut. macOS: dowiązanie
+                                   w ~/.local/bin/baocut. Windows: %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd, a ten folder
+                                   zostaje dodany do PATH użytkownika. Nie wymaga uprawnień administratora
+  baocut cli status                Gdzie jest baocut, czy wskazuje na tę aplikację i które baocut znajduje terminal
+  baocut cli remove                Usuwa to, co umieściło baocut cli install. To, co jest w tym miejscu, a czego nie umieścił
+                                   BaoCut, nigdy nie jest zastępowane ani usuwane`,
+  cliStatusEntry: (path, target, state) => `Polecenie ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `Aplikacja ${entry ?? 'brak dołączonego wiersza poleceń (wersja deweloperska): zainstaluj baocut z aplikacji BaoCut'}`,
+  cliStatusTerminal: (found) => `Terminal  ${found ?? 'nie znaleziono baocut'}`,
+  cliStatusUnchecked: 'Terminal  nie udało się sprawdzić PATH terminala: otwórz nowy terminal i uruchom baocut version',
+  cliShadowed: (found, dir) => `Terminal  najpierw znajduje ${found}. Aby używać tego, usuń tamto albo przesuń ${dir} wcześniej w PATH`,
+  cliPathHint: (dir, line, file) =>
+    `${dir} nie jest jeszcze w PATH terminala. Dodaj ten wiersz do ${file ?? 'konfiguracji powłoki'}, a potem otwórz nowy terminal:\n  ${line}`,
+  cliInstalled: (path, target) => `Zainstalowano: ${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir} jest w PATH użytkownika: otwórz nowy terminal, aby używać baocut`,
+  cliRemoved: (path) => `Usunięto: ${path}`,
+  cliNothingToRemove: (path) => `Nic do usunięcia w ${path}`,
+  cliInstallHint: 'baocut cli install umieszcza baocut w PATH',
+  cliFixHint: 'baocut cli install przestawi je na tę aplikację',
+  cliState: { none: 'Nie zainstalowano', current: 'Wskazuje na tę aplikację', stale: 'Wskazuje na inne BaoCut', broken: 'Wskazuje na miejsce, które już nie istnieje', foreign: 'Jest tam coś innego (bez zmian)' },
 };

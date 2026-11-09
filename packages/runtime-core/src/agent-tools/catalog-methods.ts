@@ -5,6 +5,7 @@ import type { TrustedPrincipal } from '../gateway.ts';
 import type { RpcHandlers } from '../handlers.ts';
 import { AGENT_SKILL_ID, AgentSkillRenderError, renderAgentSkill, resolveBuiltinAgentSkillsDir } from '../skills/agent-skill-renderer.ts';
 import { AgentSkillInstaller } from '../skills/agent-skill-install.ts';
+import { CliEntryInstaller } from './cli-entry.ts';
 import { resolveLocalPrincipal } from './local-scope.ts';
 import { errorBody, type ToolCatalog, type ToolOutcome } from './tool-catalog.ts';
 import { defaultToolRisk } from './tool-scope.ts';
@@ -21,13 +22,23 @@ import { defaultToolRisk } from './tool-scope.ts';
  *
  * `agentSkill.*` 给外部 Agent 装说明书（Agent 面设计 §8.2，`AgentSkillInstaller`）：状态浏览器也能看，装与移除只给 `cli` 与
  * `desktop`。开发时没有随包的那份，用同一个渲染结果放进 Runtime Home。没有 Runtime Home（嵌入式测试）时没有这组方法。
+ *
+ * `cliEntry.*` 是终端里的 `baocut` 入口（CLI 独立使用与发布 §3.2，`CliEntryInstaller`），权限分法与 `agentSkill.*` 相同。
  */
 export function catalogMethods(
   tools: ToolCatalog,
   options: { agentSkillsDir?: () => string | null; home?: string | null; env?: NodeJS.ProcessEnv; userHome?: string } = {},
 ): Pick<
   RpcHandlers['methods'],
-  'catalog.list' | 'catalog.call' | 'catalog.agentSkill' | 'agentSkill.status' | 'agentSkill.install' | 'agentSkill.remove'
+  | 'catalog.list'
+  | 'catalog.call'
+  | 'catalog.agentSkill'
+  | 'agentSkill.status'
+  | 'agentSkill.install'
+  | 'agentSkill.remove'
+  | 'cliEntry.status'
+  | 'cliEntry.install'
+  | 'cliEntry.remove'
 > {
   const agentSkillsDir = options.agentSkillsDir ?? (() => resolveBuiltinAgentSkillsDir());
   const installer = options.home
@@ -38,11 +49,18 @@ export function catalogMethods(
         render: () => agentSkill(agentSkillsDir(), tools).files,
       })
     : null;
+  const local = (principal: TrustedPrincipal, write: boolean) =>
+    principal.kind === 'cli' || principal.kind === 'desktop' || (!write && principal.kind === 'web');
   const installs = (principal: TrustedPrincipal, write: boolean): AgentSkillInstaller => {
-    const allowed = principal.kind === 'cli' || principal.kind === 'desktop' || (!write && principal.kind === 'web');
-    if (!allowed) throw new RpcError('forbidden', RcSkills.agentSkillLocalOnly());
+    if (!local(principal, write)) throw new RpcError('forbidden', RcSkills.agentSkillLocalOnly());
     if (!installer) throw new RpcError('unsupported', RcSkills.agentSkillLocalOnly());
     return installer;
+  };
+  const cliEntry = options.home ? new CliEntryInstaller({ home: options.home, env: options.env, userHome: options.userHome }) : null;
+  const entries = (principal: TrustedPrincipal, write: boolean): CliEntryInstaller => {
+    if (!local(principal, write)) throw new RpcError('forbidden', RcSkills.cliEntryLocalOnly());
+    if (!cliEntry) throw new RpcError('unsupported', RcSkills.cliEntryLocalOnly());
+    return cliEntry;
   };
   let names: readonly string[] | null = null;
   const toolNames = () => (names ??= tools.list().map((tool) => tool.name));
@@ -78,6 +96,9 @@ export function catalogMethods(
     'agentSkill.status': (_p, principal) => installs(principal, false).status(),
     'agentSkill.install': (p, principal) => installs(principal, true).install(p.targets),
     'agentSkill.remove': (p, principal) => installs(principal, true).remove(p.targets),
+    'cliEntry.status': (_p, principal) => entries(principal, false).status(),
+    'cliEntry.install': (_p, principal) => entries(principal, true).install(),
+    'cliEntry.remove': (_p, principal) => entries(principal, true).remove(),
   };
 }
 

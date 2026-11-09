@@ -73,6 +73,7 @@ import type { ToolCandidatesParams, ToolCandidatesResult, ToolInspectInputsParam
 import type {
   AgentSkillInstallMode,
   AgentSkillStatus,
+  CliEntryStatus,
   AgentSkillTarget,
   CatalogAgentSkill,
   CatalogCallParams,
@@ -1261,6 +1262,19 @@ export interface RpcMethods extends BotRpcMethods {
   'agentSkill.install': { params: { targets: (AgentSkillTarget & { mode: AgentSkillInstallMode })[] }; result: AgentSkillStatus };
   /** 移除：软链接只删链接，副本连文件一起删（界面先确认）；`foreign` 同上拒绝。 */
   'agentSkill.remove': { params: { targets: AgentSkillTarget[] }; result: AgentSkillStatus };
+  /**
+   * 终端里的 `baocut` 入口（CLI 独立使用与发布 §3.2）：放入口的位置、状态，与终端里实际会找到哪一个。浏览器也能看；装与移除只给
+   * `cli` 与 `desktop` 连接。
+   */
+  'cliEntry.status': { params: Record<string, never>; result: CliEntryStatus };
+  /**
+   * 装或修：macOS 与 Linux 在 `~/.local/bin/baocut` 放指向 App 入口的软链接，Windows 写转发脚本并把它的目录加进用户 PATH；
+   * BaoCut 的入口（任何状态）改成指向本 App。`foreign` 时 `conflict`（`CLI_ENTRY_TAKEN`，带 `path`）；没有 App 入口（源码
+   * Runtime）时 `unsupported`（`CLI_ENTRY_UNAVAILABLE`）；Windows 改用户 PATH 失败时 `internal`（`CLI_ENTRY_PATH_FAILED`，脚本已写好）。
+   */
+  'cliEntry.install': { params: Record<string, never>; result: CliEntryStatus };
+  /** 移除 BaoCut 的入口（软链接只删链接；Windows 连同用户 PATH 里的那个目录）；`foreign` 同上拒绝，`none` 什么都不做。 */
+  'cliEntry.remove': { params: Record<string, never>; result: CliEntryStatus };
   /** 受管外部工具（架构设计 §12.9）的状态：上次探测的结果（第一次调用时探测）。只在本机执行 `--version`，不联网。 */
   'externalTools.list': { params: Record<string, never>; result: { tools: ExternalToolStatus[] } };
   /** 重新探测（全部，或 `name` 这一个），返回全部工具的状态。 */

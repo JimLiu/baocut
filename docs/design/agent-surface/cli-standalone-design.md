@@ -83,8 +83,8 @@ CLI 已经能在后台无窗口地拉起正式版 Runtime：默认 Home `~/.baoc
 
 - **位置**：macOS 在 `~/.local/bin/baocut` 放软链接，指向 App 的 `baocut-cli`。目录不在时建，不要 sudo。
 - **已有文件**：`~/.local/bin/baocut` 是指向某个 BaoCut 入口的软链接时改指向；是别的文件或指向别处的链接时不覆盖，报 `foreign`（同 Agent 面设计 §8.2 的规则）。指向独立 CLI 包（§9）的链接 App 不改：那是用户专门装的命令行。
-- **PATH 检查**：装完以用户的登录交互 shell 检查（`$SHELL -ilc 'command -v baocut'`，限时几秒）。`~/.local/bin` 不在 PATH 上时给出要加进 shell 配置的那一行，不替用户改 shell 配置文件。
-- **状态**：`none`、`current`（指向本 App 的入口）、`stale`（指向另一份 BaoCut 入口，例如移动前的 App）、`broken`（指向的位置不在了）、`foreign`。App 每次启动检查自己装过的链接，`stale` 或 `broken` 时改指向自己；`foreign` 永不改动。
+- **PATH 检查**：以用户的登录交互 shell 读 PATH（`$SHELL -ilc 'printenv PATH'`，只给最小环境、限时 5 秒、只取最后一个非空行，避开 shell 启动时打印的其他内容），再在这个 PATH 里找第一个 `baocut`；Windows 读注册表里系统与用户的 `Path`。查不出（没有 shell、超时）时只说查不出，让用户开新终端自己试。`~/.local/bin` 不在 PATH 上时按用户的 shell 给出要加进配置的那一行（zsh 写 `~/.zshrc`，bash 在 macOS 写 `~/.bash_profile`、Linux 写 `~/.bashrc`，fish 用 `fish_add_path`），不替用户改 shell 配置文件；终端先找到的是别的 `baocut` 时点名它。
+- **状态**：`none`、`current`（指向本 App 的入口）、`stale`（指向另一份 BaoCut 入口，例如移动前的 App）、`broken`（指向的位置不在了）、`foreign`。`install` 时在 `<Runtime Home>/cli-entry.json` 记下位置与目标；App 每次启动检查这条记录，入口还指向记录里的目标（自己装的、之后没人改过）且是 `stale` 或 `broken` 时改指向自己，只改入口、不动 PATH；用户自己建的链接（哪怕指向别的 BaoCut）只在用户显式 `install` 时才改，`foreign` 永不改动。
 - **入口**：规则放在 Runtime 里，App 与 CLI 共用，Web 只看状态（写用户主目录只在桌面界面与 CLI 里做），与 `agentSkill.*` 的分工相同。协议方法 `cliEntry.status|install|remove`（命令与协议规范 §4.1），CLI 是管理桶的 `baocut cli install|status|remove`；App 在 Skills 页「在终端或其他应用的 Agent 里使用 BaoCut」卡片里加「安装命令行工具」。Runtime 经已有的 `BAOCUT_CLI_ENTRY` 知道 App 入口的位置。
 - **Windows**：在 `%LOCALAPPDATA%\BaoCut\bin\` 放一个 `baocut.cmd`，转发到 App 安装目录里的 `baocut.cmd`（装了独立包时转发到它的当前版本，§9.3），再把这个目录加进用户 PATH（`HKCU\Environment` 的 `Path`，改完广播 `WM_SETTINGCHANGE`），不要管理员权限。这个目录只放这一个文件；状态与 macOS 相同，`foreign` 指那里的 `baocut.cmd` 不是 BaoCut 写的转发脚本。改过的 PATH 只对新开的终端生效，装完提示这一点。
 
@@ -342,3 +342,4 @@ BaoCut 3.16.4 安装后 748 MB，实测各部分：
 - SSH 会话里钥匙串是否报 `denied`（§8.1）。
 - macOS 上 App 更新后，旧 Runtime 起的 Worker 读的是哪份文件（§4）。
 - §5.2 的 Windows 已知文件夹与语言列表的读法，在重定向到 OneDrive 的机器上核对。
+- §3.2 的 Windows 部分（转发脚本、用 PowerShell 改用户 `Path` 并广播、读注册表里的 `Path`）只有单测，没在 Windows 上跑过：装、修、移除各跑一次，看新开的 cmd 与 PowerShell 能找到 `baocut`，原 `Path` 里的 `%USERPROFILE%` 这类变量没被展开。

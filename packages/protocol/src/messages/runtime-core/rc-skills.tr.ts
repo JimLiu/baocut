@@ -29,4 +29,8 @@ renderErrorAt: (p) => `${p.file}:${p.line}: ${p.message}`, renderErrorIn: (p) =>
   agentSkillBadRoot: (p) => `Belirli bir klasöre kurun; dosya sistemi kökü, ana klasörünüz ya da bir agent'ın yapılandırma veya skills klasörü olmaz: ${p.path}`,
   agentSkillRootMissing: (p) => `Klasör bulunamadı: ${p.path}`,
   agentSkillLocalOnly: "BaoCut becerisini diğer ajanlar için yüklemek yalnızca masaüstü uygulamasında ve CLI'da yapılabilir",
+  cliEntryUnavailable: "Bu Runtime yüklü BaoCut uygulamasından başlatılmadı; bu yüzden baocut'ın gösterebileceği bir uygulama komut satırı yok. BaoCut uygulamasından yükleyin",
+  cliEntryTaken: (p) => `${p.path} zaten var ve onu BaoCut koymadı. BaoCut onu değiştirmez veya silmez: taşıyın ya da yeniden adlandırıp tekrar deneyin`,
+  cliEntryPathFailed: (p) => `baocut ${p.dir} içinde, ancak BaoCut bu klasörü kullanıcı PATH'inize ekleyemedi. Kendiniz ekleyin: Başlat menüsünde “Hesabınız için ortam değişkenlerini düzenleyin” diye arayın`,
+  cliEntryLocalOnly: "baocut komutunu yüklemek yalnızca masaüstü uygulamasında ve CLI'da yapılabilir",
 };

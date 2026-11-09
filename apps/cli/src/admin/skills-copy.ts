@@ -70,7 +70,6 @@ const en = {
     `Terminal  ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (this app)' : ' (not this app)'}`,
   statusNotOnPath: (command: string | null) =>
     `Terminal  baocut isn't on PATH${command ? `; to use it in any terminal: ${command}` : ''}`,
-  statusAddToPath: (dir: string) => `Terminal  baocut isn't on PATH; to use it in any terminal, add ${dir} to your user PATH`,
   appOutsideApplications: "BaoCut isn't running from the Applications folder: links break if you move or delete the app",
   globalHeading: 'Global',
   state: {
@@ -81,6 +80,34 @@ const en = {
     foreign: "Something else is there (left alone)",
   },
   mode: { link: 'Link', copy: 'Copy' },
+
+  cliHelp: `Usage:
+  baocut cli install               Put baocut on PATH, pointing to the command line inside the BaoCut app. macOS: a link at
+                                   ~/.local/bin/baocut. Windows: %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd, with that folder
+                                   added to your user PATH. No administrator rights needed
+  baocut cli status                Where baocut is placed, whether it points to this app, and which baocut your terminal finds
+  baocut cli remove                Remove what baocut cli install placed. Something at that path that BaoCut didn't put
+                                   there is never replaced or deleted`,
+  cliStatusEntry: (path: string, target: string | null, state: string) => `Entry     ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry: string | null) => `App       ${entry ?? 'no bundled command line (development build): install it from the BaoCut app'}`,
+  cliStatusTerminal: (found: string | null) => `Terminal  ${found ?? 'baocut not found'}`,
+  cliStatusUnchecked: "Terminal  couldn't check your terminal's PATH: open a new terminal and run baocut version",
+  cliShadowed: (found: string, dir: string) => `Terminal  finds ${found} first. To use this one, remove that or put ${dir} earlier in PATH`,
+  cliPathHint: (dir: string, line: string, file: string | null) =>
+    `${dir} isn't on your terminal's PATH yet. Add this line to ${file ?? 'your shell configuration'}, then open a new terminal:\n  ${line}`,
+  cliInstalled: (path: string, target: string) => `Installed ${path} → ${target}`,
+  cliWindowsPath: (dir: string) => `${dir} is on your user PATH: open a new terminal to use baocut`,
+  cliRemoved: (path: string) => `Removed ${path}`,
+  cliNothingToRemove: (path: string) => `Nothing to remove at ${path}`,
+  cliInstallHint: 'baocut cli install puts baocut on PATH',
+  cliFixHint: 'baocut cli install points it to this app',
+  cliState: {
+    none: 'Not installed',
+    current: 'Points to this app',
+    stale: 'Points to another BaoCut',
+    broken: 'Points to a location that no longer exists',
+    foreign: "Something else is there (left alone)",
+  },
 };
 
 export type SkillsMessages = typeof en;

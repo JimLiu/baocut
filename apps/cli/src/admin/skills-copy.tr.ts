@@ -37,9 +37,31 @@ skillHelp: `Kullanım:
   statusCli: (entry) => `CLI       ${entry ?? 'pakette yok (geliştirme sürümü)'}`,
   statusOnPath: (path, target, fromApp) => `Terminal  ${path}${target ? ` → ${target}` : ''}${fromApp ? ' (bu uygulamanın)' : ' (bu uygulamanın değil)'}`,
   statusNotOnPath: (command) => `Terminal  baocut PATH'te yok${command ? `; her terminalde kullanmak için: ${command}` : ''}`,
-  statusAddToPath: (dir) => `Terminal  baocut PATH'te yok; her terminalde kullanmak için ${dir} klasörünü kullanıcı PATH'inize ekleyin`,
   appOutsideApplications: 'BaoCut Uygulamalar klasöründen çalışmıyor: uygulamayı taşır veya silerseniz bağlantılar bozulur',
   globalHeading: 'Genel',
   state: { none: 'Yüklü değil', current: 'Güncel', stale: 'Eski', broken: 'Bozuk bağlantı', foreign: 'Orada başka bir şey var (dokunulmadı)' },
   mode: { link: 'Bağlantı', copy: 'Kopya' },
+
+  cliHelp: `Kullanım:
+  baocut cli install               baocut'ı PATH'e koyar; BaoCut uygulamasındaki komut satırına işaret eder. macOS:
+                                   ~/.local/bin/baocut konumunda bir bağlantı. Windows: %LOCALAPPDATA%\\BaoCut\\bin\\baocut.cmd,
+                                   bu klasör kullanıcı PATH'inize eklenir. Yönetici hakları gerekmez
+  baocut cli status                baocut'ın nerede olduğu, bu uygulamaya işaret edip etmediği ve terminalinizin hangi
+                                   baocut'ı bulduğu
+  baocut cli remove                baocut cli install'ın koyduğunu kaldırır. O konumda BaoCut'ın koymadığı bir şey asla
+                                   değiştirilmez veya silinmez`,
+  cliStatusEntry: (path, target, state) => `Komut     ${path}${target ? ` → ${target}` : ''} · ${state}`,
+  cliStatusApp: (entry) => `Uygulama  ${entry ?? 'paketle gelen komut satırı yok (geliştirme sürümü): BaoCut uygulamasından yükleyin'}`,
+  cliStatusTerminal: (found) => `Terminal  ${found ?? 'baocut bulunamadı'}`,
+  cliStatusUnchecked: "Terminal  terminalinizin PATH'i denetlenemedi: yeni bir terminal açıp baocut version çalıştırın",
+  cliShadowed: (found, dir) => `Terminal  önce ${found} bulunuyor. Bunu kullanmak için onu kaldırın ya da ${dir} klasörünü PATH'te daha öne alın`,
+  cliPathHint: (dir, line, file) =>
+    `${dir} henüz terminalinizin PATH'inde değil. Bu satırı ${file ? `${file} dosyasına` : 'kabuk yapılandırmanıza'} ekleyin, ardından yeni bir terminal açın:\n  ${line}`,
+  cliInstalled: (path, target) => `Yüklendi: ${path} → ${target}`,
+  cliWindowsPath: (dir) => `${dir} kullanıcı PATH'inizde: baocut'ı kullanmak için yeni bir terminal açın`,
+  cliRemoved: (path) => `Kaldırıldı: ${path}`,
+  cliNothingToRemove: (path) => `${path} konumunda kaldırılacak bir şey yok`,
+  cliInstallHint: "baocut cli install, baocut'ı PATH'e koyar",
+  cliFixHint: 'baocut cli install onu bu uygulamaya yönlendirir',
+  cliState: { none: 'Yüklü değil', current: 'Bu uygulamaya işaret ediyor', stale: "Başka bir BaoCut'a işaret ediyor", broken: 'Artık var olmayan bir konuma işaret ediyor', foreign: 'Orada başka bir şey var (dokunulmadı)' },
 };
