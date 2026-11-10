@@ -84,7 +84,7 @@ describe('条目说明与放法', () => {
     expect(brandPlacement({ name: 'a', kind: 'font', file: file('font/ttf') })).toBe('import-only');
   });
 
-  it('Lottie 一层：指向素材当前版本、循环、画面中央 18% 宽的正方', () => {
+  it('Lottie 一层：指向素材当前版本、循环、画面中央 18% 宽（高按动画的宽高比，由出框那一处算）', () => {
     const layer = lottieLayer('挥手', currentAsset(asset('ast_1', 'other', '挥手', { mediaType: 'application/json' })));
     expect(layer).toMatchObject({
       type: 'sticker',

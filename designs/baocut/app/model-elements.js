@@ -759,7 +759,7 @@
     /* `pet`（第 242 轮）：Codex Pet 雪碧图的元数据袋 `{version, state, name, author, license}`。
        版本决定图集行数（v1 九行 / v2 十一行），没有它画布算不出 background-size；署名
        跟着元素走是因为社区 pet 的许可五花八门，导出时要能报出来。 */
-    sticker:  Object.assign({asset: 'asset', assetKind: 'assetKind', builtin: 'builtin', pet: 'pet'}, MEDIA_KEYS),
+    sticker:  Object.assign({asset: 'asset', assetKind: 'assetKind', builtin: 'builtin', pet: 'pet', host: 'host'}, MEDIA_KEYS),
     /* 字幕（第 102 轮）。它的 `st` / `set` 不是元素样式袋，是**这一条字幕轨自己那份
        文档**（`stage.jsx` 的 `subSt` / `subSet`），所以只需要把两处叫法不同的键接上：
        画布词表叫 `lineHeight` / `letterSpacing`，字幕轨里叫 `lh` / `spacing`（后者是

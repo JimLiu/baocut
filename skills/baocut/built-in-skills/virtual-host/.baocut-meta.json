@@ -17,20 +17,20 @@
     "vi": "Người dẫn ảo"
   },
   "summary": {
-    "zh-Hans": "生成一个卡通主播，跟着旁白自动对口型、眨眼、点头、换表情，常驻在画面角落讲解或在场景里出镜",
-    "zh-Hant": "生成一個卡通主播，跟著旁白自動對口型、眨眼、點頭、換表情，常駐在畫面角落講解或在場景裡出鏡",
-    "en": "Generate a cartoon host that lip-syncs to the narration, blinks, nods and changes expression, in a corner or a scene",
-    "ja": "ナレーションに合わせて口を動かし、まばたき、うなずき、表情を変えるアニメの司会を作り、画面の隅や場面に出す",
-    "ko": "내레이션에 맞춰 입을 맞추고 눈을 깜빡이고 끄덕이며 표정을 바꾸는 만화 진행자를 만들어 화면 구석이나 장면에 배치",
-    "es": "Crea un presentador de dibujos que mueve la boca con la narración, parpadea, asiente y cambia de expresión",
-    "fr": "Crée un présentateur dessiné qui suit la narration des lèvres, cligne des yeux, hoche la tête et change d'expression",
-    "de": "Erstellt einen Cartoon-Moderator, der lippensynchron zur Erzählung spricht, blinzelt, nickt und die Miene wechselt",
-    "nl": "Maakt een cartoonpresentator die lipsynchroon met de voice-over praat, knippert, knikt en van gezicht wisselt",
-    "pt-BR": "Cria um apresentador de desenho que sincroniza os lábios com a narração, pisca, acena e muda de expressão",
-    "it": "Crea un presentatore a cartoni che muove le labbra sulla narrazione, sbatte le palpebre, annuisce e cambia espressione",
-    "ru": "Создаёт мультяшного ведущего, который говорит в такт озвучке, моргает, кивает и меняет выражение лица",
-    "pl": "Tworzy rysunkowego prowadzącego, który rusza ustami do narracji, mruga, kiwa głową i zmienia minę",
-    "tr": "Anlatıma göre dudak senkronu yapan, göz kırpan, başını sallayan ve ifade değiştiren bir çizgi sunucu oluşturur",
-    "vi": "Tạo người dẫn hoạt hình nhép miệng theo lời bình, chớp mắt, gật đầu, đổi nét mặt, ở góc khung hình hoặc trong cảnh"
+    "zh-Hans": "用内置主播或生成一个卡通主播，跟着旁白自动对口型、眨眼、点头、换表情，常驻在画面角落讲解或在场景里出镜",
+    "zh-Hant": "用內建主播或生成一個卡通主播，跟著旁白自動對口型、眨眼、點頭、換表情，常駐在畫面角落講解或在場景裡出鏡",
+    "en": "Use a built-in cartoon host or generate one that lip-syncs to the narration, blinks, nods and changes expression",
+    "ja": "内蔵のアニメ司会を使うか新たに作り、ナレーションに合わせて口を動かし、まばたき、うなずき、表情を変えて画面の隅や場面に出す",
+    "ko": "내장 만화 진행자를 쓰거나 새로 만들어 내레이션에 맞춰 입을 맞추고 눈을 깜빡이고 끄덕이며 표정을 바꾸게 하고 화면 구석이나 장면에 배치",
+    "es": "Usa un presentador de dibujos incluido o crea uno que habla con la narración, parpadea, asiente y cambia de gesto",
+    "fr": "Utilise un présentateur dessiné intégré ou en crée un qui parle sur la narration, cligne des yeux et change d'expression",
+    "de": "Nutzt einen eingebauten Cartoon-Moderator oder erstellt einen, der lippensynchron spricht, blinzelt und Mienen wechselt",
+    "nl": "Gebruikt een ingebouwde cartoonpresentator of maakt er een die lipsynchroon praat, knippert, knikt en van mimiek wisselt",
+    "pt-BR": "Usa um apresentador de desenho embutido ou cria um que fala no ritmo da narração, pisca, acena e muda de expressão",
+    "it": "Usa un presentatore a cartoni integrato o ne crea uno che parla sulla narrazione, sbatte le ciglia e cambia espressione",
+    "ru": "Берёт встроенного мультяшного ведущего или создаёт нового: он говорит в такт озвучке, моргает, кивает и меняет мимику",
+    "pl": "Używa wbudowanego rysunkowego prowadzącego lub tworzy nowego, który mówi do narracji, mruga, kiwa głową i zmienia minę",
+    "tr": "Yerleşik bir çizgi sunucuyu kullanır ya da anlatımla dudak senkronu yapan, göz kırpan ve mimik değiştiren yenisini yapar",
+    "vi": "Dùng người dẫn hoạt hình có sẵn hoặc tạo mới, nhép miệng theo lời bình, chớp mắt, gật đầu, đổi nét mặt ở góc khung hình"
   }
 }

@@ -32,4 +32,15 @@ export const fr: StickerPackMessages = {
   notoHint:
     'Les cinq catégories intégrées sont des Lottie de Google Noto Animated Emoji (CC BY 4.0) : des boucles vectorielles avec transparence qui suivent la tête de lecture sur le canevas et se recolorent comme les autocollants.',
   addFailed: (message: string) => `Impossible d’ajouter l’autocollant : ${message}`,
+  hostTitle: 'Présentateurs virtuels',
+  hostNote: (count) => `${count} personnages originaux · clignement, synchro labiale, expressions`,
+  hostCategories: 'Styles de présentateur',
+  hostStyles: { anime: 'Anime', chibi: 'Chibi' },
+  hostName: (host) => host.name,
+  hostSignpost: 'Une fois placé, le présentateur cligne des yeux, respire et se balance doucement.',
+  hostLipSync: 'Pour le faire parler avec la narration ou changer d’expression, demandez à BaoCut dans une session de lui ajouter la synchro labiale.',
+  hostLipSyncWeb: 'La synchro labiale sur la narration se lance depuis l’agent ou l’app BaoCut ; le résultat se synchronise ici.',
+  noHost: 'Aucun présentateur ne correspond',
+  noHostHint: 'Essayez un autre mot ou effacez la recherche pour voir tous les présentateurs.',
+  hostAddFailed: (message) => `Impossible d’ajouter le présentateur : ${message}`,
 };

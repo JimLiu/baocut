@@ -32,4 +32,15 @@ export const nl: StickerPackMessages = {
   notoHint:
     'De vijf ingebouwde categorieën zijn Lottie-bestanden van Google Noto Animated Emoji (CC BY 4.0): vectorlussen met transparantie die op het canvas de afspeelkop volgen en net als stickers opnieuw te kleuren zijn.',
   addFailed: (message: string) => `Kan de sticker niet toevoegen: ${message}`,
+  hostTitle: 'Virtuele presentatoren',
+  hostNote: (count) => `${count} eigen personages · knipperen, lipsync, gezichtsuitdrukkingen`,
+  hostCategories: 'Presentatorstijlen',
+  hostStyles: { anime: 'Anime', chibi: 'Chibi' },
+  hostName: (host) => host.name,
+  hostSignpost: 'Eenmaal geplaatst knippert een presentator, ademt en wiegt zachtjes.',
+  hostLipSync: 'Wil je dat hij meepraat met de vertelling of van uitdrukking wisselt, vraag BaoCut dan in een sessie om lipsync.',
+  hostLipSyncWeb: 'Lipsync op de vertelling start je vanuit de Agent of de BaoCut-app; het resultaat wordt hier gesynchroniseerd.',
+  noHost: 'Geen presentator gevonden',
+  noHostHint: 'Probeer een ander woord, of wis de zoekopdracht om alle presentatoren te zien.',
+  hostAddFailed: (message) => `Kan de presentator niet toevoegen: ${message}`,
 };

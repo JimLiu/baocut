@@ -635,7 +635,7 @@ interface FocalPoint { x: number; y: number; zoom?: number }   // cover 留下�
 
 - 数值都必须是有限数。`x`、`y` 可以落在画布之外。
 - **框的宽**是 `宽度基准 × w% × scale`。宽度基准一般是画布宽；像素正方的种类量的是画布短边：没有显式高度的声波、进度条、手绘与占位框。
-- **框的高**是种类决定的自然高再乘 `scaleY`。自然高：图形有 `shape.h` 时是画布高 × `h`% × `scale`，没有时等于框宽；模板贴纸 `box` 是框宽 × 0.62，其余贴纸等于框宽；声波、进度条、手绘、占位框、彩纸按缺省落位给出的高（横条、铺满或正方）；视觉媒体由素材的显示宽高比推出；文字由排版决定。
+- **框的高**是种类决定的自然高再乘 `scaleY`。自然高：图形有 `shape.h` 时是画布高 × `h`% × `scale`，没有时等于框宽；模板贴纸 `box` 是框宽 × 0.62；素材贴纸引用图片、视频、Lottie 或角色时由素材的显示宽高比推出（Lottie 的显示宽高是动画声明的宽高，角色的是角色画布；这两种记不着时等于框宽），其余贴纸等于框宽；声波、进度条、手绘、占位框、彩纸按缺省落位给出的高（横条、铺满或正方）；视觉媒体由素材的显示宽高比推出；文字由排版决定。
 - **缺省落位**（`x` 都是 50）：文字、图形、贴纸 `w` 20、`y` 50；视频与图片 `w` 34；声波横条 `w` 100、高 20%、`y` 85，正方款 `w` 30；进度条横条 `w` 80、高 5%，正方款 `w` 30，边框款 100 × 100；手绘与彩纸 100 × 100；占位框 42 × 24。新建实例按它写入 `place`，「恢复默认」也用它。
 - **视觉媒体**。`mode: 'fullscreen'` 时框就是整张画布，`x`、`y`、`w` 不参与；`'pip'` 时按上面的规则。`fit` 决定素材怎样放进框：`cover` 铺满并裁掉多余的部分，`contain` 完整放进框里。`bg` 只在 `fullscreen` 加 `contain` 时起作用，铺满整张画布、画在素材下面：`black` 是黑色，`'#RRGGBB'` 是这种颜色，`blur` 是同一画面放大模糊；读入时颜色大小写不限，写出一律大写。素材版本记着带透明（`video.hasAlpha`，§4.1）时不铺 `bg`，透明像素与留边露出下层与画布背景，与没有 `bg` 的合成实例（§3.7）一样。
 - **圆角**。`radius` 与 `cornerRadii` 的单位是画布短边为 540 时的像素，渲染时乘 `短边 / 540`；两者都有时 `cornerRadii` 优先。圆角只裁视觉媒体，且只在 `pip` 或平铺时生效。图形自己的圆角在 `shape.cornerRadius`（§3.6），与这里的裁切是两件事。
@@ -837,8 +837,8 @@ interface CompositionItem extends VisualItemBase {
   - 不在任何一章里的帧（第一章之前、序列没有章节、`durationFrames` 留出的空档）这个实例不画，帧计划里没有它的层。这与模板层的 `{chapter}` 不同：章节外不回退到首章或末章。
   - 字在帧计划里按整帧求好，写进文字层，预览与导出画同一串。章节改了（`upsertChapter`、`setChapters`、剪口带着章节走）实例不用改：从第 0 帧铺到片尾的一个实例就是随章节换的副标题。
   - 章节文字沿用普通文字的 `style`、`place` 与 `animate`；入场与退场按实例自己的区间播，换章时直接换字，所以同计时一样不能用 `typewriter`、`riseWords`。
-- **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频、Lottie 或分层角色素材。`loop` 只对视频、Lottie 与动图（GIF、APNG）素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 与 APNG 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的动图按自己的总时长循环。APNG 只按 `.apng` 扩展名认（`mediaType` 为 `image/apng`），扩展名是 `.png` 的动画 PNG 记成 `image/png`，按第一帧的静态图画。
-- **角色贴纸**。`assetRef` 指向 `puppet` 素材的素材贴纸是角色贴纸，按[角色格式规范](puppet-format-spec.md) §5 出帧：实例局部时间 `e` 画角色时钟 `motionIn + e` 那一刻，角色按画布等比缩放、居中画进框里。角色的 `moveX` `moveY`（轻跳、动作）挪整个框（按框的方向、镜像与旋转，整像素挪框，不到一像素的余数由角色在框里画；框没转、没缩放时角色按框的像素大小画好后 1:1 贴上去，框左上角不在整像素上的零头也交给角色画，贴的时候不再重采样），框里的角色不被框边切掉；框伸出画面底边时，半身角色往上最多跳到切口齐着画面底边，框转了或上下翻了时只往下。`loop` 与 `fillOverrides` 不读。
+- **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频、Lottie 或分层角色素材，框高按素材的显示宽高比出（§3.5），编辑器的选中框、点选与帧计划的层框都是这一个框。`loop` 只对视频、Lottie 与动图（GIF、APNG）素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 与 APNG 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的动图按自己的总时长循环。APNG 只按 `.apng` 扩展名认（`mediaType` 为 `image/apng`），扩展名是 `.png` 的动画 PNG 记成 `image/png`，按第一帧的静态图画。
+- **角色贴纸**。`assetRef` 指向 `puppet` 素材的素材贴纸是角色贴纸，按[角色格式规范](puppet-format-spec.md) §5 出帧：实例局部时间 `e` 画角色时钟 `motionIn + e` 那一刻，框的高按角色画布的宽高比出（§3.5），角色按画布等比缩放、居中画进框里，没拉过高时正好画满；编辑器的选中框、点选与帧计划的层框都是这一个框。角色的 `moveX` `moveY`（轻跳、动作）挪整个框（按框的方向、镜像与旋转，整像素挪框，不到一像素的余数由角色在框里画；框没转、没缩放时角色按框的像素大小画好后 1:1 贴上去，框左上角不在整像素上的零头也交给角色画，贴的时候不再重采样），框里的角色不被框边切掉；框伸出画面底边时，半身角色往上最多跳到切口齐着画面底边，框转了或上下翻了时只往下。`loop` 与 `fillOverrides` 不读。
   - `motionRef` 是一个动作轨素材（`kind: 'other'`，`mediaType` 为 `application/x-baocut-puppet-track+json`）；没有时角色只做待机动作。`motionRef` 与 `motionIn` 只能写在角色贴纸上，`motionRef` 指向别的素材时拒绝（`INVALID_OPERATION`）。
   - 待机动作的种子是实例 lineage 的 `originItemId`（没有 lineage 时是实例 ID）的 32 位 FNV-1a 摘要：拆开的各段种子相同，复制出来的实例各不相同。
   - 拆分时右半的 `motionIn` 加上拆分点的局部时间；裁掉开头时加上起点后移的时间，往前拉长时减去；结果为 0 时省略。所以拆开的两段在接缝处接得上（角色格式规范 §5）。合并（`joinItems`）要求靠后那件的 `motionIn` 等于靠前那件的 `motionIn` 加它的长度，否则是 `source-gap`（`details.field: 'motionIn'`）；留下靠前那件的。
@@ -1453,7 +1453,7 @@ interface Provenance {
 - 来源可以记本机路径。从本机媒体新建的视频（转录流程，`origin: 'file-import'`，架构设计 §7.9），`source.path` 是原文件的绝对路径，`source.jobId` 是这次运行。它只说明素材从哪里来，不用来定位：读素材只看 `storage.locator`（§4.2），文件之后移动、改名或重新链接，来源都不跟着改。打包成便携包时这个路径换成占位（§8）。
 - 从链接下载的素材，`origin` 为 `link-import`（架构设计 §7.9），`source` 记：`url`（脱敏的链接）、`webpageUrl`、`platform`、`mediaId`、`title`、`uploader`、`uploadDate`、`durationSec`、`description`（页面简介，去掉首尾空白，最多 20000 个字符）、`chapters`（平台给的章节 `[{ start, end?, title }]`，源时间秒：丢掉起点不是有限非负数的与空标题，标题合并空白、最多 160 个字符，按起点排序、同起点只留第一条，最多 400 条；`end` 只在大于 `start` 时写；yt-dlp 给没标题的章节填的 `<Untitled Chapter N>` 照原样记下，读取时当作只有分界、没有标题，见架构设计 §7.9）、`tool`（`{ name, version, source }`）、`downloadedAt` 与流程的 `jobId`。平台没有给简介或章节时这两个字段省略，之前的版本导入的素材也没有它们。简介与章节是作者写的参考：读取视频的摘要列出它们，`chapters_adopt` 把章节吸附到转写后写成序列的章节（§3.13）；素材本身不因它们改变。
 - 从用户库拷进来的素材，`origin` 为 `library`，`source.library` 记下条目所在的库、条目 ID、版本、内容摘要、名字与种类（架构设计 §5.9）；之后库里的修改与删除不改变这个素材。
-- 从随应用分发的贴纸拷进来的素材（元素面板的贴纸与动态贴纸，命令与协议规范 §4.1 的 `stickers.applyToVideo`），`origin` 为 `sticker-pack`，`source.stickerPack.id` 记贴纸 ID（`<包>-<文件>`，如 `featured-01.svg`）；文件以 `managed` 拷进视频，之后应用升级换了这张贴纸也不改变这个素材。
+- 从随应用分发的贴纸拷进来的素材（元素面板的贴纸与动态贴纸，命令与协议规范 §4.1 的 `stickers.applyToVideo`），`origin` 为 `sticker-pack`，`source.stickerPack.id` 记贴纸 ID（`<包>-<文件>`，如 `featured-01.svg`；元素面板「虚拟主播」一节的内置主播是角色包，如 `host-rin.bcpuppet`）；文件以 `managed` 拷进视频，之后应用升级换了这张贴纸也不改变这个素材。
 - 元素面板里的 Codex Pets 拷进来的素材（命令与协议规范 §4.1 的 `pets.applyToVideo`），`origin` 为 `codex-pet`，`source.codexPet` 记 `{ source, slug, name, author, license, version }`：`source` 是 `community`（awesome-codex-pet 的社区 pet），`version` 是图集版本（1 或 2），`license` 是作者自报的许可原文。素材是待机那一行编成的循环 APNG（`image/apng`，§3.7），以 `managed` 拷进视频，之后上游换了图集也不改变这个素材。
 - 叠加模板按路径引用的台标（§3.17 的 `src: { file }`）登记成的素材，`origin` 为 `template-logo`，`source.templateLogo.file` 记模板里的那个相对路径；文件以 `linked` 留在项目里，渲染按这个来源找到它。
 - 用户上传的媒体只记录已知的出处；上传不代表拥有第三方素材的全部权利。

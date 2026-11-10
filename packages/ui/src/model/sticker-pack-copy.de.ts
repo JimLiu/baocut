@@ -32,4 +32,15 @@ export const de: StickerPackMessages = {
   notoHint:
     'Die fünf integrierten Kategorien sind Lottie-Dateien aus Google Noto Animated Emoji (CC BY 4.0): Vektorschleifen mit Transparenz, die auf der Arbeitsfläche dem Abspielkopf folgen und sich wie Sticker umfärben lassen.',
   addFailed: (message: string) => `Sticker konnte nicht hinzugefügt werden: ${message}`,
+  hostTitle: 'Virtuelle Moderatoren',
+  hostNote: (count) => `${count} eigene Figuren · Blinzeln, Lippensynchronität, Mimik`,
+  hostCategories: 'Moderatorenstile',
+  hostStyles: { anime: 'Anime', chibi: 'Chibi' },
+  hostName: (host) => host.name,
+  hostSignpost: 'Einmal platziert, blinzelt der Moderator, atmet und wiegt sich sanft.',
+  hostLipSync: 'Damit er zur Erzählung spricht oder die Mimik wechselt, bitte BaoCut in einer Sitzung, ihn lippensynchron zu machen.',
+  hostLipSyncWeb: 'Die Lippensynchronisation zur Erzählung startest du im Agenten oder in der BaoCut-App; das Ergebnis wird hierher synchronisiert.',
+  noHost: 'Kein passender Moderator',
+  noHostHint: 'Versuche ein anderes Wort oder leere die Suche, um alle Moderatoren zu sehen.',
+  hostAddFailed: (message) => `Moderator konnte nicht hinzugefügt werden: ${message}`,
 };

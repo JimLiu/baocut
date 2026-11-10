@@ -42,6 +42,8 @@ import {
   confettiAt,
   findPack,
   headStickers,
+  hostStickers,
+  matchHosts,
   matchPacks,
   packLabel,
   packStickerName,
@@ -59,6 +61,7 @@ import { useBrandStickers, type BrandSticker } from './use-brand-stickers.ts';
 import { useInsertVisual } from './use-insert-visual.ts';
 import { usePackSticker } from './use-pack-sticker.ts';
 import { PetPeekGrid, PetSection, petPeek } from './elements-pets.tsx';
+import { HostGrid, HostSection, hostChips, type HostSub } from './elements-hosts.tsx';
 import { PET_COPY as PT } from '../../model/pet-copy.ts';
 import { useTemplateActions } from './use-template-actions.ts';
 import { useTemplateCatalog } from './use-template-catalog.ts';
@@ -70,8 +73,11 @@ import { TEMPLATE_COPY as TC } from './template-copy.ts';
 const PEEK = 4;
 
 type Section = ElementSection['key'];
-/** 钻进去的那一页：元素目录的几段，加上模板（BaoCut 特有，不占顶层 chip，只有目录页的「查看全部」与组 chip 钻得进去）。 */
-type Page = Section | 'all' | 'template';
+/**
+ * 钻进去的那一页：元素目录的几段，加上虚拟主播与模板（BaoCut 特有，不占顶层 chip，只有目录页的「查看全部」与分节头下的
+ * chip 钻得进去）。
+ */
+type Page = Section | 'all' | 'host' | 'template';
 const CHIPS: { key: Section | 'all'; label: string }[] = [
   {
     key: 'all',
@@ -281,6 +287,7 @@ export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets
   const [viz, setViz] = useState<VizSub>('all');
   const [dyn, setDyn] = useState<DynSub>('all');
   const [stk, setStk] = useState<StickerSub>('all');
+  const [hsub, setHsub] = useState<HostSub>('all');
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const editable = useVideo((s) => canEdit(s.video));
@@ -315,10 +322,15 @@ export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets
   const current =
     tab === 'template'
       ? { title: TC.section, note: TC.sectionNote(builtinCount) }
-      : root
-        ? null
-        : elementSections().find((section) => section.key === tab);
+      : tab === 'host'
+        ? { title: SP.hostTitle, note: SP.hostNote(hostStickers().length) }
+        : root
+          ? null
+          : elementSections().find((section) => section.key === tab);
   const peeking = root && !query.trim();
+  // 虚拟主播（设计稿目录页的一段，摆在 CTA 弹窗之后、模板之前）：目录页总摆，搜索时有命中的角色才摆。
+  const hosts = root && q ? matchHosts('all', q) : [];
+  const showHosts = peeking || hosts.length > 0;
   // CTA 弹窗（设计稿目录页的一段）：只在目录页不搜索时单独摆；搜索时它跟着贴纸那一段走，免得同一包摆两次。
   const cta = findPack(CTA_PACK)!;
   const showCta = peeking;
@@ -336,10 +348,12 @@ export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets
     setViz('all');
     setDyn('all');
     setStk('all');
+    setHsub('all');
     setTgrp('all');
   };
-  const open = (section: Section | 'template', sub?: string) => {
+  const open = (section: Section | 'host' | 'template', sub?: string) => {
     if (section === 'template') setTgrp(sub ?? 'all');
+    if (section === 'host') setHsub((sub as HostSub | undefined) ?? 'all');
     if (section === 'visualizer') setViz((sub as VizSub | undefined) ?? 'all');
     if (section === 'dynamic') setDyn(sub ?? 'all');
     if (section === 'sticker') setStk(sub ?? 'all');
@@ -399,11 +413,12 @@ export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets
       ) : null}
       {tab === 'visualizer' ? <PanelChips<VizSub> label={EL.visualizerCategories} items={VIZ_CHIPS} value={viz} onChange={setViz} /> : null}
       {tab === 'dynamic' ? <PanelChips<DynSub> label={EL.dynamicCategories} items={dynChips()} value={dyn} onChange={setDyn} /> : null}
+      {tab === 'host' ? <PanelChips<HostSub> label={SP.hostCategories} items={hostChips()} value={hsub} onChange={setHsub} /> : null}
       {tab === 'template' ? (
         <PanelChips<string> label={TC.categories} items={templateChips(allGroups)} value={tgrp} onChange={setTgrp} />
       ) : null}
       <div className={`${panelBody} bc-scroll`}>
-        {sections.length || showTemplates ? (
+        {sections.length || showHosts || showTemplates || tab === 'host' ? (
           sections.map((section, index) => (
             <div key={section.key}>
               {root ? (
@@ -478,12 +493,25 @@ export function ElementsPanel({ sequence, assets }: { sequence: Sequence; assets
             <PackTileGrid className={grid} stickers={packStickers(cta).slice(0, PEEK)} {...packTiles} />
           </div>
         ) : null}
+        {showHosts ? (
+          <div>
+            <SecHead
+              first={sections.length === 0}
+              aside={SP.hostNote(hostStickers().length)}
+              action={peeking ? <ViewAll onPress={() => open('host')} /> : null}>
+              {SP.hostTitle}
+            </SecHead>
+            {peeking ? <SubChips label={SP.hostCategories} items={hostChips()} onPick={(key) => open('host', key)} /> : null}
+            <HostGrid stickers={peeking ? hostStickers().slice(0, PEEK) : hosts} {...packTiles} />
+          </div>
+        ) : null}
+        {tab === 'host' ? <HostSection sub={hsub} query={q} {...packTiles} /> : null}
         {showTemplates ? (
           <div>
             {root ? (
               <>
                 <SecHead
-                  first={sections.length === 0}
+                  first={sections.length === 0 && !showHosts}
                   aside={TC.sectionNote(builtinCount)}
                   action={peeking ? <ViewAll onPress={() => open('template')} /> : null}
                 >

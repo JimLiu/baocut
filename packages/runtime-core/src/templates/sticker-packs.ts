@@ -5,11 +5,14 @@ import {
   APPLIED_ASSET_REF,
   RpcError,
   STICKER_PACK_ORIGIN,
+  hostThumbnailPath,
   packSticker,
+  stickerHost,
   type MediaHandle,
   type PackSticker,
   type StickerApplyParams,
   type StickerApplyResult,
+  type StickerHandleParams,
 } from '@baocut/protocol';
 import { RcCommon, RcStickers } from '@baocut/protocol/messages/runtime-core';
 import type { TrustedPrincipal } from '../gateway.ts';
@@ -49,23 +52,24 @@ function isDirectory(dir: string): boolean {
 export interface StickerPacksOptions {
   /** `resolveStickerPacksDir` 的结果；null 表示这份应用没有带贴纸。 */
   dir: string | null;
-  /** 动态贴纸不随包，从素材 CDN 取（`stickers/anim/<ID>`）；null 时只用 `dir` 里有的。 */
+  /** 动态贴纸与内置主播的角色包不随包，从素材 CDN 取（`stickers/anim/<ID>`、`stickers/hosts/<ID>`）；null 时只用 `dir` 里有的。 */
   online: OnlineAssets | null;
   videos: VideoService;
 }
 
-/** 动态贴纸的清单（随包的 `anim/provenance.json`）里每个文件的大小与 sha256。 */
-type AnimatedManifest = Record<string, { bytes: number; sha256: string }>;
+/** 不随包那几族的清单（随包的 `anim/provenance.json`、`hosts/provenance.json`）里每个文件的大小与 sha256，按贴纸 ID。 */
+type OnlineManifest = Record<string, { bytes: number; sha256: string }>;
 
 /**
- * 随包贴纸（`stickers.*`）：目录在 `@baocut/protocol` 的 `sticker-packs.ts`。静态贴纸的字节在应用的 `stickers/`；动态贴纸
- * 只带清单（`anim/provenance.json`），字节用到时从素材 CDN 取进本机缓存（`OnlineAssets`），开发时仓库里有就直接用。
+ * 随包贴纸（`stickers.*`）：目录在 `@baocut/protocol` 的 `sticker-packs.ts`。静态贴纸的字节与内置主播的缩略图在应用的
+ * `stickers/`；动态贴纸与内置主播的角色包只带清单（`anim/provenance.json`、`hosts/provenance.json`），字节用到时从素材 CDN
+ * 取进本机缓存（`OnlineAssets`），开发时仓库里有就直接用。
  * 只读：句柄只发给目录里的贴纸；拷进视频是一笔普通的编辑事务（`importAsset`，`managed`；调用方给的 `operations` 接在
  * 后面，一步撤销），之后与应用里、缓存里的那份无关。
  */
 export class StickerPacks {
   readonly #options: StickerPacksOptions;
-  #manifest: AnimatedManifest | null = null;
+  readonly #manifests = new Map<string, OnlineManifest>();
 
   constructor(options: StickerPacksOptions) {
     this.#options = options;
@@ -82,7 +86,7 @@ export class StickerPacks {
     const missing = () => new RpcError('not-found', RcStickers.stickersMissing(), { code: 'STICKER_NOT_FOUND' });
     if (!root) throw missing();
     if (fs.existsSync(path.join(root, sticker.path))) return { sticker, root, file: sticker.path };
-    const entry = sticker.animated ? this.#animatedManifest(root)?.[sticker.id] : undefined;
+    const entry = this.onlineEntry(sticker);
     const online = this.#options.online;
     if (!entry || !online) throw missing();
     const asset: OnlineAsset = { path: `stickers/${sticker.path}`, bytes: entry.bytes, sha256: entry.sha256 };
@@ -90,20 +94,47 @@ export class StickerPacks {
     return { sticker, root: online.cacheDir, file: asset.path };
   }
 
-  #animatedManifest(root: string): AnimatedManifest | null {
-    if (!this.#manifest) {
+  /** 不随包的贴纸（动态贴纸、内置主播的角色包）在清单里的大小与 sha256；静态贴纸、清单里没有或读不到清单时 null。 */
+  onlineEntry(sticker: PackSticker): { bytes: number; sha256: string } | null {
+    const root = this.#options.dir;
+    const dir = sticker.animated ? 'anim' : sticker.host ? 'hosts' : null;
+    if (!root || !dir) return null;
+    let manifest = this.#manifests.get(dir);
+    if (!manifest) {
       try {
-        this.#manifest = JSON.parse(fs.readFileSync(path.join(root, 'anim', 'provenance.json'), 'utf8')) as AnimatedManifest;
+        manifest = JSON.parse(fs.readFileSync(path.join(root, dir, 'provenance.json'), 'utf8')) as OnlineManifest;
       } catch {
         return null;
       }
+      this.#manifests.set(dir, manifest);
     }
-    return this.#manifest;
+    const entry = manifest[sticker.id];
+    return entry ? { bytes: entry.bytes, sha256: entry.sha256 } : null;
   }
 
-  /** 句柄由调用方所在通道的媒体表发：桌面网关与 Web 服务各有一张，Web 页面只能取同源的 `/media/…`。 */
-  async openHandle(p: { id: string }, media: MediaRegistry): Promise<MediaHandle> {
-    const { root, file } = await this.locate(p.id);
+  /** 应用目录里的一个文件（如内置主播的缩略图）的绝对路径；应用没带贴纸或没有这个文件时 null。不下载。 */
+  bundledFile(relative: string): string | null {
+    const root = this.#options.dir;
+    if (!root) return null;
+    const file = path.join(root, ...relative.split('/'));
+    return fs.existsSync(file) ? file : null;
+  }
+
+  /**
+   * 句柄由调用方所在通道的媒体表发：桌面网关与 Web 服务各有一张，Web 页面只能取同源的 `/media/…`。
+   * `file: 'thumbnail'` 发内置主播随包的缩略图，不下载角色包；别的贴纸没有缩略图，`not-found`。
+   */
+  async openHandle(p: StickerHandleParams, media: MediaRegistry): Promise<MediaHandle> {
+    if (p.file !== 'thumbnail') {
+      const { root, file } = await this.locate(p.id);
+      return media.issue(root, file);
+    }
+    const sticker = packSticker(p.id);
+    const host = sticker ? stickerHost(sticker) : null;
+    if (!host) throw new RpcError('not-found', RcStickers.stickerNotFound({ id: p.id }), { code: 'STICKER_NOT_FOUND' });
+    const root = this.#options.dir;
+    const file = hostThumbnailPath(host);
+    if (!root || !this.bundledFile(file)) throw new RpcError('not-found', RcStickers.stickersMissing(), { code: 'STICKER_NOT_FOUND' });
     return media.issue(root, file);
   }
 

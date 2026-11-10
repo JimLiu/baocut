@@ -126,7 +126,7 @@ test('声明了 subs 的分区，二级分类表都取得到，而且钻得进�
   const P = window.BC_ELPANEL;
   // 模板那一行（2026-09-14）：全部 ＋ 有模板的组，组按内置目录算（品牌库为空也至少有两格）
   const TPL = window.BC_TPL;
-  const tables = {pack: P.stickerChips(SK.PACKS), viz: P.VIZ_CATS,
+  const tables = {pack: P.stickerChips(SK.PACKS), viz: P.VIZ_CATS, host: P.HOST_CATS,
     tpl: P.tplChips(TPL.groupTemplates(TPL.builtins('zh'), 'zh'))};
   P.SECTIONS.forEach((sec) => {
     if (!sec.subs) return;
@@ -144,5 +144,24 @@ test('声明了 subs 的分区，二级分类表都取得到，而且钻得进�
 
 test('只有一层的分区不声明 subs——不造一行空 chip', () => {
   const P = window.BC_ELPANEL;
-  assert.deepStrictEqual(P.SECTIONS.filter((s) => s.subs).map((s) => s.k), ['st', 'viz', 'fr']);
+  assert.deepStrictEqual(P.SECTIONS.filter((s) => s.subs).map((s) => s.k), ['st', 'viz', 'host', 'fr']);
+});
+
+test('内置主播：19 个角色各有一张缩略图，次序与名字和 App 的目录一致', () => {
+  assert.strictEqual(SK.HOSTS.length, 19);
+  assert.strictEqual(new Set(SK.HOSTS.map((h) => h.id)).size, 19);
+  const app = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'packages', 'protocol', 'src', 'sticker-packs.ts'), 'utf8');
+  const ids = [...app.matchAll(/^ {4}id: '([a-z]+)',\n {4}name: '([A-Za-z]+)',\n {4}zh: '([^']+)',\n {4}style: '(anime|chibi)'/gm)]
+    .map((m) => ({id: m[1], name: m[2], zh: m[3], style: m[4]}));
+  assert.deepStrictEqual(SK.HOSTS, ids);
+  for (const it of SK.hosts()) {
+    assert.ok(fs.existsSync(path.join(DIR, 'hosts', path.basename(it.src))), it.src);
+    assert.strictEqual(it.id, 'host-' + it.host.id + '.bcpuppet');
+  }
+  assert.deepStrictEqual(SK.hosts('chibi').map((it) => it.host.id), ['momo', 'pip', 'nana', 'kuro']);
+  const P = window.BC_ELPANEL;
+  const el = P.newElement('sticker', SK.hosts()[0], {playT: 0, total: 206, seq: 1});
+  assert.ok(el.name.endsWith(' · 凛'), el.name);
+  assert.deepStrictEqual(el.style.host, {id: 'rin', name: 'Rin', zh: '凛'});
+  assert.ok(el.place.x > 50 && el.place.y > 50, '主播落在右下');
 });

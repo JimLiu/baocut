@@ -32,4 +32,15 @@ export const zhHans: StickerPackMessages = {
   notoHint:
     '五个内置分类是 Google Noto Animated Emoji 的 Lottie（CC BY 4.0）：矢量循环、带透明通道，落到画布上跟着播放头走，也能像静态贴纸一样分色改。',
   addFailed: (message: string) => `没能加入贴纸：${message}`,
+  hostTitle: '虚拟主播',
+  hostNote: (count) => `${count} 个原创角色 · 眨眼、对口型、换表情`,
+  hostCategories: '主播画风',
+  hostStyles: { anime: '动漫', chibi: 'Q 版' },
+  hostName: (host) => host.zh,
+  hostSignpost: '放上去就会眨眼、呼吸、轻轻晃动。',
+  hostLipSync: '要跟着旁白说话、换表情，在会话里让 BaoCut 给它配口型。',
+  hostLipSyncWeb: '跟着旁白配口型从 Agent 或 BaoCut App 发起，结果会同步到这里。',
+  noHost: '没有匹配的角色',
+  noHostHint: '换个词，或者清空搜索看全部角色。',
+  hostAddFailed: (message) => `没能加入主播：${message}`,
 };

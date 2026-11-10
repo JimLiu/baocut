@@ -165,6 +165,7 @@ import { resolveBuiltinAgentSkillsDir } from './skills/agent-skill-renderer.ts';
 import { SkillTools } from './agent-tools/skill-tools.ts';
 import { JobTools } from './agent-tools/job-tools.ts';
 import { ProjectTools } from './agent-tools/project-tools.ts';
+import { HostTools } from './agent-tools/host-tools.ts';
 import { LibraryTools } from './agent-tools/library-tools.ts';
 import { CompositionTools } from './agent-tools/composition-tools.ts';
 import { AssembleTools } from './agent-tools/assemble-tools.ts';
@@ -1043,6 +1044,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const citationRegistry = new MemoryCitationRegistry();
     // 一次调用会不会交给在线 Provider（花钱）：按模型服务此刻的选择判断（Bot 技术方案 §14.2）。
     const paid = servicesPaidProbe(models.services);
+    // 随包贴纸与内置主播（`stickers.*` 与 `hosts_*` 工具共用一份）：动态贴纸、角色包用到时从素材 CDN 取。
+    const stickerPacks = new StickerPacks({
+      dir: options.stickersDir === undefined ? resolveStickerPacksDir() : options.stickersDir,
+      online: onlineAssets,
+      videos,
+    });
     const toolSets = (toolScope: ToolScope): ToolSet[] => {
       // 从链接下载：`download` 与 `transcribe` 给 `url` 时共用。
       const linkImport = {
@@ -1072,6 +1079,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         new ModelInstallTools({ installs: models.installs, catalog: models.catalog, scope: toolScope }),
         new ProjectTools({ harness, videos, git: projectGit, scope: toolScope }),
         new LibraryTools({ library, scope: toolScope }),
+        new HostTools({ stickers: stickerPacks, scope: toolScope }),
         // Space 目录在后面才建好：工具调用时再取。
         new SpaceTools({ space: () => space, scope: toolScope, jobs: models.jobs }),
         // 本机语义检索与按意图取材（只读）；取材的句子编号与 speech_sentences 共用一份登记。
@@ -1394,11 +1402,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         builtinDir: options.templatesDir === undefined ? resolveBuiltinTemplatesDir() : options.templatesDir,
         userDir: path.join(home.root, 'templates'),
       }),
-      stickers: new StickerPacks({
-        dir: options.stickersDir === undefined ? resolveStickerPacksDir() : options.stickersDir,
-        online: onlineAssets,
-        videos,
-      }),
+      stickers: stickerPacks,
       pets: new CodexPets({ online: onlineAssets, videos }),
       skills,
       skillInstaller,

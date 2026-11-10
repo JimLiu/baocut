@@ -32,4 +32,15 @@ export const ja: StickerPackMessages = {
   notoHint:
     '内蔵の 5 分類は Google Noto Animated Emoji の Lottie（CC BY 4.0）です。透過付きのベクターループで、キャンバス上では再生ヘッドに合わせて動き、静止ステッカーと同じように色を変えられます。',
   addFailed: (message: string) => `ステッカーを追加できませんでした：${message}`,
+  hostTitle: 'バーチャルホスト',
+  hostNote: (count) => `オリジナルキャラクター ${count} 体 · まばたき・口パク・表情`,
+  hostCategories: 'ホストの画風',
+  hostStyles: { anime: 'アニメ', chibi: 'ちびキャラ' },
+  hostName: (host) => host.name,
+  hostSignpost: '置くだけで、まばたきし、呼吸し、ゆっくり揺れます。',
+  hostLipSync: 'ナレーションに合わせて話させたり表情を変えたりするには、セッションで BaoCut に口パクを付けてもらいます。',
+  hostLipSyncWeb: 'ナレーションへの口パク付けは Agent か BaoCut アプリから始めてください。結果はここに同期されます。',
+  noHost: '一致するホストがありません',
+  noHostHint: '別の言葉で検索するか、検索をクリアしてすべてのホストを表示してください。',
+  hostAddFailed: (message) => `ホストを追加できませんでした：${message}`,
 };

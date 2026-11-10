@@ -2,7 +2,7 @@
 //
 //   npm run stage:online-assets -- <输出目录>
 //
-// 目前只有动态贴纸。Codex Pets 不经 CDN：社区 pet 不转存，Runtime 从上游取。
+// 目前是动态贴纸与内置主播的角色包。Codex Pets 不经 CDN：社区 pet 不转存，Runtime 从上游取。
 // 目录里的相对路径就是 CDN 上的路径（`<基址>/<路径>`），整个目录原样传到桶的根。每个文件先按随包清单核对大小与 sha256，
 // 对不上就停下：Runtime 只认清单里的字节。`manifest.json` 列出这次排进去的文件，便于核对上传结果。
 import { createHash } from 'node:crypto';
@@ -35,16 +35,20 @@ function stage(source, cdnPath, expected) {
   staged.push({ path: cdnPath, bytes: bytes.length, sha256 });
 }
 
-// 动态贴纸：清单是 `stickers/anim/provenance.json`。
-const animDir = path.join(ROOT, 'stickers', 'anim');
-const animManifest = JSON.parse(readFileSync(path.join(animDir, 'provenance.json'), 'utf8'));
-for (const name of readdirSync(animDir)
-  .filter((name) => name.endsWith('.json') && name !== 'provenance.json')
-  .sort()) {
-  const entry = animManifest[name];
-  if (!entry) fail(`清单里没有：stickers/anim/${name}`);
-  stage(path.join(animDir, name), `stickers/anim/${name}`, entry);
+/** `stickers/<dir>` 里不随包的文件：清单是同目录的 `provenance.json`。 */
+function stageStickers(dir, keep) {
+  const source = path.join(ROOT, 'stickers', dir);
+  const manifest = JSON.parse(readFileSync(path.join(source, 'provenance.json'), 'utf8'));
+  for (const name of readdirSync(source).filter(keep).sort()) {
+    const entry = manifest[name];
+    if (!entry) fail(`清单里没有：stickers/${dir}/${name}`);
+    stage(path.join(source, name), `stickers/${dir}/${name}`, entry);
+  }
 }
+
+// 动态贴纸（Lottie）与内置主播的角色包；主播缩略图随包，不排。
+stageStickers('anim', (name) => name.endsWith('.json') && name !== 'provenance.json');
+stageStickers('hosts', (name) => name.endsWith('.bcpuppet'));
 
 writeFileSync(path.join(out, 'manifest.json'), `${JSON.stringify({ files: staged }, null, 2)}\n`);
 const total = staged.reduce((sum, file) => sum + file.bytes, 0);

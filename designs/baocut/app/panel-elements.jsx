@@ -60,7 +60,7 @@
     );
   }
 
-  function Browse({ctx, tab, setTab, viz, setViz, pack, setPack, acat, setACat, tgrp, setTGrp, onAdd}) {
+  function Browse({ctx, tab, setTab, viz, setViz, pack, setPack, acat, setACat, tgrp, setTGrp, hcat, setHCat, onAdd}) {
     const app = useApp();
     /* 模板目录（内置 ＋ 品牌库）按组算一次：子页的 chip 行、目录页的二级 chip 与列表都从它取。 */
     const tplGroups = window.BC_TPL.groupTemplates(window.BC_TPL.builtins(app.tplLang).concat(ctx.brandTpls || []), app.tplLang);
@@ -75,13 +75,14 @@
     const secs = root ? P.sections('all') : (cur ? [cur] : []);
     /* 返回目录时把二级筛选清回「全部」：不清的话下次进来 chip 停在上次那一格，而
        目录页的样本是各包轮流取的，头顶那行「全部」高亮就成了假话。 */
-    const back = () => { setTab('all'); setPack('all'); setACat('all'); setViz('all'); setTGrp('all'); };
+    const back = () => { setTab('all'); setPack('all'); setACat('all'); setViz('all'); setTGrp('all'); setHCat('all'); };
     /* 点「查看全部」或一格二级分类 = 带着这一格钻进那一段，不是就地筛。 */
     const open = (sec, k) => {
       if (!sec.tab) return;
       if (sec.k === 'st') setPack(k || 'all');
       else if (sec.k === 'viz') setViz(k || 'all');
       else if (sec.k === 'fr') setTGrp(k || 'all');
+      else if (sec.k === 'host') setHCat(k || 'all');
       else if (sec.pack) setPack(sec.pack);
       setTab(sec.tab);
     };
@@ -137,6 +138,15 @@
             </div>
           </div>
         ) : null}
+        {tab === 'host' ? (
+          <div className="packbar">
+            <div className="chiprow chiprow--packs">
+              {P.HOST_CATS.map((c) => (
+                <Chip key={c.k} pill on={hcat === c.k} onClick={() => setHCat(c.k)}>{c.label}</Chip>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {/* 模板子页的组 chip（2026-09-14）：全部 ＋ 当前有模板的组，与上面两行同一条做法。 */}
         {tab === 'fr' ? (
           <div className="packbar">
@@ -169,6 +179,9 @@
                   ) : null}
                   {sec.subs === 'viz' ? (
                     <SubChips items={P.VIZ_CATS} onPick={(k) => open(sec, k)} />
+                  ) : null}
+                  {sec.subs === 'host' ? (
+                    <SubChips items={P.HOST_CATS} onPick={(k) => open(sec, k)} />
                   ) : null}
                   {sec.subs === 'tpl' ? (
                     <SubChips items={P.tplChips(tplGroups)} onPick={(k) => open(sec, k)} />
@@ -210,6 +223,10 @@
                   ))}
                 </div>
               ) : null}
+
+              {sec.k === 'host'
+                ? (root ? <window.HostPeek onAdd={onAdd} /> : <window.HostSection cat={hcat} q={q} onAdd={onAdd} />)
+                : null}
 
               {sec.k === 'wb' ? <window.WhiteboardGrid onAdd={onAdd} /> : null}
 
@@ -258,6 +275,7 @@
     const [pack, setPack] = useState('all');
     const [acat, setACat] = useState('all');
     const [tgrp, setTGrp] = useState('all');
+    const [hcat, setHCat] = useState('all');
     const view = ctx.sel && ctx.sel.kind === 'element' ? ctx.sel.elKind : null;
 
     /* 点一格 = **在播放头处真新建一条元素**（第 122 轮）。此前这里只是把
@@ -296,6 +314,7 @@
           ? <window.ElementEdit key={ctx.sel.id} kind={view} seed={ctx.sel.seed} ctx={ctx}
               onBack={() => ctx.pick(null)} onDelete={del} />
           : <Browse ctx={ctx} tab={tab} setTab={setTab} viz={viz} setViz={setViz} pack={pack} setPack={setPack} tgrp={tgrp} setTGrp={setTGrp}
+              hcat={hcat} setHCat={setHCat}
               acat={acat} setACat={setACat} onAdd={add} />}
       </div>
     );

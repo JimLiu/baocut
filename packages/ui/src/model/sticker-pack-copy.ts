@@ -47,6 +47,17 @@ const en = {
   notoHint:
     'The five built-in categories are Google Noto Animated Emoji (CC BY 4.0): vector Lottie loops with transparency that follow the playhead on the canvas and can be recolored like stickers.',
   addFailed: (message: string) => `Couldn’t add the sticker: ${message}`,
+  hostTitle: 'Virtual hosts',
+  hostNote: (count: number) => `${count} original characters · blink, lip-sync, expressions`,
+  hostCategories: 'Host styles',
+  hostStyles: { anime: 'Anime', chibi: 'Chibi' },
+  hostName: (host: { name: string; zh: string }) => host.name,
+  hostSignpost: 'Once placed, a host blinks, breathes and sways gently.',
+  hostLipSync: 'To have it talk along with the narration or change expressions, ask BaoCut in a session to lip-sync it.',
+  hostLipSyncWeb: 'Lip-sync to the narration starts from the Agent or the BaoCut app; the result syncs here.',
+  noHost: 'No matching hosts',
+  noHostHint: 'Try another word, or clear the search to see all hosts.',
+  hostAddFailed: (message: string) => `Couldn’t add the host: ${message}`,
 };
 
 export type StickerPackMessages = typeof en;

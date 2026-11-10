@@ -10,6 +10,7 @@ import { GrantTools } from './grant-tools.ts';
 import { ImageTools } from './image-tools.ts';
 import { FootageTools } from './footage-tools.ts';
 import { JobTools } from './job-tools.ts';
+import { HostTools } from './host-tools.ts';
 import { LibraryTools } from './library-tools.ts';
 import { LinkImportTools } from './link-import-tools.ts';
 import { ModelInstallTools } from './model-install-tools.ts';
@@ -46,6 +47,7 @@ export function allToolSets(): ToolSet[] {
     new ModelInstallTools(none),
     new ProjectTools(none),
     new LibraryTools(none),
+    new HostTools(none),
     new SpaceTools(none),
     new SemanticTools(none),
     new SkillTools(none),

@@ -1,28 +1,30 @@
-import { newId, type MediaHandle, type StickerApplyParams, type StickerApplyResult } from '@baocut/protocol';
+import { newId, type MediaHandle, type StickerApplyParams, type StickerApplyResult, type StickerHandleParams } from '@baocut/protocol';
 import type { RuntimeSession } from './session.ts';
 
 /**
- * 随包贴纸（`stickers.*`）的命令：元素面板画缩略图要的读取地址，与把一张拷进视频。句柄按贴纸 ID 记住，到期前 30 秒就不再用。
+ * 随包贴纸（`stickers.*`）的命令：元素面板画缩略图要的读取地址，与把一张拷进视频。句柄按贴纸 ID 与文件（内置主播的
+ * 缩略图另算一份）记住，到期前 30 秒就不再用。
  */
 const handles = new Map<string, Promise<MediaHandle>>();
 const HANDLE_MARGIN_MS = 30_000;
 
-export function openStickerHandle(session: RuntimeSession, id: string): Promise<MediaHandle> {
-  const cached = handles.get(id);
+export function openStickerHandle(session: RuntimeSession, id: string, file?: StickerHandleParams['file']): Promise<MediaHandle> {
+  const key = file ? `${id}#${file}` : id;
+  const cached = handles.get(key);
   if (cached) return cached;
-  const pending = session.client.request('stickers.openHandle', { id });
-  handles.set(id, pending);
+  const pending = session.client.request('stickers.openHandle', file ? { id, file } : { id });
+  handles.set(key, pending);
   pending.then(
     (handle) => {
       const left = Date.parse(handle.expiresAt) - Date.now() - HANDLE_MARGIN_MS;
       setTimeout(
         () => {
-          if (handles.get(id) === pending) handles.delete(id);
+          if (handles.get(key) === pending) handles.delete(key);
         },
         Math.max(0, Number.isFinite(left) ? left : 0),
       );
     },
-    () => handles.delete(id),
+    () => handles.delete(key),
   );
   return pending;
 }

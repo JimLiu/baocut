@@ -37,6 +37,37 @@
     {"k":"dyn-work","en":"Work","label":"工作","total":17,"tags":"工作 办公 work office","files":["01.json","02.json","03.json","04.json","05.json","06.json","07.json","08.json","09.json","10.json","11.json","12.json","13.json","14.json","15.json","16.json","17.json"],"note":"Google Noto Animated Emoji · CC BY 4.0 · Lottie","anim":true}
   ];
 
+  /** 内置主播（2026-11-09）：BaoCut 自带的原创卡通角色包，App 里是 `stickers/hosts/host-<id>.bcpuppet`，次序与
+      `@baocut/protocol` 的 `BUILTIN_HOSTS` 相同。原型只收缩略图（静止姿势的透明 WebP），画布上也拿它代替会动的角色。
+      名字是专有名词，不翻译；`style` 是画风：`anime` 半身动漫，`chibi` Q 版。 */
+  const HOST_DIR = DIR + 'hosts/';
+  const HOSTS = [
+    {id: 'rin', name: 'Rin', zh: '凛', style: 'anime'},
+    {id: 'ren', name: 'Ren', zh: '莲', style: 'anime'},
+    {id: 'hikari', name: 'Hikari', zh: '光', style: 'anime'},
+    {id: 'sakura', name: 'Sakura', zh: '小樱', style: 'anime'},
+    {id: 'mio', name: 'Mio', zh: '澪', style: 'anime'},
+    {id: 'natsu', name: 'Natsu', zh: '小夏', style: 'anime'},
+    {id: 'yuki', name: 'Yuki', zh: '小雪', style: 'anime'},
+    {id: 'haru', name: 'Haru', zh: '阿春', style: 'anime'},
+    {id: 'kaede', name: 'Kaede', zh: '枫', style: 'anime'},
+    {id: 'sumi', name: 'Sumi', zh: '阿澄', style: 'anime'},
+    {id: 'tsubasa', name: 'Tsubasa', zh: '翼', style: 'anime'},
+    {id: 'akane', name: 'Akane', zh: '茜', style: 'anime'},
+    {id: 'rui', name: 'Rui', zh: '瑞', style: 'anime'},
+    {id: 'kenji', name: 'Kenji', zh: '健司', style: 'anime'},
+    {id: 'lumi', name: 'Lumi', zh: '露米', style: 'anime'},
+    {id: 'momo', name: 'Momo', zh: '桃桃', style: 'chibi'},
+    {id: 'pip', name: 'Pip', zh: '皮皮', style: 'chibi'},
+    {id: 'nana', name: 'Nana', zh: '娜娜', style: 'chibi'},
+    {id: 'kuro', name: 'Kuro', zh: '小黑', style: 'chibi'},
+  ];
+  /** 一种画风（`all` 或不给是全部）的角色，形状同贴纸格：`{id, src, alt, kind, host}` */
+  function hosts(style) {
+    return HOSTS.filter((h) => !style || style === 'all' || h.style === style).map((h) => ({
+      id: 'host-' + h.id + '.bcpuppet', src: HOST_DIR + 'host-' + h.id + '.webp', alt: h.zh, kind: 'image', host: h}));
+  }
+
   /** 核心那十款矢量贴纸（`layers` 的坐标是 0..1，画的时候乘格子边长） */
   const BUILTIN = [
     {id: 'badge_check', name: '对勾徽章', tags: '对勾 通过 check', layers: [{fill: '#22C55E', d: 'M0.5 0.04C0.754 0.04 0.96 0.246 0.96 0.5C0.96 0.754 0.754 0.96 0.5 0.96C0.246 0.96 0.04 0.754 0.04 0.5C0.04 0.246 0.246 0.04 0.5 0.04Z'}, {stroke: '#FFFFFF', w: 0.1, d: 'M0.28 0.51L0.44 0.67L0.73 0.33'}]},
@@ -86,5 +117,5 @@
   const total = () => PACKS.concat(ANIM).reduce((n, p) => n + p.files.length, 0);
 
   window.BC_SK = {DIR, ANIM_DIR, PACKS, ANIM, BUILTIN, P, A, src, list, find, mirrored, head,
-    search, searchAnim, total};
+    search, searchAnim, total, HOST_DIR, HOSTS, hosts};
 })();

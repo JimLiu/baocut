@@ -25,6 +25,7 @@
 - BaoCut 不读 `.livliv` 文件：格式头不同，读到 `"format": "livliv-model"` 一律拒绝（`puppet-invalid`）。
 - 角色包与动作轨分开：同一个角色换一段配音只换动作轨。动作轨由配音的音频分析生成（嘴型、元音、点头），也可以手写。
 - 内置技能 `virtual-host` 带两样生成工具：`puppet-build.mjs` 把一张正面像和几张只改一处的改图（光头、嘴的几帧、闭眼、表情）拆成角色包（表情改了眼睛时，把它画的眼睛切成 `expr_eye_L` `expr_eye_R`，两只眼都找得到开口时各带开口的 `mask`；画成闭着的眼睛留在补丁里），`rig` 只写 `neck`（下巴下面的脖子跟着转头走一半），其余的 `rig` 与 `tuning` 取缺省；`lipsync.mjs` 按逐字时间与配音的音量算动作轨，只写 `mouthOpen`、`vowel`、`angleX` `angleY` `angleZ` 与 `faces.json` 给的表情，眨眼与视线留给待机动作（§5）。用法见技能的 `references/art.md` 与 `references/lipsync.md`。
+- BaoCut 自带一组用这套工具做成的原创分层角色包（内置主播，`stickers/hosts/host-<id>.bcpuppet`，都带 `smile` `shy` `angry` `sad` `surprised` 五种表情）。目录在 `@baocut/protocol` 的 `BUILTIN_HOSTS`，智能体工具 `hosts_*` 与编辑器元素面板的「虚拟主播」一节都读它；打包的应用只带缩略图与清单，角色包用到时从素材 CDN 取，见 `stickers/README.md`。
 - mesh-avatar 角色的格式、形变、物理与表情来自 [mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（MIT）的 Rust 运行时，内置在 `crates/mesh-avatar-core`；BaoCut 读哪些、哪里不同见 §2.5。
 - 渲染只用 CPU，预览（preview.wasm）与导出用同一份实现，同一个时刻画出来逐像素相同。两种角色包画在同一个三角形光栅上。
 

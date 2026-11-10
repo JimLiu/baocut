@@ -61,6 +61,9 @@
     /* 白板手绘段暂不上架（2026-09-14：功能还没准备好）。`WhiteboardGrid` 与
        `model-whiteboard.js` 保留，回来时把 `{k: 'wb', tab: 'wb', title: '白板手绘',
        note: 'BaoCut 特有 · 三份内置示范', bao: true}` 加回这里。 */
+    /* 虚拟主播（2026-11-09）：BaoCut 自带的原创卡通角色，放上去就是一个会眨眼、呼吸的角色贴纸；跟着旁白
+       对口型由智能体配动作轨。不占顶层 chip，二级 chip 按画风分（`HOST_CATS`）。 */
+    {k: 'host', tab: 'host', title: '虚拟主播', note: 'BaoCut 特有 · 19 个原创角色 · 眨眼、对口型、换表情', subs: 'host', bao: true},
     {k: 'fr', tab: 'fr', title: '模板', note: 'BaoCut 特有 · 内置 17 款 ＋ 品牌库', subs: 'tpl', bao: true},
   ];
 
@@ -98,6 +101,17 @@
     const on = STICKER_CHIPS.map((c) => c.k);
     return (packs || []).filter((p) => on.indexOf(p.k) < 0);
   }
+
+  /* ---------- 虚拟主播的二级 chip ---------- */
+
+  /** 按画风分：全部 / 动漫（半身）/ Q 版。 */
+  const HOST_CATS = [
+    {k: 'all', label: '全部'},
+    {k: 'anime', label: '动漫'},
+    {k: 'chibi', label: 'Q 版'},
+  ];
+  /** 主播放上去的惯用位：16:9 画面的右下角，宽是画面的 30%。 */
+  const HOST_PLACE = {x: 80, y: 70, w: 30};
 
   /* ---------- 模板的二级 chip ---------- */
 
@@ -195,6 +209,8 @@
         /* Codex Pet（第 242 轮）：版本（决定图集行数）、状态、名字与署名跟着元素走——
            社区 pet 的雪碧图是远端 URL，不回目录就查不到它是谁的、什么许可。 */
         if (it.kind === 'pet') st.pet = window.BC_PET.meta(it.pet || it);
+        // 内置主播：角色是谁跟着元素走，属性页与时间轴的名字都读它。
+        if (it.host) st.host = {id: it.host.id, name: it.host.name, zh: it.host.zh};
         return st;
       }
       return null;
@@ -281,7 +297,8 @@
       end: span.end,
       /* 彩纸铺满画布（第 223 轮起的口径，第 231 轮由 kind 判定而不再看贴纸包名）：
          它是一层粒子场，不是一枚贴纸。 */
-      place: kind === 'confetti' || kind === 'whiteboard' ? {x: 50, y: 50, w: 100, h: 100} : placeOf(base, seq),
+      place: kind === 'confetti' || kind === 'whiteboard' ? {x: 50, y: 50, w: 100, h: 100}
+        : placeOf(tile && tile.host ? {place: HOST_PLACE} : base, seq),
       anim: {in: {k: 'none'}, out: {k: 'none'}, loop: {k: 'none'}},
       style: patch ? E.toStage(kind, patch) : null,
     };
@@ -290,6 +307,7 @@
   Object.assign(window, {BC_ELPANEL: {
     TABS, VIZ_CATS, TILES, SECTIONS, sections, sectionOf, tplChips,
     STICKER_CHIPS, BRAND_CAT, stickerChips, stickerRest,
+    HOST_CATS, HOST_PLACE,
     ANIM_ORDER, ANIM_KEY, animOrder, CONFETTI_CAT, PET_CAT, animCats, confettiAt, confettiMatch,
     COUNT_AT, progOrder, VIZ_PICK, vizPicks,
     tileStyle, elName, placeOf, newElement,
