@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setLocale, type McpConnectionInfo, type ModelApiStatus, type ServiceStatus } from '@baocut/protocol';
 import {
   browserCommand,
+  portInUseRemedy,
   formatAccessLink,
   formatLaunchCode,
   formatConnectionInfo,
@@ -315,6 +316,16 @@ describe('baocut web', () => {
     };
     await expect(webOpen(client, { launch: true, launcher: async () => {}, print: () => {} })).rejects.toThrow(/Web 客户端还没有构建/);
     expect(linked).toBe(false);
+  });
+
+  it('端口被占用时给出换端口的补救；别的原因与开着的服务没有', () => {
+    const taken = { ...web, state: 'error' as const, endpoint: null, error: '端口 47622 已被占用', errorRef: { key: 'rcServices.portInUse', params: { port: 47622 } } };
+    expect(portInUseRemedy(taken)).toEqual({
+      hint: expect.stringContaining('端口'),
+      commands: ['baocut services configure web --port <port>', 'baocut services start web'],
+    });
+    expect(portInUseRemedy({ ...taken, errorRef: undefined })).toBeNull();
+    expect(portInUseRemedy(web)).toBeNull();
   });
 
   it('各平台用默认浏览器打开', () => {

@@ -8,6 +8,7 @@ import {
   formatServices,
   formatWebSessions,
   parseServicesArgs,
+  portInUseRemedy,
 } from './services-output.ts';
 
 /** `baocut services`：对外服务的状态、开关与配置（架构设计 §4.8）。令牌只在创建客户端时打印一次。 */
@@ -46,6 +47,10 @@ export const services = defineNoun({
         methods: values.methods,
       }),
     );
+    const remedyOf = (service: Parameters<typeof portInUseRemedy>[0]) => {
+      const remedy = portInUseRemedy(service);
+      return remedy ? { remedy } : {};
+    };
     switch (command.kind) {
       case 'list': {
         const result = await client.request('services.list', {});
@@ -61,15 +66,7 @@ export const services = defineNoun({
           return ctx.fail({
             code: 'SERVICE_ERROR',
             message: M.serviceError(command.serviceId, result.service.error ?? result.service.state),
-            // The port is taken: starting again cannot help, the service needs another port.
-            ...(command.kind === 'start' && result.service.errorRef?.key === 'rcServices.portInUse'
-              ? {
-                  remedy: {
-                    hint: M.portInUseRemedy,
-                    commands: [`baocut services configure ${command.serviceId} --port <port>`, `baocut services start ${command.serviceId}`],
-                  },
-                }
-              : {}),
+            ...(command.kind === 'start' && remedyOf(result.service)),
             service: result.service,
           });
         }

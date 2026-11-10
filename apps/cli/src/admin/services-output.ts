@@ -311,6 +311,18 @@ export function browserCommand(platform: NodeJS.Platform, url: string): { comman
   return { command: 'xdg-open', args: [url] };
 }
 
+/**
+ * 服务因为端口被占用没开起来时的补救：再开一次没有用，要给这项服务换一个端口。别的原因返回 null。
+ * 不自动换端口：审片链接、已连上的客户端都记着端口，悄悄换掉会让它们失效。
+ */
+export function portInUseRemedy(service: ServiceStatus): { hint: string; commands: string[] } | null {
+  if (service.state !== 'error' || service.errorRef?.key !== 'rcServices.portInUse') return null;
+  return {
+    hint: M.portInUseRemedy,
+    commands: [`baocut services configure ${service.serviceId} --port <port>`, `baocut services start ${service.serviceId}`],
+  };
+}
+
 /** `baocut web open` 要调用的 Runtime 方法（测试里换成假的）。 */
 export interface WebOpenClient {
   start(): Promise<ServiceStatus>;
