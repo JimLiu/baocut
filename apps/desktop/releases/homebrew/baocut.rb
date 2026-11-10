@@ -1,8 +1,8 @@
 # Rendered from appcast-aarch64-apple-darwin.json by apps/desktop/tools/homebrew-cask.mjs; the macOS release
 # flow rewrites it with the update feed. Copy it to Casks/baocut.rb in the BaoCut Homebrew tap.
 cask "baocut" do
-  version "3.18.0,94"
-  sha256 "95974e36f8029bb502d94f331c437e3e75bf193af708c9b757527943ab4fcb10"
+  version "3.19.0,95"
+  sha256 "d6763b2f937c4cd1775401857aae3b4ff3046499e34d1adb3a68f1b893801630"
 
   url "https://github.com/jimliu/baocut/releases/download/baocut-v#{version.csv.first}-build.#{version.csv.second}/BaoCut-#{version.csv.first}-build.#{version.csv.second}-aarch64-apple-darwin.zip"
   name "BaoCut"
