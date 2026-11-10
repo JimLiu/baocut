@@ -61,6 +61,15 @@ export const services = defineNoun({
           return ctx.fail({
             code: 'SERVICE_ERROR',
             message: M.serviceError(command.serviceId, result.service.error ?? result.service.state),
+            // The port is taken: starting again cannot help, the service needs another port.
+            ...(command.kind === 'start' && result.service.errorRef?.key === 'rcServices.portInUse'
+              ? {
+                  remedy: {
+                    hint: M.portInUseRemedy,
+                    commands: [`baocut services configure ${command.serviceId} --port <port>`, `baocut services start ${command.serviceId}`],
+                  },
+                }
+              : {}),
             service: result.service,
           });
         }

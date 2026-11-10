@@ -142,4 +142,5 @@ export const zhHant: ServicesMessages = {
   browserFailed: (message) => `無法開啟瀏覽器：${message}。請自行開啟上方的登入頁面`,
   reviewLinkNote: '這個影片的審片連結。只要影片還在、BaoCut 開著，連結就不變；本機拿到它的人都能看和編輯這個影片，不要外傳',
   reviewAutostartOn: '已開啟 Web 服務的隨 Runtime 啟動，BaoCut 重新啟動後連結照樣能用',
+  portInUseRemedy: '這個連接埠已經被別的程式占用（常見的是這台電腦上另一個正在執行的 BaoCut）。替這項服務換一個連接埠，再啟動：',
 };

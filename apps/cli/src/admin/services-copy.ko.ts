@@ -147,4 +147,5 @@ export const ko: ServicesMessages = {
   browserFailed: (message) => `브라우저를 열지 못했습니다: ${message}. 위의 로그인 페이지를 직접 여세요`,
   reviewLinkNote: '이 동영상의 검토 링크입니다. 동영상이 있고 BaoCut이 실행 중인 동안 바뀌지 않습니다. 이 컴퓨터에서 링크를 가진 누구나 이 동영상을 보고 편집할 수 있으니 공유하지 마세요',
   reviewAutostartOn: '웹 서비스 자동 시작을 켰습니다. BaoCut을 다시 시작해도 링크는 계속 작동합니다',
+  portInUseRemedy: '이 포트는 이미 다른 프로그램이 사용 중입니다(이 컴퓨터에서 실행 중인 다른 BaoCut인 경우가 많습니다). 이 서비스에 다른 포트를 지정한 뒤 다시 시작하세요:',
 };

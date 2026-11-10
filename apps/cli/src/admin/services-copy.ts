@@ -176,6 +176,7 @@ const en = {
   reviewLinkNote:
     "Review link for this video. It stays the same while the video exists and BaoCut is running; anyone on this computer who has it can view and edit this video, so don't share it",
   reviewAutostartOn: 'Turned on web service autostart, so the link keeps working after BaoCut restarts',
+  portInUseRemedy: 'Another program is already listening on that port (often another BaoCut running on this computer). Give this service a different port, then start it again:',
 };
 
 export type ServicesMessages = typeof en;

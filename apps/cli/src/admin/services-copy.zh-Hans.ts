@@ -134,4 +134,5 @@ export const zhHans: ServicesMessages = {
   browserFailed: (message) => `打不开浏览器：${message}；请手动打开上面的登录页`,
   reviewLinkNote: '这个视频的审片链接。只要视频还在、BaoCut 开着，链接就不变；本机拿到它的人都能看和编辑这个视频，不要外传',
   reviewAutostartOn: '已打开 Web 服务的随 Runtime 启动，BaoCut 重启后链接照样能用',
+  portInUseRemedy: '这个端口已经被别的程序占用（常见的是这台电脑上另一个正在运行的 BaoCut）。给这项服务换一个端口，再启动：',
 };

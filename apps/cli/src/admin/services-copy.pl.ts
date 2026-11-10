@@ -138,4 +138,5 @@ export const pl: ServicesMessages = {
   browserFailed: (message) => `Nie udało się otworzyć przeglądarki: ${message}. Otwórz stronę logowania powyżej samodzielnie`,
   reviewLinkNote: 'Link do przeglądu tego wideo. Nie zmienia się, dopóki wideo istnieje i BaoCut działa; każdy na tym komputerze, kto go ma, może oglądać i edytować to wideo, więc go nie udostępniaj',
   reviewAutostartOn: 'Włączono autostart usługi web, więc link działa także po ponownym uruchomieniu BaoCut',
+  portInUseRemedy: 'Ten port jest już używany przez inny program (często przez inny BaoCut uruchomiony na tym komputerze). Ustaw dla tej usługi inny port i uruchom ją ponownie:',
 };

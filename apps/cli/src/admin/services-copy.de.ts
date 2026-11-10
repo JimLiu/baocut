@@ -112,4 +112,5 @@ export const de: ServicesMessages = {
   browserFailed: (message) => `Browser konnte nicht geöffnet werden: ${message}. Öffnen Sie die Anmeldeseite oben selbst`,
   reviewLinkNote: 'Review-Link dieses Videos. Er bleibt gleich, solange das Video existiert und BaoCut läuft; jeder auf diesem Computer, der ihn hat, kann dieses Video ansehen und bearbeiten, also nicht teilen',
   reviewAutostartOn: 'Autostart des Webdienstes eingeschaltet, damit der Link nach einem Neustart von BaoCut weiter funktioniert',
+  portInUseRemedy: 'Ein anderes Programm verwendet diesen Port bereits (oft ein weiteres BaoCut, das auf diesem Computer läuft). Weisen Sie diesem Dienst einen anderen Port zu und starten Sie ihn erneut:',
 };

@@ -161,4 +161,5 @@ export const fr: ServicesMessages = {
   browserFailed: (message: string) => `Impossible d’ouvrir le navigateur : ${message}. Ouvrez vous-même la page de connexion ci-dessus`,
   reviewLinkNote: 'Lien de relecture de cette vidéo. Il ne change pas tant que la vidéo existe et que BaoCut est ouvert ; toute personne de cet ordinateur qui l\'a peut voir et modifier cette vidéo, ne le partagez pas',
   reviewAutostartOn: 'Démarrage automatique du service web activé : le lien fonctionne encore après un redémarrage de BaoCut',
+  portInUseRemedy: 'Un autre programme utilise déjà ce port (souvent un autre BaoCut en cours d’exécution sur cet ordinateur). Attribuez un autre port à ce service, puis redémarrez-le :',
 };
