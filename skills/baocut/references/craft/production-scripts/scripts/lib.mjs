@@ -76,8 +76,9 @@ export function parseArgs(argv, valued = []) {
 export const listFlag = v => (typeof v === 'string' ? v.split(',').map(s => s.trim()).filter(Boolean) : []);
 
 // 调 baocut CLI，返回 result；ok 为 false 时抛错，错误对象挂在 err.cli 上。
-export function makeBc(cfg) {
-  const [cmd0, ...pre] = cfg.bc;
+// command 不给时用配置的 bc；配音、转写可以另配一个（voice.bc、asr.bc）：两个 Runtime 各有各的凭据与模型时用。
+export function makeBc(cfg, command = null) {
+  const [cmd0, ...pre] = Array.isArray(command) && command.length ? command : cfg.bc;
   const cmd = cmd0.startsWith('.') ? cfg.abs(cmd0) : cmd0;
   return args => {
     let out;

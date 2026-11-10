@@ -126,6 +126,15 @@ function cmapOf(rel) {
   return c;
 }
 
+// fonts.mjs 上次裁子集时取到的字（<work>/fonts-chars.txt）；没有这份记录（子集是旧版脚本裁的）时当作都取到过
+let subsetSeen = null;
+function subsetChars() {
+  if (subsetSeen) return subsetSeen;
+  const file = cfg.abs(cfg.dirs.work, 'fonts-chars.txt');
+  subsetSeen = fs.existsSync(file) ? new Set(fs.readFileSync(file, 'utf8')) : { has: () => true };
+  return subsetSeen;
+}
+
 // 一个包里字符串用到、但带进包的字体都没有的字：打一行 warn
 function checkGlyphs(id, sources) {
   const fonts = Object.values(cfg.bundle.fonts || {}).map(cmapOf).filter(Boolean);
@@ -133,8 +142,13 @@ function checkGlyphs(id, sources) {
   const chars = new Set(sources.flatMap(s => [...stringChars(s)]));
   const lack = [...chars].filter(ch => !fonts.some(f => f.has(ch.codePointAt(0)))).sort((a, b) => a.codePointAt(0) - b.codePointAt(0));
   if (!lack.length) return;
-  const list = lack.map(ch => `${ch} U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`).join(', ');
-  console.warn(`warn ${id}: fonts lack ${list} — the bake will fall back to pixels; draw marks or reword (code-scenes 2.1)`);
+  const show = l => l.map(ch => `${ch} U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`).join(', ');
+  // 子集是 fonts.mjs 裁的：它记下了当时取到的字。裁完之后才写进场景的字不在子集里，重裁就有；当时就取到、子集里仍没有的，是字体本身不带
+  const subsetted = !!cfg.fonts?.faces && Object.keys(cfg.fonts.faces).length > 0;
+  const stale = subsetted ? lack.filter(ch => !subsetChars().has(ch)) : [];
+  const absent = lack.filter(ch => !stale.includes(ch));
+  if (stale.length) console.warn(`warn ${id}: the font subsets lack ${show(stale)} — added after the last fonts.mjs run; re-run fonts.mjs, then build.mjs (every bundle that loads the fonts changes)`);
+  if (absent.length) console.warn(`warn ${id}: fonts lack ${show(absent)} — the bake will fall back to pixels; draw marks or reword (code-scenes 2.1)`);
 }
 
 const GENERIC = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong']);

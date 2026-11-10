@@ -12,12 +12,14 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { loadConfig, parseArgs, makeBc, readJson, writeJson, scriptLines, narrationText, units, isSpoken } from './lib.mjs';
 
 const cfg = loadConfig();
-const bc = makeBc(cfg);
+const bc = makeBc(cfg, cfg.asr.bc);
 const { ids, flags } = parseArgs(process.argv, ['chunk']);
 const CHUNK = flags.chunk != null ? +flags.chunk : +cfg.asr.chunkSeconds || 0;
 const ASR = `${cfg.dirs.work}/asr`;
 const voice = readJson(cfg.abs(cfg.dirs.audio, 'voice.json'), {});
 const fold = c => c.toLowerCase();
+// 写成字母、数字的词：连在一起的非汉字、非假名的字母与数字
+const WORD = /(?:(?![\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])[\p{L}\p{N}])+/gu;
 
 function transcribeFile(rel, out) {
   const args = ['transcribe', '--file', rel, '--no-video', '--out-dir', ASR, '--language', cfg.language, '--provider', cfg.asr.provider, '--model', cfg.asr.model, ...cfg.asr.args];
@@ -148,7 +150,33 @@ function align(id, lines) {
   if (extra.length) console.log('  extra in audio:', extra.reverse().map(([a, s]) => `${a.c}@${a.s.toFixed(1)}${s ? '(after ' + s.c + ' L' + s.li + ')' : ''}`).join(' '));
   const miss = S.filter((s, i) => !map[i]);
   if (miss.length) console.log('  missing in asr:', miss.map(s => `L${s.li} ${s.c}`).join(' '));
-  if (subs.length) console.log('  differs:', subs.reverse().map(([s, a]) => `L${s.li} ${s.c}→${a.c}`).join(' '));
+  // 念错的分两类。写成字母、数字的词（品牌名、缩写、型号、年份，以及拼音文字的整个词）按词列，带时刻与那一刻听到的：
+  // 这类词模型最容易念错，要去听。其余是一个字对一个字的差别（中文、日文多是同音字，转写写成了别的字），照旧列在 differs。
+  const wordHits = new Map(), charSubs = [];
+  const wordAt = (li, k) => {
+    for (const m of lines[li].matchAll(WORD)) if (k >= m.index && k < m.index + m[0].length) return m;
+    return null;
+  };
+  const note = (s, kind) => {
+    const w = wordAt(s.li, s.k);
+    if (!w) return false;
+    const key = `${s.li}:${w.index}`;
+    if (!wordHits.has(key)) wordHits.set(key, { li: s.li, k: w.index, word: w[0], kinds: new Set() });
+    wordHits.get(key).kinds.add(kind);
+    return true;
+  };
+  for (const [s, a] of [...subs].reverse()) if (!note(s, 'differs')) charSubs.push([s, a]);
+  for (const s of miss) note(s, 'missing');
+  for (const [, s] of extra) if (s) note(s, 'extra'); // 多念出来的字紧跟在这样的词后面：多半是这个词被念成了别的
+  if (wordHits.size) {
+    const heard = (a, b) => res.segments.flatMap(g => g.words).filter(w => w.end / res.timescale > a - 0.05 && w.start / res.timescale < b + 0.05).map(w => w.text).join('').trim();
+    console.log('  check by ear (words in letters or digits; time, script, heard):');
+    for (const h of [...wordHits.values()].sort((p, q) => p.li - q.li || p.k - q.k)) {
+      const a = out[h.li].chars[h.k], b = out[h.li].chars[h.k + h.word.length] ?? out[h.li].end;
+      console.log(`    L${h.li} ${a.toFixed(2)}s  ${h.word}  heard "${heard(a, Math.max(a, b))}"`);
+    }
+  }
+  if (charSubs.length) console.log('  differs (single characters; same-sounding ones are fine):', charSubs.map(([s, a]) => `L${s.li} ${s.c}→${a.c}`).join(' '));
   console.log('  asr:', res.segments.map(s => s.text).join(' / '));
   if (out.length >= 4 && (flagged > out.length / 4 || miss.length > n * 0.15))
     console.log(`  hint: timing may have collapsed; retry with: align.mjs ${id} --fresh --chunk 14`);

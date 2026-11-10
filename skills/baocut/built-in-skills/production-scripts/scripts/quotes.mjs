@@ -25,7 +25,7 @@ const want = cl.clips.filter(c => c.words && (!ids.length || ids.includes(c.id))
 const unknown = ids.filter(id => !cl.clips.some(c => c.id === id));
 if (unknown.length) throw new Error(`not in clips.json: ${unknown.join(', ')}`);
 if (!want.length) { console.log('no clips with words: true'); process.exit(0); }
-const bc = makeBc(cfg);
+const bc = makeBc(cfg, cfg.asr.bc);
 const fold = c => c.toLowerCase();
 fs.mkdirSync(cfg.abs(DIR), { recursive: true });
 

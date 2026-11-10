@@ -1,7 +1,7 @@
 ---
 name: virtual-host
 description: 做会说话的卡通虚拟主播时用：一个卡通角色（半身像）跟着旁白自动对口型，会眨眼、呼吸、点头转头、头发跟着晃，可以换表情，常驻在画面角落讲解或整镜出镜。用户没有自己的角色时从 BaoCut 自带的 19 个原创主播里推荐，要自己的形象时才生成正面像、改图拆成分层的角色包；口型按读音与音量算成动作轨；放上时间线是一个角色贴纸，预览与导出直接画，不用烘焙。不用于：真人照片或实拍视频对口型、换脸与写实数字人；角色走动、拿东西的表演（character-animation）；只要一张插图。
-version: 2.1.0
+version: 2.2.0
 ---
 
 # 虚拟主播
@@ -45,6 +45,7 @@ version: 2.1.0
 
 1. 旁白先定稿配好（`narration`）。逐字时间来自 `production-scripts` 的 `timing/<段>.json`；或者给配音单独转写一次：transcribe 给 `file` 并带 `noVideo: true`，jobs_inspect 等到 completed，`pipeline.summary.transcribeJobId` 是内层转写任务，再 jobs_inspect 它，用 artifacts_save 把转写结果存成 `<名>.words.json`（`baocut.asr-result/v1`）。
 2. 运行 `node lipsync.mjs --words intro.words.json --audio intro.wav --out host/intro.track.json --lang zh-CN`（timing 用 `--timing`）。一定给 `--audio`，而且是放进视频的那份配音：音量决定静音时闭嘴、轻读时嘴小，也兜住对齐误差。轨的 0 秒是配音的 0 秒。选项、`faces.json` 与读音表的写法在 `references/lipsync.md`。
+   旁白按段配、用 `production-scripts` 的脚本摆时间线的片子，这一步与第 4 节交给它的 `host.mjs`（用 `skills_read` 读 `production-scripts`，再按它「按顺序跑」读）：它按段算口型，把连着出镜的几段拼成一条动作轨、放成一个贴纸，重配或改稿后重跑只动变了的。不要一段一个贴纸首尾相接：每个贴纸从头开始待机，段与段相接处头和头发会跳一下。
 3. 读同目录的 `lipsync-check.txt`：每个字的读音、读音给的口型和画面上实际出的口型。读音不对（多音字、日文汉字、品牌名、缩写）写进读音表、带 `--readings` 重跑；`?` 是读不出的字，按音量张嘴。
 
 ## 4. 放上时间线
@@ -62,6 +63,7 @@ version: 2.1.0
 
 - **对齐配音**：`motionIn` 是贴纸开头对着动作轨的第几秒。贴纸和配音同时开始写 0；贴纸比配音早 2 秒出现（先待机再开口）写 `{"ticks": "-2", "timescale": 1}`（`ticks` 是整数字符串，负半秒写 `{"ticks": "-1", "timescale": 2}`）。嘴早了或晚了一截，多半是这里没对上。
 - **位置**：贴纸的框宽是画布宽的 `w`%，高按角色画布的比例（竖版立绘多是 2:3）。16:9 画面放右下角约 `{"x": 84, "y": 74, "w": 30}`，下沿压在画外；9:16 约 `{"x": 74, "y": 86, "w": 50}`。整镜出镜放中间，`w` 加大。半身角色的下沿要压在画外：压出去多少，轻跳就能往上跳多少，下沿在画面里时只往下沉。
+- **给主播留位置**：常驻的主播占着画面的一块，这期的版式从分镜起就把这一块留出来，字幕、水印、角标与要读的内容都不压在他身上，也不让他挡住；哪几段需要整幅画面（满幅的图表、实拍、片头片尾）就让他那几段不出镜，不靠缩小内容迁就。
 - **长度**：`span` 盖住要出镜的整段。动作轨之外（配音前、配音后）角色照样眨眼呼吸，嘴闭着。
 - **换配音**：重新算动作轨，replaceItemAsset 给这个贴纸和新动作轨的 `assetImportRef`：只换动作轨，位置与长度不变。换角色同样用 replaceItemAsset，给新的角色包。
 - **用户已从元素面板放了内置主播**（编辑器元素面板的「虚拟主播」一节：一个没挂动作轨、只做待机动作的角色贴纸）：不再导入角色包。贴纸开头正对着配音开头时，同一笔 importAsset 动作轨、replaceItemAsset 给这个贴纸和动作轨的 `assetImportRef`（`motionIn` 缺省 0）；没对上时同一笔 deleteItems 它，再照上面 insertItems 一个，`assetRef` 用它的角色包，`place` 照抄它的。

@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { loadConfig, parseArgs, makeBc, readJson, writeJson, scriptLines, narrationText } from './lib.mjs';
 
 const cfg = loadConfig();
-const bc = makeBc(cfg);
+const bc = makeBc(cfg, cfg.voice.bc);
 const { ids, flags } = parseArgs(process.argv, ['seed', 'takes']);
 const log = cfg.abs(cfg.dirs.audio, 'voice.json');
 const all = scriptLines(cfg);

@@ -77,6 +77,9 @@ for (const [family, face] of Object.entries(conf.faces)) {
   console.log(`${family.padEnd(14)} ${path.relative(process.cwd(), out)}  ${(fs.statSync(out).size / 1024).toFixed(0)} KB`);
 }
 fs.rmSync(textFile);
+// 记下这次取到的字：build.mjs 报缺字时据此分清「字是裁子集之后才加的（重跑本脚本）」与「字体本来就没有」
+fs.mkdirSync(cfg.abs(cfg.dirs.work), { recursive: true });
+fs.writeFileSync(cfg.abs(cfg.dirs.work, 'fonts-chars.txt'), [...chars].join(''));
 
 // 哪款字体都没有的字（字体本身不带，子集也取不到）
 const cmaps = written.map(w => fontCmap(w.out)).filter(c => c && !c.skip);

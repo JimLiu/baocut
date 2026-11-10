@@ -73,6 +73,8 @@
 - **一张画布**：根元素里只有一张 `<canvas>`，宽高等于 `data-width` / `data-height`，不加 CSS 变换与不透明度；文字、图片都画进这张画布，根元素里不放别的可见元素。`getContext('2d')` 不带 `{ alpha: false }`。
 - **每帧从头画**：`renderAt(time)` 开头先 `setTransform(1, 0, 0, 1, 0, 0)` 再整幅清屏（`clearRect(0, 0, W, H)`，或不透明的整幅 `fillRect`），不靠上一帧留下的像素，也不局部 `clearRect`；铺满画布的 `drawImage` 不算清屏，指令烘焙会以 `frame-not-cleared` 拒绝。
 - **不读回主画布**：不 `getImageData` / `putImageData`，不把主画布当 `drawImage` 的源。要先画好再处理的效果，在离屏 canvas 上再画一遍（第 5.1 节的 `post-fx.js` 就这么做）。离屏 canvas 随便用，画进主画布时会按位图记下。
+- **离屏画布用 `document.createElement('canvas')` 建**：`OffscreenCanvas` 对象画进主画布不认，整个包退回逐帧截图（`image-source-type`）。
+- **半透明的拼接图形先不透明画好，再整体合成一次**：一个形状由几片拼成（分段的带子、一层层的扇面、网格块）时，片与片靠重叠藏缝；直接带着透明度画，重叠处叠了两次、颜色更深，画面上是一道道条纹。在离屏画布上按不透明画完整个形状，再用 `globalAlpha` 一次画进主画布。
 - **不用**：`ctx.filter`（模糊改用 `shadowBlur`，或缩小再放大）、`createConicGradient`、`Path2D`、`clip('evenodd')`、`imageSmoothingEnabled = false`、`imageSmoothingQuality` 设成 `medium` / `high`（保持默认）、`letterSpacing` 与 `wordSpacing`。`globalCompositeOperation` 只用 `source-over`、`lighter`、`multiply`、`screen`、`overlay`、`darken`、`lighten`、`difference`、`exclusion`。
 - **图片**是包里的文件（`img.src = './art/a.png'`，PNG、JPEG、WebP、SVG 都行），不用 `data:` / `blob:` 地址、`ImageBitmap` 或视频帧。不缩放地画（1:1）时放在整数坐标上：小数坐标两边的插值不同，会判成画面对不上。
 - **照片上只叠一层**：照片、影像帧上现画的满幅半透明层（压暗、径向暗角、渐变、颗粒、淡入）最多一层，每多一层两边就多差一两级，叠到两三层整幅照片都会判成对不上。暗角、颗粒先画进离屏画布再 1:1 贴到 (0, 0)；要压暗照片，在深色底上用 `globalAlpha` 画照片。小纹理不要拉伸成全屏贴。纯色底上的渐变不受这条限制。
