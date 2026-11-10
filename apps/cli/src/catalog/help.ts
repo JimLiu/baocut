@@ -41,7 +41,7 @@ export interface AdminEntry {
 
 export function renderMainHelp(tools: readonly CatalogTool[], admin: readonly AdminEntry[]): string {
   const tree = buildTree(tools);
-  const out: string[] = [M.helpTagline, ''];
+  const out: string[] = [M.helpTagline];
 
   out.push(M.helpFlows);
   const flows = ordered([...tree.verbs.keys()], FLOW_ORDER);
