@@ -122,6 +122,62 @@ describe('读转写（与编辑器的 speech-cues.ts 同一条规则）', () => 
     expect(deriveCues(read.words).map((cue) => cue.text)).toEqual(['to be frank,', 'yes.', 'Bye.']);
   });
 
+  it('没有空隙的零时长词隔着句末时接后一个词：句末照样断开，字幕句子的 words 从这个词起（ElevenLabs 导入的 `video.` + `A`）', () => {
+    // 真实样本：Scribe 把句首的「A」解成 4.96–4.96，紧接着「motion」也从 4.96 开始；导入的转写没有句子（sentences 为 null）。
+    const scribe: Array<[string, number, number]> = [
+      ['Hi!', 0.3, 0.8], ["I'm", 0.8, 1], ['Jimmy!', 1, 1.565], ['Today', 1.69, 2.39], ["I'll", 2.39, 2.59], ['show', 2.59, 2.79],
+      ['you', 2.79, 2.99], ['how', 2.99, 3.09], ['to', 3.09, 3.19], ['make', 3.19, 3.59], ['a', 3.59, 3.59], ['motion', 3.59, 4.19],
+      ['video.', 4.19, 4.59], ['A', 4.96, 4.96], ['motion', 4.96, 5.46], ['video', 5.46, 5.86], ['is', 5.86, 6.06], ['made', 6.06, 6.26],
+      ['up', 6.26, 6.46], ['of', 6.46, 6.86], ['shapes,', 6.86, 7.66], ['words', 7.66, 8.26], ['and', 8.26, 8.46], ['pictures', 8.46, 8.96],
+      ['that', 8.96, 9.16], ['move.', 9.16, 9.455],
+    ];
+    const read = readSpeechWords(speechBody(scribe.map(([text, start, end], i): W => [`e${i + 1}`, start, end, text])))!;
+    // 句中的「a」照旧接前一个词；句首的「A」接到后一个词上，记下它的 ID。
+    expect(read.words.filter((w) => w.text.includes(' ')).map((w) => [w.id, w.text, w.lead])).toEqual([
+      ['e10', 'make a', undefined],
+      ['e15', 'A motion', 'e14'],
+    ]);
+    const cues = deriveCues(read.words);
+    expect(cues.map((cue) => cue.text)).toEqual([
+      'Hi!',
+      "I'm Jimmy!",
+      "Today I'll show you how to make a motion video.",
+      'A motion video is made up of shapes,',
+      'words and pictures that move.',
+    ]);
+    // 句末标点只出现在一条的末尾：没有一条跨过句子的边界。
+    for (const cue of cues) expect(/[.!?]\s/.test(cue.text), cue.text).toBe(false);
+    const body = captionBody(cues, read.speakers);
+    expect((body.cues as Array<{ id: string; words: unknown }>)[3]).toMatchObject({ id: 'q-e15', words: { first: 'e14', last: 'e21' } });
+  });
+
+  it('存了句子时，零时长的句首词（标了段首）接后一个词：段首跟着挪过去，前一句没有句末标点也不并进去', () => {
+    const body = {
+      ...speechBody([
+        ['w1', 0, 0.4, 'so'],
+        ['w2', 0.4, 0.8, 'yeah'],
+        ['w3', 1, 1, 'and'],
+        ['w4', 1, 1.4, 'then'],
+        ['w5', 1.4, 1.8, 'more.'],
+      ]),
+      sentences: [
+        { id: 's1', first: 'w1', last: 'w2' },
+        { id: 's2', first: 'w3', last: 'w5', paragraphStart: true },
+      ],
+    };
+    const read = readSpeechWords(body)!;
+    expect(read.words.map((w) => [w.id, w.text, w.sentenceId, w.paragraphStart, w.lead])).toEqual([
+      ['w1', 'so', 's1', false, undefined],
+      ['w2', 'yeah', 's1', false, undefined],
+      ['w4', 'and then', 's2', true, 'w3'],
+      ['w5', 'more.', 's2', false, undefined],
+    ]);
+    expect(deriveCues(read.words).map((cue) => [cue.text, cue.wordIds])).toEqual([
+      ['so yeah', ['w1', 'w2']],
+      ['and then more.', ['w3', 'w4', 'w5']],
+    ]);
+  });
+
   it('隐藏的、空白的词不进字幕；不是转写正文返回 null', () => {
     const read = readSpeechWords(
       speechBody([
@@ -260,6 +316,33 @@ describe('转写改了字，原文字幕跟着改（rewordSpeechCaption）', () 
     const result = rewordSpeechCaption(caption, english, update(english, { w5: 'good night.' }))!;
     expect(result.changed).toBe(0);
     expect(result.kept).toEqual(['q-w4']);
+  });
+
+  it('句首的零时长词接在后一个词前面：句子从它起，改它或接住它的词照样改；wordIds 写法同样认', () => {
+    const scribe = speechBody([
+      ['e1', 0, 0.4, 'video.'],
+      ['e2', 0.8, 0.8, 'A'],
+      ['e3', 0.8, 1.3, 'motion'],
+      ['e4', 1.3, 1.7, 'video.'],
+    ]);
+    const caption = layer(scribe);
+    expect((caption.cues as Array<{ words: unknown }>).map((cue) => cue.words)).toEqual([
+      { first: 'e1', last: 'e1' },
+      { first: 'e2', last: 'e4' },
+    ]);
+    expect(rows(rewordSpeechCaption(caption, scribe, update(scribe, { e2: 'The', e3: 'moving' }))!.body)[1]).toEqual([
+      'q-e3',
+      'The moving video.',
+      800,
+      1700,
+    ]);
+    const listed = {
+      ...caption,
+      cues: (caption.cues as Array<Record<string, unknown>>).map((cue, i) => (i === 1 ? { ...cue, words: { wordIds: ['e2', 'e3', 'e4'] } } : cue)),
+    };
+    const result = rewordSpeechCaption(listed, scribe, update(scribe, { e3: 'moving' }))!;
+    expect(result.changed).toBe(1);
+    expect(rows(result.body)[1]![1]).toBe('A moving video.');
   });
 
   it('没写 words 的句子不动；有一份不是转写时 null', () => {

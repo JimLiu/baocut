@@ -217,6 +217,11 @@ export interface CueWord {
   sentenceId?: string;
   /** 这一句标了段首、且这是句子的第一个成员。 */
   paragraphStart: boolean;
+  /**
+   * 文字前面接上了零时长的词（`readSpeechWords`）时，其中第一个的 ID：字幕句子的 `words` 从它起，渲染与强调才取得到
+   * 这几个词。
+   */
+  lead?: string;
 }
 
 export interface CueWords {
@@ -263,8 +268,9 @@ export function readSpeechWords(body: unknown, params: CueParams = CUE_PARAMS): 
   }
   const words: CueWord[] = [];
   const leading = raw.some((word) => /^\s/.test(text(word.text) ?? ''));
-  // 零时长的词前面还没有词时，文字先记着，接到下一个词的前面。
-  let carried = '';
+  // 零时长的词接不到前一个词上时，文字先记着（连同它的 ID 与段首），接到下一个词的前面。
+  // 写成断言：只在回调里赋值，TS 不会因为初值 null 把回调之后的 `carried` 收窄成 null。
+  let carried = null as { text: string; id: string; paragraph: boolean } | null;
   raw.forEach((word, i) => {
     if (word.hidden === true) return;
     const value = text(word.text) ?? '';
@@ -272,38 +278,52 @@ export function readSpeechWords(body: unknown, params: CueParams = CUE_PARAMS): 
     const start = finite(word.start);
     let end = finite(word.end);
     if (start === null || end === null) return;
-    if (end <= start) {
-      // 零时长的词（转写给的词时间塌成一点）不丢：后面有空隙就占一小段，没有就把文字并进相邻的词。
-      end = slotAfter(raw, i, start, scale);
-      if (end === null) {
-        const previous = words.at(-1);
-        if (previous) previous.text = joinCueWords([previous.text, value], leading, [false, word.glue === true]);
-        else carried = carried ? joinCueWords([carried, value], leading, [false, word.glue === true]) : value;
-        return;
-      }
-    }
     const speaker = text(word.speaker);
     const sentence = sentenceOf[i];
     const id = text(word.id) ?? '';
+    if (end <= start) {
+      // 零时长的词（转写给的词时间塌成一点）不丢：后面有空隙就占一小段，没有就把文字并进相邻的词：同一句里接前一个词；
+      // 前面没有词、或隔着句子的边界（句末标点、换句、换说话人、段首）时接下一个词，句末照样断得开（`video.` + `A`）。
+      end = slotAfter(raw, i, start, scale);
+      if (end === null) {
+        const previous = words.at(-1);
+        const here: CueWord = {
+          id,
+          start: start / scale,
+          end: start / scale,
+          text: value,
+          ...(speaker !== undefined ? { speaker } : {}),
+          ...(sentence ? { sentenceId: sentence.id } : {}),
+          paragraphStart: sentence?.paragraph ?? false,
+        };
+        if (previous && !carried && !sentenceBreak(previous, here))
+          previous.text = joinCueWords([previous.text, value], leading, [false, word.glue === true]);
+        else if (carried) carried.text = joinCueWords([carried.text, value], leading, [false, word.glue === true]);
+        else carried = { text: value, id, paragraph: here.paragraphStart };
+        return;
+      }
+    }
     const untimed = word.timingQuality === 'missing' || /\S\s+\S/.test(value.trim());
     const pieces = untimed
       ? splitUntimed(value, start / scale, end / scale, params.maxChars)
       : [{ text: value, start: start / scale, end: end / scale }];
+    const lead = carried;
     pieces.forEach((piece, n) =>
       words.push({
         id: n === 0 ? id : `${id}~${n + 1}`,
         start: piece.start,
         end: piece.end,
-        text: n === 0 && carried ? joinCueWords([carried, piece.text], leading, [false, word.glue === true]) : piece.text,
+        text: n === 0 && lead ? joinCueWords([lead.text, piece.text], leading, [false, word.glue === true]) : piece.text,
         ...(speaker !== undefined ? { speaker } : {}),
         ...(n === 0 && word.glue === true ? { glue: true as const } : {}),
         ...(sentence ? { sentenceId: sentence.id } : {}),
-        paragraphStart: n === 0 && (sentence?.paragraph ?? false),
+        paragraphStart: n === 0 && ((sentence?.paragraph ?? false) || (lead?.paragraph ?? false)),
+        ...(n === 0 && lead ? { lead: lead.id } : {}),
       }),
     );
-    carried = '';
+    carried = null;
   });
-  if (carried && words.length) words[words.length - 1]!.text = joinCueWords([words[words.length - 1]!.text, carried], leading);
+  if (carried && words.length) words[words.length - 1]!.text = joinCueWords([words[words.length - 1]!.text, carried.text], leading);
   const speakers = new Map<string, string>();
   for (const speaker of Array.isArray(body.speakers) ? body.speakers.filter(isObject) : []) {
     const id = text(speaker.id);
@@ -432,7 +452,7 @@ export interface DerivedCue {
   text: string;
   /** 首词的说话人 ID。 */
   speaker?: string;
-  /** 这一条的词（按开始时刻），写成字幕句子的 `words`。 */
+  /** 这一条的词（按开始时刻；接在词前面的零时长词 `lead` 排在那个词前面），写成字幕句子的 `words`。 */
   wordIds: string[];
 }
 
@@ -543,7 +563,7 @@ export function deriveCues(source: readonly CueWord[], params: CueParams = CUE_P
         group.map((word) => word.glue === true),
       ),
       ...(first.speaker !== undefined ? { speaker: first.speaker } : {}),
-      wordIds: group.map((word) => word.id),
+      wordIds: group.flatMap((word) => (word.lead !== undefined ? [word.lead, word.id] : [word.id])),
     };
   });
 }
@@ -864,7 +884,7 @@ export interface RewordedCaption {
   kept: string[];
 }
 
-/** 按 `deriveCues` 的次序排好的词，可以按 ID 找。 */
+/** 按 `deriveCues` 的次序排好的词，可以按 ID 找（接在词前面的零时长词的 ID 找到接住它的那个词）。 */
 interface WordView {
   words: CueWord[];
   at: Map<string, number>;
@@ -883,13 +903,22 @@ function wordView(body: unknown, withHidden: boolean): WordView | null {
   const read = readSpeechWords(source);
   if (!read) return null;
   const words = [...read.words].sort((a, b) => a.start - b.start);
-  return { words, at: new Map(words.map((word, i) => [word.id, i])), leading: words.some((word) => /^\s/.test(word.text)) };
+  const at = new Map<string, number>();
+  words.forEach((word, i) => {
+    at.set(word.id, i);
+    if (word.lead !== undefined) at.set(word.lead, i);
+  });
+  return { words, at, leading: words.some((word) => /^\s/.test(word.text)) };
 }
 
 /** 句子的 `words`（`{ first, last }` 或 `{ wordIds }`）在这份词里指到的词 ID；一个也找不到时 null。 */
 function cueWordIds(words: Json, view: WordView): string[] | null {
   if (Array.isArray(words.wordIds)) {
-    const ids = words.wordIds.filter((id): id is string => typeof id === 'string' && view.at.has(id));
+    const found = words.wordIds.flatMap((id) => {
+      const at = typeof id === 'string' ? view.at.get(id) : undefined;
+      return at === undefined ? [] : [view.words[at]!.id];
+    });
+    const ids = [...new Set(found)];
     return ids.length ? ids : null;
   }
   const first = view.at.get(text(words.first) ?? '');

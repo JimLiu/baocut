@@ -456,6 +456,66 @@ describe('读转写', () => {
     const bare = readSpeechWords(speechBody(list))!;
     expect(texts(deriveCues(projectSpeech(one, 'asset_a', bare.words)))).toEqual(['Dr.', 'Smith arrived ok fine']);
   });
+
+  it('没有空隙的零时长词隔着句末时接后一个词：句末照样断开，字幕句子的 words 从这个词起（ElevenLabs 导入的 `video.` + `A`）', () => {
+    // 真实样本：Scribe 把句首的「A」解成 4.96–4.96，紧接着「motion」也从 4.96 开始；导入的转写没有句子（sentences 为 null）。
+    const scribe: Array<[string, number, number]> = [
+      ['Hi!', 0.3, 0.8], ["I'm", 0.8, 1], ['Jimmy!', 1, 1.565], ['Today', 1.69, 2.39], ["I'll", 2.39, 2.59], ['show', 2.59, 2.79],
+      ['you', 2.79, 2.99], ['how', 2.99, 3.09], ['to', 3.09, 3.19], ['make', 3.19, 3.59], ['a', 3.59, 3.59], ['motion', 3.59, 4.19],
+      ['video.', 4.19, 4.59], ['A', 4.96, 4.96], ['motion', 4.96, 5.46], ['video', 5.46, 5.86], ['is', 5.86, 6.06], ['made', 6.06, 6.26],
+      ['up', 6.26, 6.46], ['of', 6.46, 6.86], ['shapes,', 6.86, 7.66], ['words', 7.66, 8.26], ['and', 8.26, 8.46], ['pictures', 8.46, 8.96],
+      ['that', 8.96, 9.16], ['move.', 9.16, 9.455],
+    ];
+    const read = readSpeechWords(speechBody(scribe.map(([text, start, end], i): W => [`e${i + 1}`, start, end, text])))!;
+    // 句中的「a」照旧接前一个词；句首的「A」接到后一个词上，记下它的 ID。
+    expect(read.words.filter((w) => w.text.includes(' ')).map((w) => [w.id, w.text, w.lead])).toEqual([
+      ['e10', 'make a', undefined],
+      ['e15', 'A motion', 'e14'],
+    ]);
+    const cues = deriveCues(read.words);
+    expect(texts(cues)).toEqual([
+      'Hi!',
+      "I'm Jimmy!",
+      "Today I'll show you how to make a motion video.",
+      'A motion video is made up of shapes,',
+      'words and pictures that move.',
+    ]);
+    // 句末标点只出现在一条的末尾：没有一条跨过句子的边界。
+    for (const cue of cues) expect(/[.!?]\s/.test(cue.text), cue.text).toBe(false);
+    // 投到序列上切的条一样。
+    expect(texts(deriveCues(projectSpeech(sequence([video('v', 0, 600, 0)]), 'asset_a', read.words)))).toEqual(texts(cues));
+    const body = speechCaptionBody(cues, read.speakers);
+    expect((body.cues as Array<{ id: string; words: unknown }>)[3]).toMatchObject({ id: 'q-e15', words: { first: 'e14', last: 'e21' } });
+  });
+
+  it('存了句子时，零时长的句首词（标了段首）接后一个词：段首跟着挪过去，前一句没有句末标点也不并进去', () => {
+    const body = speechBody(
+      [
+        ['w1', 0, 0.4, 'so'],
+        ['w2', 0.4, 0.8, 'yeah'],
+        ['w3', 1, 1, 'and'],
+        ['w4', 1, 1.4, 'then'],
+        ['w5', 1.4, 1.8, 'more.'],
+      ],
+      {
+        sentences: [
+          { id: 's1', first: 'w1', last: 'w2' },
+          { id: 's2', first: 'w3', last: 'w5', paragraphStart: true },
+        ],
+      },
+    );
+    const read = readSpeechWords(body)!;
+    expect(read.words.map((w) => [w.id, w.text, w.sentenceId, w.paragraphStart, w.lead])).toEqual([
+      ['w1', 'so', 's1', false, undefined],
+      ['w2', 'yeah', 's1', false, undefined],
+      ['w4', 'and then', 's2', true, 'w3'],
+      ['w5', 'more.', 's2', false, undefined],
+    ]);
+    expect(deriveCues(read.words).map((cue) => [cue.text, cue.wordIds])).toEqual([
+      ['so yeah', ['w1', 'w2']],
+      ['and then more.', ['w3', 'w4', 'w5']],
+    ]);
+  });
 });
 
 describe('切条：成对符号里不切，太短的条并进同一句', () => {
