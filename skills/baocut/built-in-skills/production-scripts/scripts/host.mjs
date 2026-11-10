@@ -20,6 +20,7 @@
 //   seed、motion、bounce  同 lipsync.mjs 的同名选项
 // 轨道名取 names.host（缺省 Host）。每个贴纸旁边写一张核对表 <dir>/<名>.check.txt，读法见 virtual-host 的口型参考。
 // 记录在 <dir>/host.json：角色包素材、轨道与每个贴纸的片段 id；用户在编辑器里挪过位置的贴纸，只换动作轨时位置不动。
+// 主播轨归本脚本管：这条轨上用这个角色包的贴纸，不在这次保留之列的会被删掉（被剪开的旧贴纸）；别的贴纸放别的轨。
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -95,6 +96,7 @@ function trackOf(g) {
     const { x, sr } = lip.decodeAudio(audioOf(s.id, tm));
     const e = lip.envelope(x, sr), c = lip.vowelTrack(x, sr, e);
     // 段的起点多半不落在包络的采样格上（帧率与包络的步长不整除）：按起点的小数位置线性取样，不整格挪。
+    // （试过在配音前面补不足一格的静音再算：与逐段单算的动作轨相比差得更多，没有采用。）
     // 配音比这一段长出去的尾巴（下一段已经开始）不要：截在这一段的终点
     const kEnd = Math.min(n, Math.round((off + s.frames / FPS) / lip.STEP));
     const at = (arr, p) => { const i = Math.floor(p), f = p - i; return i < 0 || i >= arr.length ? 0 : arr[i] * (1 - f) + (arr[i + 1] ?? arr[i]) * f; };
@@ -161,21 +163,27 @@ if (track?.locked) throw new Error(`track ${track.name} is locked; unlock it fir
 const trackRef = track ? { trackId: track.id } : { trackRef: 'hostTrack' };
 if (!track) ops.push({ type: 'addTrack', kind: 'visual', name: trackName, ref: 'hostTrack' });
 
-const remove = [];
+const remove = [], keep = new Set();
 for (const [key, p] of Object.entries(log.groups)) if (!groups.some(g => g.key === key) && items.has(p.item)) remove.push(p.item);
 groups.forEach((g, i) => {
   const p = log.groups[g.key], it = p && items.get(p.item);
   const sameSpan = it && it.startFrame === g.from && it.durationFrames === g.frames;
-  if (it && sameSpan && known && track && p.hash === g.hash) { console.log(`${g.name}: unchanged`); return; }
+  if (it && sameSpan && known && track && p.hash === g.hash) { keep.add(it.id); console.log(`${g.name}: unchanged`); return; }
   const ref = `motion${i}`;
   ops.push({ type: 'importAsset', path: cfg.abs(g.file), ref, storage: 'managed' });
   if (it && sameSpan && known && track) {
+    keep.add(it.id);
     todo.push({ g, swap: it.id, ref });
     return;
   }
   if (it) remove.push(it.id);
   todo.push({ g, ref });
 });
+// 主播轨上别的角色贴纸：时间线在贴纸中间插过空或剪过（改一段后 assemble.mjs 重跑），旧贴纸会被拆成几截，
+// 记录里只有其中一截的 id。这条轨上用同一个角色包、又不在保留之列的贴纸都是旧的，一起删掉。
+if (track && log.puppet?.assetId) for (const it of items.values()) {
+  if (it.trackId === track.id && it.type === 'sticker' && it.asset?.id === log.puppet.assetId && !keep.has(it.id) && !remove.includes(it.id)) remove.push(it.id);
+}
 if (!todo.length && !remove.length) { console.log('nothing to do'); process.exit(0); }
 if (remove.length) ops.push({ type: 'deleteItems', itemIds: remove });
 for (const t of todo) if (t.swap) ops.push({ type: 'replaceItemAsset', itemId: t.swap, assetImportRef: t.ref });
