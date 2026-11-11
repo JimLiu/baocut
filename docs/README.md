@@ -1,6 +1,6 @@
 # BaoCut 文档
 
-BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用户用自然语言委托任务，智能体创作、剪辑并持续修改视频；所有结果落在可编辑的视频里，用户随时可以在独立界面中接管、精修和导出。许可摘要见[根 README](../README.md#许可)，正式条款见 [LICENSE](../LICENSE)。
+BaoCut 是一个源码可用（source-available）的、给 Agent 用的视频编辑器：用户用自然语言把任务交给 Agent（应用内的会话智能体，或 Claude Code、Codex 等外部 Agent），Agent 用命令创作、剪辑并持续修改视频；所有结果落在可编辑的视频里，用户验收和微调，随时可以在编辑器里接管、精修和导出。许可摘要见[根 README](../README.md#许可)，正式条款见 [LICENSE](../LICENSE)。
 
 本目录是 BaoCut 的产品、架构与格式规范的唯一来源。每个主题一篇完整文档，文首有目录，按任务跳到相关章节读。
 
