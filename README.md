@@ -5,8 +5,8 @@
 <h1 align="center">BaoCut</h1>
 
 <p align="center">
-  <strong>An AI video agent built around an editable video, not a one-shot MP4.</strong><br>
-  Tell it what you want. It transcribes, subtitles, translates, dubs, cuts and animates. Every result lands in a timeline you can keep editing.
+  <strong>The video editor built for agents.</strong><br>
+  Your agent does the editing. You review and fine-tune.
 </p>
 
 <p align="center">
@@ -15,40 +15,58 @@
 
 ---
 
-## Download and install
+Hand BaoCut to your agent (Claude Code, Codex, Cursor and others) and say what you want in one sentence: transcribe, subtitle, translate and dub, cut a talking-head recording, or make an explainer from scratch. The agent edits through commands, and the result is a timeline you can keep editing. Open the editor, watch it once, then tell the agent what to change or drag things yourself.
 
-BaoCut is available for macOS and Windows. The links below always download the latest release; version numbers and release notes are on [baocut.com](https://baocut.com/#download) and [GitHub Releases](https://github.com/JimLiu/baocut/releases). Packaged apps include the Runtime and native workers; Node.js and Rust are only needed for development.
+## Quick start
 
-| Platform | Installer | ZIP | Choose this version for |
-| --- | --- | --- | --- |
-| macOS 14+ · Apple Silicon | [DMG](https://baocut.com/download/mac-dmg) | [ZIP](https://baocut.com/download/mac-zip) | Apple Silicon Macs; Developer ID signed and notarized |
-| Windows x64 · CPU | [Setup EXE](https://baocut.com/download/win-setup) | [ZIP](https://baocut.com/download/win-zip) | CPU inference |
-| Windows x64 · CUDA | [Setup EXE](https://baocut.com/download/win-cuda-setup) | [ZIP](https://baocut.com/download/win-cuda-zip) | NVIDIA GPUs supported by CUDA 13, starting with RTX 30 / Ampere |
-| Windows x64 · Vulkan | [Setup EXE](https://baocut.com/download/win-vulkan-setup) | [ZIP](https://baocut.com/download/win-vulkan-zip) | Vulkan-capable AMD / Intel GPUs or older NVIDIA GPUs; Whisper and audio.cpp (speech, music) use the GPU, candle uses the CPU |
+**1. Install BaoCut and open it once**
 
-On macOS, open the DMG and drag BaoCut into Applications. On Windows, install the [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/) first, then run the installer or extract the ZIP. Windows packages are unsigned; GPU variants need compatible graphics drivers. Checksums and verification details are on each release's GitHub page. The app checks GitHub Releases for updates through its platform-specific update feed.
+Download for [macOS (Apple Silicon)](https://baocut.com/download/mac-dmg) or [Windows](#download-and-install). On first launch the app puts the `baocut` command in your terminal. Check it:
 
-External agents use the [desktop CLI entrypoint](apps/desktop/README.md#外部-agent-与-cli); see that guide for absolute paths, `BAOCUT_CLI`, and older packages that lack it.
+```bash
+baocut status
+```
 
-Agent features require a signed-in agent engine such as Codex CLI or Claude Code. Media analysis, transcription preparation and export also require `ffmpeg` and `ffprobe`; these external tools are not bundled.
+It lists what this machine can do right now and what is missing (local models, `ffmpeg` and so on), each with a fix. If the terminal cannot find `baocut`, see the [desktop CLI entrypoint](apps/desktop/README.md#外部-agent-与-cli).
 
-Local models download from Hugging Face by default. If it is unreachable or slow, set the download source to ModelScope (Download and storage at the bottom of a model page's local models, or Settings › General › Model download source) to download from ModelScope instead (the few model files ModelScope lacks still come from Hugging Face; every file is checked against its built-in checksum), or choose Custom and enter a mirror's base URL.
+**2. Install the BaoCut skill for your agent**
+
+```bash
+baocut skill install
+```
+
+The skill is a manual on how to use BaoCut. Once it is installed, your agent knows when and how to use it. It goes into `~/.agents/skills` and `~/.claude/skills` by default and updates with the app; use `--dir <folder>` for another location. For agents that connect over MCP, run `baocut mcp install`.
+
+**3. Ask your agent**
+
+```text
+Transcribe ~/Movies/talk.mp4, add English and Chinese subtitles, and export an MP4.
+Download the video at this link, translate it into English and dub it: <video page link>
+Cut the filler words and long pauses from this recording, then make 3 vertical shorts.
+Use BaoCut to make a 3-minute explainer about <topic>, presented by a virtual host.
+```
+
+**4. Review and fine-tune**
+
+When the timeline plays from start to finish, the agent stops and gives you a review link. It opens this video's editor in your browser. Say what to change ("the subtitle at 0:42 covers the face"), or drag clips and fix captions yourself; you and the agent edit the same timeline. Once you approve, it exports the final video.
+
+**No external agent? That works too.** Chat in the desktop app's Home. It runs on the Codex CLI or Claude Code signed in on this machine, and works the same way.
 
 <img width="4432" height="2704" alt="CleanShot 2026-10-07 at 9 35 49 PM@2x" src="https://github.com/user-attachments/assets/304eecf4-56f7-40bf-a1f0-83dd9a7d4ee8" />
 
 <img width="3294" height="2582" alt="CleanShot 2026-10-07 at 9 38 02 PM@2x" src="https://github.com/user-attachments/assets/f71e7ad1-a7cb-40f5-987b-4b78403c11cf" />
 
+## Why "built for agents"
 
+Traditional editors are designed for human hands, so an agent has to work around the interface. Most AI video tools go the other way: they render one MP4, and if the second sentence of the translation is wrong, you start over. BaoCut lets the agent edit through commands and keeps the result on a timeline:
 
-## Why BaoCut
-
-Most AI video tools render once and hand you a file. If the second sentence of the translation is wrong, you start over. BaoCut takes the opposite stance:
-
-- **The video is the source of truth.** Transcripts, translations, subtitle layers, chapters, voice-overs and motion graphics all live inside one editable video. Files (SRT, MP4, audio, transcripts) are exports of it, never the other way around.
-- **Local edits stay local.** Fix one subtitle line, swap one shot, redo one voice-over sentence. The agent changes exactly that and reports a receipt of what changed. Nothing else is re-rendered.
-- **Humans and the agent share one editor.** You drag a clip, the agent rewrites a caption; both go through the same command gateway, the same transactions, the same undo stack. You can take over at any point.
-- **Bounded autonomy.** The agent works inside an explicit scope, access mode and budget. Destructive actions ask first. Untrusted material (a downloaded page, a transcript) is data, never instructions.
-- **Honest delivery.** The agent reports what it measured, what it actually looked at, and what still needs a human ear. A failed check is reported as a failed check, not hidden behind "done".
+- **Editing runs on commands, not clicks.** The CLI, the MCP server and the skill share one tool catalog, and every command documents its parameters and effect. The agent never has to click through an interface.
+- **The result is an editable video.** Transcripts, translations, subtitle layers, chapters, voice-overs and motion graphics all live inside one video. SRT, MP4, audio and transcript files are exports of it.
+- **Change one thing, and only that thing changes.** Fix one subtitle line, swap one shot, redo one voice-over sentence. The agent edits the scope you named and returns a receipt, and a wrong edit can be undone. Render caches are invalidated by actual dependencies; a local edit sometimes still re-renders the compositions it touches.
+- **You and the agent share one editor.** You drag a clip, the agent rewrites a caption; both go through the same command gateway, transactions and undo stack. You can take over at any point.
+- **Bounded autonomy.** The agent works inside an explicit scope, access mode and budget, and destructive actions follow approval rules. Outside material such as a downloaded page or a transcript is treated as data only.
+- **Honest delivery.** The agent reports what it measured, which frames it actually looked at, and what still needs a human ear. A failed check is reported as failed.
+- **Bring your own models.** Transcription, speech synthesis, image and music generation run on local models or on your own online providers.
 
 ## What it can do
 
@@ -66,6 +84,7 @@ Most AI video tools render once and hand you a file. If the second sentence of t
 
 - **Make a video from a prompt** with 24 built-in scene templates and example prompts: explainers, product launches, trailers, tutorials, data stories, typography motion and more.
 - **Narration-first production.** Plan the script, synthesize the voice in one pass, then cut the picture to the narration.
+- **Put a virtual host on screen.** A cartoon character lip-syncs to the narration, blinks, breathes and turns its head. Use a built-in original host or generate your own from one front-facing portrait. Frames are computed by the engine, so the same narration renders the same way every time.
 - **Motion graphics as code.** The agent writes a self-contained HTML composition (lower thirds, big numbers, callouts, brand stingers), imports it as a code bundle, bakes frames and places it on the timeline. Supports BaoCut's own `baocut/1` contract and `hyperframes/1`.
 - **Image generation** for shots that need a still: local Qwen-Image or online providers.
 
@@ -87,6 +106,25 @@ Every surface talks to the same local Runtime over the same protocol and edits t
 **Bring your own agent engine.** Claude Code and Codex CLI are validated end to end. GitHub Copilot CLI, Pi and OpenCode are built in, and any Agent Client Protocol agent (Qwen Code, Gemini CLI, Cursor Agent, Grok, Kimi Code, or one you add) plugs in through the same driver.
 
 **Bring your own models.** Capabilities (transcribe, speak, generate image, generate text, separate audio) are decoupled from providers. Run local models on Apple Silicon (MLX, Core ML) or on Windows (whisper.cpp + candle, with CUDA and Vulkan builds), with local speech (Qwen3-TTS, IndexTTS, VoxCPM2, OmniVoice, Fish Audio S2 Pro; Built with Fish Audio, research/non-commercial license) and music on the bundled audio.cpp engine, or point a capability at OpenAI, Anthropic, Google, ElevenLabs, DeepSeek, Moonshot, Qwen, Zhipu, MiniMax, Volcengine, xAI, Mistral, Groq, OpenRouter, SiliconFlow or any OpenAI-compatible endpoint. A usage ledger tracks cost per job. One machine can share its local models with others on the LAN.
+
+## Download and install
+
+BaoCut is available for macOS and Windows. The links below always download the latest release; version numbers and release notes are on [baocut.com](https://baocut.com/#download) and [GitHub Releases](https://github.com/JimLiu/baocut/releases). Packaged apps include the Runtime and native workers; Node.js and Rust are only needed for development.
+
+| Platform | Installer | ZIP | Choose this version for |
+| --- | --- | --- | --- |
+| macOS 14+ · Apple Silicon | [DMG](https://baocut.com/download/mac-dmg) | [ZIP](https://baocut.com/download/mac-zip) | Apple Silicon Macs; Developer ID signed and notarized |
+| Windows x64 · CPU | [Setup EXE](https://baocut.com/download/win-setup) | [ZIP](https://baocut.com/download/win-zip) | CPU inference |
+| Windows x64 · CUDA | [Setup EXE](https://baocut.com/download/win-cuda-setup) | [ZIP](https://baocut.com/download/win-cuda-zip) | NVIDIA GPUs supported by CUDA 13, starting with RTX 30 / Ampere |
+| Windows x64 · Vulkan | [Setup EXE](https://baocut.com/download/win-vulkan-setup) | [ZIP](https://baocut.com/download/win-vulkan-zip) | Vulkan-capable AMD / Intel GPUs or older NVIDIA GPUs; Whisper and audio.cpp (speech, music) use the GPU, candle uses the CPU |
+
+On macOS, open the DMG and drag BaoCut into Applications. On Windows, install the [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/) first, then run the installer or extract the ZIP. Windows packages are unsigned; GPU variants need compatible graphics drivers. Checksums and verification details are on each release's GitHub page. The app checks GitHub Releases for updates through its platform-specific update feed.
+
+External agents use the [desktop CLI entrypoint](apps/desktop/README.md#外部-agent-与-cli); see that guide for absolute paths, `BAOCUT_CLI`, and older packages that lack it.
+
+Agent features require a signed-in agent engine such as Codex CLI or Claude Code. Media analysis, transcription preparation and export also require `ffmpeg` and `ffprobe`; these external tools are not bundled.
+
+Local models download from Hugging Face by default. If it is unreachable or slow, set the download source to ModelScope (Download and storage at the bottom of a model page's local models, or Settings › General › Model download source) to download from ModelScope instead (the few model files ModelScope lacks still come from Hugging Face; every file is checked against its built-in checksum), or choose Custom and enter a mirror's base URL.
 
 ## Run from source
 

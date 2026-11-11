@@ -5,8 +5,8 @@
 <h1 align="center">BaoCut</h1>
 
 <p align="center">
-  <strong>以可编辑视频为中心的 AI 视频智能体。</strong><br>
-  告诉它你想做什么，它会转写、制作字幕、翻译、配音、剪辑和制作动画。结果保存在时间线里，你可以继续修改。
+  <strong>给 Agent 用的视频编辑器。</strong><br>
+  Agent 干活，你验收和微调。
 </p>
 
 <p align="center">
@@ -14,6 +14,94 @@
 </p>
 
 ---
+
+把 BaoCut 交给你的 Agent（Claude Code、Codex、Cursor 等），用一句话说清要什么：转写、加字幕、翻译配音、剪口播，或者从零做一条讲解视频。Agent 用命令完成剪辑，做出来的是一条可以继续编辑的时间线。你打开编辑器看一遍，哪里不满意，说一句让它改，或者自己动手拖。
+
+## 快速上手
+
+**1. 安装 BaoCut，打开一次**
+
+下载 [macOS 版（Apple Silicon）](https://baocut.com/download/mac-dmg)或 [Windows 版](#下载与安装)。第一次启动时，App 会把 `baocut` 命令装进终端。在终端里确认：
+
+```bash
+baocut status
+```
+
+它列出这台机器现在能做什么、还缺什么（例如本地模型、`ffmpeg`），缺的都带补救办法。终端找不到 `baocut` 时，见[桌面 CLI 入口](apps/desktop/README.md#外部-agent-与-cli)。
+
+**2. 把 BaoCut skill 装给你的 Agent**
+
+```bash
+baocut skill install
+```
+
+skill 是一份「怎么用 BaoCut」的说明书，装好后 Agent 自己知道什么时候用、怎么用。默认装进 `~/.agents/skills` 与 `~/.claude/skills`，随 App 更新；用 `--dir <文件夹>` 装到别处。走 MCP 的 Agent 运行 `baocut mcp install`。
+
+**3. 对 Agent 说一句话**
+
+```text
+把 ~/Movies/talk.mp4 转写出来，加中英双语字幕，导出 MP4。
+把这个链接的视频下载下来，翻译成中文并配音：<视频页面链接>
+把这段口播里的口癖和长停顿剪掉，再切 3 条竖版短视频。
+用 BaoCut 做一条 3 分钟的讲解视频，讲清楚 <主题>，让虚拟主播出镜讲解。
+```
+
+**4. 验收和微调**
+
+Agent 做到时间线能从头播放时，会停下来给你一个审片链接，在浏览器里打开就是这条视频的编辑器。有意见直接说（「第 42 秒的字幕挡住脸了」），也可以自己拖片段、改字幕；你和 Agent 改的是同一条时间线。你说可以了，它再导出成片。
+
+**不用外部 Agent 也可以。** 桌面应用的 Home 里直接对话，由本机已登录的 Codex CLI 或 Claude Code 驱动，用法相同。
+
+## 为什么是「给 Agent 用的」
+
+传统剪辑软件为人的手设计，Agent 只能绕着界面走。多数 AI 视频工具反过来：一次生成一个 MP4，第二句译文不对就得重来。BaoCut 让 Agent 用命令剪辑，再把结果留在时间线上：
+
+- **剪辑走命令，不走界面。** CLI、MCP 服务与 skill 共用一份工具目录，每个命令的参数与效果都查得到，Agent 不用点界面。
+- **结果是能改的视频。** 文稿、译文、字幕层、章节、配音和动态图形都属于同一个视频；SRT、MP4、音频和文稿文件是它的导出结果。
+- **改一处，只动一处。** 改一条字幕、换一个镜头、重做一句配音，Agent 按指定范围修改并返回变更回执，改错了可以撤销。渲染缓存按实际依赖失效；局部编辑有时仍需要重新渲染相关合成。
+- **你和 Agent 用同一个编辑器。** 你拖动片段，Agent 改写字幕，双方走同一套命令入口、事务与撤销机制。你随时可以接手。
+- **自主执行有明确边界。**Agent 在指定范围、访问模式和预算内工作，破坏性操作受审批规则约束。下载的网页、转写文稿等外部材料只当数据处理。
+- **如实交付。**Agent 说明测量了什么、实际看了哪些画面、哪些部分还要人听一遍。检查失败会明确报告。
+- **模型自己选。** 转写、语音合成、图片与音乐生成可以用本机模型，也可以接你自己的在线服务。
+
+## 能做什么
+
+**处理已有素材**
+
+- **转写。** 使用本地模型（Whisper large-v3 / v3-turbo、Qwen3-ASR、支持说话人区分的 MOSS）或在线 API。支持逐词时间信息，其精度取决于模型与对齐能力；转写片段可在任务进行时逐步进入时间线。
+- **制作字幕。** 原文字幕、译文字幕或双语字幕。Agent 按句翻译；界面记住新字幕的属性偏好，视频保存自己的字幕样式。
+- **跨语言配音。** 翻译后用 HTDemucs 分离人声与背景声，再使用克隆音色或预设音色逐句合成，将新音轨放进时间线。
+- **剪辑口播。** 在时间线上去掉口头语、长停顿、重录和说到一半重新开始的内容，原始媒体文件保持完整。
+- **生成衍生内容。** 根据带时间信息的文稿制作章节、摘要、标题、博客文章和短视频，并用时间戳定位来源。
+- **在本机处理素材。** 给晃动的镜头去抖（通过你的 ffmpeg 使用 vid.stab，或 deshake）、视频超分（Real-ESRGAN）、做顺滑的慢动作（RIFE）、把几段镜头统一到一张参考的色调、不用绿幕抠出主体（rembg 发布的权重），以及把任何音轨拆成几轨（HTDemucs）。每种处理都写成新文件，不动原文件。
+- **找剪辑点。** 检测镜头切换（含手持素材与淡入淡出），不靠文稿找出空档，读出一首歌的节拍、小节与重音，让剪辑点落在拍子上。
+
+**从创作简报开始**
+
+- **从提示词制作视频。** 内置 24 个创作模板，提供场景方向与示例提示词，涵盖知识讲解、产品发布、预告片、教程、数据故事、文字动画等。
+- **先配音，再剪画面。** 规划脚本，合成旁白，再按旁白安排画面与节奏。
+- **让虚拟主播出镜讲解。** 一个卡通角色跟着旁白对口型，会眨眼、呼吸、转头；用内置的原创主播，或从一张正面像生成自己的角色。画面由引擎逐帧计算，同一段旁白每次结果相同。
+- **用代码制作动态图形。** Agent 编写自包含的 HTML 合成，例如下三分之一字幕条、醒目数字、标注和品牌短动画，将其作为代码包导入，烘焙帧并放到时间线上。支持 BaoCut 的 `baocut/1` 合同和 `hyperframes/1`。
+- **生成图片。** 需要静态画面时，可使用本地 Qwen-Image 或在线服务。
+
+**交付结果**
+
+- 导出 MP4 成片（可烧录字幕，或另导出字幕文件）、SRT / WebVTT、文稿和音频；也可以导出便携的 `.baocut` 包，在另一台机器上打开并继续编辑。便携包包含视频快照、全部文档版本与素材版本，不包含原视频的完整事务与撤销历史。
+
+## 四种入口，共用一个 Runtime
+
+各个入口通过同一套协议连接本地 Runtime，编辑同一个视频。
+
+| 入口 | 用途 |
+| --- | --- |
+| **桌面应用**（Electron） | 在 Home 与 Agent 协作，在 Space 浏览项目产物；在时间线编辑器中预览、修改、撤销和查看字幕。 |
+| **CLI** `baocut` | 面向脚本与终端的轻量客户端。输出被管道接收时使用 JSON，退出码说明是否需要用户处理。 |
+| **MCP 服务 + BaoCut skill** | 让你自己的 Agent（Claude Code、Codex、Cursor、Gemini CLI 等）通过同一份工具目录操作 BaoCut。`baocut skill install` 把使用说明以软链接装进 `~/.agents/skills` 与 `~/.claude/skills`（或任意文件夹），随应用更新；`baocut mcp install` 配置 MCP 接入。 |
+| **Web 客户端** | 用 `baocut web open --video <id>` 获取一次性链接，在浏览器打开视频的编辑器，查看远端 Agent 的工作结果。 |
+
+**选择自己的 Agent 引擎。** Claude Code 与 Codex CLI 已有端到端验证；GitHub Copilot CLI、Pi 和 OpenCode 已内置接入。支持 Agent Client Protocol 的 Agent（如 Qwen Code（千问）、Gemini CLI、Cursor Agent、Grok、Kimi Code，或自行添加的引擎）通过统一驱动接入。各引擎的验证状态见下文。
+
+**选择自己的模型。** 转写、语音合成、图片生成、文本生成、音频分离等能力与服务提供方解耦。Apple Silicon 使用 MLX、Core ML 本地后端，Windows 使用 whisper.cpp、candle，并提供 CUDA 与 Vulkan 打包配置；本地语音合成与音乐生成使用随应用内置的 audio.cpp 引擎。在线接入包括 OpenAI、Anthropic、Google、ElevenLabs、DeepSeek、Moonshot、Qwen、Zhipu、MiniMax、Volcengine、xAI、Mistral、Groq、OpenRouter、SiliconFlow 及其他 OpenAI 兼容端点。各服务支持的能力不同；用量账本记录任务消耗与可获得的费用信息。一台机器也可以向局域网里的其他机器共享本地模型能力。Windows 当前的凭据与硬件验证限制见下文。
 
 ## 下载与安装
 
@@ -30,59 +118,11 @@ macOS 打开 DMG 后，将 BaoCut 拖入“应用程序”。Windows 先安装 [
 
 外部 Agent 使用[桌面 CLI 入口](apps/desktop/README.md#外部-agent-与-cli)；绝对路径、`BAOCUT_CLI` 与旧包缺失入口的处理见该说明。
 
-智能体功能需要已登录的智能体引擎，例如 Codex CLI 或 Claude Code。媒体分析、转写音频准备与导出还需要 `ffmpeg` 和 `ffprobe`；安装包不包含这些外部工具。
+Agent 功能需要已登录的 Agent 引擎，例如 Codex CLI 或 Claude Code。媒体分析、转写音频准备与导出还需要 `ffmpeg` 和 `ffprobe`；安装包不包含这些外部工具。
 
 Fish Audio S2 Pro 可在本机使用 MLX 社区 8-bit 权重，支持内置音色和参考录音加原文克隆（Built with Fish Audio；研究及非商业用途许可）。
 
 本地模型默认从 Hugging Face 下载。连不上或速度慢时，可在各模型页本机模型底部的“下载与存储”（或“设置 › 通用 › 模型下载来源”）选 ModelScope 改从 ModelScope 下载（ModelScope 上没有的少数模型文件仍从 Hugging Face 下载，文件都按内置校验值核对），也可以选“自定义”填镜像的基址。
-
-## 为什么选择 BaoCut
-
-视频制作往往需要反复修改：译文里的第二句话不准确、某个镜头需要替换、配音的语气还要调整。BaoCut 把这些修改保留在同一个可编辑视频里：
-
-- **视频是权威的编辑对象。** 文稿、译文、字幕层、章节、配音和动态图形都属于同一个视频。SRT、MP4、音频和文稿文件是它的导出结果。
-- **可以只修改指定内容。** 改一条字幕、换一个镜头，或重做一句配音，智能体按指定范围编辑，并返回变更回执。渲染缓存按实际依赖失效；局部编辑有时仍需要重新渲染相关合成。
-- **你与智能体使用同一个编辑器。** 你拖动片段，智能体改写字幕，双方都通过同一套命令入口、事务与撤销机制提交修改。你随时可以接手。
-- **自主执行有明确边界。** 智能体在指定范围、访问模式和预算内工作，破坏性操作受审批规则约束。下载的网页、转写文稿等外部材料作为数据处理。
-- **如实交付。** 智能体说明测量了什么、实际查看了哪些内容，以及哪些部分还需要人工试听。检查失败会明确报告。
-
-## 能做什么
-
-**处理已有素材**
-
-- **转写。** 使用本地模型（Whisper large-v3 / v3-turbo、Qwen3-ASR、支持说话人区分的 MOSS）或在线 API。支持逐词时间信息，其精度取决于模型与对齐能力；转写片段可在任务进行时逐步进入时间线。
-- **制作字幕。** 原文字幕、译文字幕或双语字幕。智能体按句翻译；界面记住新字幕的属性偏好，视频保存自己的字幕样式。
-- **跨语言配音。** 翻译后用 HTDemucs 分离人声与背景声，再使用克隆音色或预设音色逐句合成，将新音轨放进时间线。
-- **剪辑口播。** 在时间线上去掉口头语、长停顿、重录和说到一半重新开始的内容，原始媒体文件保持完整。
-- **生成衍生内容。** 根据带时间信息的文稿制作章节、摘要、标题、博客文章和短视频，并用时间戳定位来源。
-- **在本机处理素材。** 给晃动的镜头去抖（通过你的 ffmpeg 使用 vid.stab，或 deshake）、视频超分（Real-ESRGAN）、做顺滑的慢动作（RIFE）、把几段镜头统一到一张参考的色调、不用绿幕抠出主体（rembg 发布的权重），以及把任何音轨拆成几轨（HTDemucs）。每种处理都写成新文件，不动原文件。
-- **找剪辑点。** 检测镜头切换（含手持素材与淡入淡出），不靠文稿找出空档，读出一首歌的节拍、小节与重音，让剪辑点落在拍子上。
-
-**从创作简报开始**
-
-- **从提示词制作视频。** 内置 24 个创作模板，提供场景方向与示例提示词，涵盖知识讲解、产品发布、预告片、教程、数据故事、文字动画等。
-- **先配音，再剪画面。** 规划脚本，合成旁白，再按旁白安排画面与节奏。
-- **用代码制作动态图形。** 智能体编写自包含的 HTML 合成，例如下三分之一字幕条、醒目数字、标注和品牌短动画，将其作为代码包导入，烘焙帧并放到时间线上。支持 BaoCut 的 `baocut/1` 合同和 `hyperframes/1`。
-- **生成图片。** 需要静态画面时，可使用本地 Qwen-Image 或在线服务。
-
-**交付结果**
-
-- 导出 MP4 成片（可烧录字幕，或另导出字幕文件）、SRT / WebVTT、文稿和音频；也可以导出便携的 `.baocut` 包，在另一台机器上打开并继续编辑。便携包包含视频快照、全部文档版本与素材版本，不包含原视频的完整事务与撤销历史。
-
-## 四种入口，共用一个 Runtime
-
-各个入口通过同一套协议连接本地 Runtime，编辑同一个视频。
-
-| 入口 | 用途 |
-| --- | --- |
-| **桌面应用**（Electron） | 在 Home 与智能体协作，在 Space 浏览项目产物；在时间线编辑器中预览、修改、撤销和查看字幕。 |
-| **CLI** `baocut` | 面向脚本与终端的轻量客户端。输出被管道接收时使用 JSON，退出码说明是否需要用户处理。 |
-| **MCP 服务 + BaoCut skill** | 让你自己的智能体（Claude Code、Codex、Cursor、Gemini CLI 等）通过同一份工具目录操作 BaoCut。`baocut skill install` 把使用说明以软链接装进 `~/.agents/skills` 与 `~/.claude/skills`（或任意文件夹），随应用更新；`baocut mcp install` 配置 MCP 接入。 |
-| **Web 客户端** | 用 `baocut web open --video <id>` 获取一次性链接，在浏览器打开视频的编辑器，查看远端智能体的工作结果。 |
-
-**选择自己的智能体引擎。** Claude Code 与 Codex CLI 已有端到端验证；GitHub Copilot CLI、Pi 和 OpenCode 已内置接入。支持 Agent Client Protocol 的智能体（如 Qwen Code（千问）、Gemini CLI、Cursor Agent、Grok、Kimi Code，或自行添加的引擎）通过统一驱动接入。各引擎的验证状态见下文。
-
-**选择自己的模型。** 转写、语音合成、图片生成、文本生成、音频分离等能力与服务提供方解耦。Apple Silicon 使用 MLX、Core ML 本地后端，Windows 使用 whisper.cpp、candle，并提供 CUDA 与 Vulkan 打包配置；本地语音合成与音乐生成使用随应用内置的 audio.cpp 引擎。在线接入包括 OpenAI、Anthropic、Google、ElevenLabs、DeepSeek、Moonshot、Qwen、Zhipu、MiniMax、Volcengine、xAI、Mistral、Groq、OpenRouter、SiliconFlow 及其他 OpenAI 兼容端点。各服务支持的能力不同；用量账本记录任务消耗与可获得的费用信息。一台机器也可以向局域网里的其他机器共享本地模型能力。Windows 当前的凭据与硬件验证限制见下文。
 
 ## 从源码运行
 
@@ -93,7 +133,7 @@ Fish Audio S2 Pro 可在本机使用 MLX 社区 8-bit 权重，支持内置音�
 | 完整桌面开发 | `npm run dev` | Node.js 24.22.1+（LTS）、Rust、CMake 与下方平台构建工具；启动前构建原生 Worker 与 WASM。 |
 | 无 Rust 的外壳／界面开发 | `npm run dev:lite` | Node.js 24.22.1+（LTS）；跳过原生与 WASM 构建。全新检出中，视频编辑、预览、导出、本地推理与语音处理不可用；已有构建产物仍可能被使用。 |
 
-智能体对话还需要安装并登录智能体引擎。媒体分析、转写音频准备与成片导出需要 PATH 中可用的 `ffmpeg` 和 `ffprobe`，两者不随应用分发。只打开应用无需登录智能体。
+Agent 对话还需要安装并登录 Agent 引擎。媒体分析、转写音频准备与成片导出需要 PATH 中可用的 `ffmpeg` 和 `ffprobe`，两者不随应用分发。只打开应用无需登录 Agent。
 
 ### 1. 按操作系统安装工具
 
@@ -198,7 +238,7 @@ Windows Command Prompt 中，先执行 `set "BAOCUT_HOME=.dev/baocut-home"`，�
 | `npm run doctor` / `npm run setup` | 检查源码构建依赖／检查并构建原生 Worker、取内置的 audio.cpp 引擎并构建 WASM。 |
 | `npm run dev:lite` | 跳过 Rust 构建启动桌面外壳；功能限制见上方。 |
 | `npm run dev:designs` | 用 Vite 启动可交互原型，起始地址为 `http://127.0.0.1:4331/#/home`，源码变化后自动构建并刷新。首次运行前执行 `npm --prefix designs/baocut ci`；见[原型 README](designs/baocut/README.md)。 |
-| `npm run build` | 构建 WASM、工具目录、外部智能体 skill，以及主进程、preload、Runtime 与界面；桌面产物位于 `apps/desktop/out`。 |
+| `npm run build` | 构建 WASM、工具目录、外部 Agent skill，以及主进程、preload、Runtime 与界面；桌面产物位于 `apps/desktop/out`。 |
 | `npm start` | 预览已构建的桌面端，界面从文件加载；首次先运行 `npm run setup` 与 `npm run build`。 |
 | `npm run package:mac -- --build <n> --sign-sha1 <SHA1> --out <新目录>` | Apple Silicon 的签名、公证 ZIP 与 DMG，见[桌面端打包说明](apps/desktop/README.md#macos-打包)。 |
 | `npm run package:win` / `npm run package:win:cuda` / `npm run package:win:vulkan` | Windows x64 的 NSIS 安装包（按用户安装）与 zip，不签名；分别使用 CPU、CUDA（NVIDIA）或 Vulkan（Whisper 使用 GPU，candle 仍使用 CPU）配置。见[桌面端 README](apps/desktop/README.md#windows-打包)。 |
@@ -215,7 +255,7 @@ Windows Command Prompt 中，先执行 `set "BAOCUT_HOME=.dev/baocut-home"`，�
 
 BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上方，验证覆盖仍在完善：
 
-- Codex CLI 与 Claude Code 已有端到端验证。外部智能体的 CLI 链路已通过；MCP 链路在修复后通过脚本客户端复核，仍待 Claude Code 复跑。详见[验收记录](docs/acceptance/agent-surface-e2e.md)。其他内置引擎尚未在 BaoCut 中逐一验证。
+- Codex CLI 与 Claude Code 已有端到端验证。外部 Agent 的 CLI 链路已通过；MCP 链路在修复后通过脚本客户端复核，仍待 Claude Code 复跑。详见[验收记录](docs/acceptance/agent-surface-e2e.md)。其他内置引擎尚未在 BaoCut 中逐一验证。
 - 已实现 Apple Silicon（MLX、Core ML）和 Windows（whisper.cpp、candle）的本地推理后端。Mac arm64 包已通过 Developer ID 签名与 Apple 公证。Windows CPU、CUDA、Vulkan 包已通过原生构建、安装、同版覆盖升级与 ZIP 自检，但未签名，GPU 推理尚未在实际显卡上验证。Windows 已包含 Credential Manager 存储与 v2 凭据迁移；CI 尚未实测真实凭据迁移。见[桌面端说明](apps/desktop/README.md)。
 - 部分本地模型权重（例如 OmniVoice、Fish Audio S2 Pro、Qwen-Image）带有非商业许可，应用会在选择前提示。
 - 完整产品范围、发布阶段与当前进度见[产品设计 §11](docs/product/product-design.md#11-发布路线与成功指标)。
@@ -226,7 +266,7 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 | --- | --- |
 | [docs/](docs/README.md) | 产品、架构、格式与协议规范、验收标准；从阅读路线开始。 |
 | [designs/baocut/](designs/baocut/README.md) | 可交互的界面原型，UI 变化先在这里确认。 |
-| [skills/](skills/README.md) | BaoCut skill：指导智能体通过 CLI 或 MCP 使用 BaoCut 的入口；内置创作 skill（字幕、翻译、口播剪辑、旁白、动态图形等）在它下面的 [`skills/baocut/built-in-skills/`](skills/baocut/built-in-skills/README.md)。 |
+| [skills/](skills/README.md) | BaoCut skill：指导 Agent 通过 CLI 或 MCP 使用 BaoCut 的入口；内置创作 skill（字幕、翻译、口播剪辑、旁白、动态图形等）在它下面的 [`skills/baocut/built-in-skills/`](skills/baocut/built-in-skills/README.md)。 |
 | [templates/](templates/README.md) | 内置创作模板。 |
 | [AGENTS.md](AGENTS.md) | 在本仓库工作的编码代理规则。 |
 
@@ -239,7 +279,7 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 | `BAOCUT_LEGACY_ROOT` | 显式指定启动时迁移的 v1/v2 数据目录，开发态独立 Home 也可使用。旧数据不改写，完成状态记在 `<home>/store/legacy-upgrade.json`；默认桌面启动（开发态或安装版）都会自动检测平台历史目录；显式配置的沙盒 Home 保持隔离 |
 | `BAOCUT_HOME` | Runtime 主目录，保存发现文件、实例锁、会话与日志。默认 `~/.baocut`；桌面开发模式默认 `.dev/baocut-home`。 |
 | `BAOCUT_PROJECTS_DIR` | 新建项目的目录。默认 `~/BaoCut`；设置 `BAOCUT_HOME` 时默认 `<home>/projects`。 |
-| `BAOCUT_<ID>_PATH` | 指定智能体引擎的可执行文件，`<ID>` 为 `CLAUDE`、`CODEX`、`GEMINI`、`CURSOR`、`GROK` 或 `KIMI`（如 `BAOCUT_CODEX_PATH`）。否则从登录 shell 的 PATH 与已知安装位置选择最新版本。 |
+| `BAOCUT_<ID>_PATH` | 指定 Agent 引擎的可执行文件，`<ID>` 为 `CLAUDE`、`CODEX`、`GEMINI`、`CURSOR`、`GROK` 或 `KIMI`（如 `BAOCUT_CODEX_PATH`）。否则从登录 shell 的 PATH 与已知安装位置选择最新版本。 |
 | `BAOCUT_LOCALE` | 界面、Runtime 与 CLI 文字的语言，优先于设置。支持 `en`、`zh-Hans` 等出货语言，也接受 `zh-CN`、`en_US.UTF-8` 等区域写法；完整列表见 `packages/protocol/src/i18n.ts` 的 `LOCALES`。测试套件默认使用 `zh-Hans`。 |
 | `BAOCUT_SYSTEM_LANGUAGES` | Runtime 使用的系统首选语言，逗号分隔。桌面端传入操作系统设置；否则读取 `LC_ALL` / `LC_MESSAGES` / `LANG`。 |
 | `BAOCUT_ALLOWED_ORIGINS` | 额外允许连接 Runtime 的来源，逗号分隔。桌面开发模式会加入 Vite 地址。 |
@@ -252,8 +292,8 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 | `BAOCUT_MODELS_DIR` | 本地模型目录，默认 `<BAOCUT_HOME>/models`。 |
 | `BAOCUT_MODELS_ENDPOINT` | 本地模型的下载来源（基址），优先于“模型下载来源”设置。默认 `https://huggingface.co`；`https://www.modelscope.cn` 改从 ModelScope 下载。 |
 | `BAOCUT_TEMPLATES_DIR` | 内置创作模板目录，见[模板包规范 §6](docs/spec/template-spec.md#6-目录来源与加载)。否则查找打包资源中的 `templates/`，再查仓库模板。用户模板放在 `<BAOCUT_HOME>/templates`；ID 冲突时内置模板优先。 |
-| `BAOCUT_SKILLS_DIR` | 内置智能体 skill 目录，见[架构设计 §3.8](docs/architecture/architecture-design.md#38-分层渐进加载的创作指导)。否则查找打包资源中的 `skills/baocut/built-in-skills/`，再查仓库中的同一目录。用户 skill 放在 `<BAOCUT_HOME>/skills`；ID 冲突时内置优先。 |
-| `BAOCUT_AGENT_SKILLS_DIR` | 外部智能体使用的 BaoCut skill 源目录，由 Runtime 渲染，见 [Agent 面设计 §8](docs/design/agent-surface/agent-surface-design.md)。否则依次查找打包的 `skills/` 与仓库目录。 |
+| `BAOCUT_SKILLS_DIR` | 内置 Agent skill 目录，见[架构设计 §3.8](docs/architecture/architecture-design.md#38-分层渐进加载的创作指导)。否则查找打包资源中的 `skills/baocut/built-in-skills/`，再查仓库中的同一目录。用户 skill 放在 `<BAOCUT_HOME>/skills`；ID 冲突时内置优先。 |
+| `BAOCUT_AGENT_SKILLS_DIR` | 外部 Agent 使用的 BaoCut skill 源目录，由 Runtime 渲染，见 [Agent 面设计 §8](docs/design/agent-surface/agent-surface-design.md)。否则依次查找打包的 `skills/` 与仓库目录。 |
 | `BAOCUT_AGENT_SKILL_DIR` | `baocut skill install` 软链接指向的那份渲染好的 BaoCut skill；桌面应用设为包内的 `agent-skill/baocut`。没有时（开发）Runtime 渲染进 `<BAOCUT_HOME>/agent-skills/baocut`。 |
 | `BAOCUT_CLI_ENTRY` | 应用自带的命令行入口，`baocut skill status` 与 Skills 页显示它；桌面应用会设置，开发时没有。 |
 | `BAOCUT_MODEL_ASSETS_DIR` | 随应用分发的模型数据（自检样本、内置音色参考录音，即 `packages/models/assets`）。否则查找打包的 `model-assets/`，再查仓库数据；打包后的桌面端使用 `<resources>/model-assets`。 |
@@ -300,7 +340,7 @@ crates/
   speech-doc/       文稿后处理、对齐与字幕拆分
 bindings/
   preview-wasm/     编辑器预览的 WASM 入口
-skills/             BaoCut skill（智能体使用的入口）
+skills/             BaoCut skill（Agent 使用的入口）
   baocut/built-in-skills/  内置创作 skill，README 是索引
 templates/          内置创作模板
 tools/              构建与检查脚本
