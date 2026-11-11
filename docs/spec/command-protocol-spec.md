@@ -1005,7 +1005,7 @@ interface ErrorBody {
 | `LINK_LOGIN_REQUIRED` | 网站要求登录、验证或访问权限；勾选的浏览器逐个试过、有一个仍要求登录（`details.attempts`） | 先在浏览器登录，再到设置 › 视频下载（`details.settingsHref`）勾上那个浏览器，或把它加进本次下载的 `cookieBrowsers`，然后重新提交 |
 | `LINK_COOKIES_UNAVAILABLE` | 浏览器 Cookie 数据库无法读取、被占用、没有权限或无法解密；勾选多个时是每个都读不到（`details.attempts`）；因 macOS 拒绝（`Operation not permitted`）读不到时 `details.systemAccess` 为 `fullDiskAccess`，界面在失败卡上给「打开系统设置」 | 完全退出占用数据库的浏览器、检查系统密钥权限（macOS 的 Safari 要完全磁盘访问权限；Windows 上 Chrome、Edge、Brave 用应用绑定加密时读不到，改用 Firefox）或在设置 › 视频下载（`details.settingsHref`）选择其他浏览器 |
 | `LINK_TOOL_UPDATE_REQUIRED` | 下载工具过旧、提取器或签名解析失败 | 按原安装方式更新 yt-dlp，重新检测后重试 |
-| `LINK_UNAVAILABLE` | 视频已删除、不可用或有地区限制 | 不重试；换一个链接 |
+| `LINK_UNAVAILABLE` | 视频已删除、不可用、有地区限制，或没有可用格式且没有更明确的登录、Cookie 失效或挑战解析失败诊断 | 不重试；换一个链接 |
 | `LINK_NETWORK_ERROR` | 解析不了主机名（提交时 `conflict`），或下载时连不上、超时、断流 | 检查网络后用 `pipelines.retry`，已下载的部分续传 |
 | `LINK_DISK_FULL` | 下载时磁盘满了 | 清理出空间后用 `pipelines.retry` |
 | `LINK_DOWNLOAD_FAILED` | 下载工具以其他原因失败，或没有留下媒体文件（`details.exitCode`、脱敏的 `details.stderr`） | 用 `pipelines.retry`；仍然失败时更新下载工具 |
@@ -1033,6 +1033,8 @@ interface ErrorBody {
 | `TRANSCRIBE_ASSET_NOT_FOUND` | 转录流程没给 `assetId`，而根序列的主轨上没有音视频素材（任务的 `error.code`） | 先把素材放上时间线，或用 `assetId` 指明 |
 | `TRANSCRIBE_ASSET_AMBIGUOUS` | 转录流程没给 `assetId`，而主轨上不止一个素材（`details.assetIds`；任务的 `error.code`） | 用 `assetId` 指明转写哪一个，重新启动 |
 | `TRANSCRIPT_EDITED` | 转录流程 `destination: 'replace'`，而当前文稿的全文指纹与 `stages.asr` 不符：用户改过原文（`details` 带当前指纹与 `stages.asr`）。提交时 `conflict`，不建任务；提交之后文稿又被改了时是 `transcribe` 一步的 `error.code`，`acceptEdited` 不覆盖这次 | 改用 `destination: 'new-video'`，或确认丢掉这些修改后加 `acceptEdited: true` 重新启动 |
+
+链接下载保留有界的 stderr 尾部与关键诊断。只有最终错误是缺少可用格式时，才回看先前明确的登录或账号 Cookie 失效（`LINK_LOGIN_REQUIRED`）、签名或 n challenge 解析失败（`LINK_TOOL_UPDATE_REQUIRED`）；具体的最终错误仍优先。回溯后 `message` 显示选中的原因，脱敏的 `details.stderr` 同时保留该原因与最终错误，避免后续格式探测日志淹没原因。浏览器选择与重试规则不变。
 
 `VOICE_*` 在提交时拒绝，不创建任务，放在 `RpcError.details.code`，`RpcError.code` 为 `conflict`（`VOICE_CLONE_UNSUPPORTED` 为 `invalid-request`）；在任务执行时发现的（排队期间撤回了声明、克隆失效）是任务的 `error.code`。翻译配音的合成遇到授权、预算、凭据或额度的失败时停下，`details` 带 `synthesized` 与 `remaining`，`pipelines.retry` 只合成剩下的句子。
 

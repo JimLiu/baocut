@@ -131,6 +131,72 @@ describe('参数', () => {
     expect(classifyFailure('ERROR: nsig extraction failed', 1).details).not.toHaveProperty('settingsHref');
   });
 
+  it('格式错误回溯明确的挑战或登录原因，消息展示原因原话，详情保留终止错误', () => {
+    const causes: Array<[string, string]> = [
+      ['WARNING: [youtube] x: n challenge solving failed: Some formats may be missing', 'LINK_TOOL_UPDATE_REQUIRED'],
+      ['WARNING: [youtube] x: signature extraction failed', 'LINK_TOOL_UPDATE_REQUIRED'],
+      ['WARNING: [youtube] x: nsig extraction failed', 'LINK_TOOL_UPDATE_REQUIRED'],
+      ['WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser.', 'LINK_LOGIN_REQUIRED'],
+      ['WARNING: [youtube] Account cookies have been rotated', 'LINK_LOGIN_REQUIRED'],
+      ['WARNING: [youtube] Invalid account cookies', 'LINK_LOGIN_REQUIRED'],
+      ["ERROR: [youtube] x: Sign in to confirm you're not a bot", 'LINK_LOGIN_REQUIRED'],
+    ];
+    for (const [cause, code] of causes) {
+      for (const terminal of ['ERROR: [youtube] x: Requested format is not available. Use --list-formats for a list of available formats', 'ERROR: [youtube] x: No video formats found!']) {
+        const failure = classifyFailure(`${cause}\r\n${terminal}`, 1);
+        expect(failure.code, cause).toBe(code);
+        expect(failure.message).toBe(cause.replace(/^(?:WARNING|ERROR): /, ''));
+        expect(failure.details?.stderr).toBe(`${cause}\n${terminal}`);
+      }
+    }
+  });
+
+  it('普通 Cookie 提示不算登录失败，具体终止错误不被较早诊断覆盖', () => {
+    const generic = 'ERROR: [youtube] x: Requested format is not available';
+    for (const advice of [
+      '',
+      'WARNING: Pass --cookies-from-browser to use cookies',
+      'WARNING: Extracted 42 cookies from Brave',
+      'WARNING: See the documentation for tips on exporting YouTube account cookies',
+      'WARNING: [youtube] No JavaScript runtime could be found',
+    ]) expect(classifyFailure(`${advice}\n${generic}`, 1).code, advice).toBe('LINK_UNAVAILABLE');
+    expect(classifyFailure('ERROR: No video formats found!', 1).code).toBe('LINK_UNAVAILABLE');
+
+    const terminals: Array<[string, string]> = [
+      ['ERROR: HTTP Error 403: Forbidden', 'LINK_DOWNLOAD_FAILED'],
+      ['ERROR: [youtube] x: Sign in to confirm your age', 'LINK_LOGIN_REQUIRED'],
+      ['ERROR: [youtube] x: Private video', 'LINK_LOGIN_REQUIRED'],
+      ['ERROR: [youtube] x: Video unavailable', 'LINK_UNAVAILABLE'],
+      ['ERROR: [youtube] x: This video has been removed', 'LINK_UNAVAILABLE'],
+      ['ERROR: [youtube] x: This video is not available in your country', 'LINK_UNAVAILABLE'],
+      ['ERROR: unable to download video data: <urlopen error timed out>', 'LINK_NETWORK_ERROR'],
+      ['ERROR: unable to write data: [Errno 28] No space left on device', 'LINK_DISK_FULL'],
+      ['ERROR: could not copy Chrome cookie database', 'LINK_COOKIES_UNAVAILABLE'],
+      ['ERROR: Unsupported URL: https://example.com/x', 'LINK_UNSUPPORTED'],
+      ['ERROR: something else', 'LINK_DOWNLOAD_FAILED'],
+    ];
+    for (const earlier of ['WARNING: [youtube] x: n challenge solving failed', 'WARNING: The provided YouTube account cookies are no longer valid']) {
+      for (const [terminal, code] of terminals) {
+        const failure = classifyFailure(`${earlier}\n${terminal}`, 1);
+        expect(failure.code, `${earlier}\n${terminal}`).toBe(code);
+        expect(failure.message).toBe(terminal.replace(/^ERROR: /, ''));
+      }
+    }
+    expect(classifyFailure(`${generic}\nWARNING: [youtube] x: n challenge solving failed`, 1).code).toBe('LINK_UNAVAILABLE');
+  });
+
+  it('选中原因及终止错误均先脱敏再限长', () => {
+    const cause = `WARNING: [youtube] x: n challenge solving failed: https://user:password@cdn.example.com/player?sig=cause-secret#private ${'x'.repeat(3000)}`;
+    const terminal = `ERROR: [youtube] x: Requested format is not available. https://cdn.example.com/formats?token=terminal-secret ${'y'.repeat(3000)}`;
+    const failure = classifyFailure(`${cause}\n${terminal}`, 1);
+    expect(failure.code).toBe('LINK_TOOL_UPDATE_REQUIRED');
+    expect(failure.message).toContain('n challenge solving failed');
+    expect(failure.message.length).toBeLessThanOrEqual(300);
+    expect(failure.details?.stderr).toContain('Requested format is not available');
+    expect(String(failure.details?.stderr).length).toBeLessThanOrEqual(2001);
+    expect(JSON.stringify({ message: failure.message, details: failure.details })).not.toMatch(/cause-secret|terminal-secret|password|#private/);
+  });
+
   it('文件名：去掉路径与保留字符、不以点或 - 开头；空格与单引号保留', () => {
     expect(sanitizeFileName(`-rf "Fake clip": one/two  it's <ok>`)).toBe(`rf Fake clip one two it's ok`);
     expect(sanitizeFileName('../../etc/passwd')).toBe('etc passwd');
@@ -204,6 +270,129 @@ describe('执行（假 yt-dlp）', () => {
 
   afterAll(async () => {
     await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  async function runWithStderr(chunks: string[]) {
+    const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() }) as unknown as ChildProcess;
+    const running = runYtDlp({ command: 'yt-dlp' }, [], { signal: new AbortController().signal, spawn: () => child });
+    for (const chunk of chunks) child.stderr!.emit('data', chunk);
+    child.emit('close', 1);
+    return await running;
+  }
+
+  it('关键诊断越过 6000 字符噪声仍保留；分块、CRLF、CR 和无末尾换行不丢行', async () => {
+    const cause = 'WARNING: [youtube] x: n challenge solving failed: Some formats may be missing';
+    const terminal = 'ERROR: [youtube] x: Requested format is not available';
+    const noise = 'WARNING: Skipping unavailable format\r\n'.repeat(300);
+    const result = await runWithStderr(['WARNING: [you', 'tube] x: n chall', 'enge solving failed: Some formats may be missing\r', '\n', noise, 'WARNING: another skipped format\r', 'ERR', 'OR: [youtube] x: Requested format is not ', 'available']);
+    expect(result.stderr).toContain(cause);
+    expect(result.stderr).toContain(terminal);
+    expect(result.stderr.length).toBeLessThanOrEqual(11_005);
+    const failure = classifyFailure(result.stderr, result.code);
+    expect(failure.code).toBe('LINK_TOOL_UPDATE_REQUIRED');
+    expect(failure.message).toBe(cause.replace(/^WARNING: /, ''));
+    expect(failure.details?.stderr).toBe(`${cause}\n${terminal}`);
+  });
+
+  it('长日志里的 Cookie 失效原因与登录错误保留，URL 参数不进入错误详情', async () => {
+    const terminal = 'ERROR: [youtube] x: No video formats found!';
+    for (const cause of [
+      'WARNING: The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser.',
+      "ERROR: [youtube] x: Sign in to confirm you're not a bot",
+    ]) {
+      const result = await runWithStderr([`${cause} https://example.com/help?token=diagnostic-secret\n`, 'WARNING: skipped format\n'.repeat(400), `${terminal}\n`]);
+      const failure = classifyFailure(result.stderr, result.code);
+      expect(failure.code).toBe('LINK_LOGIN_REQUIRED');
+      expect(failure.message).toContain(cause.replace(/^(?:WARNING|ERROR): /, ''));
+      expect(failure.details?.stderr).toContain(terminal);
+      expect(JSON.stringify(failure.details)).not.toContain('diagnostic-secret');
+    }
+    const cutUrl = await runWithStderr(['WARNING: https://cdn.example.com/player?token=', 'tail-secret'.repeat(900), '\n', terminal]);
+    expect(JSON.stringify(classifyFailure(cutUrl.stderr, 1).details)).not.toContain('tail-secret');
+  });
+
+  it('分块长 URL 在凭据中间截断时丢弃片段，完整 URL 仍按原规则脱敏', async () => {
+    const userinfo = 'synthetic-review-user'.repeat(80);
+    const result = await runWithStderr([
+      'WARNING: n challenge solving failed: https',
+      '://', userinfo.slice(0, 900), userinfo.slice(900),
+      '@cdn.example.com/player?sig=synthetic-review-query\n',
+      'WARNING: skipped format\n'.repeat(400),
+      'ERROR: Requested format is not available',
+    ]);
+    const failure = classifyFailure(result.stderr, 1);
+    expect(failure.code).toBe('LINK_TOOL_UPDATE_REQUIRED');
+    expect(failure.message).toContain('n challenge solving failed');
+    expect(JSON.stringify({ message: failure.message, details: failure.details })).not.toMatch(/synthetic-review-user|synthetic-review-query/);
+    expect(result.stderr.length).toBeLessThanOrEqual(11_005);
+
+    const complete = await runWithStderr([
+      'WARNING: n challenge solving failed: https://synthetic-review-user:password@cdn.example.com/player?sig=synthetic-review-query\n',
+      'WARNING: skipped format\n'.repeat(400),
+      'ERROR: Requested format is not available',
+    ]);
+    const completeFailure = classifyFailure(complete.stderr, 1);
+    expect(completeFailure.message).toBe('n challenge solving failed: https://cdn.example.com/player');
+    expect(JSON.stringify(completeFailure.details)).not.toMatch(/synthetic-review-user|password|synthetic-review-query/);
+  });
+
+  it('保留的格式原因只供格式错误回溯，不触发全日志 Cookie 或磁盘启发式', async () => {
+    const causes: Array<[string, string]> = [
+      ['WARNING: The provided YouTube account cookies are no longer valid. See cookie database help.', 'LINK_LOGIN_REQUIRED'],
+      ['WARNING: n challenge solving failed. See disk quota help.', 'LINK_TOOL_UPDATE_REQUIRED'],
+    ];
+    for (const [cause, formatCode] of causes) {
+      const terminals: Array<[string, string]> = [
+        ['ERROR: HTTP Error 403: Forbidden', 'LINK_DOWNLOAD_FAILED'],
+        ['ERROR: unable to download video data: <urlopen error timed out>', 'LINK_NETWORK_ERROR'],
+        ['ERROR: Requested format is not available', formatCode],
+      ];
+      for (const [terminal, expected] of terminals) {
+        const result = await runWithStderr([`${cause}\n`, 'WARNING: skipped format\n'.repeat(400), terminal]);
+        const failure = classifyFailure(result.stderr, 1);
+        expect(failure.code, `${cause}\n${terminal}`).toBe(expected);
+        if (expected === 'LINK_DOWNLOAD_FAILED' || expected === 'LINK_NETWORK_ERROR') {
+          expect(worthAnotherCookieBrowser(failure)).toBe(false);
+          expect(failure.message).toBe(terminal.replace(/^ERROR: /, ''));
+        }
+      }
+    }
+  });
+
+  it('大量诊断和不换行的输出都有上限，超长行后仍能识别下一行', async () => {
+    const repeated = await runWithStderr(Array.from({ length: 100 }, (_, index) => `WARNING: [youtube] ${index}: n challenge solving failed: ${'x'.repeat(1100)}\n`));
+    expect(repeated.stderr.length).toBeLessThanOrEqual(11_005);
+    const unterminated = await runWithStderr(['WARNING: [youtube] x: n challenge solving failed: ', ...Array<string>(100).fill('x'.repeat(1000))]);
+    expect(unterminated.stderr.length).toBeLessThanOrEqual(1001);
+    expect(unterminated.stderr).toContain('n challenge solving failed');
+    const recovered = await runWithStderr(['x'.repeat(100_000), '\r', 'WARNING: [youtube] x: nsig extraction failed\nERROR: No video formats found!']);
+    expect(classifyFailure(recovered.stderr, 1).code).toBe('LINK_TOOL_UPDATE_REQUIRED');
+  });
+
+  it('超长的最终具体错误仍优先于早期诊断，截断 URL 不泄露查询参数', async () => {
+    const cause = 'WARNING: [youtube] x: n challenge solving failed\n';
+    for (const ending of ['', '\n']) {
+      const result = await runWithStderr([cause, 'ERROR: HTTP Error 403: Forbidden https://cdn.example.com/video?sig=', 'final-secret'.repeat(900), ending]);
+      const failure = classifyFailure(result.stderr, 1);
+      expect(failure.code).toBe('LINK_DOWNLOAD_FAILED');
+      expect(failure.message).toBe('HTTP Error 403: Forbidden');
+      expect(result.stderr.length).toBeLessThanOrEqual(11_005);
+      expect(JSON.stringify(failure.details)).not.toContain('final-secret');
+    }
+  });
+
+  it('保留诊断不改变原始先后顺序，终止错误后才出现的原因不能作为回溯证据', async () => {
+    for (const noise of ['', 'WARNING: skipped format\n'.repeat(400)]) {
+      const result = await runWithStderr([
+        'ERROR: Requested format is not available\n',
+        'WARNING: n challenge solving failed: https://user:password@cdn.example.com/x?sig=after-secret more\n',
+        noise,
+      ]);
+      const failure = classifyFailure(result.stderr, 1);
+      expect(failure.code).toBe('LINK_UNAVAILABLE');
+      expect(failure.message).toBe('Requested format is not available');
+      expect(JSON.stringify(failure.details)).not.toMatch(/password|after-secret/);
+    }
   });
 
   it('参数原样传到进程（不经 shell），以 - 开头的链接不会被当成选项', async () => {
