@@ -21,7 +21,18 @@ import { redactUrlsInText } from './link-url.ts';
 
 const KILL_GRACE_MS = 2000;
 const STDERR_TAIL = 6000;
+const STDERR_DIAGNOSTIC_LINES = 4;
+const STDERR_LINE_LIMIT = 1000;
 const STDOUT_LIMIT = 64 * 1024 * 1024;
+
+/** Explicit causes of secondary format-selection failures; ordinary Cookie advice is not evidence of a login failure. */
+function formatFailureCause(line: string): 'LINK_LOGIN_REQUIRED' | 'LINK_TOOL_UPDATE_REQUIRED' | undefined {
+  if (
+    /\bcookies (?:are|have become) (?:no longer valid|invalid|expired)\b|\bcookies (?:have|had) (?:likely )?been rotated\b|\bcookies (?:have )?expired\b|\b(?:invalid|expired) (?:YouTube )?(?:account )?cookies\b|\b(?:sign in|log ?in|authentication) (?:required|to confirm)\b|\blogin required\b/i.test(line)
+  ) return 'LINK_LOGIN_REQUIRED';
+  if (/\b(?:n|nsig|signature) (?:challenge solving|extraction) failed\b/i.test(line)) return 'LINK_TOOL_UPDATE_REQUIRED';
+  return undefined;
+}
 
 /** 进度行的前缀；模板的字段依次是已下载、总数、估计的总数（不知道时是 `NA`）。 */
 export const PROGRESS_PREFIX = 'bcut-progress';
@@ -156,6 +167,23 @@ export async function runYtDlp(
     let stdout = '';
     let pending = '';
     let stderr = '';
+    let stderrStartsMidLine = false;
+    let stderrPending = '';
+    let stderrLength = 0;
+    const diagnostics: Array<{ line: string; end: number }> = [];
+    let lastError: { line: string; end: number } | undefined;
+    const rememberDiagnostic = (end: number) => {
+      const cause = formatFailureCause(stderrPending);
+      const isError = stderrPending.startsWith('ERROR:');
+      if (!cause && !isError) return;
+      // Redact before clipping so a retained URL can never become an unrecognizable query-string fragment.
+      const entry = { line: redactUrlsInText(stderrPending).slice(0, STDERR_LINE_LIMIT), end };
+      if (isError) lastError = entry;
+      if (cause) {
+        diagnostics.push(entry);
+        if (diagnostics.length > STDERR_DIAGNOSTIC_LINES) diagnostics.shift();
+      }
+    };
     let killTimer: NodeJS.Timeout | null = null;
     const kill = (sig: NodeJS.Signals) => killProcessTree(child, sig, { platform, spawn: run });
     const onAbort = () => {
@@ -174,7 +202,22 @@ export async function runYtDlp(
       for (const line of lines) options.onLine(line);
     });
     child.stderr!.on('data', (chunk: string) => {
-      stderr = (stderr + chunk).slice(-STDERR_TAIL);
+      const combined = stderr + chunk;
+      const offset = combined.length - STDERR_TAIL;
+      if (offset > 0) {
+        stderrStartsMidLine = !/[\r\n]/.test(combined[offset - 1]!);
+        stderr = combined.slice(offset);
+      } else stderr = combined;
+      // Keep only a bounded prefix of an unfinished line, even if the tool never writes a newline.
+      let start = 0;
+      for (const boundary of chunk.matchAll(/\r\n?|\n/g)) {
+        stderrPending += chunk.slice(start, Math.min(boundary.index, start + STDERR_LINE_LIMIT - stderrPending.length));
+        rememberDiagnostic(stderrLength + boundary.index);
+        stderrPending = '';
+        start = boundary.index + boundary[0].length;
+      }
+      stderrPending += chunk.slice(start, start + STDERR_LINE_LIMIT - stderrPending.length);
+      stderrLength += chunk.length;
     });
     child.on('error', (error: NodeJS.ErrnoException) => {
       signal.removeEventListener('abort', onAbort);
@@ -187,7 +230,17 @@ export async function runYtDlp(
       if (killTimer) clearTimeout(killTimer);
       if (pending && options.onLine) options.onLine(pending);
       if (signal.aborted) reject(signal.reason ?? new DOMException('aborted', 'AbortError'));
-      else resolve({ code, stdout, stderr });
+      else {
+        rememberDiagnostic(stderrLength);
+        // Discard a cut first line, which may start inside a signed URL and cannot be safely redacted later.
+        const tail = stderrStartsMidLine ? stderr.replace(/^[^\r\n]*(?:\r\n?|\n|$)/, '') : stderr;
+        const tailStart = stderrLength - tail.length;
+        const retained = [...new Set([...diagnostics, ...(lastError ? [lastError] : [])])]
+          .filter((entry) => entry.end <= tailStart)
+          .sort((a, b) => a.end - b.end)
+          .map((entry) => entry.line);
+        resolve({ code, stdout, stderr: [...retained, tail].join('\n') });
+      }
     });
   });
 }
@@ -220,19 +273,17 @@ const worthAnotherCookieBrowserCode = (code: string) => code === 'LINK_COOKIES_U
 /** 按 yt-dlp 的报错（标准错误的结尾）判断失败的种类。链接在报错里一律脱敏。 */
 export function classifyFailure(stderr: string, exitCode: number | null, platform: NodeJS.Platform = process.platform): PipelineStepError {
   const text = redactUrlsInText(stderr).trim();
-  const errorLine =
-    text
-      .split('\n')
-      .filter((l) => l.startsWith('ERROR:'))
-      .at(-1) ??
-    text.split('\n').at(-1) ??
-    '';
+  const lines = text.split(/\r\n?|\n/);
+  const errorIndex = lines.findLastIndex((line) => line.startsWith('ERROR:'));
+  const terminalIndex = errorIndex < 0 ? lines.length - 1 : errorIndex;
+  const errorLine = lines[terminalIndex] ?? '';
+  let reasonLine = errorLine;
   const code = (() => {
     if (/No space left on device|Errno 28|ENOSPC|disk quota/i.test(text)) return 'LINK_DISK_FULL';
     if (/could not (copy|find).*cookie|failed to decrypt|cookie.*database|keyring|safe storage|keychain|(operation not permitted|permission denied).*cookies/i.test(text)) {
       return 'LINK_COOKIES_UNAVAILABLE';
     }
-    if (/update.*yt-dlp|yt-dlp.*outdated|signature extraction failed|nsig extraction failed|Unable to extract/i.test(errorLine)) return 'LINK_TOOL_UPDATE_REQUIRED';
+    if (/update.*yt-dlp|yt-dlp.*outdated|(?:n|nsig|signature) challenge solving failed|signature extraction failed|nsig extraction failed|Unable to extract/i.test(errorLine)) return 'LINK_TOOL_UPDATE_REQUIRED';
     if (/Unsupported URL|is not a valid URL|no suitable extractor/i.test(errorLine)) return 'LINK_UNSUPPORTED';
     // 旧提取器常在读完元数据后遇到 CDN 403；工具已明确报告过期时先更新，不误导用户交出浏览器 Cookie。
     if (
@@ -250,7 +301,7 @@ export function classifyFailure(stderr: string, exitCode: number | null, platfor
     // A CDN 403 alone does not establish that authentication is required.
     if (/HTTP Error 403|403: Forbidden/i.test(errorLine)) return 'LINK_DOWNLOAD_FAILED';
     if (
-      /not available in your (country|region)|geo|video unavailable|has been removed|Requested format is not available|no video formats/i.test(
+      /not available in your (country|region)|geo|video unavailable|has been removed/i.test(
         errorLine,
       )
     ) {
@@ -263,14 +314,25 @@ export function classifyFailure(stderr: string, exitCode: number | null, platfor
     ) {
       return 'LINK_NETWORK_ERROR';
     }
+    if (/Requested format is not available|no video formats/i.test(errorLine)) {
+      for (let index = terminalIndex - 1; index >= 0; index--) {
+        const cause = formatFailureCause(lines[index]!);
+        if (cause) {
+          reasonLine = lines[index]!;
+          return cause;
+        }
+      }
+      return 'LINK_UNAVAILABLE';
+    }
     return 'LINK_DOWNLOAD_FAILED';
   })();
   // 工具的原话照原样；没有时说明退出码。
-  const message: JobText = errorLine.replace(/^ERROR:\s*/, '').slice(0, 300) || JobsYtDlp.exited({ code: exitCode });
+  const message: JobText = reasonLine.replace(/^(?:ERROR|WARNING):\s*/, '').slice(0, 300) || JobsYtDlp.exited({ code: exitCode });
   // macOS 拒绝读浏览器的数据（`Operation not permitted`）：缺的是完全磁盘访问权限，界面据 `systemAccess` 给授权动作。
   const systemAccess =
     code === 'LINK_COOKIES_UNAVAILABLE' && platform === 'darwin' && /operation not permitted/i.test(text) ? { systemAccess: FULL_DISK_ACCESS } : {};
-  return new PipelineStepError(code, message, { exitCode, stderr: text.slice(-1000), ...remedyDetails(code), ...systemAccess });
+  const detailsStderr = reasonLine === errorLine ? text.slice(-1000) : `${reasonLine.slice(0, 1000)}\n${errorLine.slice(0, 1000)}`;
+  return new PipelineStepError(code, message, { exitCode, stderr: detailsStderr, ...remedyDetails(code), ...systemAccess });
 }
 
 /** 换下一个浏览器的 Cookie 可能有用的失败：读不到这个浏览器的 Cookie，或网站仍要求登录。别的失败换浏览器也一样。 */
