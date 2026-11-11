@@ -82,7 +82,11 @@ export function redactUrl(input: URL | string): string {
 export function redactUrlsInText(text: string): string {
   return text.replace(/https?:\/\/\S+/gi, (match) => {
     const url = match.replace(/['"<>()[\]{}.,;:!?]+$/, '');
-    return redactUrl(url) + match.slice(url.length);
+    const trailingPunctuation = match.slice(url.length);
+    // Parsing adjacent URLs as one can keep a second URL's credentials in the first URL's path.
+    const afterScheme = url.slice(url.indexOf('://') + 3);
+    if (/https?:\/\//i.test(afterScheme)) return JobsLinkUrl.redacted().text + trailingPunctuation;
+    return redactUrl(url) + trailingPunctuation;
   });
 }
 

@@ -67,6 +67,16 @@ describe('链接检查', () => {
     expect(redactUrlsInText('<https://cdn.example.com/x?sig=secret>')).toBe('<https://cdn.example.com/x>');
   });
 
+  it('redacts credentials from URLs that share a log token', () => {
+    const protectedUrl = 'https://synthetic-user:synthetic-password@video.example.com/p?sig=synthetic-token';
+    const adjacent = redactUrlsInText(`ERROR: redirect <https://cdn.example.com/path><${protectedUrl}>`);
+    expect(adjacent).toContain('ERROR: redirect');
+    expect(adjacent).not.toMatch(/synthetic-user|synthetic-password|synthetic-token/);
+    expect(redactUrlsInText(`ERROR: redirect <https://cdn.example.com/path> <${protectedUrl}>`)).toBe(
+      'ERROR: redirect <https://cdn.example.com/path> <https://video.example.com/p>',
+    );
+  });
+
   it('解析出内网地址时拒绝；解析不了是网络错误；字面 IP 不再解析', async () => {
     const lookup = async (host: string) => (host === 'evil.example.com' ? ['93.184.216.34', '10.0.0.5'] : ['93.184.216.34']);
     await expect(checkResolvedHost('video.example.com', lookup)).resolves.toBeUndefined();
