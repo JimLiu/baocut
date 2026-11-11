@@ -2,21 +2,21 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "cuda",
-  "version": "3.19.0",
-  "build": 95,
-  "date": "2026-11-10",
-  "notes": "Captions: Sentence-initial words with zero duration no longer erase the previous sentence break. Caption word ranges and transcript edits preserve those words and paragraph boundaries in both caption generation and the editor.\nCommand line: services start, web open and web review now explain port conflicts and show the commands to choose another port and restart the service, in every supported CLI language.\nVirtual hosts: The production-scripts host.mjs joins consecutive on-screen segments into one continuous motion track and character sticker, avoiding head and hair resets at segment boundaries. Reruns keep unchanged stickers, preserve placement when only motion changes, and remove leftover pieces of split host stickers on the managed host track.\nProduction checks: frames.mjs creates composited contact sheets including text, captions, stickers, hosts and live code scenes, checks segment first and last frames, and reports possible frozen intervals with optional region selection. Freeze reports are candidates for review, not automatic quality verdicts; ffmpeg is required.\nVoice and text tools: voice.bc and asr.bc can use separate CLI commands and Runtime credentials. Alignment reports suspect words written in letters or digits with timestamps and the recognized text. Font warnings distinguish a stale subset that needs regeneration from glyphs absent from the source font.\nProduction guidance: Updated virtual-host layout and rerun instructions, canvas baking guidance for offscreen canvases, and single-pass compositing of translucent tiled shapes.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.19.1",
+  "build": 96,
+  "date": "2026-11-11",
+  "notes": "Video downloads: When YouTube reports a sign-in check, expired account cookies or a failed n/signature challenge before ending with \"Requested format is not available\", the download now fails as a login or tool-update problem and shows that cause instead of reporting the link as unavailable. The cause survives long format-probe logs, and a concrete final error such as HTTP 403 or a timeout still takes priority.\nPrivacy: Links in download error messages and details are redacted more reliably, including links with quotes in their credentials and links cut off by the log length limit.\nCommand line: The top-level baocut help fits within 40 lines again.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.0-build.95/BaoCut-3.19.0-build.95-win-x64-cuda-setup.exe",
-    "size": 775414028,
-    "sha256": "7179e1ab5e101a88e536fca070e05f06285d055e34e47c59448b4ecd674f9b41"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-3.19.1-build.96-win-x64-cuda-setup.exe",
+    "size": 775404466,
+    "sha256": "0f0aadf74b3d1e29cfa755ecf913a6ceb47545f04f9b6bf251cadf27599d9aa1"
   },
   "cli": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.0-build.95/BaoCut-CLI-3.19.0-build.95-x86_64-pc-windows-msvc-cuda.zip",
-    "size": 800243879,
-    "sha256": "95bd0af4e8001277a6f6f430bf272ee0a3c67bae414270c01aa251ae0620e51a"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-CLI-3.19.1-build.96-x86_64-pc-windows-msvc-cuda.zip",
+    "size": 800234426,
+    "sha256": "318cb00f5aa9771c994c7f303c2c1764768126e7f58eb3852cfb1aa9dbb2f721"
   }
 }

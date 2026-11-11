@@ -2,21 +2,21 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "cpu",
-  "version": "3.19.0",
-  "build": 95,
-  "date": "2026-11-10",
-  "notes": "Captions: Sentence-initial words with zero duration no longer erase the previous sentence break. Caption word ranges and transcript edits preserve those words and paragraph boundaries in both caption generation and the editor.\nCommand line: services start, web open and web review now explain port conflicts and show the commands to choose another port and restart the service, in every supported CLI language.\nVirtual hosts: The production-scripts host.mjs joins consecutive on-screen segments into one continuous motion track and character sticker, avoiding head and hair resets at segment boundaries. Reruns keep unchanged stickers, preserve placement when only motion changes, and remove leftover pieces of split host stickers on the managed host track.\nProduction checks: frames.mjs creates composited contact sheets including text, captions, stickers, hosts and live code scenes, checks segment first and last frames, and reports possible frozen intervals with optional region selection. Freeze reports are candidates for review, not automatic quality verdicts; ffmpeg is required.\nVoice and text tools: voice.bc and asr.bc can use separate CLI commands and Runtime credentials. Alignment reports suspect words written in letters or digits with timestamps and the recognized text. Font warnings distinguish a stale subset that needs regeneration from glyphs absent from the source font.\nProduction guidance: Updated virtual-host layout and rerun instructions, canvas baking guidance for offscreen canvases, and single-pass compositing of translucent tiled shapes.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.19.1",
+  "build": 96,
+  "date": "2026-11-11",
+  "notes": "Video downloads: When YouTube reports a sign-in check, expired account cookies or a failed n/signature challenge before ending with \"Requested format is not available\", the download now fails as a login or tool-update problem and shows that cause instead of reporting the link as unavailable. The cause survives long format-probe logs, and a concrete final error such as HTTP 403 or a timeout still takes priority.\nPrivacy: Links in download error messages and details are redacted more reliably, including links with quotes in their credentials and links cut off by the log length limit.\nCommand line: The top-level baocut help fits within 40 lines again.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.0-build.95/BaoCut-3.19.0-build.95-win-x64-setup.exe",
-    "size": 226122005,
-    "sha256": "4a3ca5c58df0b6136da16cd95cdc0465663d810473f171ffb106507c484e0916"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-3.19.1-build.96-win-x64-setup.exe",
+    "size": 226122703,
+    "sha256": "065c3522632c0c2fe667d95920817004fa0b37ebff382a396bd620ccbfa613cb"
   },
   "cli": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.0-build.95/BaoCut-CLI-3.19.0-build.95-x86_64-pc-windows-msvc.zip",
-    "size": 182061669,
-    "sha256": "77219d572cee642e0aa24b2d61a42976ff74e34ffb2fb9e8c94273237ee34024"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-CLI-3.19.1-build.96-x86_64-pc-windows-msvc.zip",
+    "size": 182062691,
+    "sha256": "ef40c53b74779b6ace94e0af22e3e1c1af278f7366ec24fa71ffdd84efdaf2f9"
   }
 }
