@@ -169,6 +169,7 @@ export async function runYtDlp(
     let stderr = '';
     let stderrStartsMidLine = false;
     let stderrPending = '';
+    let stderrPendingClipped = false;
     let stderrLength = 0;
     const diagnostics: Array<{ line: string; end: number }> = [];
     let lastError: { line: string; end: number } | undefined;
@@ -176,13 +177,19 @@ export async function runYtDlp(
       const cause = formatFailureCause(stderrPending);
       const isError = stderrPending.startsWith('ERROR:');
       if (!cause && !isError) return;
-      // Redact before clipping so a retained URL can never become an unrecognizable query-string fragment.
-      const entry = { line: redactUrlsInText(stderrPending).slice(0, STDERR_LINE_LIMIT), end };
+      // A clipped URL may end inside userinfo, before its '@'. Do not parse that fragment as a hostname.
+      const prefix = stderrPendingClipped ? stderrPending.replace(/https?:\/\/[^\s'"<>]*$/i, '') : stderrPending;
+      const entry = { line: redactUrlsInText(prefix).trimEnd().slice(0, STDERR_LINE_LIMIT), end };
       if (isError) lastError = entry;
       if (cause) {
         diagnostics.push(entry);
         if (diagnostics.length > STDERR_DIAGNOSTIC_LINES) diagnostics.shift();
       }
+    };
+    const appendStderrPending = (chunk: string, start: number, end: number) => {
+      const stop = Math.min(end, start + STDERR_LINE_LIMIT - stderrPending.length);
+      stderrPending += chunk.slice(start, stop);
+      if (stop < end) stderrPendingClipped = true;
     };
     let killTimer: NodeJS.Timeout | null = null;
     const kill = (sig: NodeJS.Signals) => killProcessTree(child, sig, { platform, spawn: run });
@@ -211,12 +218,13 @@ export async function runYtDlp(
       // Keep only a bounded prefix of an unfinished line, even if the tool never writes a newline.
       let start = 0;
       for (const boundary of chunk.matchAll(/\r\n?|\n/g)) {
-        stderrPending += chunk.slice(start, Math.min(boundary.index, start + STDERR_LINE_LIMIT - stderrPending.length));
+        appendStderrPending(chunk, start, boundary.index);
         rememberDiagnostic(stderrLength + boundary.index);
         stderrPending = '';
+        stderrPendingClipped = false;
         start = boundary.index + boundary[0].length;
       }
-      stderrPending += chunk.slice(start, start + STDERR_LINE_LIMIT - stderrPending.length);
+      appendStderrPending(chunk, start, chunk.length);
       stderrLength += chunk.length;
     });
     child.on('error', (error: NodeJS.ErrnoException) => {
@@ -277,17 +285,19 @@ export function classifyFailure(stderr: string, exitCode: number | null, platfor
   const errorIndex = lines.findLastIndex((line) => line.startsWith('ERROR:'));
   const terminalIndex = errorIndex < 0 ? lines.length - 1 : errorIndex;
   const errorLine = lines[terminalIndex] ?? '';
+  // Format diagnostics are fallback evidence only; incidental Cookie/disk advice must not override a concrete final error.
+  const failureContext = lines.filter((line, index) => index === terminalIndex || !formatFailureCause(line)).join('\n');
   let reasonLine = errorLine;
   const code = (() => {
-    if (/No space left on device|Errno 28|ENOSPC|disk quota/i.test(text)) return 'LINK_DISK_FULL';
-    if (/could not (copy|find).*cookie|failed to decrypt|cookie.*database|keyring|safe storage|keychain|(operation not permitted|permission denied).*cookies/i.test(text)) {
+    if (/No space left on device|Errno 28|ENOSPC|disk quota/i.test(failureContext)) return 'LINK_DISK_FULL';
+    if (/could not (copy|find).*cookie|failed to decrypt|cookie.*database|keyring|safe storage|keychain|(operation not permitted|permission denied).*cookies/i.test(failureContext)) {
       return 'LINK_COOKIES_UNAVAILABLE';
     }
     if (/update.*yt-dlp|yt-dlp.*outdated|(?:n|nsig|signature) challenge solving failed|signature extraction failed|nsig extraction failed|Unable to extract/i.test(errorLine)) return 'LINK_TOOL_UPDATE_REQUIRED';
     if (/Unsupported URL|is not a valid URL|no suitable extractor/i.test(errorLine)) return 'LINK_UNSUPPORTED';
     // 旧提取器常在读完元数据后遇到 CDN 403；工具已明确报告过期时先更新，不误导用户交出浏览器 Cookie。
     if (
-      /Your yt-dlp version .+ is older than \d+ days|yt-dlp.*outdated/i.test(text) &&
+      /Your yt-dlp version .+ is older than \d+ days|yt-dlp.*outdated/i.test(failureContext) &&
       /HTTP Error 403|403: Forbidden/i.test(errorLine) &&
       !/sign in|log ?in|login required|cookies|members[- ]only|private video|confirm your age|age[- ]restricted|not a bot|authentication/i.test(errorLine)
     ) return 'LINK_TOOL_UPDATE_REQUIRED';
@@ -330,7 +340,7 @@ export function classifyFailure(stderr: string, exitCode: number | null, platfor
   const message: JobText = reasonLine.replace(/^(?:ERROR|WARNING):\s*/, '').slice(0, 300) || JobsYtDlp.exited({ code: exitCode });
   // macOS 拒绝读浏览器的数据（`Operation not permitted`）：缺的是完全磁盘访问权限，界面据 `systemAccess` 给授权动作。
   const systemAccess =
-    code === 'LINK_COOKIES_UNAVAILABLE' && platform === 'darwin' && /operation not permitted/i.test(text) ? { systemAccess: FULL_DISK_ACCESS } : {};
+    code === 'LINK_COOKIES_UNAVAILABLE' && platform === 'darwin' && /operation not permitted/i.test(failureContext) ? { systemAccess: FULL_DISK_ACCESS } : {};
   const detailsStderr = reasonLine === errorLine ? text.slice(-1000) : `${reasonLine.slice(0, 1000)}\n${errorLine.slice(0, 1000)}`;
   return new PipelineStepError(code, message, { exitCode, stderr: detailsStderr, ...remedyDetails(code), ...systemAccess });
 }

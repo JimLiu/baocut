@@ -311,6 +311,54 @@ describe('执行（假 yt-dlp）', () => {
     expect(JSON.stringify(classifyFailure(cutUrl.stderr, 1).details)).not.toContain('tail-secret');
   });
 
+  it('分块长 URL 在凭据中间截断时丢弃片段，完整 URL 仍按原规则脱敏', async () => {
+    const userinfo = 'synthetic-review-user'.repeat(80);
+    const result = await runWithStderr([
+      'WARNING: n challenge solving failed: https',
+      '://', userinfo.slice(0, 900), userinfo.slice(900),
+      '@cdn.example.com/player?sig=synthetic-review-query\n',
+      'WARNING: skipped format\n'.repeat(400),
+      'ERROR: Requested format is not available',
+    ]);
+    const failure = classifyFailure(result.stderr, 1);
+    expect(failure.code).toBe('LINK_TOOL_UPDATE_REQUIRED');
+    expect(failure.message).toContain('n challenge solving failed');
+    expect(JSON.stringify({ message: failure.message, details: failure.details })).not.toMatch(/synthetic-review-user|synthetic-review-query/);
+    expect(result.stderr.length).toBeLessThanOrEqual(11_005);
+
+    const complete = await runWithStderr([
+      'WARNING: n challenge solving failed: https://synthetic-review-user:password@cdn.example.com/player?sig=synthetic-review-query\n',
+      'WARNING: skipped format\n'.repeat(400),
+      'ERROR: Requested format is not available',
+    ]);
+    const completeFailure = classifyFailure(complete.stderr, 1);
+    expect(completeFailure.message).toBe('n challenge solving failed: https://cdn.example.com/player');
+    expect(JSON.stringify(completeFailure.details)).not.toMatch(/synthetic-review-user|password|synthetic-review-query/);
+  });
+
+  it('保留的格式原因只供格式错误回溯，不触发全日志 Cookie 或磁盘启发式', async () => {
+    const causes: Array<[string, string]> = [
+      ['WARNING: The provided YouTube account cookies are no longer valid. See cookie database help.', 'LINK_LOGIN_REQUIRED'],
+      ['WARNING: n challenge solving failed. See disk quota help.', 'LINK_TOOL_UPDATE_REQUIRED'],
+    ];
+    for (const [cause, formatCode] of causes) {
+      const terminals: Array<[string, string]> = [
+        ['ERROR: HTTP Error 403: Forbidden', 'LINK_DOWNLOAD_FAILED'],
+        ['ERROR: unable to download video data: <urlopen error timed out>', 'LINK_NETWORK_ERROR'],
+        ['ERROR: Requested format is not available', formatCode],
+      ];
+      for (const [terminal, expected] of terminals) {
+        const result = await runWithStderr([`${cause}\n`, 'WARNING: skipped format\n'.repeat(400), terminal]);
+        const failure = classifyFailure(result.stderr, 1);
+        expect(failure.code, `${cause}\n${terminal}`).toBe(expected);
+        if (expected === 'LINK_DOWNLOAD_FAILED' || expected === 'LINK_NETWORK_ERROR') {
+          expect(worthAnotherCookieBrowser(failure)).toBe(false);
+          expect(failure.message).toBe(terminal.replace(/^ERROR: /, ''));
+        }
+      }
+    }
+  });
+
   it('大量诊断和不换行的输出都有上限，超长行后仍能识别下一行', async () => {
     const repeated = await runWithStderr(Array.from({ length: 100 }, (_, index) => `WARNING: [youtube] ${index}: n challenge solving failed: ${'x'.repeat(1100)}\n`));
     expect(repeated.stderr.length).toBeLessThanOrEqual(11_005);
@@ -327,7 +375,7 @@ describe('执行（假 yt-dlp）', () => {
       const result = await runWithStderr([cause, 'ERROR: HTTP Error 403: Forbidden https://cdn.example.com/video?sig=', 'final-secret'.repeat(900), ending]);
       const failure = classifyFailure(result.stderr, 1);
       expect(failure.code).toBe('LINK_DOWNLOAD_FAILED');
-      expect(failure.message).toBe('HTTP Error 403: Forbidden https://cdn.example.com/video');
+      expect(failure.message).toBe('HTTP Error 403: Forbidden');
       expect(result.stderr.length).toBeLessThanOrEqual(11_005);
       expect(JSON.stringify(failure.details)).not.toContain('final-secret');
     }
