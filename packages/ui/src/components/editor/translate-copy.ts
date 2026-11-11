@@ -77,7 +77,7 @@ const en = {
   cancelFailed: (message: string) => `Couldn’t cancel translation: ${message}`,
   liveNote: 'When done it’s placed on screen automatically, and you can undo it at any time. You can leave this page.',
   foreign: 'This translation wasn’t started here. When it finishes, use “Place on screen” in the comparison list.',
-  agentNote: 'The Agent translates line by line and writes it to the video once done',
+  agentNote: 'The Agent translates line by line and writes it to the video in batches',
   agentSession: 'An Agent session is running this translation. To stop it, stop the session.',
   chipTip: (step: string) => `Translating · ${step}`,
 

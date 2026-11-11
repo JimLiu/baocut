@@ -370,7 +370,8 @@ export function videoStatus(videoId: Id, jobs: readonly JobRecord[], transcribed
   const translating = jobs.filter((j) => isTranslateJob(j, videoId) && (j.state === 'running' || jobRetrying(j)));
   if (translating.length) {
     const one = translating.length === 1 ? translating[0]! : null;
-    const pct = one && one.state === 'running' && !isAgentTranslate(one) && one.pipeline?.steps.length ? translateProgress(one, jobs).percent : null;
+    const counts = one && one.state === 'running' && (isAgentTranslate(one) || one.pipeline?.steps.length);
+    const pct = counts ? translateProgress(one, jobs).percent : null;
     return { key: 'translating', text: pct == null ? VIDEO_CARD_COPY.status.translating : `${VIDEO_CARD_COPY.status.translating} · ${pct}%` };
   }
   if (transcribedInEditor || mine.some((j) => j.state === 'completed' && j.result?.documentId)) {
@@ -475,10 +476,12 @@ function progressOf(job: JobRecord, kind: JobRowView['kind'], jobs: readonly Job
       return { line: [exportPhaseLabel(job), exportProgressLine(job)].filter(Boolean).join(' · '), pct: jobPercent(job) };
     case 'translate': {
       const p = translateProgress(job, jobs);
-      // 智能体自己翻译没有逐句进度：只写一共多少句，进度条不确定（原型 `phaseLabel` / `countLabel` 的 `byAgent`）。
+      // 智能体自己翻译没有步骤：写进第一批之前只写一共多少句、进度条不确定，之后按已写进视频的句数
+      // （原型 `phaseLabel` / `countLabel` 的 `byAgent`）。
       if (p.agent) {
-        const total = p.agent.sentences ? VIDEO_CARD_COPY.sentenceTotal(p.agent.sentences) : null;
-        return { line: [VIDEO_CARD_COPY.agentTranslating, total].filter(Boolean).join(' · '), pct: null };
+        const { sentences, done } = p.agent;
+        const count = !sentences ? null : done === null ? VIDEO_CARD_COPY.sentenceTotal(sentences) : VIDEO_CARD_COPY.translated(done, sentences);
+        return { line: [VIDEO_CARD_COPY.agentTranslating, count].filter(Boolean).join(' · '), pct: p.percent };
       }
       const count = p.units ? VIDEO_CARD_COPY.translated(p.units.done, p.units.total) : null;
       return { line: [p.step ?? phase, count].filter(Boolean).join(' · '), pct: p.percent };

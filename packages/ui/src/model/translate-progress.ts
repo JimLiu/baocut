@@ -7,8 +7,9 @@ import { chargesOnRetry } from './task-reconcile.ts';
  * 记着四步（读取原文 → 翻译 → 组装译文 → 写入视频），翻译那一步的子任务按句报进度（`unit: 'units'`）。
  * 原型 model-trans-run.js 按四段阶梯与在飞批次画进度；这里只有父任务与子任务的真实数字，不造批次。
  *
- * 会话里的智能体自己翻译（`kind: 'agentTranslate'`）也算这个视频的翻译：它只是一条进度记录，没有步骤、没有百分比
- * （原型 model-trans-run.js `selfRun`），范围记在 `JobRecord.translation`。
+ * 会话里的智能体自己翻译（`kind: 'agentTranslate'`）也算这个视频的翻译：它只是一条进度记录，没有步骤（原型
+ * model-trans-run.js `selfRun`），范围记在 `JobRecord.translation`。长译文分批写进视频，写过一批之后 Runtime 在
+ * `progress` 里报已经覆盖的句数（`unit: 'units'`），据此给百分比；第一批写进视频之前没有百分比。
  */
 
 export const TRANSLATE_PIPELINE = 'translate';
@@ -72,15 +73,15 @@ export function translationOf(job: JobRecord): Id | null {
 }
 
 export interface TranslateProgress {
-  /** 0–100；还没开始时 0，没完成时最多 99。智能体自己翻译没有百分比：在跑时 null。 */
+  /** 0–100；还没开始时 0，没完成时最多 99。智能体自己翻译还没写进第一批时 null。 */
   percent: number | null;
   /** 正在执行的那一步（Runtime 给的步骤名）；排队、还没有步骤时 null。 */
   step: string | null;
   /** 翻译那一步的句数；还没报时 null。 */
   units: { done: number; total: number | null } | null;
   queued: boolean;
-  /** 智能体自己翻译：要译的句数（没有逐句进度）；翻译流程为 null。 */
-  agent: { sentences: number } | null;
+  /** 智能体自己翻译：要译的句数，与已经写进视频的句数（第一批写进之前 null）；翻译流程为 null。 */
+  agent: { sentences: number; done: number | null } | null;
 }
 
 /**
@@ -89,8 +90,11 @@ export interface TranslateProgress {
  */
 export function translateProgress(parent: JobRecord, jobs: readonly JobRecord[]): TranslateProgress {
   if (isAgentTranslate(parent)) {
-    const percent = parent.state === 'completed' ? 100 : null;
-    return { percent, step: null, units: null, queued: false, agent: { sentences: parent.translation?.sentences ?? 0 } };
+    const covered = parent.progress?.unit === 'units' && parent.progress.total ? parent.progress : null;
+    const sentences = covered?.total ?? parent.translation?.sentences ?? 0;
+    const done = covered ? Math.min(covered.done, sentences) : null;
+    const percent = parent.state === 'completed' ? 100 : done !== null ? Math.min(99, Math.floor((done / sentences) * 100)) : null;
+    return { percent, step: null, units: null, queued: false, agent: { sentences, done } };
   }
   const steps = parent.pipeline?.steps ?? [];
   const total = steps.reduce((sum, step) => sum + weightOf(step.name), 0);

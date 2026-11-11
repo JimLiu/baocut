@@ -323,6 +323,24 @@ describe('jobRow：智能体自己翻译', () => {
       projectId: 'p1',
     });
   });
+
+  it('分批写进视频之后按已覆盖的句数画百分比', () => {
+    const row = jobRow(
+      job({
+        jobId: 'at2',
+        kind: 'agentTranslate',
+        videoId: 'v1',
+        phase: 'generating',
+        providerId: 'agent:codex',
+        modelId: 'codex',
+        submitter: { kind: 'agent', id: 'c1', taskId: 't1' },
+        translation: { sourceDocumentId: 'd1', targetLanguage: 'en', sentences: 62 },
+        progress: { done: 24, total: 62, unit: 'units' },
+      }),
+      ctx,
+    );
+    expect(row).toMatchObject({ label: 'Agent 逐句翻译 · 38%', pct: 38, progress: 38, action: null });
+  });
 });
 
 describe('agentRow', () => {

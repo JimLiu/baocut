@@ -19,7 +19,8 @@
    任务记录在原型里的字段（正式应用的 JobRecord 对照见交付说明）：
    - 通用：kind、project（视频 id）、session、status（queued / running / done / error）、outcome、canceled、pct、
      elapsedMs、leftMs、model、runsOn、error、errorCode、cancellable、queuePos
-   - 阶段：转录与导出是 Job 阶段 `jobPhase`，翻译是流程步骤 `step`；智能体自己翻译（`byAgent`）没有步骤与百分比
+   - 阶段：转录与导出是 Job 阶段 `jobPhase`，翻译是流程步骤 `step`；智能体自己翻译（`byAgent`）没有步骤，分批写进视频之后
+     才有 `linesDone`（已经写进视频的句数），百分比按它算
    - 计数：转录 `mediaSec`（按 pct 折算已识别的时长）、翻译 `linesDone / linesTotal`、导出 `framesDone / framesTotal`、
      下载 `sizeMB`（按 pct 折算已下）、`saveDir`（保存目录）
    - 结果：转录 `result`（句数、说话人数、警告）、翻译 `lang` 与 `result`（条数、过期、未对齐）、导出 `files` 与 `checks`、
@@ -70,6 +71,8 @@
   const num = (n) => Number(n || 0).toLocaleString('en-US');
   const has = (v) => v != null && v !== '';
   const pctOf = (t) => Math.max(0, Math.min(100, Math.round(Number(t.pct) || 0)));
+  /** 智能体自己翻译的百分比：写进视频的句数占全文的比例（product-design §5.7）；第一批写进来之前没有，为 null。没写完不到 100。 */
+  const selfPct = (t) => (has(t.linesDone) && t.linesTotal > 0 ? Math.max(0, Math.min(99, Math.floor((t.linesDone / t.linesTotal) * 100))) : null);
 
   function state(task) {
     if (task.status === 'queued') return 'queued';
@@ -106,11 +109,11 @@
   }
 
   /** 计数那一句：已识别 11:58 / 26:00、已译 38 / 62 句、已画 2,719 / 6,180 帧、已下 86 / 320 MB。
-      智能体自己翻译（`byAgent`）没有逐句进度，只写一共多少句。 */
+      智能体自己翻译（`byAgent`）分批写进视频：写进来之后写已译几句，之前只写一共多少句。 */
   function countLabel(task) {
     switch (task.kind) {
       case 'translate':
-        if (task.byAgent) return has(task.linesTotal) ? `共 ${task.linesTotal} 句` : null;
+        if (task.byAgent && !has(task.linesDone)) return has(task.linesTotal) ? `共 ${task.linesTotal} 句` : null;
         return has(task.linesTotal) ? `已译 ${task.linesDone || 0} / ${task.linesTotal} 句` : null;
       case 'export': return has(task.framesTotal) ? `已画 ${num(task.framesDone)} / ${num(task.framesTotal)} 帧` : null;
       case 'download': return has(task.sizeMB) ? `已下 ${num(Math.round(task.sizeMB * pctOf(task) / 100))} / ${num(task.sizeMB)} MB` : null;
@@ -162,7 +165,7 @@
   /** 视频卡头上的状态（BADGE 的键与说法，data.js；Space 的视频状态同一套字，model-space.js）。
       视频记录是底；指向它的转录任务在跑 / 排队时，以任务为准（一份真相：进度只在任务记录上）。
       转录没在跑、有翻译在跑（任何会话、App 或智能体自己译的都算）时写「翻译中」：只有一件、知道百分比时带上它；
-      智能体自己翻译没有百分比。 */
+      智能体自己翻译在第一批写进视频之前没有百分比。 */
   function badge(movie, tasks) {
     const B = (root.BC_DATA && root.BC_DATA.BADGE) || {};
     const mine = (tasks || []).filter((t) => movie && t.project === movie.id && TRANSCRIBE_KINDS.indexOf(t.kind) >= 0);
@@ -170,7 +173,7 @@
     const queued = mine.find((t) => t.status === 'queued');
     const translating = run || queued ? [] : (tasks || []).filter((t) => movie && t.project === movie.id && t.kind === 'translate' && t.status === 'running');
     if (translating.length) {
-      const one = translating.length === 1 && !translating[0].byAgent ? pctOf(translating[0]) : null;
+      const one = translating.length !== 1 ? null : translating[0].byAgent ? selfPct(translating[0]) : pctOf(translating[0]);
       return {k: 'translating', label: TRANSLATING.label, tone: TRANSLATING.tone,
         text: one != null ? `${TRANSLATING.label} · ${one}%` : TRANSLATING.label};
     }
@@ -216,10 +219,10 @@
     const running = s === 'running';
     const fix = s === 'failed' ? remedy(task) : null;
     const done = s === 'done';
-    /* 智能体自己翻译（`byAgent`，正式应用的 JobKind `agentTranslate`）：没有逐句进度，进度条是不确定的；
+    /* 智能体自己翻译（`byAgent`，正式应用的 JobKind `agentTranslate`）：第一批写进视频之前进度条是不确定的，之后按已译句数；
        卡上不给取消——译文是智能体这一轮在写，要停就停那条会话（后台任务页的「停止」）。 */
     const self = task.kind === 'translate' && !!task.byAgent;
-    const pct = running && !self ? pctOf(task) : null;
+    const pct = running ? (self ? selfPct(task) : pctOf(task)) : null;
     const actions = [];
     if ((running || s === 'queued') && task.cancellable !== false && !self) actions.push({k: 'cancel', label: '取消'});
     if (fix) actions.push({k: fix.k, label: fix.label, route: fix.route});

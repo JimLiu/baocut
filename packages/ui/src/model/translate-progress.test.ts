@@ -92,7 +92,7 @@ describe('翻译流程的进度', () => {
     });
   });
 
-  it('智能体自己翻译：算这个视频的翻译，范围读 translation；没有步骤与百分比，完成时 100', () => {
+  it('智能体自己翻译：算这个视频的翻译，范围读 translation；没有步骤，写进第一批之前没有百分比，完成时 100', () => {
     const agent = job('running', {
       jobId: 'a1',
       kind: 'agentTranslate',
@@ -110,8 +110,17 @@ describe('翻译流程的进度', () => {
     expect(liveTranslations([agent, { ...agent, jobId: 'a2', state: 'interrupted', endedAt: 'x' }], 'vid').map((j) => j.jobId)).toEqual(['a1']);
     expect(targetOf(agent)).toBe('en');
     expect(sourceOf(agent)).toBe('speech_a');
-    expect(translateProgress(agent, [])).toEqual({ percent: null, step: null, units: null, queued: false, agent: { sentences: 62 } });
+    expect(translateProgress(agent, [])).toEqual({ percent: null, step: null, units: null, queued: false, agent: { sentences: 62, done: null } });
     expect(translateProgress({ ...agent, state: 'completed' }, []).percent).toBe(100);
+    // 分批写进视频之后 Runtime 报已覆盖的句数：按它给百分比，总数以覆盖的总句数为准，没写完不到 100。
+    const partial = { ...agent, progress: { done: 24, total: 62, unit: 'units' as const } };
+    expect(translateProgress(partial, [])).toMatchObject({ percent: 38, agent: { sentences: 62, done: 24 } });
+    expect(translateProgress({ ...partial, progress: { done: 984, total: 984, unit: 'units' as const } }, [])).toMatchObject({
+      percent: 99,
+      agent: { sentences: 984, done: 984 },
+    });
+    // 不是按句的进度、或没有总数时不当覆盖读。
+    expect(translateProgress({ ...agent, progress: { done: 3, total: null, unit: 'units' as const } }, []).agent).toEqual({ sentences: 62, done: null });
     // 不是流程：没有可重试的步骤。
     expect(retryNote({ ...agent, state: 'interrupted' })).toBeNull();
   });

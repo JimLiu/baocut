@@ -159,6 +159,7 @@ describe('智能体自己翻译的进度记录', () => {
     await Promise.resolve();
     expect(hosted).toHaveLength(1);
     expect(hosted[0]!.record.state).toBe('running');
+    expect(hosted[0]!.record.progress).toEqual({ done: 60, total: 984, unit: 'units' });
     expect(scope.unfinished('conv_1', 'task_1')).toEqual([
       'Translation doc_tr ("zh-Hans") of transcript doc_speech in video video_1 covers 60 of 984 sentences. ' +
         'Translate the remaining 924 starting at sentence s-61, append them to that translation in batches with edits_apply patchDocument, then create the captions.',
@@ -177,7 +178,7 @@ describe('智能体自己翻译的进度记录', () => {
     const { scope, access, hosted, emit, nextTask } = setup();
     scope.translationWritten(access(), { ...zh, documentId: 'doc_tr', coverage: { covered: 38, total: 984 } });
     expect(hosted).toHaveLength(1);
-    expect(hosted[0]!.record).toMatchObject({ state: 'running', translation: { sentences: 984 } });
+    expect(hosted[0]!.record).toMatchObject({ state: 'running', translation: { sentences: 984 }, progress: { done: 38, total: 984, unit: 'units' } });
     emit({ type: 'task.upsert', task: { taskId: 'task_1', status: 'completed' } } as unknown as TasksEvent);
     await Promise.resolve();
     expect(hosted[0]!.record.state).toBe('interrupted');

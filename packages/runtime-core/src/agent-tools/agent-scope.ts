@@ -411,7 +411,8 @@ export class AgentScope implements ToolScope<AgentAccess> {
 
   /**
    * 写入了一份译文。覆盖了转写的每一句（或读不出覆盖）时，同一会话、同一视频、同一份转写、同一门语言的进度记录完成，结果指向
-   * 写入的译文。还没覆盖完（分批写的长译文）时记录留着、记下写了多少；这个任务还没有记录时登记一条（第一批写入前没给 translateTo）。
+   * 写入的译文。还没覆盖完（分批写的长译文）时记录留着、记下写了多少，`progress` 报覆盖的句数（`unit: 'units'`）；这个任务还没有
+   * 记录时登记一条（第一批写入前没给 translateTo）。
    */
   translationWritten(access: AgentAccess, written: TranslationWritten): void {
     const key = translationKey(access.conversation.id, written);
@@ -421,7 +422,10 @@ export class AgentScope implements ToolScope<AgentAccess> {
       const scope = { videoId: written.videoId, sourceDocumentId: written.sourceDocumentId, language: written.language };
       this.translationStarted(access, { ...scope, sentences: coverage.total });
       const open = this.#translations.get(key);
-      if (open) open.written = { documentId: written.documentId, covered: coverage.covered, total: coverage.total, nextSentenceId: coverage.nextSentenceId ?? null };
+      if (!open) return;
+      open.written = { documentId: written.documentId, covered: coverage.covered, total: coverage.total, nextSentenceId: coverage.nextSentenceId ?? null };
+      // 界面据此画「已译 N / M 句」与百分比（product-design §5.7）；进度是高频变化，不写账本。
+      open.job.update({ progress: { done: coverage.covered, total: coverage.total, unit: 'units' } });
       return;
     }
     const open = this.#translations.get(key);

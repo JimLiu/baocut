@@ -345,20 +345,27 @@
   }
 
   /* ---------- 智能体自己翻译的运行态头（product-design §5.7，`BC_TRUN.selfRun`） ----------
-     没有百分比、没有四段阶梯：标题 + 不确定的进度条 + 一共几句 + 指回会话。不给取消钮——
+     没有四段阶梯：标题 + 进度条（第一批写进视频之前不确定）+ 已译 / 一共几句 + 指回会话。不给取消钮——
      译文是会话里那一轮在写，要停就到会话里停；这里摆一颗取消只会停掉记录、停不下智能体。 */
   function SelfRunHead({job, lang}) {
     const app = useApp();
     const sessTitle = R.sessionTitle(job);
+    /* 第一批写进视频之前没有百分比：不确定的细条、写一共多少句；之后按已译句数画（product-design §5.7） */
+    const pct = R.selfPct(job);
+    const label = '翻译中 · ' + (lang ? lang.name : job.lang || job.target);
+    const count = !job.linesTotal ? '' : pct != null ? '已译 ' + job.linesDone + ' / ' + job.linesTotal + ' 句 · ' : '共 ' + job.linesTotal + ' 句 · ';
     return (
       <div className="livehd">
         <div className="livehd__t">
           <span className="livehd__dot" />
           <b className="grow">{'翻译中 · ' + D.srcLang.abbr + ' → ' + (lang ? lang.name : job.lang || job.target)}</b>
+          {pct != null ? <span className="t-mono livehd__pct">{pct}%</span> : null}
         </div>
-        <Progress indeterminate thin className="livehd__pg" label={'翻译中 · ' + (lang ? lang.name : job.lang || job.target)} />
+        {pct != null
+          ? <Progress value={pct} thin className="livehd__pg" label={label} />
+          : <Progress indeterminate thin className="livehd__pg" label={label} />}
         <div className="livehd__m">
-          <span>{job.linesTotal ? '共 ' + job.linesTotal + ' 句 · ' : ''}智能体逐句翻译，译完一次写进视频</span>
+          <span>{count}智能体逐句翻译，分批写进视频</span>
         </div>
         <div className="livehd__m">
           <span className="t-truncate">Agent 会话正在翻译{sessTitle ? ' · 会话「' + sessTitle + '」' : ''}</span>
@@ -403,12 +410,12 @@
   }
 
   function RunView({ctx, lang, slice}) {
-    /* 智能体自己翻译：译文一次写进来，写进来之前没有句子可流，只说清楚在等什么 */
+    /* 智能体自己翻译：译文一批批写进来，没有句子可流，只说清楚在等什么 */
     if (R.selfRun(ctx.transJob)) return (
       <>
         <TransRunHead job={ctx.transJob} lang={lang} slice={slice} onCancel={ctx.cancelTrans} />
         <div className="pscroll bc-scroll">
-          <div className="signpost">智能体在会话里逐句翻译，译完一次写进视频——写进来之前这里还没有译文可看。原文列表照常可读可改。</div>
+          <div className="signpost">智能体在会话里逐句翻译，一批批写进视频——全部译完后这里才有译文可对照。原文列表照常可读可改。</div>
         </div>
       </>
     );
@@ -867,15 +874,17 @@
      这一跑压在哪门语言上、跑到哪儿了，看一眼就知道。点「查看进度」才切到那门语言的运行态。 */
   function TransRunStrip({job, lang, onOpen}) {
     const queued = job.status === 'queued';
-    /* 智能体自己翻译没有百分比：不写数字，底边是来回走的不确定细条 */
+    /* 智能体自己翻译在第一批写进视频之前没有百分比：不写数字，底边是来回走的不确定细条 */
     const self = R.selfRun(job);
+    const pct = self ? R.selfPct(job) : job.pct;
+    const indet = self && pct == null;
     return (
       <div className={cx('runstrip', queued && 'is-queued')} role="status">
         <span className="livehd__dot" />
         <span className="runstrip__t t-truncate">{R.stripText(job, D.srcLang.abbr, lang ? lang.name : job.target)}</span>
-        {self ? null : <span className="t-mono runstrip__pct">{Math.round(job.pct)}%</span>}
+        {indet ? null : <span className="t-mono runstrip__pct">{Math.round(pct)}%</span>}
         <BCAction className="stlink" onClick={onOpen}>查看进度</BCAction>
-        <div className={cx('runstrip__bar', self && 'is-indeterminate')}><i style={self ? undefined : {width: job.pct + '%'}} /></div>
+        <div className={cx('runstrip__bar', indet && 'is-indeterminate')}><i style={indet ? undefined : {width: pct + '%'}} /></div>
       </div>
     );
   }

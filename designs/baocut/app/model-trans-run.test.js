@@ -154,3 +154,10 @@ test('会话标题从 sub 尾段取；压缩版那行字排队与翻译中两种
   assert.equal(R.stripText({status: 'running'}, '中', '日本語'), '翻译中 · 中 → 日本語');
   assert.equal(R.stripText({status: 'queued'}, '中', '日本語'), '排队中 · 翻译成 日本語');
 });
+
+test('selfPct：智能体自己翻译第一批写进视频之前没有百分比，之后按已译句数，没写完不到 100', () => {
+  assert.equal(R.selfPct({byAgent: true, linesTotal: 62}), null);
+  assert.equal(R.selfPct({byAgent: true, linesDone: 24, linesTotal: 62}), 38);
+  assert.equal(R.selfPct({byAgent: true, linesDone: 62, linesTotal: 62}), 99);
+  assert.equal(R.selfPct({byAgent: true, linesDone: 3, linesTotal: 0}), null);
+});

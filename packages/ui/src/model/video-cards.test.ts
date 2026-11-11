@@ -176,7 +176,7 @@ function translateJob(patch: Partial<JobRecord> = {}): JobRecord {
   });
 }
 
-/** 会话里的智能体自己翻译（`agentTranslate`）：没有步骤、没有百分比。 */
+/** 会话里的智能体自己翻译（`agentTranslate`）：没有步骤，写进第一批之前没有百分比。 */
 function agentTranslateJob(patch: Partial<JobRecord> = {}): JobRecord {
   return job({
     kind: 'agentTranslate',
@@ -515,11 +515,13 @@ describe('videoStatus', () => {
     expect(videoStatus('mov_1', [job({ kind: 'export' })], false)).toBeNull();
   });
 
-  it('转录没在跑、有翻译在跑时是翻译中：只有一件翻译流程时带百分比；智能体自己翻译没有百分比', () => {
+  it('转录没在跑、有翻译在跑时是翻译中：只有一件翻译时带百分比；智能体自己翻译写进第一批之前没有百分比', () => {
     const done = job({ state: 'completed', result: { documentId: 'doc_1', artifactId: 'art_doc' } });
     const pipeline = translateJob();
     expect(videoStatus('mov_1', [done, pipeline], false)).toEqual({ key: 'translating', text: '翻译中 · 5%' });
     expect(videoStatus('mov_1', [done, agentTranslateJob()], true)).toEqual({ key: 'translating', text: '翻译中' });
+    const covered = agentTranslateJob({ progress: { done: 24, total: 62, unit: 'units' } });
+    expect(videoStatus('mov_1', [done, covered], true)).toEqual({ key: 'translating', text: '翻译中 · 38%' });
     // 两件同时在跑：不写百分比。
     expect(videoStatus('mov_1', [pipeline, agentTranslateJob()], false)?.text).toBe('翻译中');
     // 还没有步骤的流程不写 0%。
@@ -605,7 +607,7 @@ describe('jobRowView', () => {
     expect(jobRowView(retrying, [retrying], now)).toMatchObject({ state: 'running', canRetry: false, canCancel: false });
   });
 
-  it('智能体自己翻译：一行「翻译 · 语言」，不确定的进度、写一共多少句，不给取消；完成写语言', () => {
+  it('智能体自己翻译：一行「翻译 · 语言」，写进第一批之前不确定的进度、写一共多少句，不给取消；完成写语言', () => {
     const j = agentTranslateJob({ startedAt: at(0) });
     expect(jobRowView(j, [j], now)).toMatchObject({
       kind: 'translate',
@@ -617,6 +619,9 @@ describe('jobRowView', () => {
       canCancel: false,
       canRetry: false,
     });
+    // 分批写进视频之后：已译几句与百分比。
+    const covered = agentTranslateJob({ startedAt: at(0), progress: { done: 24, total: 62, unit: 'units' } });
+    expect(jobRowView(covered, [covered], now)).toMatchObject({ tail: '38%', pct: 38, line: 'Agent 逐句翻译 · 已译 24 / 62 句' });
     const done = agentTranslateJob({ state: 'completed', endedAt: at(9), result: { documentId: 'doc_tr', artifactId: '' } });
     expect(jobRowView(done, [done], now)).toMatchObject({ state: 'done', tail: '完成', facts: ['en'], canCancel: false });
     const stopped = agentTranslateJob({ state: 'interrupted', endedAt: at(9) });

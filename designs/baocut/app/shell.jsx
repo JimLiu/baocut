@@ -710,7 +710,7 @@
                 <div className="tweaks__val t-mono">{job.pct}%</div>
               </div>
             ) : null}
-            {/* 智能体自己翻译没有百分比，没有可拖的进度 */}
+            {/* 智能体自己翻译没有四段步骤，没有可拖的阶段进度 */}
             {tjob && !window.BC_TRUN.selfRun(tjob) ? (
               <div className="tweaks__sec">
                 <div className="tweaks__lb">翻译进度<em>四段各不一样，拖着逐段看</em></div>

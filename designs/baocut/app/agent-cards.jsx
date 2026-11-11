@@ -40,7 +40,7 @@
         <span className={cx('mjob__name', r.state === 'running' && 'is-shimmer')}>{r.name}</span>
         {r.tail ? <span className="mjob__tail">{r.tail}</span> : null}
       </div>
-      {/* 运行中没有百分比（智能体自己翻译）时是不确定的细条 */}
+      {/* 运行中没有百分比（智能体自己翻译还没写进第一批）时是不确定的细条 */}
       {full && (r.pct != null || r.state === 'running') ? <Progress value={r.pct} indeterminate={r.pct == null} thin label={`${r.name} · ${r.line || r.tail || ''}`} /> : null}
       {full && r.line ? <span className="mjob__line">{r.line}</span> : null}
       {full && r.facts.length ? <span className="mjob__facts">{r.facts.join(' · ')}</span> : null}

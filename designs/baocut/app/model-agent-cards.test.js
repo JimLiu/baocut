@@ -30,7 +30,7 @@ test('badge：说法与 data.js 的 BADGE 一致；指向视频的转录在跑 /
   words.forEach((w) => assert.ok(['未转录', '已转录', '转录中', '排队中', '失败'].includes(w)));
 });
 
-test('badge：转录没在跑、有翻译在跑时写「翻译中」；智能体自己翻译没有百分比；转录在跑时以转录为准', () => {
+test('badge：转录没在跑、有翻译在跑时写「翻译中」；智能体自己翻译写进第一批之前没有百分比；转录在跑时以转录为准', () => {
   const mv = {id: 'v1', status: 'complete'};
   const tl = (o) => tr(Object.assign({id: 'l1', kind: 'translate', pct: 61, step: 'translate', lang: '英语'}, o));
   assert.deepEqual(C.badge(mv, [tl()]), {k: 'translating', label: '翻译中', tone: 'accent', text: '翻译中 · 61%'});
@@ -53,6 +53,19 @@ test('jobRow：智能体自己翻译是不确定的细条、写一共多少句�
   assert.deepEqual(r.actions, []);
   const done = C.jobRow({id: 'l1', kind: 'translate', project: 'v1', status: 'done', byAgent: true, lang: '英语', result: {units: 62}});
   assert.deepEqual(done.facts, ['英语', '62 条']);
+});
+
+test('jobRow 与 badge：智能体自己翻译分批写进视频之后，按已译句数画百分比、写已译几句；没写完不到 100%', () => {
+  const task = (linesDone) => ({id: 'l1', kind: 'translate', project: 'v1', status: 'running', pct: null, byAgent: true, lang: '英语',
+    linesDone, linesTotal: 62, elapsedMs: 40000});
+  const r = C.jobRow(task(24));
+  assert.equal(r.pct, 38);
+  assert.equal(r.tail, '38%');
+  assert.equal(r.line, '智能体逐句翻译 · 已译 24 / 62 句');
+  assert.deepEqual(r.actions, []);
+  assert.equal(C.jobRow(task(62)).pct, 99);
+  const mv = {id: 'v1', status: 'complete'};
+  assert.equal(C.badge(mv, [task(24)]).text, '翻译中 · 38%');
 });
 
 test('sessionJobs：这条会话起的或引用过的活，按第一次引用排；别处的活、合成语音与生图不进视频卡', () => {

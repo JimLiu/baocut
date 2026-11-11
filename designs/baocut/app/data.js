@@ -1414,12 +1414,13 @@
      jobPhase: 'transcribing', model: 'moss-transcribe', runsOn: '本机', lang: '英语', langCode: 'en', diarize: true,
      mediaSec: 52, elapsedMs: 100800, leftMs: 151200, undoBody: '这一份文稿会被移除，视频回到没有文稿的状态。原片与时间轴不动。'},
     /* 智能体自己翻译（product-design §3.2.2 视频卡；正式应用的 JobKind `agentTranslate`）：s24 的智能体读文稿时声明
-       要译成英语（documents_read 的 translateTo），在自己这一轮里逐句翻，译完一次写进视频。没有逐句进度与百分比：
-       视频卡头写「翻译中」、那一行是不确定的细条，字幕 Tab 的运行态头与压缩条也是；卡上不给取消，要停就停那条会话。 */
+       要译成英语（documents_read 的 translateTo），在自己这一轮里逐句翻，一批批写进视频，已经写进 24 句（`linesDone`）。
+       第一批写进来之前没有百分比、画不确定的细条；之后视频卡、字幕 Tab 的运行态头与压缩条按已译句数画百分比。
+       卡上不给取消，要停就停那条会话。 */
     {id: 'ag24l', kind: 'translate', project: 'p13', title: '翻译 · 口播 · 本机优先（链接导入） · 中 → 英语',
-     sub: 'Claude Code · Sonnet · 会话「把这条口播翻成英语字幕」', status: 'running', pct: null, byAgent: true, phase: '智能体逐句翻译',
+     sub: 'Claude Code · Sonnet · 会话「把这条口播翻成英语字幕」', status: 'running', pct: 38, byAgent: true, phase: '智能体逐句翻译',
      source: 'agent', session: 's24', started: '1 分钟前', cancellable: false, target: 'en',
-     from: '中文', lang: '英语', model: 'Claude Code · Sonnet', linesTotal: 62, elapsedMs: 48000,
+     from: '中文', lang: '英语', model: 'Claude Code · Sonnet', linesDone: 24, linesTotal: 62, elapsedMs: 48000,
      undoBody: '这一门语言的译文会被移除。原文一个字不动。'},
     /* 转录之后的「视频速览」与回合末尾的「任务总结」（2026-10-14，待确认）：s32 从链接下载一期英语访谈、转录、
        智能体逐句译成简体中文、建双语字幕，全部完成；下载建出了视频（`project`），线程里挂这部视频的视频卡。
@@ -2762,13 +2763,15 @@
          {id: 'm4', role: 'tool', tool: 'models_transcribe', args: {model: 'moss-transcribe', duration: 52}, status: 'run', taskId: 'ag23t'},
          {id: 'm5', role: 'assistant', text: '转录在后台跑，还要一会儿。先问一句：字幕要按说话人分开标出来，还是只要一条字幕？'},
        ]},
-      /* 智能体自己翻译（ag24l）：读文稿时声明目标语，在这一轮里逐句翻，译完一次写进视频 */
+      /* 智能体自己翻译（ag24l）：读文稿时声明目标语，在这一轮里逐句翻，一批批写进视频（第一批新建译文，之后追加） */
       {id: 's24', title: '把这条口播翻成英语字幕', project: 'p13', harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'running', ago: 1,
        messages: [
          {id: 'm1', role: 'user', text: '把这条口播翻成英语字幕。', ...turnLive(52)},
-         {id: 'm2', role: 'assistant', text: '好。文稿 62 句，我直接逐句翻，译完一次写成英语译文，再按译文出字幕。'},
+         {id: 'm2', role: 'assistant', text: '好。文稿 62 句，我直接逐句翻，一批批写进视频，全部译完再按译文出字幕。'},
          {id: 'm3', role: 'tool', tool: 'documents_read', args: {document: '文稿', sentences: 62, translateTo: 'en'}, status: 'done', took: '0.1s', taskId: 'ag24l'},
+         {id: 'm4', role: 'tool', tool: 'documents_put', args: {kind: 'translation', language: 'en', units: 24}, status: 'done', took: '0.2s', taskId: 'ag24l',
+          out: '已覆盖 24 / 62 句 · 下一句 s25'},
        ]},
       /* 转录之后先写「视频速览」，回合末尾写「任务总结」（2026-10-14，待确认）：
          - 视频速览站在观众的角度：来源几项（标题、作者、发布日期、时长、语言、链接）只取 videos_inspect 的 `source`

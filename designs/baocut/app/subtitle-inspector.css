@@ -96,7 +96,7 @@
 .runstrip.is-queued { background: var(--gray-100); }
 .runstrip.is-queued .livehd__dot { background: var(--gray-500); animation: none; }
 .runstrip.is-queued .runstrip__bar i { background: var(--gray-500); }
-/* 智能体自己翻译没有百分比（product-design §5.7）：压缩条底边一段来回走的细条，运行态头用不确定的进度条 */
+/* 智能体自己翻译在第一批写进视频之前没有百分比（product-design §5.7）：压缩条底边一段来回走的细条，运行态头用不确定的进度条 */
 .runstrip__bar.is-indeterminate { overflow: hidden; }
 .runstrip__bar.is-indeterminate i { width: 32%; animation: bc-runstrip-sweep 1.4s cubic-bezier(0.45,0,0.4,1) infinite; }
 @keyframes bc-runstrip-sweep { from { transform: translateX(-100%); } to { transform: translateX(320%); } }

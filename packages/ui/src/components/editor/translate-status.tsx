@@ -26,7 +26,8 @@ import {
 /*
  * 字幕翻译的运行态、问题与收据（原型 panel-translate.jsx `TransRunHead`、`SelfRunHead`、`DoneView`，model-trans-run.js）。
  * 进度只读 Runtime 报来的：父任务的步骤、翻译那一步子任务的句数；没有总数时不造百分比。
- * 智能体在会话里自己翻译（`agentTranslate`）没有步骤与百分比：不确定的进度条、一共多少句、去那条会话的入口，不给取消。
+ * 智能体在会话里自己翻译（`agentTranslate`）没有步骤：写进第一批之前是不确定的进度条与一共多少句，之后按已写进视频的
+ * 句数给百分比与「已译 N / M 句」；给去那条会话的入口，不给取消。
  */
 
 const head = style({
@@ -111,7 +112,7 @@ export function liveChip(live: TranslateLive | null): { label: string; percent: 
   if (!live.run || live.run.status === 'running') {
     const progress = live.progress;
     if (!progress) return { label, percent: null, step: C.submitting };
-    if (progress.agent) return { label, percent: null, step: VIDEO_CARD_COPY.agentTranslating };
+    if (progress.agent) return { label, percent: progress.percent, step: VIDEO_CARD_COPY.agentTranslating };
     return { label, percent: progress.queued ? null : progress.percent, step: progress.queued ? C.queued : (progress.step ?? C.queued) };
   }
   return { label, percent: null, step: C.submitting };
@@ -129,7 +130,7 @@ export function TranslateRunHead({
   note?: string;
 }) {
   const { run, job, progress } = live;
-  if (job && progress?.agent) return <AgentRunHead live={live} job={job} sentences={progress.agent.sentences} documents={documents} />;
+  if (job && progress?.agent) return <AgentRunHead live={live} job={job} agent={progress.agent} percent={progress.percent} documents={documents} />;
   const submitting = run?.status === 'submitting' || !job;
   const queued = !!progress?.queued;
   const sourceLanguage = live.source ? documents[live.source]?.language : null;
@@ -182,23 +183,39 @@ export function TranslateRunHead({
 }
 
 /**
- * 智能体自己翻译的运行态头（原型 `SelfRunHead`）：源 → 目标、不确定的进度条、一共多少句与做法、哪条会话在译。
+ * 智能体自己翻译的运行态头（原型 `SelfRunHead`）：源 → 目标、进度条（写进第一批之前不确定，之后按已写进视频的句数）、
+ * 已译与一共多少句、做法、哪条会话在译。
  * 没有取消：取消这条记录停不下智能体，译文是那一轮在写；要停就停那条会话，所以给去会话的入口（会话还在目录里时）。
  */
-function AgentRunHead({ live, job, sentences, documents }: { live: TranslateLive; job: JobRecord; sentences: number; documents: Record<Id, DocumentRecord> }) {
+function AgentRunHead({
+  live,
+  job,
+  agent,
+  percent: pct,
+  documents,
+}: {
+  live: TranslateLive;
+  job: JobRecord;
+  agent: { sentences: number; done: number | null };
+  percent: number | null;
+  documents: Record<Id, DocumentRecord>;
+}) {
   const open = useOpenConversation({ conversationId: job.submitter.kind === 'agent' ? job.submitter.id : null });
   const sourceLanguage = live.source ? documents[live.source]?.language : null;
   const heading = C.running(sourceLanguage ? langName(sourceLanguage) : C.source, live.target ? languageName(live.target) : C.unnamed);
+  const { sentences, done } = agent;
+  const count = !sentences ? null : done === null ? VIDEO_CARD_COPY.sentenceTotal(sentences) : VIDEO_CARD_COPY.translated(done, sentences);
   return (
     <div className={head} role="status" aria-live="polite">
       <div className={titleRow}>
         <span className={dot({ isQueued: false })} aria-hidden />
         <span className={title}>{heading}</span>
+        {pct === null ? null : <span className={`${percent} bc-tabular`}>{pct}%</span>}
       </div>
-      <ProgressBar size="S" aria-label={heading} isIndeterminate styles={bar} />
+      <ProgressBar size="S" aria-label={heading} isIndeterminate={pct === null} {...(pct === null ? {} : { value: pct })} styles={bar} />
       <div className={meta}>
-        {sentences ? <span className="bc-tabular">{VIDEO_CARD_COPY.sentenceTotal(sentences)}</span> : null}
-        {sentences ? <span className={sep}>·</span> : null}
+        {count ? <span className="bc-tabular">{count}</span> : null}
+        {count ? <span className={sep}>·</span> : null}
         <span>{C.agentNote}</span>
       </div>
       <div className={actions}>

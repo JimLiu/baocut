@@ -59,7 +59,7 @@ export const frTranslate: TranslateMessages = {
   cancelFailed: (message: string) => `Impossible d’annuler la traduction : ${message}`,
   liveNote: "Placement automatique à l’écran à la fin, annulable. Vous pouvez quitter cette page.",
   foreign: "Cette traduction n’a pas été démarrée ici. À la fin, utilisez « Placer à l’écran » dans la comparaison.",
-  agentNote: "L’Agent traduit phrase par phrase et l’écrit dans la vidéo à la fin",
+  agentNote: "L’Agent traduit phrase par phrase et l’écrit dans la vidéo par lots",
   agentSession: "Une session de l’Agent traduit. Pour l’arrêter, arrêtez la session.",
   chipTip: (step: string) => `Traduction · ${step}`,
 

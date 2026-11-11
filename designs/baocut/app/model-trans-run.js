@@ -124,10 +124,16 @@
   }
 
   /* 智能体自己翻译（product-design §5.7；正式应用的 JobKind `agentTranslate`）：会话里的智能体读文稿时声明了目标语，
-     在自己那一轮里逐句翻，译完一次写进视频。记录上没有百分比、没有四段步骤，也不归这个面板取消——
-     运行态头与压缩条只写「翻译中」、画不确定的进度条，正文不流式出句子。 */
+     在自己那一轮里逐句翻，一批批写进视频。记录上没有四段步骤，也不归这个面板取消；第一批写进来之前没有百分比
+     （运行态头与压缩条画不确定的进度条），之后按写进视频的句数（`linesDone / linesTotal`）画。正文不流式出句子。 */
   function selfRun(job) {
     return !!(job && job.byAgent);
+  }
+
+  /* 智能体自己翻译的百分比：第一批写进来之前 null；没写完不到 100。 */
+  function selfPct(job) {
+    if (!job || job.linesDone == null || !(job.linesTotal > 0)) return null;
+    return Math.max(0, Math.min(99, Math.floor((job.linesDone / job.linesTotal) * 100)));
   }
 
   /* 压缩版运行态那一行字（只看原文时的进度条、轨条尾巴共用一套口径）：
@@ -139,5 +145,5 @@
   }
 
   window.BC_TRUN = {TRANS_STAGES, STAGE_ENDS, stage, frac, runSlice, counts, activity,
-    findJob, sourceKind, canCancel, jumpsList, sessionTitle, stripText, selfRun};
+    findJob, sourceKind, canCancel, jumpsList, sessionTitle, stripText, selfRun, selfPct};
 })();
