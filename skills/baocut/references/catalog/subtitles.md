@@ -78,7 +78,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 
 1. **润色写回之后再读一次转写。** {{tool:documents_read}} 读 speech 文档，结果里的 `translationBasis` 给出 `sourceBasis` 与切好的句子（每句 `id`、`fingerprint`、`text`、`wordIds`，以及素材时钟上的起止 `start`、`end`，单位秒）。润色会改分句与指纹，所以润色之后必须重新读。
 2. **逐句翻译**，按 {{skill:translate-subtitles}}：一句对一句，不合并、不拆分、不漏。
-3. **写成译文。** {{tool:documents_put}} 新建：{{arg:kind}} `translation`，{{arg:language}} 为目标语言（BCP 47），{{arg:sourceDocument}} 为转写的 documentId，{{arg:body}} 照 {{tool:documents_read}} 说明里的形状（`baocut.translation/2`），`sourceBasis` 用这次读到的。每句的 `alignment` 照说明填，或写 null 让 Runtime 按句补上句级对齐。整体重译已有同一语言的译文时给 {{arg:document}}，不新建第二份；只校订几句时用 {{tool:edits_apply}} 的 `patchDocument`，按 units 的稳定 ID 提交变化的文本、指纹、对齐与状态，必要时局部更新 sourceBasis，用 {{tool:edits_ops}} 查参数格式。
+3. **写成译文。** {{tool:documents_put}} 新建：{{arg:kind}} `translation`，{{arg:language}} 为目标语言（BCP 47），{{arg:sourceDocument}} 为转写的 documentId，{{arg:body}} 照 {{tool:documents_read}} 说明里的形状（`baocut.translation/2`），`sourceBasis` 用这次读到的。每句的 `alignment` 照说明填，或写 null 让 Runtime 按句补上句级对齐。整体重译已有同一语言的译文时给 {{arg:document}}，不新建第二份；只校订几句时用 {{tool:edits_apply}} 的 `patchDocument`，按 units 的稳定 ID 提交变化的文本、指纹、对齐与状态，必要时局部更新 sourceBasis，用 {{tool:edits_ops}} 查参数格式。上百句的长转写分批写进视频：第一批 {{tool:documents_put}} 新建，之后每批用 `patchDocument` 追加单元（`{"path":["units",{"id":…}],"value":<单元>,"beforeId":null}`），一直写到覆盖全文；回执的 `translationCoverage` 说已覆盖几句、一共几句、下一句是哪句，不再带它就是覆盖完了。没译完的译文接着从 `nextSentenceId` 追加，不重头来（{{skill:translate-subtitles}} 第 4 节）。
 4. **建字幕层。** {{tool:captions_create}}，{{arg:documentId}} 给译文；双语加 {{arg:bilingual}}（译文为主、原文为辅，转写还没有原文字幕层时同一笔里一起建）。
 5. **要文件再导出。** {{tool:export}}，{{arg:kind}} `subtitles`，{{arg:format}} `srt` 等；双语加 {{arg:bilingual}}（见 [export](export.md)）。
 
@@ -86,7 +86,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 正文大，写进文件再用 `--body @zh.json` 传，不塞进命令行（见 [conventions](../conventions.md) 的「参数怎么写」）。
 <!-- /surface -->
 <!-- surface: agent -->
-新建或整体重译时一次 {{tool:documents_put}} 写完整份译文；已有译文的局部校订用 `patchDocument`，不重复上传全部单元。
+几十句的译文可以一次 {{tool:documents_put}} 写完整份；上百句的分批写进视频，不攒到最后一次写，也不只留在上下文或本地草稿里。已有译文的局部校订与追加都用 `patchDocument`，不重复上传全部单元。
 <!-- /surface -->
 
 原文改过（润色、剪辑）之后译文会过期：重新读转写，句子 `id` 与 `fingerprint` 都对得上的单元原样保留，其余重译，再写回同一份译文。从这份译文建过的字幕层不用重建：写回时 Runtime 在同一笔里只换改过的句子的字幕条，时间照旧（回执的 `syncedCaptions`）。
@@ -164,5 +164,5 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 - 转写、译文、字幕层都在视频里，没有重复的转写与重复的字幕层；没有用户没要求、结果也并非不能用的重转或换模型；因结果不能用而重转的，已告诉用户原因和重转后的结果。
 - 润色在翻译之前，翻译用的是润色之后重新读到的句子。
 - 证据够的说话人都实名了（一位说话人时也对过标题与简介）；留着占位名的在报告里说明。
-- 译文句数等于转写句数；术语与专名全文一致。
+- 译文句数等于转写句数（写入回执不再带 `translationCoverage`）；术语与专名全文一致。
 - 字幕层的条数（`cueCount`）报告给用户；竖版的字幕用 {{arg:style}} 挪出了平台控件区。字幕在画面上的位置要在编辑器或导出的成片里看，{{tool:videos_frames}} 的帧里看不到。

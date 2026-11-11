@@ -442,8 +442,11 @@ export interface ToolScope<A extends ToolAccess = ToolAccess> {
    * 同一视频、同一份转写、同一门语言的记录还在进行时沿用它。只有会话里的智能体实现：别的范围不登记，为 null。
    */
   translationStarted?(access: A, start: TranslationScope & { sentences: number; sourceRevision?: string }): Id | null;
-  /** 写入了一份译文（`putDocument` kind `translation`）：对应的进度记录完成。 */
-  translationWritten?(access: A, written: TranslationScope & { documentId: Id | null }): void;
+  /**
+   * 写入了一份译文（`putDocument` kind `translation`，或给已有译文的 `patchDocument`）：译文覆盖了转写的每一句（或读不出覆盖）时
+   * 对应的进度记录完成；还没覆盖完时留着它（没有时登记一条），回合结束时算没做完。
+   */
+  translationWritten?(access: A, written: TranslationWritten): void;
 }
 
 /** 智能体自己翻译的对象：哪个视频的哪份转写，译成哪门语言。 */
@@ -451,6 +454,12 @@ export interface TranslationScope {
   videoId: Id;
   sourceDocumentId: Id;
   language: string;
+}
+
+/** 写入的一份译文：它的 ID（新建时从回执取，取不到为 null），与它覆盖了转写的多少句、第一句没译的（读不出时 null）。 */
+export interface TranslationWritten extends TranslationScope {
+  documentId: Id | null;
+  coverage?: { covered: number; total: number; nextSentenceId?: Id | null } | null;
 }
 
 /**
@@ -555,7 +564,7 @@ export class ScopeRouter implements ToolScope<ToolAccess> {
   translationStarted(access: ToolAccess, start: TranslationScope & { sentences: number; sourceRevision?: string }): Id | null {
     return this.#of(access.principal).translationStarted?.(access, start) ?? null;
   }
-  translationWritten(access: ToolAccess, written: TranslationScope & { documentId: Id | null }): void {
+  translationWritten(access: ToolAccess, written: TranslationWritten): void {
     this.#of(access.principal).translationWritten?.(access, written);
   }
 }

@@ -128,4 +128,24 @@ describe.skipIf(!editorWasmAvailable())('putDocument 译文：补句级对齐', 
     expect(await fillTranslationAlignments([op], documents, flaky)).toBe(1);
     expect(reads.at(-1)).toEqual(['speech', undefined]);
   });
+
+  it('patchDocument 给已有译文追加或替换整条单元（分批写）：同样补；改单元的某个字段、不是译文的文档不动', async () => {
+    const append = { path: ['units', { id: `t-${second!.id}` }], value: unit(second!, '早上好。'), beforeId: null };
+    const field = { path: ['units', { id: `t-${first!.id}` }, 'naturalText'], value: '嗨。' };
+    const op: Record<string, unknown> = { type: 'patchDocument', documentId: 'trans', changes: [field, append] };
+    expect(await fillTranslationAlignments([op], documents, readSpeech)).toBe(1);
+    const changes = op.changes as Array<{ value: { alignment?: unknown } }>;
+    expect(changes[0]).toBe(field);
+    expect(changes[1]!.value.alignment).toEqual({
+      basis: 'natural',
+      correspondence: 'sentence',
+      blocks: [],
+      sourceWordIds: ['w3', 'w4'],
+      textHash: hash('早上好。'),
+    });
+    expect(append.value.alignment).toBeNull();
+    expect(reads.at(-1)).toEqual(['speech', undefined]);
+    const notTranslation: Record<string, unknown> = { type: 'patchDocument', documentId: 'speech', changes: [append] };
+    expect(await fillTranslationAlignments([notTranslation], documents, readSpeech)).toBe(0);
+  });
 });

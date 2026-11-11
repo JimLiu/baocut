@@ -220,6 +220,7 @@ export {
   type FrozenSource,
   type SourceSentence,
 } from './pipelines/translation-document.ts';
+export { refreshPlan, refreshableTranslation, type RefreshPlan } from './pipelines/translation-refresh.ts';
 export { TOOL_CATALOGUE, TRANSCRIBE_PIPELINE, toolDefinition } from './tool-catalogue.ts';
 export {
   LINK_IMPORT_PIPELINE,

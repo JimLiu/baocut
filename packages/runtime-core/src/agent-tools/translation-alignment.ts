@@ -5,7 +5,8 @@ import { EditorWasmUnavailable, sha256Hex, sourceSentences } from '@baocut/jobs'
  * 智能体写译文时 Runtime 补上的句级对齐（视频格式规范 §5.3，架构设计 §3.5 的 `documents_read`）。
  *
  * 智能体自己翻译时按句子写单元，不做块级对齐；`alignment` 写 null 时，导出要按句子重新派生成员，`captions_create`
- * 切不出时间。`edits_apply` 的 `putDocument` 写 `baocut.translation/2` 时，这里按单元的 `sourceSentenceId` 在它译自的
+ * 切不出时间。`edits_apply` 的 `putDocument` 写 `baocut.translation/2` 时，与 `patchDocument` 给已有译文整条新增或替换单元
+ * （`path` 为 `["units", {id}]`、`value` 是单元，分批写长译文时追加的就是这种）时，这里按单元的 `sourceSentenceId` 在它译自的
  * 转写里找到那一句（与 `documents_read` 的 `translationBasis` 同一套规则，经 editor-wasm），把 null 补成句级对齐
  * `{basis:'natural', correspondence:'sentence', blocks:[], sourceWordIds:<那一句的词>, textHash}`；写了对齐却缺
  * `sourceWordIds` 或 `textHash` 的同样补齐，句级、没有块的对齐的 `textHash` 按译文重算。
@@ -23,8 +24,8 @@ type Json = Record<string, unknown>;
 const TRANSLATION_V2 = 'baocut.translation/2';
 
 /**
- * 在 `operations`（已经规范化、发给引擎之前）里给译文的 `putDocument` 补对齐；返回补了几个单元。改动写在新的 `body`
- * 对象上（替换 `op.body`），不改调用方传进来的正文。
+ * 在 `operations`（已经规范化、发给引擎之前）里给译文的 `putDocument` 与 `patchDocument` 的整条单元补对齐；返回补了几个单元。
+ * 改动写在新的 `body`、`changes` 对象上（替换 `op.body`、`op.changes`），不改调用方传进来的正文。
  */
 export async function fillTranslationAlignments(
   operations: Record<string, unknown>[],
@@ -33,6 +34,10 @@ export async function fillTranslationAlignments(
 ): Promise<number> {
   let filled = 0;
   for (const op of operations) {
+    if (op.type === 'patchDocument') {
+      filled += await fillPatchedUnits(op, documents, readSpeech);
+      continue;
+    }
     if (op.type !== 'putDocument' || op.kind !== 'translation') continue;
     const body = op.body as Json | null | undefined;
     if (!body || typeof body !== 'object' || body.schema !== TRANSLATION_V2 || !Array.isArray(body.units)) continue;
@@ -55,6 +60,42 @@ export async function fillTranslationAlignments(
     }
   }
   return filled;
+}
+
+/** 已有译文的 `patchDocument` 里整条新增或替换的单元（`path` 为 `["units", {id}]`、`value` 是对象）：按它译自的转写的当前版本补。 */
+async function fillPatchedUnits(
+  op: Record<string, unknown>,
+  documents: Readonly<Record<Id, DocumentRecord>>,
+  readSpeech: SpeechBodyReader,
+): Promise<number> {
+  const record = typeof op.documentId === 'string' ? documents[op.documentId] : undefined;
+  if (record?.kind !== 'translation' || !Array.isArray(op.changes)) return 0;
+  const whole = (change: unknown): change is Json & { value: Json } => {
+    const c = change as Json | null;
+    const path = c?.path;
+    return (
+      Array.isArray(path) &&
+      path.length === 2 &&
+      path[0] === 'units' &&
+      typeof path[1] === 'object' &&
+      path[1] !== null &&
+      typeof c!.value === 'object' &&
+      c!.value !== null &&
+      !Array.isArray(c!.value)
+    );
+  };
+  if (!op.changes.some(whole)) return 0;
+  const sentences = (record.sourceDocumentId ? await sentencesOf(readSpeech, record.sourceDocumentId, undefined) : null) ?? new Map();
+  let changed = 0;
+  const changes = (op.changes as unknown[]).map((change) => {
+    if (!whole(change)) return change;
+    const next = filledUnit(change.value, sentences);
+    if (next === change.value) return change;
+    changed++;
+    return { ...change, value: next };
+  });
+  if (changed) op.changes = changes;
+  return changed;
 }
 
 type Sentences = Map<string, { fingerprint: string; wordIds: string[] }>;

@@ -174,7 +174,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | | `delete` | destructive | 移进回收站（现 `videos_delete`），要 `--yes` |
 | | `import-package` | mutation | 打开便携包建成新视频（同步完成，不是任务）；只在工具桥与 CLI |
 | | `derive` | mutation | **新增**：复制父视频并把区间之外剪掉，子视频里可以恢复（`video`、`start`、`end`，可选名字、画布、`fit` / `crop` 与要不要字幕层、译文、章节）。建在父视频旁边，同样的参数认回同一个子视频；首版只对一个主素材记剪口，多素材的父视频在 `warnings` 里说明（架构设计 §3.5「派生子视频」） |
-| `documents` | `read` | query | 读转写、译文、章节等：`video`、`documentId`、可选 `revision`；转写（speech）另带 `translationBasis`（`sourceBasis` 与切好的句子，每句带素材时钟上的 `start`、`end` 秒）；会话里自己翻译时给 `translateTo`（目标语言），界面显示「正在翻译」，写入译文时结束（架构设计 §3.5）；超过预算写文件（§5.5） |
+| `documents` | `read` | query | 读转写、译文、章节等：`video`、`documentId`、可选 `revision`；转写（speech）另带 `translationBasis`（`sourceBasis` 与切好的句子，每句带素材时钟上的 `start`、`end` 秒）；会话里自己翻译时给 `translateTo`（目标语言），界面显示「正在翻译」，写进视频的译文覆盖了每一句时结束；长译文分批写，没覆盖完时写入的回执带 `translationCoverage`（架构设计 §3.5）；超过预算写文件（§5.5） |
 | | `put` | mutation | **新增 sugar**：写一份文档（新建或替换），编译成 `edits_apply` 的一个 `putDocument`。Agent 自译、润色与分章的落点 |
 | `edits` | `apply` | mutation | 一笔事务：`ops`（JSON 数组、`@文件` 或 stdin）+ `revision`；`dry-run` 走预检 |
 | | `undo` | mutation | 撤销最近一笔 |

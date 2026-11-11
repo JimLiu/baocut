@@ -19,7 +19,7 @@
 
 ## 2. 通读，定下译法
 
-用 `baocut documents read` 读转写，translateTo 给目标语言、view 给 `sentences`：BaoCut 据此在视频卡与字幕面板显示「正在翻译」，写入这门语言的译文时结束。它带的 translationBasis 给出切好的句子（id、fingerprint、text、speaker、起止秒）。长转写一次放不下：结果带 `nextCursor` 时把它给 cursor 接着读（同样给 translateTo），读到没有 `nextCursor` 为止，所有页的句子合起来才是全文；只读到一页时不要当成全文，也不要只译读到的那几句。动笔前先通读全文，定下这几件事，翻译时全文照它们。它们不进成品：
+用 `baocut documents read` 读转写，translateTo 给目标语言、view 给 `sentences`：BaoCut 据此在视频卡与字幕面板显示「正在翻译」，写进视频的这门语言的译文覆盖了每一句时结束。它带的 translationBasis 给出切好的句子（id、fingerprint、text、speaker、起止秒）。长转写一次放不下：结果带 `nextCursor` 时把它给 cursor 接着读（同样给 translateTo），读到没有 `nextCursor` 为止，所有页的句子合起来才是全文；只读到一页时不要当成全文，也不要只译读到的那几句。动笔前先通读全文，定下这几件事，翻译时全文照它们。它们不进成品：
 
 - **内容概要**：一两句话说清这个视频讲什么。听岔的词、含糊的指代，都要靠它判断。
 - **术语**：认出原文里的术语（转写可能把它们拼错，留意同一个术语的几种错写），每个术语全文只用一种译法。
@@ -60,14 +60,16 @@
 
 ## 4. 写回视频
 
-- 照 `baocut documents read` 说明里的写法，用 `baocut documents put` 写入完整的译文：新建时给 kind `translation`、language 为目标语言、sourceDocument 为转写的 documentId；整体重译已有的译文时给 document。只修订已有译文的几句时，用 `baocut edits apply` 的 patchDocument，按 units 的稳定 id 只提交改过的 naturalText、sourceFingerprint、alignment 与 status 等字段（`baocut edits ops` 查格式）；更新依据的 sourceBasis 时也只传变化的字段，不上传全部 units。每句一个单元，sourceBasis 用这次读到的 translationBasis，每个单元的对齐信息照说明填：用 `sentences` 视图读到的句子没有 wordIds，alignment 写 null，Runtime 写入时按句子补上；不省略、不自己发明字段。一次 `baocut documents put` 写完整份，单元数与全文的句数相同。
+- 照 `baocut documents read` 说明里的写法写入译文：新建时用 `baocut documents put`，给 kind `translation`、language 为目标语言、sourceDocument 为转写的 documentId；整体重译已有的译文时给 document。只修订已有译文的几句时，用 `baocut edits apply` 的 patchDocument，按 units 的稳定 id 只提交改过的 naturalText、sourceFingerprint、alignment 与 status 等字段（`baocut edits ops` 查格式）；更新依据的 sourceBasis 时也只传变化的字段，不上传全部 units。每句一个单元，sourceBasis 用这次读到的 translationBasis，每个单元的对齐信息照说明填：用 `sentences` 视图读到的句子没有 wordIds，alignment 写 null，Runtime 写入时按句子补上；不省略、不自己发明字段。写完时单元数与全文的句数相同。
+- **长转写分批写进视频。** 几十句的转写可以一次 `baocut documents put` 写完整份；上百句的不要攒到最后一次写，也不要只留在自己的上下文或本地草稿文件里：译完一批（大约 50–100 句，或分页读到的一页）就写进视频。第一批用 `baocut documents put` 新建译文；之后每批用 `baocut edits apply` 的 patchDocument 按句序追加单元，每个单元一项 `{"path":["units",{"id":"t-<句子 id>"}],"value":<完整的单元>,"beforeId":null}`，expectedRevision 用上一笔回执的 `revision.after`。还没覆盖完全文时，回执带 translationCoverage：已覆盖几句（covered）、一共几句（total）、下一句没译的句子（nextSentenceId）；回执不再带它，就是每一句都有了。句子多不是停下的理由：一批接一批写到覆盖全文，再做第 5 节。
+- **接着没译完的译文做。** 已有同一语言的译文、但还没覆盖全文（回执的 translationCoverage 或 `<baocut-unfinished>` 说覆盖了几句）时，不重头来，也不新建第二份：重新 `baocut documents read` 转写（同样给 translateTo），跳过已经有单元的句子，从 nextSentenceId 那句起接着译，照上一条分批追加。术语与专名照已有译文的用法。
 - **只重译变了的句子**（转写改过、剪过之后，或用户说译文过期了）：重新 `baocut documents read` 转写（同样给 translateTo）拿最新的 translationBasis，再读已有的译文。句子 id 与 fingerprint 都和已有单元对得上的，原样保留那一单元；对不上的和新出现的重新翻译；转写里已经没有的句子不再写。sourceBasis 换成新的。写回之后从这份译文建过的字幕层由 Runtime 跟着换掉改过的句子，不要再建一层。用户要求整份重译时才全部重来：没变的句子重译一遍，只会让用户已经看过、改过的译文又变样。
 - 写之前转写又被改过（版本冲突或读到的已不是当前版本）时，重新读，按新的句子来。
 
 ## 5. 交付
 
 - 说明：目标语言；译了多少句（只重译时说保留了多少、重译了多少）；照用了哪些术语；哪些句子拿不准、为什么。
-- 放到画面上：用 `baocut captions create` 建字幕层。双语给译文文档并带 `bilingual: true`；只要译文给译文文档。同一份文档每调用一次多一层，先 `baocut videos inspect` 看是不是已经建过。
+- 放到画面上：译文覆盖了每一句之后，用 `baocut captions create` 建字幕层（没译完就建，字幕层会缺句）。双语给译文文档并带 `bilingual: true`；只要译文给译文文档。同一份文档每调用一次多一层，先 `baocut videos inspect` 看是不是已经建过。
 - 用户要字幕文件时用 `baocut export`（kind `subtitles`）：双语给 `bilingual: true`（主文档是转写，副文档是译文，每句一条）；只要译文给 language，要求画面上已有这种语言的字幕层（先 `baocut captions create`）；一行的宽度用 maxCharsPerLine。等 `baocut jobs inspect` 到 completed，把 outputs 里的 path 告诉用户。
 
 ## 6. 要避免的
@@ -77,10 +79,11 @@
 - 不要为了短删掉否定、限定、数字、名字和因果转折。
 - 不要给备选译法，不要在句内换行，不要带注释或原文。
 - 不要在润色之前翻译；不要在已有译文时新建第二份；不要整份重译没变的句子。
+- 不要因为句子多就只译一部分、停下来问要不要继续，或把译文只留在本地草稿里不写进视频；按第 4 节分批写到覆盖全文。
 
 ## 7. 自查
 
-- 每句都译了，没有合并、拆分、漏译或多出来的句子；单元数等于 translationBasis 的句数（分页读时是所有页加起来的句数）。
+- 每句都译了，没有合并、拆分、漏译或多出来的句子；单元数等于 translationBasis 的句数（分页读时是所有页加起来的句数），最后一笔写入的回执不再带 translationCoverage。
 - 术语和专名全文一致；用户点名的译法逐字出现在对应的句子里。
 - 否定、数字、限定和因果转折都在；没有为了短删掉意思。
 - 随便挑几句长的，想象切成两三行：每一行和那时说的话对得上吗？

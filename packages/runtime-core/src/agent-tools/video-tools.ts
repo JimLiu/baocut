@@ -54,6 +54,7 @@ import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
 import { approvalField, bindingConfirmation, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { assetSegments, projectChapters, type ProjectedChapter } from './source-chapters.ts';
 import { fillTranslationAlignments } from './translation-alignment.ts';
+import { translationCoverage, writtenTranslations, type TranslationCoverage, type WrittenTranslation } from './translation-coverage.ts';
 import { DOCUMENT_READ_BUDGET_BYTES, decodeCursor, pageDocument } from './document-pages.ts';
 import { syncSpeechCaptions } from './speech-captions.ts';
 import { syncTranslationCaptions } from './translation-captions.ts';
@@ -246,7 +247,7 @@ const schemas = {
       .min(1)
       .max(35)
       .optional()
-      .describe('可选。读转写是为了自己把它译成这门语言（BCP 47，例如 en、zh-CN）时给：BaoCut 显示「正在翻译」，写入这门语言的译文后结束'),
+      .describe('可选。读转写是为了自己把它译成这门语言（BCP 47，例如 en、zh-CN）时给：BaoCut 显示「正在翻译」，写进视频的这门语言的译文覆盖了每一句后结束'),
     view: z
       .enum(['full', 'sentences'])
       .optional()
@@ -556,7 +557,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '读取视频里一份文档（转写、译文、字幕等）的正文。',
       '返回文档头（kind、名字、语言、来源素材与来源文档、各版本）、读到的版本与正文。',
       '改已有文档的几个字段时用 edits_apply 的 renameSpeakers、updateWords 或 patchDocument（用 edits_ops 查格式）；只传变化的字段与稳定 ID。新建或整体替换才用 documents_put 写完整正文。',
-      '转写（kind speech）另带 translationBasis：写译文要用的 sourceBasis 与按规则切好的句子（id、fingerprint、text、wordIds，以及 start、end：素材时钟上的秒，首个可见词的起点到末个可见词的终点；父视频从 0 秒原速播放这个素材、没有剪口时就是 videos_derive 的 start、end，否则先按时间线换算）。找句子边界读这里就够，不用读整份正文。要自己翻译时读转写给 translateTo（目标语言）：BaoCut 在视频卡与字幕面板显示「正在翻译」，用 documents_put 写入这门语言的译文时结束（结果的 translationJob 是这条进度记录的 jobId）。自己翻译后用 documents_put 新建译文：kind "translation"、language 为目标语言、sourceDocument 为这份转写的 documentId，body 为 {"schema":"baocut.translation/2","language":目标语言,"sourceBasis":translationBasis.sourceBasis,"units":[每句一个 {"id":"t-<句子 id>","sourceSentenceId":句子 id,"sourceFingerprint":句子 fingerprint,"naturalText":译文,"alignment":{"basis":"natural","correspondence":"sentence","blocks":[],"sourceWordIds":句子 wordIds},"status":"draft"}]}，字段不多不少。',
+      '转写（kind speech）另带 translationBasis：写译文要用的 sourceBasis 与按规则切好的句子（id、fingerprint、text、wordIds，以及 start、end：素材时钟上的秒，首个可见词的起点到末个可见词的终点；父视频从 0 秒原速播放这个素材、没有剪口时就是 videos_derive 的 start、end，否则先按时间线换算）。找句子边界读这里就够，不用读整份正文。要自己翻译时读转写给 translateTo（目标语言）：BaoCut 在视频卡与字幕面板显示「正在翻译」，写进视频的这门语言的译文覆盖了每一句时结束（结果的 translationJob 是这条进度记录的 jobId）。自己翻译后用 documents_put 新建译文：kind "translation"、language 为目标语言、sourceDocument 为这份转写的 documentId，body 为 {"schema":"baocut.translation/2","language":目标语言,"sourceBasis":translationBasis.sourceBasis,"units":[每句一个 {"id":"t-<句子 id>","sourceSentenceId":句子 id,"sourceFingerprint":句子 fingerprint,"naturalText":译文,"alignment":{"basis":"natural","correspondence":"sentence","blocks":[],"sourceWordIds":句子 wordIds},"status":"draft"}]}，字段不多不少。上百句的长转写分批写进视频：第一批用 documents_put 新建，之后每批用 edits_apply 的 patchDocument 追加单元（{"path":["units",{"id":"t-<句子 id>"}],"value":单元,"beforeId":null}）；还没覆盖全文时写入的结果带 translationCoverage（covered 已覆盖几句、total 一共几句、nextSentenceId 下一句没译的），一直写到它不再出现。',
       'alignment 是这句译文对应的原文词（句级对齐）：导出双语字幕与建字幕层都按它取时间。textHash（"sha256:" 加 naturalText 的 SHA-256）不用自己算，Runtime 写入时补上；写成 null 的，句子与指纹核对得上时 Runtime 同样补成句级对齐（回执的 filledAlignments 是补了几句）。',
       '要把转写或译文显示在画面上，用 captions_create 建字幕层，不要自己写字幕文档。',
       `会话与 MCP 里一次结果不超过 ${DOCUMENT_READ_BUDGET_BYTES / 1024} KiB：放不下时只给一页，带 coverage（这一页是第几项到第几项、共几项，truncated）与 nextCursor，用 cursor 一页页接着读到没有 nextCursor 为止；只读到一页时不要当成整份。转写按句分页，正文的 words 只给这几句的词。翻译、写速览、给说话人实名、找句界时给 view "sentences"：只给每句的 id、fingerprint、text、speaker 与起止秒，一页能放下的句子多得多；它没有 wordIds，写译文时 alignment 写 null，由 Runtime 补。只有逐词润色才一页页读整份正文。`,
@@ -709,7 +710,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '写入视频里一份文档（转写、译文等）的新版本，或新建一份文档。',
       '编译成一个 putDocument 操作，一笔修改、可以撤销。局部改名、校订或编辑字段用 edits_apply 的 renameSpeakers、updateWords 或 patchDocument；本工具的 body 是完整的正文对象，只用于新建或整体替换。替换时给 document，新建时不给 document、给 kind。',
-      '新建译文：kind "translation"、language 为目标语言、sourceDocument 为它译自的转写，body 照 documents_read 返回的 translationBasis 填（形状见 documents_read 的说明）；alignment 写成 null 时 Runtime 按句子补上句级对齐（结果的 filledAlignments 是补了几句）。写完用 captions_create 把译文做成字幕。',
+      '新建译文：kind "translation"、language 为目标语言、sourceDocument 为它译自的转写，body 照 documents_read 返回的 translationBasis 填（形状见 documents_read 的说明）；alignment 写成 null 时 Runtime 按句子补上句级对齐（结果的 filledAlignments 是补了几句）。上百句的长译文分批写：这里写第一批，其余用 edits_apply 的 patchDocument 追加单元；还没覆盖全文时结果带 translationCoverage（covered、total、nextSentenceId）。覆盖全文后再用 captions_create 把译文做成字幕。',
       '改已有的译文（给 document）：从它生成的字幕层由 Runtime 在同一笔里只换改过的几句的字幕条，时间照旧（结果的 syncedCaptions 是跟着换了几份字幕文档）；不要再建一层字幕。',
       '整份替换已有的转写（给 document）：词文本改了的，从它生成的原文字幕层由 Runtime 在同一笔里跟着改字，时间与切条不动（同 edits_apply 的 updateWords；手改过的句子不动，列在 keptCaptionCues）。',
       '正文与原来相同时不产生新版本。不给 revision 时用最新的版本。',
@@ -1163,6 +1164,7 @@ export class VideoTools implements ToolSet {
       ...(submitted.filledAlignments ? { filledAlignments: submitted.filledAlignments } : {}),
       ...(submitted.syncedCaptions ? { syncedCaptions: submitted.syncedCaptions } : {}),
       ...(submitted.keptCaptionCues.length ? { keptCaptionCues: submitted.keptCaptionCues } : {}),
+      ...(submitted.translationCoverage.length ? { translationCoverage: submitted.translationCoverage } : {}),
       ...approvalField(approval),
     };
   }
@@ -1285,15 +1287,43 @@ export class VideoTools implements ToolSet {
       principal,
       { ...taskOf(access), protections: this.#scope.protections?.(access, opened.ref.videoId) ?? [] },
     );
-    // 写入了译文：智能体自己翻译的进度记录（`documents_read` 的 translateTo）随之完成。
-    for (const op of operations) {
-      const source = (op.sourceDocument as { documentId?: unknown } | undefined)?.documentId;
-      if (op.type !== 'putDocument' || op.kind !== 'translation' || typeof source !== 'string' || typeof op.language !== 'string') continue;
-      const documentId =
-        typeof op.documentId === 'string' ? op.documentId : typeof op.ref === 'string' ? (result.receipt.refs?.[op.ref] ?? null) : null;
-      this.#scope.translationWritten?.(access, { videoId: opened.ref.videoId, sourceDocumentId: source, language: op.language, documentId });
+    // 写入了译文：智能体自己翻译的进度记录（`documents_read` 的 translateTo）在译文覆盖了转写的每一句时完成；还没覆盖完的
+    // （分批写的长译文）记录留着，回执的 translationCoverage 告诉智能体还差多少句。
+    const translationCoverage: (TranslationCoverage & { documentId: Id; language: string })[] = [];
+    for (const written of writtenTranslations(operations, documents, result.receipt.refs)) {
+      const state = await this.#writtenTranslation(opened.ref.videoId, written);
+      if (!state) continue;
+      const { sourceDocumentId, language, coverage } = state;
+      this.#scope.translationWritten?.(access, { videoId: opened.ref.videoId, sourceDocumentId, language, documentId: written.documentId, coverage });
+      if (coverage && written.documentId && coverage.covered < coverage.total) translationCoverage.push({ documentId: written.documentId, language, ...coverage });
     }
-    return { result, digest: this.#receipt(opened, result, access), filledAlignments, syncedCaptions, keptCaptionCues };
+    return { result, digest: this.#receipt(opened, result, access), filledAlignments, syncedCaptions, keptCaptionCues, translationCoverage };
+  }
+
+  /**
+   * 刚写入的一份译文译自哪份转写、哪门语言、覆盖了它的多少句（读写入后的版本与转写的当前版本）。覆盖读不出时为 null：
+   * 整份写入照旧算写完；补丁读不出覆盖或转写与语言时整个为 null，不动进度记录。修改已经提交，这里读失败不抛出。
+   */
+  async #writtenTranslation(
+    videoId: Id,
+    written: WrittenTranslation,
+  ): Promise<{ sourceDocumentId: Id; language: string; coverage: TranslationCoverage | null } | null> {
+    let record: DocumentRecord | null = null;
+    let coverage: TranslationCoverage | null = null;
+    if (written.documentId) {
+      try {
+        const content = await this.#videos.document(videoId, written.documentId);
+        record = content.document;
+        const source = written.sourceDocumentId ?? record.sourceDocumentId;
+        if (source) coverage = translationCoverage(content.body, (await this.#videos.document(videoId, source)).body);
+      } catch {
+        coverage = null;
+      }
+    }
+    const sourceDocumentId = written.sourceDocumentId ?? record?.sourceDocumentId ?? null;
+    const language = written.language ?? record?.language ?? null;
+    if (!sourceDocumentId || !language || (!written.put && !coverage)) return null;
+    return { sourceDocumentId, language, coverage };
   }
 
   /** 当前的视频：镜像里的最新状态，镜像不在时用打开时的快照。 */
@@ -1603,6 +1633,7 @@ export class VideoTools implements ToolSet {
       ...(submitted.filledAlignments ? { filledAlignments: submitted.filledAlignments } : {}),
       ...(submitted.syncedCaptions ? { syncedCaptions: submitted.syncedCaptions } : {}),
       ...(submitted.keptCaptionCues.length ? { keptCaptionCues: submitted.keptCaptionCues } : {}),
+      ...(submitted.translationCoverage.length ? { translationCoverage: submitted.translationCoverage } : {}),
       ...approvalField(approval),
     };
   }

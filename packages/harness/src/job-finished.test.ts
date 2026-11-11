@@ -305,14 +305,26 @@ describe('回合结束时没做完（§3.2）', () => {
     expect(unfinishedNotices(conversationId)).toHaveLength(1);
   });
 
-  it('记了结果（不论通过与否）或只有非必过检查：不催', async () => {
-    const { conversationId, taskId, session } = await started('转写并翻译成双语字幕', false, { contract: bilingual });
-    harness.recordCheck({ taskId, checkId: 'check_subs', outcome: 'failed', note: 'two sentences missing' }, 'agent');
+  it('必过检查最新结果是不通过：也催，带上那条说明', async () => {
+    const { taskId, session } = await started('转写并翻译成双语字幕', false, { contract: bilingual });
+    harness.recordCheck({ taskId, checkId: 'check_subs', outcome: 'failed', note: 'only 38 of 984 sentences translated' }, 'agent');
     session.finish();
-    await until(() => taskOf(conversationId, taskId)?.status === 'completed');
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(session.turns).toHaveLength(1);
-    expect(unfinishedNotices(conversationId)).toEqual([]);
+    const input = await until(() => session.turns[1]);
+    expect(input).toContain('check_subs was recorded as failed (only 38 of 984 sentences translated)');
+    expect(input).toContain('A failed required check is still unfinished');
+  });
+
+  it('最新结果是通过或跳过，或只有非必过检查：不催', async () => {
+    for (const outcome of ['passed', 'skipped'] as const) {
+      const { conversationId, taskId, session } = await started('转写并翻译成双语字幕', false, { contract: bilingual });
+      harness.recordCheck({ taskId, checkId: 'check_subs', outcome: 'failed', note: 'two sentences missing' }, 'agent');
+      harness.recordCheck({ taskId, checkId: 'check_subs', outcome, ...(outcome === 'skipped' ? { note: 'user dropped it' } : {}) }, 'agent');
+      session.finish();
+      await until(() => taskOf(conversationId, taskId)?.status === 'completed');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(session.turns).toHaveLength(1);
+      expect(unfinishedNotices(conversationId)).toEqual([]);
+    }
   });
 
   it('Runtime 报的没做完的事也催；任务还有后台 Job 在跑时不催', async () => {

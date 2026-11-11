@@ -38,6 +38,7 @@ import {
   type ToolPrincipal,
   type ToolScope,
   type TranslationScope,
+  type TranslationWritten,
   type VideoRoot,
 } from './tool-scope.ts';
 import { resolveUserPath } from './video-digest.ts';
@@ -67,13 +68,16 @@ export class AgentScope implements ToolScope<AgentAccess> {
   readonly #sessionsDirs: readonly string[];
   /** 按 videoId 找过的、没有打开的视频的目录：下次先核对它，不对再扫。 */
   readonly #located = new Map<Id, string>();
-  /** 智能体自己翻译的进度记录（`translationStarted`），按会话、视频、转写与语言；终结了就拿掉。 */
-  readonly #translations = new Map<string, { job: HostedJob; taskId: Id; scope: TranslationScope }>();
   /**
-   * 回合结束时还没写入的翻译（进度记录已中断）：任务 → 键同 `#translations` → 范围。写入这门语言的译文时拿掉；回合结束时的
-   * 「没做完」检查（`unfinished`）读它。只在内存里，至多留 `UNWRITTEN_TASKS` 个任务。
+   * 智能体自己翻译的进度记录（`translationStarted`），按会话、视频、转写与语言；终结了就拿掉。`written` 是已经写进视频、
+   * 还没覆盖完转写的那份译文（分批写时）。
    */
-  readonly #unwritten = new Map<Id, Map<string, TranslationScope>>();
+  readonly #translations = new Map<string, { job: HostedJob; taskId: Id } & PendingTranslation>();
+  /**
+   * 回合结束时还没写完的翻译（进度记录已中断）：任务 → 键同 `#translations` → 范围与写了多少。写入这门语言覆盖完的译文时拿掉；
+   * 回合结束时的「没做完」检查（`unfinished`）读它。只在内存里，至多留 `UNWRITTEN_TASKS` 个任务。
+   */
+  readonly #unwritten = new Map<Id, Map<string, PendingTranslation>>();
   /** 订阅了任务中心（回合结束时收尾进度记录）。第一次登记进度记录时才订阅。 */
   #watchingTasks = false;
 
@@ -345,7 +349,7 @@ export class AgentScope implements ToolScope<AgentAccess> {
 
   /**
    * 智能体要自己翻译一份转写：登记一条 `agentTranslate` 进度记录（托管任务，不排队、不执行，不持有视频的租约），
-   * 视频卡与字幕面板据此显示「正在翻译」。写入这门语言的译文时完成（`translationWritten`）；回合结束还没写时，
+   * 视频卡与字幕面板据此显示「正在翻译」。写入这门语言、覆盖了每一句的译文时完成（`translationWritten`）；回合结束还没写完时，
    * 用户停止的记为取消，别的记为中断。同一会话、同一视频、同一份转写、同一门语言的记录还在进行时沿用它。
    */
   translationStarted(access: AgentAccess, start: TranslationScope & { sentences: number; sourceRevision?: string }): Id | null {
@@ -391,29 +395,35 @@ export class AgentScope implements ToolScope<AgentAccess> {
       void job?.finish(state);
     };
     job = this.#jobs.host(record, { hosted: 'agent-translate', control: { cancel: () => end('cancelled'), interrupt: () => end('interrupted') } });
-    this.#translations.set(key, { job, taskId: access.taskId, scope });
+    this.#translations.set(key, { job, taskId: access.taskId, scope, written: null });
     return job.jobId;
   }
 
   /**
    * 一个任务里智能体开了头、还没做完的事（架构设计 §3.2「做完再结束」），每项一句给模型看的英文：用 `translateTo` 读了转写、
-   * 还没写入这门语言的译文（进度记录还开着的，与回合结束时中断的）。
+   * 还没写入这门语言的译文，或写进视频的译文还没覆盖完转写（进度记录还开着的，与回合结束时中断的）。
    */
   unfinished(conversationId: Id, taskId: Id): string[] {
-    const pending = new Map<string, TranslationScope>(this.#unwritten.get(taskId));
-    for (const [key, open] of this.#translations) if (open.taskId === taskId) pending.set(key, open.scope);
-    return [...pending]
-      .filter(([key]) => key.startsWith(`${conversationId}\u0000`))
-      .map(
-        ([, scope]) =>
-          `You read transcript ${scope.sourceDocumentId} of video ${scope.videoId} with translateTo "${scope.language}" but have not written that translation.`,
-      );
+    const pending = new Map<string, PendingTranslation>(this.#unwritten.get(taskId));
+    for (const [key, open] of this.#translations) if (open.taskId === taskId) pending.set(key, { scope: open.scope, written: open.written });
+    return [...pending].filter(([key]) => key.startsWith(`${conversationId}\u0000`)).map(([, entry]) => unfinishedTranslation(entry));
   }
 
-  /** 写入了一份译文：同一会话、同一视频、同一份转写、同一门语言的进度记录完成，结果指向写入的译文。 */
-  translationWritten(access: AgentAccess, written: TranslationScope & { documentId: Id | null }): void {
+  /**
+   * 写入了一份译文。覆盖了转写的每一句（或读不出覆盖）时，同一会话、同一视频、同一份转写、同一门语言的进度记录完成，结果指向
+   * 写入的译文。还没覆盖完（分批写的长译文）时记录留着、记下写了多少；这个任务还没有记录时登记一条（第一批写入前没给 translateTo）。
+   */
+  translationWritten(access: AgentAccess, written: TranslationWritten): void {
     const key = translationKey(access.conversation.id, written);
     for (const [taskId, keys] of this.#unwritten) if (keys.delete(key) && keys.size === 0) this.#unwritten.delete(taskId);
+    const coverage = written.coverage;
+    if (coverage && coverage.covered < coverage.total) {
+      const scope = { videoId: written.videoId, sourceDocumentId: written.sourceDocumentId, language: written.language };
+      this.translationStarted(access, { ...scope, sentences: coverage.total });
+      const open = this.#translations.get(key);
+      if (open) open.written = { documentId: written.documentId, covered: coverage.covered, total: coverage.total, nextSentenceId: coverage.nextSentenceId ?? null };
+      return;
+    }
     const open = this.#translations.get(key);
     if (!open) return;
     this.#translations.delete(key);
@@ -437,14 +447,14 @@ export class AgentScope implements ToolScope<AgentAccess> {
         if (open.taskId !== ended.taskId) continue;
         this.#translations.delete(key);
         void open.job.finish(ended.stopped ? 'cancelled' : 'interrupted');
-        if (!ended.stopped && payload.type === 'task.upsert') this.#noteUnwritten(ended.taskId, key, open.scope);
+        if (!ended.stopped && payload.type === 'task.upsert') this.#noteUnwritten(ended.taskId, key, { scope: open.scope, written: open.written });
       }
     });
   }
 
-  #noteUnwritten(taskId: Id, key: string, scope: TranslationScope): void {
-    const keys = this.#unwritten.get(taskId) ?? new Map<string, TranslationScope>();
-    keys.set(key, scope);
+  #noteUnwritten(taskId: Id, key: string, entry: PendingTranslation): void {
+    const keys = this.#unwritten.get(taskId) ?? new Map<string, PendingTranslation>();
+    keys.set(key, entry);
     this.#unwritten.delete(taskId);
     this.#unwritten.set(taskId, keys);
     for (const oldest of this.#unwritten.keys()) {
@@ -668,6 +678,25 @@ const UNWRITTEN_TASKS = 200;
 
 function translationKey(conversationId: Id, scope: TranslationScope): string {
   return [conversationId, scope.videoId, scope.sourceDocumentId, scope.language.toLowerCase()].join('\u0000');
+}
+
+/** 一项没做完的翻译：范围，与已经写进视频、还没覆盖完转写的译文（还没写时 null）。 */
+interface PendingTranslation {
+  scope: TranslationScope;
+  written: { documentId: Id | null; covered: number; total: number; nextSentenceId: Id | null } | null;
+}
+
+/** `unfinished` 的一句（给模型看的英文）：还没写，或写了多少、从哪一句接着译。 */
+function unfinishedTranslation({ scope, written }: PendingTranslation): string {
+  if (!written) {
+    return `You read transcript ${scope.sourceDocumentId} of video ${scope.videoId} with translateTo "${scope.language}" but have not written that translation.`;
+  }
+  const doc = written.documentId ? `Translation ${written.documentId}` : 'The translation';
+  const next = written.nextSentenceId ? ` starting at sentence ${written.nextSentenceId}` : '';
+  return (
+    `${doc} ("${scope.language}") of transcript ${scope.sourceDocumentId} in video ${scope.videoId} covers ${written.covered} of ${written.total} sentences. ` +
+    `Translate the remaining ${written.total - written.covered}${next}, append them to that translation in batches with edits_apply patchDocument, then create the captions.`
+  );
 }
 
 function jobNotFound(jobId: Id): ToolError {

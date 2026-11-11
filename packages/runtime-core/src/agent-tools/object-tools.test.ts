@@ -429,6 +429,44 @@ describe.skipIf(!engine || !ffmpeg)('对象的读写工具（终端目录，真�
     },
   );
 
+  it.skipIf(!editorWasmAvailable())(
+    '分批写长译文：第一批 documents_put 回执报覆盖了几句；edits_apply 的 patchDocument 追加其余（alignment 为 null 同样补上），覆盖完后不再报',
+    async () => {
+      const { videoId, assetId } = await placedVideo('分批翻译');
+      const speech = await ok('documents_put', { video: videoId, kind: 'speech', language: 'en', sourceAsset: assetId, body: speechBody(words) });
+      const basis = (await ok('documents_read', { video: videoId, documentId: speech.documentId, view: 'sentences' })).translationBasis;
+      const unit = (s: Loose, text: string) => ({
+        id: `t-${s.id}`,
+        sourceSentenceId: s.id,
+        sourceFingerprint: s.fingerprint,
+        naturalText: text,
+        alignment: null,
+        status: 'draft',
+      });
+      const [first, second] = basis.sentences as Loose[];
+      const put = await ok('documents_put', {
+        video: videoId,
+        kind: 'translation',
+        language: 'zh-Hans',
+        sourceDocument: speech.documentId,
+        body: { schema: 'baocut.translation/2', language: 'zh-Hans', sourceBasis: basis.sourceBasis, units: [unit(first, '你好。')] },
+      });
+      expect(put.translationCoverage).toEqual([
+        { documentId: put.documentId, language: 'zh-Hans', covered: 1, total: 2, nextSentenceId: second.id },
+      ]);
+      const appended = await ok('edits_apply', {
+        video: videoId,
+        expectedRevision: put.revision.after,
+        label: '追加译文',
+        operations: [{ type: 'patchDocument', documentId: put.documentId, changes: [{ path: ['units', { id: `t-${second.id}` }], value: unit(second, '早上好。'), beforeId: null }] }],
+      });
+      expect(appended).toMatchObject({ status: 'committed', filledAlignments: 1 });
+      expect(appended.translationCoverage).toBeUndefined();
+      const captions = await ok('captions_create', { video: videoId, documentId: put.documentId });
+      expect(captions).toMatchObject({ documentId: expect.any(String), cueCount: 2 });
+    },
+  );
+
   it('videos_history：最近的修改在前，带撤销状态与检查点；limit 截断', async () => {
     const { videoId } = await placedVideo('历史');
     const inspected = await ok('videos_inspect', { video: videoId });

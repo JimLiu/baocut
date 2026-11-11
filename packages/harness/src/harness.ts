@@ -2281,8 +2281,8 @@ export class Harness {
   }
 
   /**
-   * 回合正常结束时还有没做完的事（架构设计 §3.2「做完再结束」）：合同里必过、还没记结果的验收检查，与 Runtime 报的智能体开了头
-   * 没做完的事（`HarnessOptions.work`）。有时在会话里记一条提示，重新打开这个任务、起一个回合交给它一段 `<baocut-unfinished>`，
+   * 回合正常结束时还有没做完的事（架构设计 §3.2「做完再结束」）：合同里必过、还没做成的验收检查（没记结果的，与最新结果是不通过的），
+   * 与 Runtime 报的智能体开了头没做完的事（`HarnessOptions.work`）。有时在会话里记一条提示，重新打开这个任务、起一个回合交给它一段 `<baocut-unfinished>`，
    * 让它做完、记下检查结果，或说清卡在哪里。每个任务至多一次（提示的 id 由任务决定，重启后也认得）。
    *
    * 不催的情形：方案模式；这个任务还有后台 Job 在跑（结束时完成收件箱会叫醒它）；Bot 角色的会话（回合由 Bot 汇报，§8.1）；
@@ -2313,13 +2313,22 @@ export class Harness {
     this.#wakeTask(state, taskId, autonomy.mode, true, unfinishedText(checks, work.items));
   }
 
-  /** 合同最新修订里必过、还没有任何结果的验收检查。 */
-  #openChecks(state: ConversationState, taskId: Id): CheckDefinition[] {
+  /**
+   * 合同最新修订里必过、还没做成的验收检查：还没有任何结果的，与最新一条结果是不通过的（带上那条结果）。跳过的算处理过。
+   * 依据（2026-11-11）：智能体一句没译就把「双语字幕」记成不通过、结束回合，只看有没有结果时叫不醒它。
+   */
+  #openChecks(state: ConversationState, taskId: Id): OpenCheck[] {
     const log = this.#tasksOf(state)[taskId];
     const latest = log?.revisions.at(-1);
     if (!log || !latest) return [];
-    const recorded = new Set(log.checkResults.map((result) => result.checkId));
-    return latest.acceptanceChecks.filter((check) => check.required && !recorded.has(check.checkId));
+    const current = new Map<Id, CheckResult>();
+    for (const result of log.checkResults) current.set(result.checkId, result);
+    return latest.acceptanceChecks.flatMap((check): OpenCheck[] => {
+      if (!check.required) return [];
+      const result = current.get(check.checkId);
+      if (!result) return [{ check, failed: null }];
+      return result.outcome === 'failed' ? [{ check, failed: result }] : [];
+    });
   }
 
   /** 正在退出：退出时停掉的回合不是用户停的。 */
@@ -4318,15 +4327,28 @@ function unfinishedNoteId(taskId: Id): Id {
   return `unfinished_${taskId}`;
 }
 
+/** 必过、还没做成的验收检查：`failed` 是它最新一条不通过的结果，没有结果时为 null。 */
+interface OpenCheck {
+  check: CheckDefinition;
+  failed: CheckResult | null;
+}
+
 /** 回合结束时还有没做完的事，交给智能体的那一段（skills/baocut/SKILL.md 写明了这个段）。检查的说明是用户或智能体写的，段内转义。 */
-function unfinishedText(checks: readonly CheckDefinition[], items: readonly string[]): string {
+function unfinishedText(checks: readonly OpenCheck[], items: readonly string[]): string {
   return contextBlock(
     '<baocut-unfinished>',
     [
       'Your turn ended, but this task still has unfinished work:',
-      ...checks.map((check) => `- Required acceptance check ${check.checkId} has no recorded result: ${check.description}`),
+      ...checks.map(({ check, failed }) =>
+        failed
+          ? `- Required acceptance check ${check.checkId} was recorded as failed${failed.note ? ` (${failed.note})` : ''}: ${check.description}`
+          : `- Required acceptance check ${check.checkId} has no recorded result: ${check.description}`,
+      ),
       ...items.map((item) => `- ${item}`),
       'Continue now and finish what the user asked for. After verifying a check, record it with tasks_record_check (passed or failed; skipped with a note when it no longer applies).',
+      ...(checks.some((open) => open.failed)
+        ? ['A failed required check is still unfinished: fix what failed and record the check again; if it cannot pass, say why.']
+        : []),
       'If you cannot finish (you need the user\'s answer, a setting, a permission, or a long job), do not retry: tell the user in one or two sentences what is done and what is blocking.',
       'BaoCut sends this reminder once per task.',
     ],

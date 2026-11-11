@@ -152,6 +152,47 @@ describe('智能体自己翻译的进度记录', () => {
     expect(scope.unfinished('conv_1', 'task_3')).toEqual([]);
   });
 
+  it('写进视频的译文还没覆盖完：记录留着，「没做完」报写了多少、从哪句接着；覆盖完时完成', async () => {
+    const { scope, access, hosted } = setup();
+    scope.translationStarted(access(), { ...zh, sentences: 984 });
+    scope.translationWritten(access(), { ...zh, documentId: 'doc_tr', coverage: { covered: 60, total: 984, nextSentenceId: 's-61' } });
+    await Promise.resolve();
+    expect(hosted).toHaveLength(1);
+    expect(hosted[0]!.record.state).toBe('running');
+    expect(scope.unfinished('conv_1', 'task_1')).toEqual([
+      'Translation doc_tr ("zh-Hans") of transcript doc_speech in video video_1 covers 60 of 984 sentences. ' +
+        'Translate the remaining 924 starting at sentence s-61, append them to that translation in batches with edits_apply patchDocument, then create the captions.',
+    ]);
+    // 同一回合再读一次（translateTo）沿用这条记录。
+    expect(scope.translationStarted(access(), { ...zh, sentences: 984 })).toBe(hosted[0]!.record.jobId);
+    expect(scope.unfinished('conv_1', 'task_1')).toEqual([expect.stringContaining('covers 60 of 984')]);
+    scope.translationWritten(access(), { ...zh, documentId: 'doc_tr', coverage: { covered: 984, total: 984, nextSentenceId: null } });
+    await Promise.resolve();
+    expect(hosted[0]!.record.state).toBe('completed');
+    expect(hosted[0]!.record.result).toEqual({ documentId: 'doc_tr', artifactId: '' });
+    expect(scope.unfinished('conv_1', 'task_1')).toEqual([]);
+  });
+
+  it('没给 translateTo 就写了第一批：登记一条记录；回合结束时中断，「没做完」照样报写了多少；下一个任务写完时拿掉', async () => {
+    const { scope, access, hosted, emit, nextTask } = setup();
+    scope.translationWritten(access(), { ...zh, documentId: 'doc_tr', coverage: { covered: 38, total: 984 } });
+    expect(hosted).toHaveLength(1);
+    expect(hosted[0]!.record).toMatchObject({ state: 'running', translation: { sentences: 984 } });
+    emit({ type: 'task.upsert', task: { taskId: 'task_1', status: 'completed' } } as unknown as TasksEvent);
+    await Promise.resolve();
+    expect(hosted[0]!.record.state).toBe('interrupted');
+    expect(scope.unfinished('conv_1', 'task_1')).toEqual([
+      'Translation doc_tr ("zh-Hans") of transcript doc_speech in video video_1 covers 38 of 984 sentences. ' +
+        'Translate the remaining 946, append them to that translation in batches with edits_apply patchDocument, then create the captions.',
+    ]);
+    nextTask('task_2');
+    scope.translationWritten(access(), { ...zh, documentId: 'doc_tr', coverage: { covered: 984, total: 984 } });
+    expect(scope.unfinished('conv_1', 'task_1')).toEqual([]);
+    expect(scope.unfinished('conv_1', 'task_2')).toEqual([]);
+    // 写完整份、又没有进行中的记录：不登记。
+    expect(hosted).toHaveLength(1);
+  });
+
   it('JobManager 取消或 Runtime 停止：只结束这条记录', async () => {
     const { scope, access, hosted } = setup();
     scope.translationStarted(access(), { ...zh, sentences: 3 });
