@@ -59,6 +59,12 @@ describe('链接检查', () => {
     expect(redactUrlsInText('ERROR: fetching https://cdn.example.com/x?sig=secret failed')).toBe(
       'ERROR: fetching https://cdn.example.com/x failed',
     );
+    // 链接只在空白处结束：用户信息里的原样引号不能截断它；末尾的引号与标点照原样留在链接外。
+    expect(redactUrlsInText(`see https://pre'fix"user@cdn.example.com/p?sig=secret now`)).toBe('see https://cdn.example.com/p now');
+    expect(redactUrlsInText(`ERROR: 'https://cdn.example.com/x?sig=secret', (https://video.example.com/watch?v=abc&token=t).`)).toBe(
+      `ERROR: 'https://cdn.example.com/x', (https://video.example.com/watch?v=abc).`,
+    );
+    expect(redactUrlsInText('<https://cdn.example.com/x?sig=secret>')).toBe('<https://cdn.example.com/x>');
   });
 
   it('解析出内网地址时拒绝；解析不了是网络错误；字面 IP 不再解析', async () => {

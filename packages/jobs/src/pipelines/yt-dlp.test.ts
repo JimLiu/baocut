@@ -336,6 +336,23 @@ describe('执行（假 yt-dlp）', () => {
     expect(JSON.stringify(completeFailure.details)).not.toMatch(/synthetic-review-user|password|synthetic-review-query/);
   });
 
+  it('URL 凭据里的原样单引号不提前结束 URL，完整与截断的都不泄露', async () => {
+    const noise = 'WARNING: skipped format\n'.repeat(400);
+    const terminal = 'ERROR: Requested format is not available';
+    for (const userinfo of ['synthetic-quote-userinfo', 'synthetic-quote-userinfo'.repeat(60)]) {
+      for (const tail of [['\n', noise, terminal], ['\n', terminal]]) {
+        const result = await runWithStderr([
+          `WARNING: n challenge solving failed: https://prefix'${userinfo}@cdn.example.com/player?sig=synthetic-query`,
+          ...tail,
+        ]);
+        const failure = classifyFailure(result.stderr, 1);
+        expect(failure.code).toBe('LINK_TOOL_UPDATE_REQUIRED');
+        expect(failure.message).toContain('n challenge solving failed');
+        expect(JSON.stringify({ message: failure.message, details: failure.details })).not.toMatch(/synthetic-quote-userinfo|synthetic-query/);
+      }
+    }
+  });
+
   it('保留的格式原因只供格式错误回溯，不触发全日志 Cookie 或磁盘启发式', async () => {
     const causes: Array<[string, string]> = [
       ['WARNING: The provided YouTube account cookies are no longer valid. See cookie database help.', 'LINK_LOGIN_REQUIRED'],

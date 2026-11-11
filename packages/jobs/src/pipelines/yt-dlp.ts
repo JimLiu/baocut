@@ -178,7 +178,7 @@ export async function runYtDlp(
       const isError = stderrPending.startsWith('ERROR:');
       if (!cause && !isError) return;
       // A clipped URL may end inside userinfo, before its '@'. Do not parse that fragment as a hostname.
-      const prefix = stderrPendingClipped ? stderrPending.replace(/https?:\/\/[^\s'"<>]*$/i, '') : stderrPending;
+      const prefix = stderrPendingClipped ? stderrPending.replace(/https?:\/\/\S*$/i, '') : stderrPending;
       const entry = { line: redactUrlsInText(prefix).trimEnd().slice(0, STDERR_LINE_LIMIT), end };
       if (isError) lastError = entry;
       if (cause) {

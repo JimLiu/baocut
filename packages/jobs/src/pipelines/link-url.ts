@@ -74,9 +74,16 @@ export function redactUrl(input: URL | string): string {
   return url.href;
 }
 
-/** 一段文本（工具的报错）里的每个 http(s) 链接都换成脱敏之后的写法。 */
+/**
+ * 一段文本（工具的报错）里的每个 http(s) 链接都换成脱敏之后的写法。
+ * 链接只在空白处结束：引号、尖括号可以原样出现在用户信息里，在那里截断会把后半段凭据当成主机留下。
+ * 末尾的引号、括号与标点不属于链接，先剥下再原样接回。
+ */
 export function redactUrlsInText(text: string): string {
-  return text.replace(/https?:\/\/[^\s'"<>]+/gi, (match) => redactUrl(match));
+  return text.replace(/https?:\/\/\S+/gi, (match) => {
+    const url = match.replace(/['"<>()[\]{}.,;:!?]+$/, '');
+    return redactUrl(url) + match.slice(url.length);
+  });
 }
 
 /** 主机名本身就指向本机或内网：字面的私有地址、`localhost`、本地后缀、没有点的单段名字。 */
