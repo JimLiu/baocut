@@ -27,7 +27,13 @@ Download for [macOS (Apple Silicon)](https://baocut.com/download/mac-dmg) or [Wi
 baocut status
 ```
 
-It lists what this machine can do right now and what is missing (local models, `ffmpeg` and so on), each with a fix. If the terminal cannot find `baocut`, see the [desktop CLI entrypoint](apps/desktop/README.md#外部-agent-与-cli).
+It lists what this machine can do right now and what is missing (local models, `ffmpeg` and so on), each with a fix.
+
+If the terminal cannot find `baocut` (on Windows, open a new terminal first), install it once by full path (macOS shown); it tells you whether a folder still needs adding to PATH. For other cases see the [desktop CLI entrypoint](apps/desktop/README.md#外部-agent-与-cli).
+
+```bash
+/Applications/BaoCut.app/Contents/MacOS/baocut-cli cli install
+```
 
 **2. Install the BaoCut skill for your agent**
 
@@ -66,7 +72,6 @@ Traditional editors are designed for human hands, so an agent has to work around
 - **You and the agent share one editor.** You drag a clip, the agent rewrites a caption; both go through the same command gateway, transactions and undo stack. You can take over at any point.
 - **Bounded autonomy.** The agent works inside an explicit scope, access mode and budget, and destructive actions follow approval rules. Outside material such as a downloaded page or a transcript is treated as data only.
 - **Honest delivery.** The agent reports what it measured, which frames it actually looked at, and what still needs a human ear. A failed check is reported as failed.
-- **Bring your own models.** Transcription, speech synthesis, image and music generation run on local models or on your own online providers.
 
 ## What it can do
 
