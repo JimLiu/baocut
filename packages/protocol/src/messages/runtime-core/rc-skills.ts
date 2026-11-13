@@ -155,6 +155,8 @@ const en = {
   cliEntryPathFailed: (p: { dir: string }) =>
     `baocut is in ${p.dir}, but BaoCut couldn't add that folder to your user PATH. Add it yourself: search the Start menu for "Edit environment variables for your account"`,
   cliEntryLocalOnly: 'Installing the baocut command is only available in the desktop app and the CLI',
+  cliEntryShellUnknown: (p: { dir: string }) =>
+    `BaoCut can't tell which file your shell reads when it starts. Add ${p.dir} to PATH in your shell configuration yourself`,
 };
 
 export type RcSkillsMessages = typeof en;

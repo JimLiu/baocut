@@ -174,12 +174,13 @@
   /* ---------- 命令行 baocut ----------
      cli = {state, target?, shell: {found, dirOnPath} | null, pathHint?: {line, file}}：Runtime 的 cliEntry.status。
      state：none 没装 / current 指向本 App / stale 指向别的 BaoCut / broken 指向的位置不在了 / foreign 不是 BaoCut 放的。
-     装好之后还要看终端找不找得到：目录不在 PATH 上给出要加的那一行（不替用户改 shell 配置），先找到别的 baocut 时点名它。
+     装好之后还要看终端找不找得到：目录不在 PATH 上给出要加的那一行，并给「加进 ~/.zshrc」按钮（addTo：用户点了才追加那一行，
+     带 # added by BaoCut 尾注；装与首次启动都不改 shell 配置），先找到别的 baocut 时点名它。
      onPath 是终端里已有的 baocut（如 Homebrew cask），指向本 App 时不催装。 */
   function cliRow(cli, onPath) {
     const c = cli || {state: 'none'};
     const removable = c.state === 'current' || c.state === 'stale' || c.state === 'broken';
-    const r = (kind, tone, text, cta, command) => ({kind, tone, text, cta: cta || null, removable, command: command || null});
+    const r = (kind, tone, text, cta, command, addTo) => ({kind, tone, text, cta: cta || null, removable, command: command || null, addTo: addTo || null});
     if (c.state === 'foreign') return r('foreign', 'notice', '那里已有一个不是 BaoCut 放的 baocut，BaoCut 不会替换它。移走或改名后再安装。');
     /* 指向独立 CLI 包（§9）：由独立包管（baocut update），App 不修也不移除 */
     if (c.state === 'standalone') return r('standalone', 'positive', '已安装 · 终端里用的是独立的 BaoCut 命令行，用 baocut update 更新；App 不改动它。');
@@ -190,7 +191,7 @@
       return r('none', undefined, '终端里还找不到 baocut。装上之后在任何终端里都能直接输入 baocut，不要管理员权限。', '安装命令行工具');
     }
     if (!c.shell) return r('unchecked', undefined, '已安装。查不出终端的 PATH：新开一个终端，运行 baocut version 看看');
-    if (c.pathHint) return r('not-on-path', 'notice', `已安装，但 ${cliDir} 还不在终端的 PATH 上。把下面这一行加进 ${c.pathHint.file || 'shell 的配置文件'}，再新开一个终端：`, null, c.pathHint.line);
+    if (c.pathHint) return r('not-on-path', 'notice', `已安装，但 ${cliDir} 还不在终端的 PATH 上。把下面这一行加进 ${c.pathHint.file || 'shell 的配置文件'}，再新开一个终端：`, null, c.pathHint.line, c.pathHint.file);
     if (c.shell.found && c.shell.found !== cliPath) return r('shadowed', 'notice', `已安装，但终端会先找到 ${c.shell.found}，用的是那一个。把它移除，或把 ${cliDir} 放到 PATH 里更靠前的位置。`);
     return r(c.shell.found ? 'ready' : 'unchecked', c.shell.found ? 'positive' : undefined,
       c.shell.found ? '已安装 · 终端里用的是这个 App 自带的 baocut，随 App 更新' : '已安装。查不出终端的 PATH：新开一个终端，运行 baocut version 看看');

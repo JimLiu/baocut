@@ -354,6 +354,8 @@ export const tr: SkillsPageMessages = {
     cliRemoveHint: 'Yalnızca BaoCut’ın oraya koyduğunu siler; uygulamanın komut satırı yerinde kalır',
     cliInstalled: 'Yüklendi. baocut’ı kullanmak için yeni bir terminal açın.',
     cliInstalledAddLine: 'Yüklendi. Gösterilen satırı kabuk yapılandırma dosyanıza ekleyin, ardından yeni bir terminal açın.',
+    cliAddToPath: (file) => `${file} dosyasına ekle`,
+    cliPathAdded: (file) => `${file} dosyasına eklendi. baocut'ı kullanmak için yeni bir terminal açın.`,
     cliRemoved: 'Kaldırıldı. Yeni terminaller bu uygulamanın baocut’ını bulamaz.',
     mcpName: 'MCP hizmeti',
     mcpBody: 'Skill gerekmez: diğer AI uygulamaları BaoCut’a bağlanıp araçlarını doğrudan çağırabilir.',

@@ -133,4 +133,5 @@ export const de: RcSkillsMessages = {
   cliEntryPathFailed: (p: { dir: string }) =>
     `baocut liegt in ${p.dir}, aber BaoCut konnte diesen Ordner nicht zum PATH deines Benutzers hinzufügen. Füge ihn selbst hinzu: Suche im Startmenü nach „Umgebungsvariablen für dieses Konto bearbeiten“`,
   cliEntryLocalOnly: 'Den baocut-Befehl installierst du nur in der Desktop-App oder über die CLI',
+  cliEntryShellUnknown: (p) => `BaoCut kann nicht erkennen, welche Datei deine Shell beim Start liest. Füge ${p.dir} selbst in deiner Shell-Konfiguration zu PATH hinzu`,
 };

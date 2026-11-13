@@ -341,6 +341,8 @@ export const zhHant: SkillsPageMessages = {
     cliRemoveHint: '只刪除 BaoCut 放的那一個，App 內建的命令列還在',
     cliInstalled: '已安裝。開啟新的終端機就能使用 baocut。',
     cliInstalledAddLine: '已安裝。把顯示的那一行加入 shell 的設定檔，再開啟新的終端機。',
+    cliAddToPath: (file) => `加入 ${file}`,
+    cliPathAdded: (file) => `已加入 ${file}。開啟新的終端機就能使用 baocut 了。`,
     cliRemoved: '已移除。新開啟的終端機裡找不到這個 App 的 baocut 了。',
     mcpName: 'MCP 服務',
     mcpBody: '不安裝 Skill 也可以：讓其他 AI 應用程式直接連線到 BaoCut，呼叫它的工具。',

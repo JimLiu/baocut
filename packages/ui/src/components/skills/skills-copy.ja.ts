@@ -357,6 +357,8 @@ export const ja: SkillsPageMessages = {
     cliRemoveHint: 'BaoCut が置いたものだけを削除します。アプリのコマンドラインはそのまま残ります',
     cliInstalled: 'インストールしました。新しいターミナルを開くと baocut を使えます。',
     cliInstalledAddLine: 'インストールしました。表示された行をシェルの設定ファイルに追加してから、新しいターミナルを開いてください。',
+    cliAddToPath: (file) => `${file} に追加`,
+    cliPathAdded: (file) => `${file} に追加しました。新しいターミナルを開くと baocut を使えます。`,
     cliRemoved: '削除しました。新しく開いたターミナルでは、このアプリの baocut は見つからなくなります。',
     mcpName: 'MCP サービス',
     mcpBody: 'Skill がなくても使えます。ほかの AI アプリから BaoCut に直接接続して、ツールを呼び出せます。',

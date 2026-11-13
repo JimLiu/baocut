@@ -38,4 +38,5 @@ export const es: RcSkillsMessages = {
     `${p.path} pertenece al paquete independiente de línea de comandos de BaoCut (${p.target}). La app no lo reemplaza ni lo borra: actualízalo con baocut update o quítalo con baocut cli remove de ese paquete`,
   cliEntryPathFailed: (p) => `baocut está en ${p.dir}, pero BaoCut no pudo añadir esa carpeta al PATH de tu usuario. Añádela tú: busca «Editar las variables de entorno de esta cuenta» en el menú Inicio`,
   cliEntryLocalOnly: 'Instalar el comando baocut solo está disponible en la app de escritorio y en la CLI',
+  cliEntryShellUnknown: (p) => `BaoCut no sabe qué archivo lee tu shell al iniciarse. Añade tú ${p.dir} al PATH en la configuración de tu shell`,
 };

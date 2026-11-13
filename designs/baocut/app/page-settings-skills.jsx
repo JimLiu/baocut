@@ -25,7 +25,7 @@
   }
 
   /** App 自带的三样：skill 本体、命令行、MCP。都跟 App 一起发布，这里只说在哪、什么版本、开没开；命令行可以装进终端
-      （CLI 独立使用与发布 §3.2：~/.local/bin 放软链接，不要管理员权限，不替用户改 shell 配置）。 */
+      （CLI 独立使用与发布 §3.2：~/.local/bin 放软链接，不要管理员权限；不在 PATH 上时用户点「加进 ~/.zshrc」才改 shell 配置）。 */
   function BundledRows({cli, setCli, appPath}) {
     const app = useApp();
     const ver = D.app.skillVersion;
@@ -38,6 +38,7 @@
       setCli(M.cliInstalled());
       app.toast(cr.kind === 'none' ? '已安装（演示）。新开一个终端就能用 baocut。' : '已修复（演示）。现在指向这个 App。', 'positive');
     };
+    const addToPath = () => { setCli(M.cliInstalled()); app.toast(`已加进 ${cr.addTo}（演示）。新开一个终端就能用 baocut 了。`, 'positive'); };
     const removeCli = () => { setCli({state: 'none', shell: {found: null, dirOnPath: true}}); app.toast('已移除（演示）。新开的终端里找不到这个 App 的 baocut 了。'); };
     const copyLine = async (text) => {
       try { await navigator.clipboard.writeText(text); app.toast('命令已复制', 'positive'); }
@@ -56,6 +57,7 @@
           <code>{placed ? `${M.cliPath}${cli.target ? ' → ' + cli.target : ''}` : M.cliSource}</code>
           <span className={cx('ags-link-state', cr.tone && 'is-' + cr.tone)}>{cr.text}</span></div>
         {cr.cta ? <Btn size="s" onClick={installCli}>{cr.cta}</Btn> : null}
+        {cr.addTo ? <Btn size="s" onClick={addToPath}>{`加进 ${cr.addTo}`}</Btn> : null}
         {cr.removable ? <div className="ags-more">
           <IconBtn size="s" icon="more" tip="命令行 baocut 的更多操作" aria-expanded={menu} onClick={() => setMenu((v) => !v)} />
           <Popover open={menu} onClose={() => setMenu(false)} align="right" width={224}>

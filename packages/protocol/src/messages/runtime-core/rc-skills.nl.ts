@@ -133,4 +133,5 @@ export const nl: RcSkillsMessages = {
   cliEntryPathFailed: (p: { dir: string }) =>
     `baocut staat in ${p.dir}, maar BaoCut kon die map niet aan je gebruikers-PATH toevoegen. Voeg hem zelf toe: zoek in het menu Start naar ‘Omgevingsvariabelen voor uw account bewerken’`,
   cliEntryLocalOnly: 'Het baocut-commando installeren kan alleen in de desktop-app en de CLI',
+  cliEntryShellUnknown: (p) => `BaoCut kan niet bepalen welk bestand je shell bij het starten leest. Voeg ${p.dir} zelf toe aan PATH in je shellconfiguratie`,
 };

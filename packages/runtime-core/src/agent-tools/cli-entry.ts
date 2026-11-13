@@ -21,7 +21,9 @@ import { RcSkills } from '@baocut/protocol/messages/runtime-core';
  * - 首次启动（`installOnFirstLaunch`）：桌面端第一次启动时，位置上什么都没有就装上；已有东西（BaoCut 的或别人的）都不动。每个
  *   Runtime Home 只做一次，做过（不论结果）记在 `cli-entry-first-launch.json`；用户 `remove` 过也记下，之后不再自动装回来。
  * - PATH：macOS 与 Linux 以用户的登录交互 shell 取 PATH（`$SHELL -ilc 'printenv PATH'`，限时几秒，只认最后一行，rc 文件的输出
- *   在它前面），按它找 `baocut`；不在 PATH 上时给出要加进 shell 配置的一行，不替用户改配置文件。Windows 读注册表里的系统与用户 PATH。
+ *   在它前面），按它找 `baocut`；不在 PATH 上时给出要加进 shell 配置的一行。用户点「加进配置」（`addToPath`）才把这一行（带
+ *   `PATH_LINE_MARK` 尾注）追加进配置文件，装与首次启动都不改；`remove` 时 `~/.local/bin` 里没有别的东西才删掉带尾注的那一行。
+ *   Windows 读注册表里的系统与用户 PATH。
  */
 
 /** 装过的入口记在 Runtime Home 下的这个文件。 */
@@ -34,6 +36,8 @@ export const CLI_ENTRY_FIRST_LAUNCH_FILE = 'cli-entry-first-launch.json';
  * `failed` 放入口失败；`done` 以前做过或用户移除过；`unavailable` 没有 App 入口（源码 Runtime），什么都没做也没记。
  */
 export type CliEntryFirstLaunch = 'installed' | 'pathFailed' | 'present' | 'failed' | 'done' | 'unavailable';
+/** 加进 shell 配置的那一行的尾注：认得出是 BaoCut 加的，移除时只删带它的行。sh 系与 fish 都把 `#` 后当注释。 */
+export const PATH_LINE_MARK = '# added by BaoCut';
 /** Windows 转发脚本里的标记行：有它的 `baocut.cmd` 是 BaoCut 写的。 */
 export const FORWARDER_MARK = 'rem BaoCut command line forwarder';
 /** macOS 的 App 入口文件名（`BaoCut.app/Contents/MacOS/baocut-cli`）：软链接指向这个名字的文件时认作 BaoCut 入口。 */
@@ -175,6 +179,28 @@ export class CliEntryInstaller {
     return this.status();
   }
 
+  /**
+   * 把 `~/.local/bin` 加进用户 shell 的配置文件（用户在 Skills 页点「加进配置」时）：追加 `pathHint` 那一行，带 `PATH_LINE_MARK`
+   * 尾注。终端的 PATH 上已经有这个目录、或配置里已有带尾注的那一行时不写。Windows 与认不出配置文件的 shell `unsupported`
+   * （`CLI_ENTRY_SHELL_UNKNOWN`）。配置文件是软链接（dotfiles 仓库）时写进它指向的文件。
+   */
+  async addToPath(): Promise<CliEntryStatus> {
+    const dir = this.p.dirname(this.location());
+    const config = this.win ? null : this.shellConfig();
+    if (!config?.path) {
+      throw new RpcError('unsupported', RcSkills.cliEntryShellUnknown({ dir }), { code: 'CLI_ENTRY_SHELL_UNKNOWN', path: dir });
+    }
+    const shell = await this.shell(dir);
+    if (!shell?.dirOnPath) {
+      const next = withPathLine(readText(config.path) ?? '', config.line);
+      if (next !== null) {
+        fs.mkdirSync(path.posix.dirname(config.path), { recursive: true });
+        fs.writeFileSync(config.path, next);
+      }
+    }
+    return this.status();
+  }
+
   /** 移除 BaoCut 的入口：软链接只删链接；Windows 连同用户 PATH 里的那个目录。`foreign` 与 `standalone` 拒绝，`none` 什么都不做。 */
   async remove(): Promise<CliEntryStatus> {
     const at = this.location();
@@ -195,9 +221,25 @@ export class CliEntryInstaller {
         } catch {
           // 里面还有别的东西，留着。
         }
+      } else {
+        this.removePathLine();
       }
     }
     return this.status();
+  }
+
+  /** `remove` 之后：`~/.local/bin` 里已经没有别的东西时，删掉 `addToPath` 加进配置的那一行；有别的东西时留着，别的命令还要用。 */
+  private removePathLine(): void {
+    const config = this.shellConfig();
+    if (!config?.path) return;
+    try {
+      if (fs.readdirSync(path.posix.dirname(this.location())).length > 0) return;
+    } catch {
+      // 目录不在：没有别的东西。
+    }
+    const text = readText(config.path);
+    const next = text === null ? null : withoutPathLine(text, config.line);
+    if (next !== null) fs.writeFileSync(config.path, next);
   }
 
   /**
@@ -397,13 +439,45 @@ export class CliEntryInstaller {
   /** `~/.local/bin` 不在 PATH 上时要加的那一行，与它该放进的配置文件。 */
   private pathHint(): CliEntryStatus['pathHint'] {
     if (this.win) return null;
-    const shell = path.posix.basename(this.loginShell());
-    if (shell === 'fish') return { line: 'fish_add_path $HOME/.local/bin', file: '~/.config/fish/config.fish' };
-    const line = 'export PATH="$HOME/.local/bin:$PATH"';
-    if (shell === 'zsh') return { line, file: '~/.zshrc' };
-    if (shell === 'bash') return { line, file: this.platform === 'darwin' ? '~/.bash_profile' : '~/.bashrc' };
-    return { line, file: null };
+    const config = this.shellConfig();
+    return { line: config.line, file: config.file };
   }
+
+  /** 用户的 shell 要加的那一行、给人看的配置文件（`~/.zshrc`）与它的完整路径；认不出的 shell 两者都是 null。 */
+  private shellConfig(): { line: string; file: string | null; path: string | null } {
+    const shell = path.posix.basename(this.loginShell());
+    const at = (...parts: string[]) => ({ file: `~/${parts.join('/')}`, path: path.posix.join(this.userHome, ...parts) });
+    if (shell === 'fish') return { line: 'fish_add_path $HOME/.local/bin', ...at('.config', 'fish', 'config.fish') };
+    const line = 'export PATH="$HOME/.local/bin:$PATH"';
+    if (shell === 'zsh') return { line, ...at('.zshrc') };
+    if (shell === 'bash') return { line, ...at(this.platform === 'darwin' ? '.bash_profile' : '.bashrc') };
+    return { line, file: null, path: null };
+  }
+}
+
+/** 配置文件里追加带尾注的 `line`；已经有带尾注的那一行时 null（不用写）。和前面的内容隔一个空行。 */
+export function withPathLine(text: string, line: string): string | null {
+  const marked = `${line} ${PATH_LINE_MARK}`;
+  if (text.split(/\r?\n/).some((l) => l.trim() === marked)) return null;
+  if (!text.trim()) return `${marked}\n`;
+  return `${text.replace(/\n*$/, '')}\n\n${marked}\n`;
+}
+
+/** 删掉带尾注的 `line`（连同 `withPathLine` 在它前面加的空行）；没有时 null。用户自己写的、不带尾注的同一行不动。 */
+export function withoutPathLine(text: string, line: string): string | null {
+  const marked = `${line} ${PATH_LINE_MARK}`;
+  const lines = text.split('\n');
+  const kept: string[] = [];
+  let changed = false;
+  for (const l of lines) {
+    if (l.replace(/\r$/, '').trim() === marked) {
+      changed = true;
+      if (kept.length > 0 && kept[kept.length - 1]!.trim() === '') kept.pop();
+      continue;
+    }
+    kept.push(l);
+  }
+  return changed ? kept.join('\n') : null;
 }
 
 /** Windows 的转发脚本：调用 App 安装目录里的 `baocut.cmd`，参数原样传过去。`%` 要写成 `%%`。 */
@@ -519,6 +593,14 @@ function pick(env: NodeJS.ProcessEnv, names: readonly string[]): NodeJS.ProcessE
   const out: NodeJS.ProcessEnv = {};
   for (const name of names) if (env[name] !== undefined) out[name] = env[name];
   return out;
+}
+
+function readText(file: string): string | null {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 function safeRealpath(p: string): string | null {

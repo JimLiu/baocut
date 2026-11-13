@@ -353,6 +353,8 @@ export const vi: SkillsPageMessages = {
     cliRemoveHint: 'Chỉ xóa những gì BaoCut đặt vào; dòng lệnh của ứng dụng vẫn còn',
     cliInstalled: 'Đã cài. Mở terminal mới để dùng baocut.',
     cliInstalledAddLine: 'Đã cài. Thêm dòng được hiển thị vào cấu hình shell của bạn, rồi mở terminal mới.',
+    cliAddToPath: (file) => `Thêm vào ${file}`,
+    cliPathAdded: (file) => `Đã thêm vào ${file}. Mở terminal mới để dùng baocut.`,
     cliRemoved: 'Đã gỡ. Terminal mới sẽ không tìm thấy baocut của ứng dụng này nữa.',
     mcpName: 'Dịch vụ MCP',
     mcpBody: 'Không cần Skill: cho các ứng dụng AI khác kết nối với BaoCut và gọi trực tiếp công cụ của nó.',

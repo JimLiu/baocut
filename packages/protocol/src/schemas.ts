@@ -1599,6 +1599,7 @@ export const methodParamSchemas = {
   'agentSkill.remove': z.object({ targets: z.array(agentSkillTarget).min(1).max(64) }).strict(),
   'cliEntry.status': z.object({}).strict(),
   'cliEntry.install': z.object({}).strict(),
+  'cliEntry.addToPath': z.object({}).strict(),
   'cliEntry.remove': z.object({}).strict(),
   // `project` 只收绝对路径：`--project` 的相对路径由 CLI 按 cwd 解析好再发。
   'catalog.call': z

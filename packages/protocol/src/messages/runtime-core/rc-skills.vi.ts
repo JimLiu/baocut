@@ -35,4 +35,5 @@ renderErrorAt: (p) => `${p.file}:${p.line}: ${p.message}`, renderErrorIn: (p) =>
     `${p.path} thuộc gói dòng lệnh BaoCut độc lập (${p.target}). Ứng dụng không thay thế hay xóa nó: cập nhật bằng baocut update, hoặc gỡ bằng baocut cli remove của gói đó`,
   cliEntryPathFailed: (p) => `baocut nằm trong ${p.dir}, nhưng BaoCut không thêm được thư mục đó vào PATH của người dùng. Hãy tự thêm: tìm “Chỉnh sửa biến môi trường cho tài khoản của bạn” trong menu Start`,
   cliEntryLocalOnly: 'Chỉ có thể cài lệnh baocut trong ứng dụng máy tính và CLI',
+  cliEntryShellUnknown: (p) => `BaoCut không xác định được shell của bạn đọc tệp nào khi khởi động. Hãy tự thêm ${p.dir} vào PATH trong cấu hình shell`,
 };

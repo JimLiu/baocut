@@ -353,6 +353,8 @@ export const ko: SkillsPageMessages = {
     cliRemoveHint: 'BaoCut이 둔 것만 삭제하며, 앱의 명령줄 도구는 그대로 남습니다',
     cliInstalled: '설치되었습니다. 새 터미널을 열면 baocut을 사용할 수 있습니다.',
     cliInstalledAddLine: '설치되었습니다. 표시된 줄을 셸 설정 파일에 추가한 다음 새 터미널을 여세요.',
+    cliAddToPath: (file) => `${file}에 추가`,
+    cliPathAdded: (file) => `${file}에 추가했습니다. 새 터미널을 열면 baocut을 쓸 수 있습니다.`,
     cliRemoved: '제거되었습니다. 새 터미널에서는 이 앱의 baocut을 찾을 수 없습니다.',
     mcpName: 'MCP 서비스',
     mcpBody: 'Skill 없이도 됩니다. 다른 AI 앱이 BaoCut에 직접 연결해 도구를 호출하게 하세요.',

@@ -35,4 +35,5 @@ renderErrorAt: (p) => `${p.file}:${p.line}: ${p.message}`, renderErrorIn: (p) =>
     `${p.path}, bağımsız BaoCut komut satırı paketine (${p.target}) ait. Uygulama onu değiştirmez veya silmez: baocut update ile güncelleyin ya da o paketin baocut cli remove komutuyla kaldırın`,
   cliEntryPathFailed: (p) => `baocut ${p.dir} içinde, ancak BaoCut bu klasörü kullanıcı PATH'inize ekleyemedi. Kendiniz ekleyin: Başlat menüsünde “Hesabınız için ortam değişkenlerini düzenleyin” diye arayın`,
   cliEntryLocalOnly: "baocut komutunu yüklemek yalnızca masaüstü uygulamasında ve CLI'da yapılabilir",
+  cliEntryShellUnknown: (p) => `BaoCut, kabuğunuzun başlarken hangi dosyayı okuduğunu belirleyemiyor. ${p.dir} klasörünü kabuk yapılandırmanızda PATH'e kendiniz ekleyin`,
 };

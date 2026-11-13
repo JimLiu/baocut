@@ -366,6 +366,8 @@ const en = {
     cliRemoveHint: 'Only deletes what BaoCut put there; the app keeps its command line',
     cliInstalled: 'Installed. Open a new terminal to use baocut.',
     cliInstalledAddLine: 'Installed. Add the line shown to your shell configuration, then open a new terminal.',
+    cliAddToPath: (file: string) => `Add to ${file}`,
+    cliPathAdded: (file: string) => `Added to ${file}. Open a new terminal to use baocut.`,
     cliRemoved: "Removed. New terminals won't find this app's baocut.",
     mcpName: 'MCP service',
     mcpBody: 'No skill needed: let other AI apps connect to BaoCut and call its tools directly.',

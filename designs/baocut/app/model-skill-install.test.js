@@ -63,7 +63,9 @@ test('命令行：没装给「安装命令行工具」；不在 PATH 上给那�
   const ready = M.cliRow(M.scenarioCli('default'));
   assert.deepEqual([ready.kind, ready.cta, ready.removable, ready.tone], ['ready', null, true, 'positive']);
   const path = M.cliRow(M.scenarioCli('cli-path'));
-  assert.deepEqual([path.kind, path.command], ['not-on-path', 'export PATH="$HOME/.local/bin:$PATH"']);
+  assert.deepEqual([path.kind, path.command, path.addTo], ['not-on-path', 'export PATH="$HOME/.local/bin:$PATH"', '~/.zshrc']);
+  assert.equal(M.cliRow({...M.scenarioCli('cli-path'), pathHint: {line: 'export PATH="$HOME/.local/bin:$PATH"', file: null}}).addTo, null);
+  assert.equal(ready.addTo, null);
   assert.match(path.text, /~\/\.zshrc/);
   const other = M.cliRow(M.scenarioCli('cli-other'));
   assert.equal(other.kind, 'shadowed');

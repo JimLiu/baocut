@@ -1303,6 +1303,12 @@ export interface RpcMethods extends BotRpcMethods {
    * Runtime）时 `unsupported`（`CLI_ENTRY_UNAVAILABLE`）；Windows 改用户 PATH 失败时 `internal`（`CLI_ENTRY_PATH_FAILED`，脚本已写好）。
    */
   'cliEntry.install': { params: Record<string, never>; result: CliEntryStatus };
+  /**
+   * 把入口所在的目录（`~/.local/bin`）加进用户 shell 的配置文件：追加 `pathHint` 那一行（带 `# added by BaoCut` 尾注），只在
+   * 用户点了之后做。终端的 PATH 上已有这个目录或配置里已有那一行时不写。Windows 与认不出配置文件的 shell 时 `unsupported`
+   * （`CLI_ENTRY_SHELL_UNKNOWN`，带 `path`）。`remove` 时 `~/.local/bin` 里没有别的东西才删掉这一行。
+   */
+  'cliEntry.addToPath': { params: Record<string, never>; result: CliEntryStatus };
   /** 移除 BaoCut 的入口（软链接只删链接；Windows 连同用户 PATH 里的那个目录）；`foreign` 同上拒绝，`none` 什么都不做。 */
   'cliEntry.remove': { params: Record<string, never>; result: CliEntryStatus };
   /** 受管外部工具（架构设计 §12.9）的状态：上次探测的结果（第一次调用时探测）。只在本机执行 `--version`，不联网。 */
