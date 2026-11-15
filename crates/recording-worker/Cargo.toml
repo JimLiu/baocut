@@ -76,6 +76,7 @@ objc2-core-graphics = { version = "0.3", default-features = false, features = [
     "CGEvent",
     "CGEventSource",
     "CGEventTypes",
+    "CGGeometry",
     "CGWindow",
     "libc",
 ] }
@@ -86,6 +87,7 @@ objc2-core-media = { version = "0.3", default-features = false, features = [
     "CMSampleBuffer",
     "CMSync",
     "CMTime",
+    "objc2-core-audio-types",
     "objc2-core-video",
 ] }
 objc2-core-video = { version = "0.3", default-features = false, features = [

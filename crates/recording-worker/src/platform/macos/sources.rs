@@ -15,7 +15,7 @@ use objc2::MainThreadMarker;
 use objc2::rc::Retained;
 use objc2_app_kit::NSScreen;
 use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio, AVMediaTypeVideo};
-use objc2_core_graphics::{CGDirectDisplayID, CGDisplayIsMain, CGMainDisplayID};
+use objc2_core_graphics::CGDisplayIsMain;
 use objc2_foundation::{NSError, NSNumber, NSString};
 use objc2_screen_capture_kit::SCShareableContent;
 
@@ -44,16 +44,7 @@ pub fn shareable_content() -> Result<Retained<SCShareableContent>, WorkerError> 
     }
 }
 
-/// 一块屏幕的几何：点尺寸与每点的像素数。
-#[derive(Clone, Copy, Debug)]
-pub struct DisplayGeometry {
-    pub id: CGDirectDisplayID,
-    pub width: f64,
-    pub height: f64,
-    pub scale: f64,
-}
-
-pub fn displays(mtm: MainThreadMarker) -> Vec<(Display, DisplayGeometry)> {
+fn displays(mtm: MainThreadMarker) -> Vec<Display> {
     let mut out = Vec::new();
     for screen in NSScreen::screens(mtm).iter() {
         let description = screen.deviceDescription();
@@ -62,32 +53,16 @@ pub fn displays(mtm: MainThreadMarker) -> Vec<(Display, DisplayGeometry)> {
         let id = number.unsignedIntValue();
         let frame = screen.frame();
         let scale = screen.backingScaleFactor();
-        out.push((
-            Display {
-                id: id.to_string(),
-                name: screen.localizedName().to_string(),
-                width: frame.size.width,
-                height: frame.size.height,
-                scale,
-                primary: CGDisplayIsMain(id),
-            },
-            DisplayGeometry { id, width: frame.size.width, height: frame.size.height, scale },
-        ));
+        out.push(Display {
+            id: id.to_string(),
+            name: screen.localizedName().to_string(),
+            width: frame.size.width,
+            height: frame.size.height,
+            scale,
+            primary: CGDisplayIsMain(id),
+        });
     }
     out
-}
-
-/// `displayId` 对应的屏幕；不给是主屏幕。
-pub fn display(mtm: MainThreadMarker, id: Option<&str>) -> Result<DisplayGeometry, WorkerError> {
-    let all = displays(mtm);
-    let wanted: CGDirectDisplayID = match id {
-        Some(id) => id.parse().map_err(|_| WorkerError::new("SOURCE_NOT_FOUND", format!("display {id} does not exist")))?,
-        None => CGMainDisplayID(),
-    };
-    all.into_iter()
-        .map(|(_, geometry)| geometry)
-        .find(|geometry| geometry.id == wanted)
-        .ok_or_else(|| WorkerError::new("SOURCE_NOT_FOUND", format!("display {wanted} does not exist")))
 }
 
 fn windows() -> Vec<Window> {
@@ -148,7 +123,7 @@ pub fn capture_device(video: bool, id: &str) -> Option<Retained<AVCaptureDevice>
 pub fn sources(mtm: MainThreadMarker) -> Sources {
     let permissions = permissions::all();
     Sources {
-        displays: displays(mtm).into_iter().map(|(display, _)| display).collect(),
+        displays: displays(mtm),
         windows: if permissions.screen == Access::Granted { windows() } else { Vec::new() },
         cameras: devices(true),
         microphones: devices(false),
