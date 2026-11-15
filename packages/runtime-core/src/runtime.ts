@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import {
   ClaudeDriver,
@@ -486,10 +487,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
 
     // 引擎要 ffprobe、媒体分析要 ffmpeg：桌面应用从访达启动时 PATH 里没有它们，用登录 shell 的 PATH，再补上标准安装目录。
     // 登录 shell 探测失败时记下类别（不带环境内容），过一会儿再试。
+    // 日志不记用户目录下的完整路径（§12.6）：主目录换成 `~`。
+    const homePrefix = os.homedir();
+    const logPath = (file: string) => (homePrefix && file.startsWith(homePrefix + path.sep) ? `~${file.slice(homePrefix.length)}` : file);
     const stopProbeLog = onLoginShellProbeFailure((failure) =>
       log.warn('Login shell environment probe failed; using the process PATH plus standard tool directories', {
         kind: failure.kind,
-        shell: failure.shell,
+        shell: logPath(failure.shell),
         ...(failure.exitCode === undefined ? {} : { exitCode: failure.exitCode }),
         retryInMs: Math.max(0, failure.retryAt - Date.now()),
       }),
@@ -500,7 +504,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const engineEnv = async () => {
       const env = await toolEnv();
       const where = async (name: string, override: string | undefined) =>
-        override ? `${override} (env override)` : ((await findOnPath(name, env.PATH ?? '')) ?? 'not found on PATH');
+        override ? `${logPath(override)} (env override)` : await findOnPath(name, env.PATH ?? '').then((file) => (file ? logPath(file) : 'not found on PATH'));
       log.info('Video engine tools', {
         ffprobe: await where('ffprobe', process.env.BAOCUT_FFPROBE),
         ffmpeg: await where('ffmpeg', process.env.BAOCUT_FFMPEG),
