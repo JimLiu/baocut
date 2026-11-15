@@ -40,6 +40,7 @@ import { PROJECT_GIT_PARAM_SCHEMAS } from './project-git-schemas.ts';
 import { TEMPLATE_PARAM_SCHEMAS, templateSendRefSchema } from './template-schemas.ts';
 import { SKILL_PARAM_SCHEMAS, skillSendListSchema, skillSendRefSchema } from './skill-schemas.ts';
 import { FONT_PARAM_SCHEMAS } from './fonts-schemas.ts';
+import { RECORDING_PARAM_SCHEMAS } from './recordings-schemas.ts';
 import { COMPOSITION_PARAM_SCHEMAS } from './code-bundle-schemas.ts';
 import { TOOL_CATALOGUE_PARAM_SCHEMAS } from './tool-catalogue-schemas.ts';
 import { DRIVER_ID_PATTERN, isBuiltinDriverId } from './domain.ts';
@@ -66,6 +67,7 @@ const topic = z.union([
   z.literal('agents'),
   z.literal('legacy-import'),
   z.literal('channels'),
+  z.literal('recordings'),
   z.string().regex(/^work-items:[A-Za-z0-9_-]+$/),
   z.string().regex(/^conversation:[A-Za-z0-9_-]+$/),
   z.string().regex(/^video:[A-Za-z0-9_-]+$/),
@@ -1200,6 +1202,7 @@ export const methodParamSchemas = {
   'media.thumbnail': z.object({ ...assetTarget, at: z.number().finite().nonnegative().max(1_000_000) }).strict(),
   'media.bundle': z.object(assetTarget).strict(),
   ...FONT_PARAM_SCHEMAS,
+  ...RECORDING_PARAM_SCHEMAS,
   ...COMPOSITION_PARAM_SCHEMAS,
   'videos.create': z
     .object({

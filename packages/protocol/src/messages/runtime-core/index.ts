@@ -31,3 +31,4 @@ export * from './rc-ai-tools.ts';
 export * from './rc-semantic.ts';
 export * from './rc-schedules.ts';
 export * from './rc-bot.ts';
+export * from './rc-recordings.ts';

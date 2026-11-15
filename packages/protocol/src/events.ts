@@ -13,6 +13,7 @@ import type {
 } from './domain.ts';
 import type { GrantsEvent, GrantsSnapshot } from './grants.ts';
 import type { JobsEvent, JobsSnapshot } from './jobs.ts';
+import type { RecordingsEvent, RecordingsSnapshot } from './recordings.ts';
 import type { LegacyImportEvent, LegacyImportSnapshot } from './legacy-import.ts';
 import type { LibraryEvent, LibrarySnapshot } from './library.ts';
 import type { Schedule } from './schedule.ts';
@@ -61,6 +62,8 @@ export type Topic =
   | 'agents'
   | 'legacy-import'
   | 'channels'
+  /** 屏幕录制（屏幕录制设计 §7）：当前与没有收完的录制。只在本机：Web 服务不开放。 */
+  | 'recordings'
   | `work-items:${Id}`
   | `conversation:${Id}`
   | `video:${Id}`;
@@ -219,6 +222,7 @@ export interface TopicMap {
   agents: { snapshot: AgentsSnapshot; event: AgentsEvent };
   'legacy-import': { snapshot: LegacyImportSnapshot; event: LegacyImportEvent };
   channels: { snapshot: ChannelsSnapshot; event: ChannelsEvent };
+  recordings: { snapshot: RecordingsSnapshot; event: RecordingsEvent };
   'work-items': { snapshot: WorkItemsSnapshot; event: WorkItemsEvent };
   conversation: { snapshot: ConversationSnapshot; event: ConversationEvent };
   video: { snapshot: VideoTopicSnapshot; event: VideoTopicEvent };
@@ -250,6 +254,8 @@ export type SnapshotOf<T extends Topic> = T extends 'directory'
                         ? LegacyImportSnapshot
                         : T extends 'channels'
                         ? ChannelsSnapshot
+                        : T extends 'recordings'
+                        ? RecordingsSnapshot
                         : T extends `work-items:${string}`
                         ? WorkItemsSnapshot
                         : T extends `video:${string}`
@@ -281,6 +287,8 @@ export type EventOf<T extends Topic> = T extends 'directory'
                         ? LegacyImportEvent
                         : T extends 'channels'
                         ? ChannelsEvent
+                        : T extends 'recordings'
+                        ? RecordingsEvent
                         : T extends `work-items:${string}`
                         ? WorkItemsEvent
                         : T extends `video:${string}`

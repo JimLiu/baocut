@@ -5,6 +5,7 @@ import type { JobLibraryUse } from './library.ts';
 import type { ImageFormat, ImageInputMediaType, ImageInputMode, MusicMode, MusicPlanning, SpeechFormat, TextEffort, VoiceMode } from './models.ts';
 import type { SpaceEntryInput } from './pipelines.ts';
 import type { JobGrantUse } from './grants.ts';
+import type { RecordingResult } from './recordings.ts';
 import type { JobWait } from './resources.ts';
 import { localizeText, type MessageRef } from './message-ref.ts';
 
@@ -50,7 +51,12 @@ export type JobKind =
    */
   | 'agentTranslate'
   /** 代码画面的后台烘焙（`compositions.import` 的 `background: true`，代码包规范 §7.5）：烘出替身、写进视频并挂到实例上。 */
-  | 'bake';
+  | 'bake'
+  /**
+   * 一次屏幕录制（屏幕录制设计 §7）：从开始采集到导入视频。不排队，进度是已录的秒数（没有总数）；Runtime 退出时还没导入的
+   * 记为中断，文件留在录制目录里，用 `recordings.recover` 接着导入或 `recordings.discard` 删掉。
+   */
+  | 'recording';
 
 export type JobState = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted' | 'needs-reconciliation';
 
@@ -131,6 +137,10 @@ export type JobPhase =
   | 'validating'
   | 'publishing'
   | 'applying'
+  /** 屏幕录制正在采集（`kind: 'recording'`）。 */
+  | 'recording'
+  /** 屏幕录制暂停中。 */
+  | 'paused'
   | 'done';
 
 /** `total` 未知时为 null，不伪造百分比。 */
@@ -464,6 +474,8 @@ export interface JobRecord {
   grant?: JobGrantUse;
   /** 智能体自己翻译（`kind: 'agentTranslate'`）：译自哪份转写、译成什么语言、要译多少句。 */
   translation?: AgentTranslation;
+  /** 屏幕录制（`kind: 'recording'`）：哪一次录制，导入完成后的结果（清单文档也在 `result.documentId`）。 */
+  recording?: { recordingId: Id; result: RecordingResult | null };
   /** 固定流程的步骤（`kind: 'pipeline-step'`）：父任务的 `jobId`。`jobs.list` 默认把子任务折叠在父任务下。 */
   parentJobId?: Id;
   /** 固定流程的父任务（`kind: 'pipeline'`）：冻结的参数与每一步的状态。 */

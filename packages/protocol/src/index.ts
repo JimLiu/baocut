@@ -51,3 +51,4 @@ export * from './document-changes.ts';
 export * from './schedule.ts';
 export * from './bot.ts';
 export * from './bot-methods.ts';
+export * from './recordings.ts';

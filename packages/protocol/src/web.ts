@@ -300,6 +300,8 @@ export const WEB_TOPIC_METHODS: Readonly<Record<string, RpcMethod>> = {
   agents: 'agents.list',
   // 旧版项目的导入询问与导入进展（§2.7）只给桌面界面：`legacyImport.*` 不在默认集合里，主题也就订阅不了。
   'legacy-import': 'legacyImport.get',
+  // 屏幕录制（屏幕录制设计 §7）只录 Runtime 所在的这台电脑：`recordings.*` 不在默认集合里，主题也就订阅不了。
+  recordings: 'recordings.list',
 };
 
 /** 白名单里的一项：方法名，或 `<命名空间>.*`（含更深的子命名空间）。 */

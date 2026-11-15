@@ -449,6 +449,7 @@ export const pl: CopyMessages = {
     toolUpdate: "Zaktualizuj narzędzie",
     fontDownload: "Pobierz czcionkę", bake: 'Wyrenderuj grafikę animowaną',
     voiceClone: "Sklonuj głos",
+    recording: "Nagrywanie ekranu",
     agentTranslate: "Przetłumacz",
     legacyImport: "Zaimportuj wcześniejsze projekty",
     agentInstall: "Zainstaluj agenta",
@@ -473,6 +474,8 @@ export const pl: CopyMessages = {
     validating: "Sprawdzanie",
     publishing: "Zapisywanie wyników",
     applying: "Zapisywanie do wideo",
+    recording: "Nagrywanie",
+    paused: "Wstrzymano",
     done: "Gotowe",
   },
   /** 后台任务页、详情与侧栏。 */

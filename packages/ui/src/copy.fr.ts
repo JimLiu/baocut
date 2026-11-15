@@ -429,6 +429,7 @@ export const fr: CopyMessages = {
     toolUpdate: "Mettre l’outil à jour",
     fontDownload: "Télécharger la police", bake: 'Précalculer le graphisme animé',
     voiceClone: "Cloner la voix",
+    recording: "Enregistrement de l’écran",
     agentTranslate: "Traduire",
     legacyImport: "Importer les anciens projets",
     agentInstall: "Installer l’Agent",
@@ -453,6 +454,8 @@ export const fr: CopyMessages = {
     validating: "Validation",
     publishing: "Enregistrement des résultats",
     applying: "Écriture dans la vidéo",
+    recording: "Enregistrement en cours",
+    paused: "En pause",
     done: "Terminé",
   },
 

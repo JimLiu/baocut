@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { ActionButton, Badge, ProgressBar, Text } from '@react-spectrum/s2';
 import AIMark from '@react-spectrum/s2/icons/AIMark';
 import AudioWave from '@react-spectrum/s2/icons/AudioWave';
+import DeviceDesktop from '@react-spectrum/s2/icons/DeviceDesktop';
 import Download from '@react-spectrum/s2/icons/Download';
 import Export from '@react-spectrum/s2/icons/Export';
 import Filmstrip from '@react-spectrum/s2/icons/Filmstrip';
@@ -31,7 +32,7 @@ import { actionLabel, useTaskAction } from './use-task-actions.ts';
 /**
  * 种类图标（原型 page-tasks.jsx `KIND`）：转录 mic、语音 wave、图片 image、导出 export；Agent 任务用智能体图标。
  * 原型没画的种类：生成文本 AI、固定流程与其中一步 layers、模型安装 download、模型测试 checkmark、工具安装与更新 tools、音色克隆 user、
- * 智能体自己翻译 translate。导入旧版项目用原型的 projects（FolderOpen）。Agent 安装与升级同工具安装，用 tools。
+ * 智能体自己翻译 translate、屏幕录制 device-desktop。导入旧版项目用原型的 projects（FolderOpen）。Agent 安装与升级同工具安装，用 tools。
  */
 export const KIND_ICON: Record<TaskKind, ComponentType> = {
   agent: AgentIcon,
@@ -52,6 +53,7 @@ export const KIND_ICON: Record<TaskKind, ComponentType> = {
   bake: Filmstrip,
   voiceClone: UserAvatar,
   agentTranslate: Translate,
+  recording: DeviceDesktop,
   legacyImport: FolderOpen,
   agentInstall: Tools,
   agentUpgrade: Tools,

@@ -142,7 +142,8 @@ import { linkImportDefinition, pruneLinkSources } from './external-tools/link-im
 import { upscaleImageDefinition } from './external-tools/upscale-image-wiring.ts';
 import { footageDefinitions } from './external-tools/footage-wiring.ts';
 import { resolveDownloadsDirectory, resolveSaveDirectory } from './external-tools/downloads-directory.ts';
-import { entryPlace } from './videos/pipeline-targets.ts';
+import { entryPlace, pipelineTargets, videoPlace } from './videos/pipeline-targets.ts';
+import { ffprobeDuration, RecordingService, resolveRecordingWorkerCommand, type RecordingServiceOptions } from './recordings/recording-service.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
 import { LinkImportTools } from './agent-tools/link-import-tools.ts';
 import { servicesPaidProbe } from './agent-tools/paid-calls.ts';
@@ -197,6 +198,12 @@ export interface StartRuntimeOptions {
   videoGraceMs?: number;
   /** 最后一笔编辑之后多久写工作区快照（§5.12，测试用）。 */
   videoSnapshotDelayMs?: number;
+  /**
+   * Recording Worker（屏幕录制设计 §7）的命令。默认取 `BAOCUT_RECORDING_WORKER` 或仓库里构建出的 `recording-worker`；null 表示这台电脑不能录。
+   */
+  recordingWorker?: { command: string; args?: string[]; env?: NodeJS.ProcessEnv } | null;
+  /** 测试用：替换「这台电脑上开着桌面端」的判断（屏幕录制设计 §14：没有窗口的 Runtime 先不录）与倒计时的一秒。 */
+  recordings?: { hasWindow?: () => boolean; secondMs?: number; freeBytes?: (dir: string) => Promise<number>; faults?: RecordingServiceOptions['faults'] };
   /** Model Worker 的命令。默认取 `BAOCUT_MODEL_WORKER` 或仓库里构建出的 `model-worker`；null 表示本地推理不可用。 */
   modelWorker?: ModelWorkerCommand | null;
   /** 模型空闲多久后卸载（默认 10 分钟）。 */
@@ -333,6 +340,8 @@ export interface RunningRuntime {
   externalTools: ExternalToolService;
   /** 按需下载的字体（架构设计 §9.1）。 */
   fonts: FontService;
+  /** 屏幕录制的会话（docs/design/screen-recording §7）。 */
+  recordings: RecordingService;
   log: Logger;
   /**
    * 手上的活（§2.2，桌面端退出前问）：排队或运行中的 Job（含历史版本迁移），还没结束的 Agent 任务，以及已经交给在线或智能体
@@ -378,6 +387,7 @@ const STOP_ORDER = [
   'services',
   'nodes',
   'job-inbox',
+  'recordings',
   'jobs',
   'grants',
   'usage',
@@ -827,6 +837,42 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       sessionDeliverableDir: () => resolveSaveDirectory({ settings: settingsStore?.get('downloads.directory') ?? null }),
       log: log.child('exports'),
     });
+    // 屏幕录制（屏幕录制设计 §7）：会话目录在 Runtime Home 的 `recordings/`；只录这台电脑，开着桌面端时才能开始。
+    const present = new Set<string>();
+    const recordingTargets = pipelineTargets(videos, {
+      entry: (entryId) => {
+        if (!spaceRef) throw new RpcError('busy', RcRuntime.spaceNotReady());
+        return entryPlace(spaceRef, entryId);
+      },
+      projectRoot,
+      conversationSource,
+    });
+    const recordings = new RecordingService({
+      root: path.join(home.root, 'recordings'),
+      jobs: models.jobs,
+      videos,
+      targets: recordingTargets,
+      placeOf: (videoId) => {
+        const open = videoPlace(videos, videoId);
+        if (open) return open;
+        const known = spaceRef?.videos().find((video) => video.videoId === videoId);
+        return known && spaceRef ? entryPlace(spaceRef, known.entryId) : null;
+      },
+      worker: () => {
+        if (options.recordingWorker !== undefined) return options.recordingWorker;
+        const command = resolveRecordingWorkerCommand();
+        return command ? { command } : null;
+      },
+      probe: ffprobeDuration(async () => ({ command: process.env.BAOCUT_FFPROBE || 'ffprobe', env: await toolEnv() })),
+      hasWindow: options.recordings?.hasWindow ?? (() => present.size > 0),
+      log: log.child('recordings'),
+      ...(options.recordings?.secondMs !== undefined ? { secondMs: options.recordings.secondMs } : {}),
+      ...(options.recordings?.freeBytes ? { freeBytes: options.recordings.freeBytes } : {}),
+      ...(options.recordings?.faults ? { faults: options.recordings.faults } : {}),
+    });
+    await recordings.init();
+    // 排在停任务之前（STOP_ORDER）：采集中的录制停下并保留，等待开始的取消。
+    stops.add('recordings', () => recordings.shutdown(), 'Stopping the recording failed');
     // 共享开着的话，节点服务在这里就开始监听（不重新发配对码）；端口被占不影响 Runtime 启动。
     const nodes = await openNodeShare(home, models, log, options.nodes);
     // 停节点服务会取消远端任务、关掉监听、撤下 mDNS 登记：它可能在所有接口上监听，启动失败也不能留着这个对外的端口。
@@ -1447,6 +1493,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       legacyUpgrade,
       schedules,
       bot: botService,
+      recordings,
     };
     // Web 服务（§4.8）用同一组处理函数，只把媒体句柄换成它自己的（同源地址、要会话）；白名单在它的网关入口上。
     services.web.bind({
@@ -1465,7 +1512,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       sourceRoot: options.sourceRoot ?? null,
     });
     // 在场的用户（工具页的当场授权，§7.9）：这个网关上的桌面界面连接。CLI、智能体、浏览器与对外服务都不算。
-    const present = new Set<string>();
     models.grants.setPresence((submitter) => submitter.kind === 'connection' && present.has(submitter.id));
     const gatewayHandlers = createHandlers(handlerDeps);
     sendScheduled = async (params) =>
@@ -1593,6 +1639,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       services,
       externalTools,
       fonts,
+      recordings,
       log,
       activeWork,
       detach: (onIdle) =>

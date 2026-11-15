@@ -449,6 +449,7 @@ export const ru: CopyMessages = {
     toolUpdate: "Обновить инструмент",
     fontDownload: "Скачать шрифт", bake: 'Отрендерить анимированную графику',
     voiceClone: "Клонировать голос",
+    recording: "Запись экрана",
     agentTranslate: "Перевести",
     legacyImport: "Импортировать прежние проекты",
     agentInstall: "Установить агента",
@@ -473,6 +474,8 @@ export const ru: CopyMessages = {
     validating: "Проверка",
     publishing: "Сохранение результатов",
     applying: "Запись в видео",
+    recording: "Идёт запись",
+    paused: "Пауза",
     done: "Готово",
   },
   /** 后台任务页、详情与侧栏。 */

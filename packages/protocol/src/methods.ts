@@ -69,6 +69,7 @@ import type {
   FontsCatalogueResult,
   FontsUsageResult,
 } from './fonts.ts';
+import type { RecordingSources, RecordingStartParams, RecordingSummary } from './recordings.ts';
 import type { ToolCandidatesParams, ToolCandidatesResult, ToolInspectInputsParams, ToolInspectInputsResult, ToolsListResult } from './tool-catalogue.ts';
 import type {
   AgentSkillInstallMode,
@@ -884,6 +885,27 @@ export interface RpcMethods extends BotRpcMethods {
     params: { videoId: Id; sequenceId?: Id; burnCaptions?: boolean; download?: boolean };
     result: FontsUsageResult;
   };
+
+  /**
+   * 屏幕录制（屏幕录制设计 §7、§12）。只录 Runtime 所在的这台电脑：只开给桌面与 CLI，Web 服务不开放。
+   * - `sources`：能录的屏幕、窗口、摄像头、麦克风与系统权限的状态（只问状态，不弹系统的授权窗口）。
+   * - `list`：当前的与没有收完的录制（新的在前）；`status`：一次录制，不给 `recordingId` 是当前的那次（没有时 null）。
+   * - `start`：带 `recordingId` 开始等待中的那次（智能体发起的，可以改选项），不带时新开一次；同一时刻只有一次（`RECORDING_BUSY`）。
+   * - `cancel`：放弃等待中的那次（任务以取消结束，什么都没写）。
+   * - `pause` / `resume` / `stop`：不给 `recordingId` 是当前的那次。`stop` 停下之后收尾、导入，回答时可能还在导入（看任务）。
+   * - `discard`：删掉一次没有成功导入的录制的文件（录着时先停下）；已经导入的不能删（素材在视频里）。
+   * - `recover`：把上次没有收完的录制从磁盘上的文件接着收尾、导入。
+   */
+  'recordings.sources': { params: Record<string, never>; result: RecordingSources };
+  'recordings.list': { params: Record<string, never>; result: { recordings: RecordingSummary[] } };
+  'recordings.status': { params: { recordingId?: Id }; result: { recording: RecordingSummary | null } };
+  'recordings.start': { params: RecordingStartParams; result: { recording: RecordingSummary } };
+  'recordings.cancel': { params: { recordingId: Id }; result: { recording: RecordingSummary } };
+  'recordings.pause': { params: { recordingId?: Id }; result: { recording: RecordingSummary } };
+  'recordings.resume': { params: { recordingId?: Id }; result: { recording: RecordingSummary } };
+  'recordings.stop': { params: { recordingId?: Id }; result: { recording: RecordingSummary } };
+  'recordings.discard': { params: { recordingId: Id }; result: { recordingId: Id; removed: true } };
+  'recordings.recover': { params: { recordingId: Id }; result: { recording: RecordingSummary } };
 
   /**
    * 新建一个视频（视频格式规范 §1）：在项目目录（或不属于项目的会话的工作目录）下建一个视频目录并打开它。

@@ -1,4 +1,4 @@
-import { RcBot, RcWeb } from '@baocut/protocol/messages/runtime-core';
+import { RcBot, RcRecordings, RcWeb } from '@baocut/protocol/messages/runtime-core';
 import path from 'node:path';
 import {
   type CodeBundleManifest,
@@ -79,6 +79,8 @@ import type { SkillCatalog } from './skills/skill-catalog.ts';
 import type { SkillInstaller } from './skills/skill-installer.ts';
 import type { FontService } from './fonts/font-service.ts';
 import { fontMethods } from './fonts/font-methods.ts';
+import type { RecordingService } from './recordings/recording-service.ts';
+import { recordingMethods } from './recordings/recording-methods.ts';
 import type { CompositionService } from './compositions/composition-service.ts';
 import { compositionMethods } from './compositions/composition-methods.ts';
 import { editAidMethods } from './ai-tools/edit-aids.ts';
@@ -185,6 +187,8 @@ export interface HandlerDeps {
   schedules: ScheduleService;
   /** Bot 模式（docs/design/bot-mode）：频道、任务与提示。Runtime 起来之后才有，所以可以是取值函数；没有时 Bot 的方法回 `unsupported`。 */
   bot?: BotService | null | (() => BotService | null);
+  /** 屏幕录制（docs/design/screen-recording §7）：没有时 `recordings.*` 回 `RECORDING_UNAVAILABLE`。 */
+  recordings?: RecordingService | null;
 }
 
 /** 文件目标定位到来源目录与文件（Space 条目、会话工作目录或项目目录里的路径）。目录内的检查在媒体通道（或视频服务）里做。 */
@@ -271,6 +275,7 @@ export function createHandlers({
   semantic,
   schedules,
   bot,
+  recordings = null,
 }: HandlerDeps): RpcHandlers {
   const { catalog, jobs, services, pipelines } = models;
   const packages = new PackageImporter(videos);
@@ -595,6 +600,8 @@ export function createHandlers({
         media,
         () => exports,
       ),
+      // 屏幕录制（docs/design/screen-recording §7、§12）：只给桌面端与本机的 CLI。
+      ...recordingMethods(() => recordings),
       'media.subtitles': async (p) => {
         const { root, file, scope } = locateMedia(p);
         const found = await findSubtitles(root, file);
@@ -861,6 +868,10 @@ export function createHandlers({
       if (topic === 'library') return library.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'grants') return models.grants.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'agent-setup') return setup.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
+      if (topic === 'recordings') {
+        if (!recordings) throw new RpcError('unsupported', RcRecordings.unsupportedPlatform(), { code: 'RECORDING_UNAVAILABLE', reason: 'unsupported' });
+        return recordings.subscribe(afterSeq, listener as (event: never) => void);
+      }
       if (topic === 'legacy-import') return legacyUpgrade.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'channels' || topic.startsWith('work-items:')) {
         const found = botRef()?.subscribe(topic, afterSeq, listener as (event: never) => void);

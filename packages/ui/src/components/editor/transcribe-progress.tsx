@@ -77,6 +77,8 @@ const STAGE_OF: Record<JobPhase, number> = {
   encoding: 3,
   publishing: 3,
   applying: 3,
+  recording: 0,
+  paused: 0,
   done: 3,
 };
 

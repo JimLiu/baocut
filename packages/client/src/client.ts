@@ -7,6 +7,8 @@ import {
   workItemsTopic,
   type ChannelsEvent,
   type ChannelsSnapshot,
+  type RecordingsEvent,
+  type RecordingsSnapshot,
   type WorkItemsEvent,
   type WorkItemsSnapshot,
   videoTopic,
@@ -238,6 +240,11 @@ export class BaoCutClient {
   /** Bot 模式的频道摘要、设置与通知（docs/design/bot-mode 技术方案 §16.2）。 */
   subscribeChannels(handlers: TopicHandlers<ChannelsSnapshot, ChannelsEvent>): () => void {
     return this.subscribe('channels', handlers);
+  }
+
+  /** 屏幕录制（屏幕录制设计 §7）：当前与没有收完的录制；智能体发起的录制停在 `waiting`，等界面按开始。只给桌面界面。 */
+  subscribeRecordings(handlers: TopicHandlers<RecordingsSnapshot, RecordingsEvent>): () => void {
+    return this.subscribe('recordings', handlers);
   }
 
   /** 一个频道的任务、转换记录与线程报告。 */

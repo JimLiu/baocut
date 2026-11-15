@@ -465,6 +465,7 @@ const en = {
     toolUpdate: 'Update tool',
     fontDownload: 'Download font', bake: 'Bake motion graphic',
     voiceClone: 'Clone voice',
+    recording: 'Screen recording',
     agentTranslate: 'Translate',
     legacyImport: 'Import earlier projects',
     agentInstall: 'Install Agent',
@@ -489,6 +490,8 @@ const en = {
     validating: 'Validating',
     publishing: 'Saving results',
     applying: 'Writing to video',
+    recording: 'Recording',
+    paused: 'Paused',
     done: 'Done',
   },
   /** 会话只先载最近若干轮时，线程顶上的「加载更早的消息」（产品设计 §3.2）。 */
