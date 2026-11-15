@@ -9,6 +9,7 @@ use message_ref::{Text, msg};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::key_track::KEY_TRACK_MEDIA_TYPE;
 use crate::pointer_track::POINTER_TRACK_MEDIA_TYPE;
 use crate::{AssetKind, AssetRecord, Id, VersionRef};
 
@@ -39,6 +40,25 @@ pub struct RecordingBody {
     pub segments: Vec<RecordingSegment>,
     pub streams: Vec<RecordingStream>,
     pub pointer: RecordingPointer,
+    /// 键盘录了什么；有 `keyboard` 流时必须有，没有时不能有。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keyboard: Option<RecordingKeyboard>,
+}
+
+/// 键盘轨录下的范围（§4.7）。
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingKeyboard {
+    pub scope: KeyboardScope,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum KeyboardScope {
+    /// 只有快捷键与功能键：按着 Control、Alt 或 Meta 时的按键，以及不产生字符的键。打出来的字不在里面。
+    Shortcuts,
+    /// 全部按键，包括打出来的字。
+    All,
 }
 
 /// 录制后端与导入器：哪个程序录的、哪个程序把它写成清单。
@@ -51,7 +71,7 @@ pub struct Recorder {
     /// 后端的源码版本（提交）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revision: Option<String>,
-    /// 把后端的产物写成清单的导入器与它的版本，例如 `cap-studio/1`。
+    /// 把别的录制程序的产物写成清单的导入器与它的版本；BaoCut 自己录的没有。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub importer: Option<String>,
 }
@@ -74,6 +94,8 @@ pub enum StreamRole {
     SystemAudio,
     /// 指针轨（§4.8）：鼠标的位置、按键与光标外观。
     Pointer,
+    /// 键盘轨（§4.10）：按键的按下与抬起。
+    Keyboard,
 }
 
 /// 一路流在一段里的素材。
@@ -332,6 +354,10 @@ pub fn recording_body_problems(body: &Value) -> Vec<Text> {
             problems.push(field_invalid(at("role"), "pointer-mode-none"));
         }
     }
+    // 键盘录了什么：有键盘流才有，有键盘流就必须有。
+    if parsed.streams.iter().any(|s| s.role == StreamRole::Keyboard) != parsed.keyboard.is_some() {
+        problems.push(field_invalid("keyboard", "keyboard-streams-only"));
+    }
 
     // 光标外观：只在光标另画时有。
     if parsed.pointer.mode != PointerMode::Separate && !parsed.pointer.cursors.is_empty() {
@@ -352,6 +378,19 @@ pub fn recording_body_problems(body: &Value) -> Vec<Text> {
     problems
 }
 
+
+/// 去掉键盘之后的清单：没有 `keyboard` 流，也没有 `keyboard` 字段。清单写入后唯一允许的改动是把键盘轨拿掉（§4.7），
+/// 引擎用它判断新版本是不是只做了这一件事。
+pub fn without_keyboard(body: &Value) -> Value {
+    let mut body = body.clone();
+    if let Some(object) = body.as_object_mut() {
+        object.remove("keyboard");
+        if let Some(streams) = object.get_mut("streams").and_then(Value::as_array_mut) {
+            streams.retain(|s| s.get("role").and_then(Value::as_str) != Some("keyboard"));
+        }
+    }
+    body
+}
 /// 清单引用的素材版本：各路流，再是光标图片；重复的只留第一次。正文不是清单时为空，形状不对时报错。
 pub fn recording_asset_refs(body: &Value) -> Result<Vec<VersionRef>, String> {
     if body.get("schema").and_then(Value::as_str) != Some(RECORDING_SCHEMA) {
@@ -397,6 +436,9 @@ pub fn recording_resource_problems(body: &Value, assets: &BTreeMap<Id, AssetReco
             StreamRole::Microphone | StreamRole::SystemAudio => check(field, &stream.asset_ref, &|a, _| a.kind == AssetKind::Audio),
             StreamRole::Pointer => check(field, &stream.asset_ref, &|a, media_type| {
                 a.kind == AssetKind::Other && media_type == POINTER_TRACK_MEDIA_TYPE
+            }),
+            StreamRole::Keyboard => check(field, &stream.asset_ref, &|a, media_type| {
+                a.kind == AssetKind::Other && media_type == KEY_TRACK_MEDIA_TYPE
             }),
         }
     }

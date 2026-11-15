@@ -489,6 +489,7 @@ export const vi: EngineMessages = {
   workspaceSnapshotFormat: "Ảnh chụp không phải ảnh chụp không gian làm việc của BaoCut",
   workspaceSnapshotVersion: "Ảnh chụp này dùng phiên bản định dạng không được hỗ trợ; hãy mở bằng BaoCut tương ứng",
   pointerTrackUnreadable: (p) => `Không phải rãnh con trỏ đọc được: ${p.error}`,
+  keyTrackUnreadable: (p) => `Không phải rãnh phím đọc được: ${p.error}`,
   recordingFixed: 'Không thể thay đổi bản kê ghi hình sau khi đã ghi',
   recordingUnreadable: 'Không đọc được bản kê ghi hình của khung nhìn màn hình này',
   linkGroupMember: (p) => `Nhóm liên kết ${p.group} chỉ nhận clip video và âm thanh`,

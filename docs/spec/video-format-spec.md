@@ -1425,7 +1425,7 @@ interface AssetRevision {
 - `contentHash` 必填，登记时算好。不存在「摘要待定」的素材版本。
 - `kind: 'lottie'` 是一个 Lottie 动画文件，只能被素材贴纸引用（§3.7）；它没有音轨，显示尺寸取动画声明的宽与高。素材是一份 bodymovin JSON（`mediaType` 是 `application/json`），或一个 `.lottie` 压缩包（`application/zip`，画清单里的当前动画，没有清单时画第一段）。导入时 `.lottie` 文件，以及读出来像 Lottie 的 `.json`（顶层有版本 `v`、数值的 `fr`、`ip`、`op` 与图层数组）记成 `lottie`，别的 JSON 仍是 `other`；版本记下 `video`（动画声明的宽高、帧率，像素比 1，`hasAlpha`）与 `duration`（帧范围除以帧率，按毫秒取整），都用渲染内核读 Lottie 的同一份实现读出。读不开、用了内核不支持的特性或帧范围为空的不收（`MEDIA_PROBE_FAILED`），超过 32 MiB 的不收（`INVALID_OPERATION`）。图片子资源可以是 PNG、JPEG、GIF（首帧）、WebP 或 SVG（按资源声明的宽高光栅，`<text>` 不画），要么内嵌成 data URI，要么放在同一个压缩包里；只写了路径、包里也没有的外部图片读不到，这个实例画不出来，报 `lottie-asset-missing`。
 - `kind: 'puppet'` 是一个角色包（`mediaType` 为 `application/x-baocut-puppet+zip`，格式见角色格式规范）：分层角色包（`.bcpuppet`）或 mesh-avatar 角色包（`.mavatar`，角色格式规范 §2.5），按包里的文件区分，扩展名只决定导入时认不认它是角色包。只能被素材贴纸引用（§3.7）。它没有音轨与时长；版本记下 `video`（分层角色是 `model.json` 的画布宽高，mesh-avatar 角色是 `rig.json` 的 `image` 宽高，像素比 1，帧率记 30/1，`hasAlpha: true`）。分层角色导入时只读 `model.json` 与各贴图的尺寸，不解码像素；mesh-avatar 角色整包读一遍、建好网格；读不开或不合格式的不收（`MEDIA_PROBE_FAILED`），超过 64 MiB 的不收（`INVALID_OPERATION`）。角色的动作轨是 `kind: 'other'` 的 JSON 素材：导入时顶层 `format` 是 `baocut-puppet-track` 的 JSON（先排除 Lottie）按动作轨校验，记成 `application/x-baocut-puppet-track+json`，校验不过不收（`MEDIA_PROBE_FAILED`）。
-- 指针轨（§4.8）同样是 `kind: 'other'` 的 JSON 素材：导入时顶层 `format` 是 `baocut-pointer-track` 的 JSON 按 §4.8 校验，记成 `application/x-baocut-pointer-track+json`，校验不过不收（`MEDIA_PROBE_FAILED`）。
+- 指针轨（§4.8）同样是 `kind: 'other'` 的 JSON 素材：导入时顶层 `format` 是 `baocut-pointer-track` 的 JSON 按 §4.8 校验，记成 `application/x-baocut-pointer-track+json`，校验不过不收（`MEDIA_PROBE_FAILED`）。键盘轨（§4.10）同样：`format` 是 `baocut-key-track`，记成 `application/x-baocut-key-track+json`。
 - `kind: 'caption'` 与 `kind: 'document'` 是**文件**（一个 SRT、一份 PDF），不是 §4.4 的文档。导入字幕文件时，文件是素材，解析出来的字幕行是文档，文档用 `sourceAssetId` 指回文件。
 - 可变帧率的索引、代理、缩略图、波形和反向 conform 都是派生产物，不属于素材版本。
 - 颜色信息（`ColorInfo`）与许可状态（`LicenseState`）尚未纳入（§10）。
@@ -1521,7 +1521,7 @@ interface Provenance {
 - 从用户库拷进来的素材，`origin` 为 `library`，`source.library` 记下条目所在的库、条目 ID、版本、内容摘要、名字与种类（架构设计 §5.9）；之后库里的修改与删除不改变这个素材。
 - 从随应用分发的贴纸拷进来的素材（元素面板的贴纸与动态贴纸，命令与协议规范 §4.1 的 `stickers.applyToVideo`），`origin` 为 `sticker-pack`，`source.stickerPack.id` 记贴纸 ID（`<包>-<文件>`，如 `featured-01.svg`；元素面板「虚拟主播」一节的内置主播是角色包，如 `host-rin.bcpuppet`）；文件以 `managed` 拷进视频，之后应用升级换了这张贴纸也不改变这个素材。
 - 元素面板里的 Codex Pets 拷进来的素材（命令与协议规范 §4.1 的 `pets.applyToVideo`），`origin` 为 `codex-pet`，`source.codexPet` 记 `{ source, slug, name, author, license, version }`：`source` 是 `community`（awesome-codex-pet 的社区 pet），`version` 是图集版本（1 或 2），`license` 是作者自报的许可原文。素材是待机那一行编成的循环 APNG（`image/apng`，§3.7），以 `managed` 拷进视频，之后上游换了图集也不改变这个素材。
-- 录制得到的素材（屏幕、摄像头、麦克风、系统音频、指针轨与光标图片），`origin` 为 `recording`，`source.recording` 记 `{ recorder, role }`：`recorder` 同录制清单的 `recorder`（§4.7），`role` 是这路流的角色，光标图片是 `cursor`。它们没有原文件可以指向，总是 `managed`（§4.2）。哪个素材是哪次录制的哪一路、怎样对时，以录制清单为准，不从来源推断。
+- 录制得到的素材（屏幕、摄像头、麦克风、系统音频、指针轨、键盘轨与光标图片），`origin` 为 `recording`，`source.recording` 记 `{ recorder, role }`：`recorder` 同录制清单的 `recorder`（§4.7），`role` 是这路流的角色，光标图片是 `cursor`。它们没有原文件可以指向，总是 `managed`（§4.2）。哪个素材是哪次录制的哪一路、怎样对时，以录制清单为准，不从来源推断。
 - 叠加模板按路径引用的台标（§3.17 的 `src: { file }`）登记成的素材，`origin` 为 `template-logo`，`source.templateLogo.file` 记模板里的那个相对路径；文件以 `linked` 留在项目里，渲染按这个来源找到它。
 - 用户上传的媒体只记录已知的出处；上传不代表拥有第三方素材的全部权利。
 - 临时 URL、blob URL、签名地址、浏览器对象和 GPU 句柄不得进入视频格式。
@@ -1631,7 +1631,7 @@ interface Provenance {
 
 ### 4.7 录制清单
 
-录制清单（`kind: 'recording'`）记一次录制产生了什么：分了几段，每段有哪几路流，各是哪个素材版本，怎样落到同一个时钟上。它记的是录下来的事实，录制完成时写一次，之后不再修改（引擎拒绝给已有的清单写内容不同的新版本；要更正就另写一份）；剪辑、布局与取景是别处的编辑意图（§3.18、§4.9）。
+录制清单（`kind: 'recording'`）记一次录制产生了什么：分了几段，每段有哪几路流，各是哪个素材版本，怎样落到同一个时钟上。它记的是录下来的事实，录制完成时写一次，之后不再修改（引擎拒绝给已有的清单写内容不同的新版本；要更正就另写一份。唯一的例外是把键盘轨拿掉，见下面「键盘」）；剪辑、布局与取景是别处的编辑意图（§3.18、§4.9）。
 
 ```ts
 interface RecordingBody {
@@ -1639,10 +1639,10 @@ interface RecordingBody {
   timescale: number;                   // 每秒的刻度数；下面的时刻都是它的整数刻度，写成十进制字符串
   clock: 'recording';
   recorder: {
-    name: string;                      // 录制后端，例如 'cap'
+    name: string;                      // 录制后端，例如 'baocut'
     version?: string;
     revision?: string;                 // 后端的源码版本
-    importer?: string;                 // 把后端的产物写成清单的导入器与版本，例如 'cap-studio/1'
+    importer?: string;                 // 从别的录制程序的产物导入时：导入器与它的版本；BaoCut 自己录的没有
   };
   platform?: string;                   // 'macos'、'windows'、'linux'……（开放）
   startedAt?: string;                  // RFC 3339
@@ -1653,11 +1653,14 @@ interface RecordingBody {
     mode: 'separate' | 'baked' | 'none';
     cursors?: RecordingCursor[];       // 光标外观，只在 separate 时有
   };
+  keyboard?: {                         // 有 keyboard 流时必须有，没有时不能有
+    scope: 'shortcuts' | 'all';        // 键盘轨里录了什么（§4.10）
+  };
 }
 
 interface RecordingStream {
   id: string;
-  role: 'screen' | 'camera' | 'microphone' | 'system-audio' | 'pointer';
+  role: 'screen' | 'camera' | 'microphone' | 'system-audio' | 'pointer' | 'keyboard';
   segmentId: string;
   assetRef: VersionRef;
   start: string;                       // 素材源时间 0 落在录制时间的哪一刻；可以为负
@@ -1680,14 +1683,15 @@ interface RecordingCursor {
 ```
 
 - **录制时间**从 0 开始，暂停的时间不计入。`segments` 按 `t0` 排序、首尾相接，铺满 `[0, duration)`：第一段从 0 开始，每次暂停后恢复是新的一段，最后一段在 `duration` 结束。
-- **流**是一路输入在一段里录下的一个素材：屏幕与摄像头是视频素材，麦克风与系统音频是音频素材，`pointer` 是指针轨（§4.8）。每段每种角色至多一路；一个素材版本只属于一路流。素材按 §4.5 记来源，总是 `managed`。
+- **流**是一路输入在一段里录下的一个素材：屏幕与摄像头是视频素材，麦克风与系统音频是音频素材，`pointer` 是指针轨（§4.8），`keyboard` 是键盘轨（§4.10）。每段每种角色至多一路；一个素材版本只属于一路流。素材按 §4.5 记来源，总是 `managed`。
 - **对时。** 素材源时间 `s`（归一化的展示时间，§2.4）对应录制时间 `start + s`，速率是 1：各路流的时钟由录制后端校到一起，清单不记漂移。比这一段早开始的流 `start` 小于段的 `t0`，晚开始的大于它；导入不得为了凑齐把各路流的第一帧都对到段的开头。
 - **有内容的区间。** `coverage` 按 `t0` 排序、互不重叠，落在所在的段里；省略时是素材全长与所在段的交集。导入按它放实例：区间之外不放，画面露出下层，声音是静音，不停在最后一帧。设备晚启动、中途断开都这样表达。
 - **鼠标模式。** `separate`：屏幕画面里没有光标，光标按指针轨另画，`cursors` 给出各种外观；`baked`：光标已经录在画面里，指针轨只用来驱动取景；`none`：画面里没有光标，也没有指针轨（这时不能有 `pointer` 流）。`cursors` 只在 `separate` 时有，`id` 不重复。
 - **素材依赖。** 清单引用的全部素材版本（各路流，再是光标图片）由引擎登记在这个文档版本的 `assetRefs` 里（§4.4）：它们因此算被用着，随便携包带走（§8），缺失时照 §4.2 报告。写入时引擎核对每个引用在不在、种类对不对；便携包导入时按正文重算，与登记的不一致就拒绝。
 - 写入时整份核对：上面各条，加上 `timescale` 是正的安全整数、时刻是整数刻度、各种 ID 不重复、流的 `segmentId` 存在、`capture` 只出现在屏幕流上。
+- **键盘。** `keyboard.scope` 说明键盘轨里录了什么：`shortcuts` 只有快捷键与功能键——按着 Control、Alt 或 Meta 时的按键，加上不产生字符的键（回车、退格、方向键、功能键、修饰键自己等）——打出来的字不在里面；`all` 是全部按键。键盘轨可能录到不该留的内容，所以清单允许一种改动：新版本与旧版本相比只去掉了全部 `keyboard` 流与 `keyboard` 字段，别的一字不差。
 - 清单不参与渲染。渲染经由引用它的屏幕取景文档（§4.9）用到它与指针轨；联动组用它换算各成员的时间（§3.18）。
-- 不在这一版里的：键盘事件，一次录多块屏幕，流之间的时钟漂移，录制中捕获尺寸的变化（§10）。
+- 不在这一版里的：一次录多块屏幕，流之间的时钟漂移，录制中捕获尺寸的变化（§10）。
 
 ### 4.8 指针轨
 
@@ -1763,6 +1767,30 @@ interface ScreenPointerStyle {
   - `click`：按下主键时在指针处画一圈散开的提示。
 - **求值算法的版本。** `solver` 决定过渡的曲线、缺省的过渡长度、跟随的运动与光标平滑的算法。算法有变就加一，旧文档仍按它写的版本求值，画面不因升级改变。读到不认识的版本时写入拒绝，渲染报告不支持，不按别的版本凑合。版本 1 的曲线与数值随实现写入本节（§10）。
 - 写入时整份核对上面各条，包括文档头：`clock` 是 `recording` 时来源文档必须是一份录制清单，并按它的鼠标模式核对 `pointer` 与跟着指针的区间；`clock` 是 `source-asset` 时必须有来源素材。之后修改这份文档（`putDocument`、`patchDocument`）沿用已有的来源，照样核对。
+
+### 4.10 键盘轨
+
+键盘轨是一次录制里按键的按下与抬起。它与指针轨一样是 bytes：存成素材（`kind: 'other'`，`mediaType` 为 `application/x-baocut-key-track+json`，§4.1），由录制清单的 `keyboard` 流引用。它与指针轨分开存，所以可以单独不录、单独删掉。
+
+```ts
+interface KeyTrack {
+  format: 'baocut-key-track';
+  version: 1;
+  timescale: number;                              // 每秒的刻度数
+  keys: Array<[t: number, code: string, down: 0 | 1, key: string]>;
+}
+```
+
+- **时刻**与指针轨相同：素材自己的时钟上的非负整数刻度，按 `t` 不减，落到录制时间按清单里这路流的 `start`（§4.7）。
+- **`code`** 是按的哪一个物理键，用 W3C UI Events 的 `KeyboardEvent.code` 词表（`KeyA`、`Digit1`、`ShiftLeft`、`MetaLeft`、`Enter`、`ArrowUp`、`F5`……），与键盘布局和输入法无关；只含 ASCII 字母与数字，不超过 64 字节。录制后端把系统的键码换成这个词表，认不出的键写 `Unidentified`。
+- **`key`** 是这次按键产生的值，用 UI Events 的 `KeyboardEvent.key`（`a`、`A`、`Enter`……），不超过 64 字节；没有记录时是空字符串。修饰键是否按着不另记：由 `ShiftLeft`、`ControlLeft`、`AltLeft`、`MetaLeft` 等键自己的按下与抬起得出。
+- **录了什么**写在清单的 `keyboard.scope` 里（§4.7）：`shortcuts` 的键盘轨里只有快捷键与功能键，`key` 一律是空字符串；`all` 才有打出来的字。
+- 事件不超过 100 万条，文件不超过 32 MiB。导入时按这些规则读一遍，不合的不收（`MEDIA_PROBE_FAILED`）。
+- **隐私。** 键盘轨可能录到密码与私人内容，所以：
+  - 录制时缺省不录，要录时缺省是 `shortcuts`；`all` 要用户明确选择（屏幕录制设计 §7）。
+  - 它是清单的素材依赖，便携包会带上它（§8）。不想带出去就先删掉：写一版去掉 `keyboard` 流与 `keyboard` 字段的清单（清单唯一允许的改动，§4.7），键盘轨素材随之不再被用着，可以用 `removeAssets` 删除。
+  - 删掉之后，撤销历史、保存的版本与更早导出的便携包里仍然可能留着它；从这些地方清除要靠视频的历史清理（§9），格式本身不保证（§10）。
+- 键盘轨不参与渲染。按键怎样显示在画面上（哪些键、什么样式、停留多久）是编辑意图，还没有定义（§10）。
 
 ---
 
@@ -3411,7 +3439,7 @@ File: documents/doc_5b1.json - sha256:41b8…
 | `SemanticAnchor`、`FollowPolicy`（§3.16） | 已定：起止各自的锚点、词锚点的偏移、到序列末尾、`follow-cuts` 与它的缺省（按时刻放置的实例从新建起缺省）。已定：`speech-anchor` 每笔事务按时间线重求，出现处与歧义按 v2 的规则，求不出的留在原处、`orphaned` 现算不落盘。已定：`item-local` 按目标的源时刻跟随，拆开跟锚点所在的一段，起点修剪越过锚点时到新起点，目标删掉时一起删。已实现 `sequence-fixed`、`follow-cuts`（剪口事务里）、`speech-anchor`、`item-local` 与到序列末尾；`explicit-link-group` 不在这一版的范围，只保存与校验形状，不移动 | `explicit-link-group` 的联动规则 |
 | 联动组（§3.18） | 已定：登记、成员与各项时间编辑的规则；旧的 `linkGroupId` 不登记就不联动。已实现：登记与解组（`linkItems`、`unlinkItems`）、成员种类的校验、空组清理。成组的时间编辑未实现：现在登记了的组，成员仍可以各自移动、修剪与变速，不强制同步；拆分出来的右半还留在原来的组里，不另登记新组 | 剪口换算到各成员素材之后怎样写进各自的剪口集合（§6.7）；变速时两路声音的处理；与 `explicit-link-group`、`SyncGroup` 是否最终合成一个概念 |
 | 屏幕取景（§3.18、§4.9） | 已定：正文、两种时钟、画法的次序、与 `crop`、`focalPoint`、`panels` 的关系；正文、文档头的来源与所属清单的鼠标模式写入时核对；实例上的引用（`screenView`）可写、可校验。求值与渲染未实现：带取景的实例现在预览与导出都照原画面画，不放大、不画光标，也不报警告。复制实例与派生子视频时文档不跟着复制：复制出来的实例引用同一份文档，派生的子视频去掉取景 | 求值算法 1 的曲线与缺省数值（过渡、跟随、光标平滑）；点击提示的样式；引用是否核对到清单里的 `screen` 流 |
-| 录制清单与指针轨（§4.7、§4.8） | 已定：正文与素材格式；写入时核对，清单写入后不能改，清单引用的素材登记成文档版本的依赖，指针轨导入时校验。录制后端与导入器未实现 | 键盘事件；一次录多块屏幕；各路流之间的时钟漂移；录制中捕获尺寸的变化 |
+| 录制清单、指针轨与键盘轨（§4.7、§4.8、§4.10） | 已定：正文与素材格式；写入时核对，清单写入后只能去掉键盘轨，清单引用的素材登记成文档版本的依赖，指针轨与键盘轨导入时校验。录制后端未实现（自己实现，不用 Cap，见[屏幕录制设计](../design/screen-recording/README.md) §7、§8） | 按键怎样显示在画面上（样式、位置、分组与停留）；键盘轨从撤销历史与保存的版本里彻底清除；导出便携包时不带键盘轨的选项；一次录多块屏幕；各路流之间的时钟漂移；录制中捕获尺寸的变化 |
 | 格式版本 4（§1.4） | 已定并实现（2026-11-15）：写出去的一律是 4，版本 3 照常打开、第一次被改时升到 4 | LUT 效果落地时沿用同一个版本 4，不再按内容升；见 [LUT 效果设计](../design/color-lut/README.md) §9、§12 |
 | `ProtectionRecord`（§3.10） | 本规范补全 | 持久保护与任务级保护的边界；`confirmed` 的强制程度 |
 | `Checkpoint`（§3.11） | 本规范补全 | 检查点是否允许带分支 |

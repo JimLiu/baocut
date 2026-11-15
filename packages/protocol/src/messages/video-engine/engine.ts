@@ -512,6 +512,7 @@ const en = {
   labelUndo: (p: P<'label'>) => `Undo: ${p.label}`,
   labelRedo: (p: P<'label'>) => `Redo: ${p.label}`,
   pointerTrackUnreadable: (p: P<'error'>) => `Not a readable pointer track: ${p.error}`,
+  keyTrackUnreadable: (p: P<'error'>) => `Not a readable key track: ${p.error}`,
   recordingFixed: 'A recording manifest cannot change after it is written',
   recordingUnreadable: 'The recording manifest of this screen view cannot be read',
   linkGroupMember: (p: P<'group'>) => `Link group ${p.group} only takes video and audio clips`,

@@ -489,6 +489,7 @@ export const zhHans: EngineMessages = {
   workspaceSnapshotFormat: '这不是 BaoCut 的工作区快照',
   workspaceSnapshotVersion: '这份快照的格式版本不受支持，请用对应版本的 BaoCut 打开',
   pointerTrackUnreadable: (p) => `不是读得开的指针轨：${p.error}`,
+  keyTrackUnreadable: (p) => `不是读得开的键盘轨：${p.error}`,
   recordingFixed: '录制清单写入后不能修改',
   recordingUnreadable: '读不出这份屏幕取景所属的录制清单',
   linkGroupMember: (p) => `联动组 ${p.group} 只收视频与音频片段`,

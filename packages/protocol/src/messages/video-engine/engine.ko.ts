@@ -490,6 +490,7 @@ export const ko: EngineMessages = {
   workspaceSnapshotFormat: 'BaoCut 작업 공간 스냅숏이 아닙니다',
   workspaceSnapshotVersion: '지원하지 않는 형식 버전으로 작성된 스냅숏입니다. 맞는 버전의 BaoCut으로 여세요',
   pointerTrackUnreadable: (p) => `읽을 수 있는 포인터 트랙이 아닙니다: ${p.error}`,
+  keyTrackUnreadable: (p) => `읽을 수 있는 키 트랙이 아닙니다: ${p.error}`,
   recordingFixed: '녹화 매니페스트는 기록한 뒤에는 변경할 수 없습니다',
   recordingUnreadable: '이 화면 뷰의 녹화 매니페스트를 읽을 수 없습니다',
   linkGroupMember: (p) => `링크 그룹 ${p.group}에는 비디오와 오디오 클립만 넣을 수 있습니다`,

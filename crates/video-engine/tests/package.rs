@@ -459,6 +459,37 @@ fn a_recording_manifest_carries_its_assets_and_is_checked_on_write() {
     plain["zooms"][0]["scale"] = json!(3.0);
     apply(&mut source, "cmd_view_rewrite_plain", vec![json!({ "type": "putDocument", "documentId": baked_view, "kind": "screen-view", "body": plain })]);
 
+    // 键盘轨：清单要写明录了什么；写入后唯一能改的是把键盘轨拿掉，别的改动照样不收。
+    let keys = root.path().join("keys.json");
+    fs::write(&keys, r#"{"format":"baocut-key-track","version":1,"timescale":1000,"keys":[[0,"MetaLeft",1,""],[40,"KeyS",1,"s"]]}"#).unwrap();
+    apply(&mut source, "cmd_keys", vec![json!({ "type": "importAsset", "path": keys, "storage": "managed" })]);
+    let key_track = {
+        let asset = source.state().assets.values().find(|a| a.revisions[&a.current_revision].media_type == "application/x-baocut-key-track+json").unwrap();
+        json!({ "id": asset.id, "revision": asset.current_revision })
+    };
+    let mut typed = manifest("pointer");
+    typed["recorder"]["name"] = json!("with-keys");
+    typed["streams"].as_array_mut().unwrap().push(json!({ "id": "s0-keys", "role": "keyboard", "segmentId": "s0", "assetRef": key_track, "start": "0" }));
+    let unscoped = refuse(&mut source, "cmd_keys_unscoped", json!({ "type": "putDocument", "kind": "recording", "body": typed }));
+    assert!(unscoped.message.contains("keyboard"), "{}", unscoped.message);
+    let mut swapped = typed.clone();
+    swapped["keyboard"] = json!({ "scope": "shortcuts" });
+    swapped["streams"][1]["assetRef"] = track.clone();
+    refuse(&mut source, "cmd_keys_wrong_asset", json!({ "type": "putDocument", "kind": "recording", "body": swapped }));
+    let mut scoped = typed.clone();
+    scoped["keyboard"] = json!({ "scope": "shortcuts" });
+    apply(&mut source, "cmd_keys_manifest", vec![json!({ "type": "putDocument", "kind": "recording", "name": "typed", "body": scoped })]);
+    let typed_id = source.state().documents.values().find(|r| r.name == "typed").unwrap().id.clone();
+    assert_eq!(source.state().documents[&typed_id].revisions["1"].asset_refs.len(), 3);
+    let mut renamed = typed.clone();
+    renamed["recorder"]["name"] = json!("other");
+    refuse(&mut source, "cmd_keys_renamed", json!({ "type": "putDocument", "documentId": typed_id, "kind": "recording", "body": renamed }));
+    typed["streams"].as_array_mut().unwrap().pop();
+    apply(&mut source, "cmd_keys_dropped", vec![json!({ "type": "putDocument", "documentId": typed_id, "kind": "recording", "body": typed })]);
+    let dropped = &source.state().documents[&typed_id];
+    assert_eq!(dropped.current_revision, "2");
+    assert_eq!(dropped.revisions["2"].asset_refs.len(), 2);
+
     let package = root.path().join("package");
     write_package(&source, &package);
     let loaded = import_package(&root.path().join("loaded"), &package, None, &ffprobe()).unwrap();

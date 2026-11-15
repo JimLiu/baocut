@@ -36,6 +36,8 @@ pub const PUPPET_MEDIA_TYPE: &str = "application/x-baocut-puppet+zip";
 pub const PUPPET_TRACK_MEDIA_TYPE: &str = "application/x-baocut-puppet-track+json";
 /// 指针轨（`"format": "baocut-pointer-track"` 的 JSON，视频格式规范 §4.8）的媒体类型。种类仍是 `other`。
 pub use video_model::pointer_track::POINTER_TRACK_MEDIA_TYPE;
+/// 键盘轨（`"format": "baocut-key-track"` 的 JSON，视频格式规范 §4.10）的媒体类型。种类仍是 `other`。
+pub use video_model::key_track::KEY_TRACK_MEDIA_TYPE;
 
 /// 角色包的大小上限（压缩后）。一个角色二三十张分层，WebP 通常几 MiB。
 pub const PUPPET_MAX_BYTES: u64 = 64 << 20;
@@ -135,6 +137,7 @@ pub fn blob_extension(media_type: &str) -> &'static str {
         PUPPET_MEDIA_TYPE => "bcpuppet",
         PUPPET_TRACK_MEDIA_TYPE => "json",
         POINTER_TRACK_MEDIA_TYPE => "json",
+        KEY_TRACK_MEDIA_TYPE => "json",
         _ => "bin",
     }
 }
@@ -477,6 +480,9 @@ pub fn prepare_import(
         } else if declares_format(source, video_model::pointer_track::POINTER_TRACK_FORMAT) {
             check_pointer_track(source)?;
             media_type = POINTER_TRACK_MEDIA_TYPE;
+        } else if declares_format(source, video_model::key_track::KEY_TRACK_FORMAT) {
+            check_key_track(source)?;
+            media_type = KEY_TRACK_MEDIA_TYPE;
         }
     }
     // 只有 ffprobe 认得的媒体才探测；矢量图、字体、字幕与数据文件没有可探测的流。Lottie 用内核的读法取尺寸与时长。
@@ -618,6 +624,27 @@ fn check_pointer_track(source: &Path) -> EngineResult<()> {
         ErrorBody::probe_failed(msg!(
             "engine.pointerTrackUnreadable",
             "Not a readable pointer track: {error}",
+            error
+        ))
+    })
+}
+
+/// 键盘轨按 §4.10 读一遍（[`video_model::key_track::KeyTrack::parse`]）：读不开、不合格式、超出上限的不收。
+fn check_key_track(source: &Path) -> EngineResult<()> {
+    let bytes = fs::read(source).map_err(|e| {
+        ErrorBody::asset_missing(
+            "",
+            msg!(
+                "engine.importUnreadable",
+                "Cannot read the file to import: {error}",
+                error = e.to_string()
+            ),
+        )
+    })?;
+    video_model::key_track::KeyTrack::parse(&bytes).map(|_| ()).map_err(|error| {
+        ErrorBody::probe_failed(msg!(
+            "engine.keyTrackUnreadable",
+            "Not a readable key track: {error}",
             error
         ))
     })
@@ -1116,6 +1143,19 @@ mod tests {
         assert_eq!(blob_rel_path("sha256:ab", &track.media_type), PathBuf::from("blobs/ab.json"));
 
         let bad = br#"{"format":"baocut-pointer-track","version":1,"timescale":1000,"moves":[[16,0.5,0.5],[0,0.6,0.5]]}"#;
+        let refused = import(dir.path(), "bad.json", bad).unwrap_err();
+        assert_eq!(refused.code, "MEDIA_PROBE_FAILED", "{refused:?}");
+    }
+
+    #[test]
+    fn a_key_track_imports_as_other_with_the_track_media_type() {
+        let dir = tempfile::tempdir().unwrap();
+        let good = br#"{"format":"baocut-key-track","version":1,"timescale":1000,"keys":[[0,"MetaLeft",1,""],[40,"KeyS",1,"s"]]}"#;
+        let track = import(dir.path(), "keys.json", good).unwrap();
+        assert_eq!(track.kind, AssetKind::Other);
+        assert_eq!(track.media_type, KEY_TRACK_MEDIA_TYPE);
+
+        let bad = br#"{"format":"baocut-key-track","version":1,"timescale":1000,"keys":[[40,"KeyS",1,"s"],[0,"KeyS",0,"s"]]}"#;
         let refused = import(dir.path(), "bad.json", bad).unwrap_err();
         assert_eq!(refused.code, "MEDIA_PROBE_FAILED", "{refused:?}");
     }

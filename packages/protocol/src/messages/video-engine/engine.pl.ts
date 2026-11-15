@@ -489,6 +489,7 @@ export const pl: EngineMessages = {
   workspaceSnapshotFormat: "Migawka nie jest migawką obszaru roboczego BaoCut",
   workspaceSnapshotVersion: "Ta migawka ma nieobsługiwaną wersję formatu; otwórz ją odpowiednią wersją BaoCut",
   pointerTrackUnreadable: (p) => `Nieczytelna ścieżka wskaźnika: ${p.error}`,
+  keyTrackUnreadable: (p) => `Nieczytelna ścieżka klawiszy: ${p.error}`,
   recordingFixed: 'Manifestu nagrania nie można zmienić po zapisaniu',
   recordingUnreadable: 'Nie można odczytać manifestu nagrania tego widoku ekranu',
   linkGroupMember: (p) => `Grupa powiązań ${p.group} przyjmuje tylko klipy wideo i audio`,

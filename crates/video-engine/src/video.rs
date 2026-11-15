@@ -851,6 +851,8 @@ impl Video {
                 };
                 let kept = document_id.as_ref().and_then(|id| self.state.documents.get(id)).and_then(|d| d.source_document_id.as_ref());
                 read_manifest(given.or(kept), &mut read);
+                // 改写清单本身：只允许去掉键盘轨（§4.7），要拿旧正文来比。
+                read_manifest(document_id.as_ref(), &mut read);
             }
             match op {
                 EditOperation::PutDocument { document_id: Some(id), .. } => written.push(id.clone()),

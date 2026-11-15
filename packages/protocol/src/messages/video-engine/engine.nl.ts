@@ -475,6 +475,7 @@ export const nl: EngineMessages = {
   workspaceSnapshotFormat: "De momentopname is geen BaoCut-werkruimtemomentopname",
   workspaceSnapshotVersion: "Deze momentopname gebruikt een niet-ondersteunde formaatversie; open hem met een passende BaoCut",
   pointerTrackUnreadable: (p) => `Geen leesbaar aanwijzerspoor: ${p.error}`,
+  keyTrackUnreadable: (p) => `Geen leesbaar toetsenspoor: ${p.error}`,
   recordingFixed: 'Een opnamemanifest kan na het schrijven niet meer worden gewijzigd',
   recordingUnreadable: 'Het opnamemanifest van deze schermweergave kan niet worden gelezen',
   linkGroupMember: (p) => `Koppelgroep ${p.group} neemt alleen video- en audioclips op`,

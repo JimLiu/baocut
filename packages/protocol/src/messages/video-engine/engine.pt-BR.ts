@@ -489,6 +489,7 @@ export const ptBR: EngineMessages = {
   workspaceSnapshotFormat: "O snapshot não é um snapshot de espaço de trabalho do BaoCut",
   workspaceSnapshotVersion: "Este snapshot usa uma versão de formato não compatível; abra-o com um BaoCut correspondente",
   pointerTrackUnreadable: (p) => `Trilha de ponteiro não legível: ${p.error}`,
+  keyTrackUnreadable: (p) => `Trilha de teclas não legível: ${p.error}`,
   recordingFixed: 'Um manifesto de gravação não pode ser alterado depois de escrito',
   recordingUnreadable: 'Não é possível ler o manifesto de gravação desta visualização de tela',
   linkGroupMember: (p) => `O grupo vinculado ${p.group} só aceita clipes de vídeo e áudio`,

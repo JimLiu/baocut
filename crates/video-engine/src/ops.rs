@@ -4408,8 +4408,14 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
                 }
                 return Ok(());
             }
-            // 录制清单记的是录下来的事实，写一次不再改（§4.7）。
-            if kind == video_model::recording::RECORDING_KIND {
+            // 录制清单记的是录下来的事实，写一次不再改（§4.7）。唯一的例外是把键盘轨拿掉：按键可能录到了不该留的内容。
+            let drops_keyboard = || {
+                let old = ctx.documents.iter().rev().find(|d| d.document_id == id).and_then(|d| serde_json::from_str::<Value>(&d.body).ok());
+                old.as_ref()
+                    .or_else(|| ctx.document_bodies.get(id))
+                    .is_some_and(|old| &video_model::recording::without_keyboard(old) == input.body)
+            };
+            if kind == video_model::recording::RECORDING_KIND && !drops_keyboard() {
                 return Err(ErrorBody::invalid_operation(msg!(
                     "engine.recordingFixed",
                     "A recording manifest cannot change after it is written"

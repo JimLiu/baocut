@@ -22,6 +22,7 @@ pub mod editorial_proposal;
 mod effect;
 mod marker;
 mod place;
+pub mod key_track;
 pub mod pointer_track;
 pub mod recording;
 pub mod screen_view;

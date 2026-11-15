@@ -1337,9 +1337,11 @@ export interface RecordingBody {
   segments: { id: string; t0: string; t1: string }[];
   streams: RecordingStream[];
   pointer: { mode: RecordingPointerMode; cursors?: RecordingCursor[] };
+  /** 键盘录了什么：`shortcuts` 只有快捷键与功能键，`all` 包括打出来的字。有 `keyboard` 流时必须有。 */
+  keyboard?: { scope: 'shortcuts' | 'all' };
 }
 
-export type RecordingStreamRole = 'screen' | 'camera' | 'microphone' | 'system-audio' | 'pointer';
+export type RecordingStreamRole = 'screen' | 'camera' | 'microphone' | 'system-audio' | 'pointer' | 'keyboard';
 /** `separate`：光标按指针轨另画；`baked`：光标已经录在画面里；`none`：没有光标也没有指针轨。 */
 export type RecordingPointerMode = 'separate' | 'baked' | 'none';
 
@@ -1383,6 +1385,23 @@ export interface PointerTrack {
 }
 
 export const POINTER_TRACK_MEDIA_TYPE = 'application/x-baocut-pointer-track+json';
+
+/**
+ * 键盘轨（视频格式规范 §4.10）：一次录制里按键的按下与抬起。存成素材（`kind: 'other'`，媒体类型
+ * {@link KEY_TRACK_MEDIA_TYPE}），由录制清单的 `keyboard` 流引用。时刻是素材自己的时钟上的非负整数刻度。
+ */
+export interface KeyTrack {
+  format: 'baocut-key-track';
+  version: 1;
+  timescale: number;
+  /**
+   * `code` 是哪一个物理键（W3C UI Events 的 `KeyboardEvent.code`）；`down`：1 按下、0 抬起；`key` 是这次按键产生的值
+   * （UI Events 的 `KeyboardEvent.key`），没有记录时是空字符串。
+   */
+  keys: [t: number, code: string, down: 0 | 1, key: string][];
+}
+
+export const KEY_TRACK_MEDIA_TYPE = 'application/x-baocut-key-track+json';
 
 /**
  * 屏幕取景的正文（视频格式规范 §4.9，文档 `kind: 'screen-view'`）：屏幕画面什么时候放大、看哪里，另画的光标什么样。

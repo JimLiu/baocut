@@ -490,6 +490,7 @@ export const ja: EngineMessages = {
   workspaceSnapshotFormat: 'BaoCut のワークスペーススナップショットではありません',
   workspaceSnapshotVersion: 'このスナップショットの形式バージョンには対応していません。対応する BaoCut で開いてください',
   pointerTrackUnreadable: (p) => `読み取れるポインタートラックではありません：${p.error}`,
+  keyTrackUnreadable: (p) => `読み取れるキートラックではありません：${p.error}`,
   recordingFixed: '録画マニフェストは書き込み後に変更できません',
   recordingUnreadable: 'この画面ビューの録画マニフェストを読み取れません',
   linkGroupMember: (p) => `リンクグループ ${p.group} に入れられるのは動画と音声のクリップだけです`,
