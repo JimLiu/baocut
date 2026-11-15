@@ -1,0 +1,120 @@
+[package]
+name = "recording-worker"
+description = "BaoCut 的 Recording Worker（屏幕录制设计 §7）：采集屏幕、窗口或区域、系统声音、摄像头与麦克风，记录指针与（可选的）键盘；Runtime 以子进程调用，stdin/stdout 的 JSON 行。macOS 用 ScreenCaptureKit + AVFoundation，别的平台回答「不支持」"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[lib]
+name = "recording_worker"
+path = "src/lib.rs"
+
+[[bin]]
+name = "recording-worker"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+
+[target.'cfg(unix)'.dependencies]
+# 录制目录所在盘的剩余空间（`statvfs`）。
+libc = "0.2"
+
+# macOS：屏幕、窗口与系统声音走 ScreenCaptureKit，摄像头与麦克风走 AVCaptureSession，四路都由 AVAssetWriter
+# 写（视频经 VideoToolbox 硬件编码成 H.264，音频 AAC）；指针位置与按键状态走 CoreGraphics 的事件源，光标图片走
+# AppKit 的 `NSCursor`。版本对齐 `media-native` 已用的 objc2 系依赖，不新增大版本。
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+dispatch2 = { version = "0.3", default-features = false, features = ["std", "objc2"] }
+objc2-screen-capture-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "SCError",
+    "SCShareableContent",
+    "SCStream",
+    "block2",
+    "dispatch2",
+    "libc",
+    "objc2-core-foundation",
+    "objc2-core-graphics",
+    "objc2-core-media",
+] }
+objc2-av-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "AVAssetWriter",
+    "AVAssetWriterInput",
+    "AVCaptureDevice",
+    "AVCaptureInput",
+    "AVCaptureOutputBase",
+    "AVCaptureSession",
+    "AVCaptureVideoDataOutput",
+    "AVCaptureAudioDataOutput",
+    "AVMediaFormat",
+    "AVVideoSettings",
+    "block2",
+    "dispatch2",
+    "objc2-core-foundation",
+    "objc2-core-media",
+    "objc2-core-video",
+] }
+objc2-avf-audio = { version = "0.3", default-features = false, features = ["std", "AVAudioSettings"] }
+objc2-core-audio-types = { version = "0.3", default-features = false, features = ["std", "CoreAudioBaseTypes"] }
+objc2-core-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "CFBase",
+    "CFCGTypes",
+    "CFString",
+    "CFRunLoop",
+    "CFMachPort",
+] }
+objc2-core-graphics = { version = "0.3", default-features = false, features = [
+    "std",
+    "CGDirectDisplay",
+    "CGDisplayConfiguration",
+    "CGEvent",
+    "CGEventSource",
+    "CGEventTypes",
+    "CGWindow",
+    "libc",
+] }
+objc2-core-media = { version = "0.3", default-features = false, features = [
+    "std",
+    "CMBase",
+    "CMFormatDescription",
+    "CMSampleBuffer",
+    "CMSync",
+    "CMTime",
+    "objc2-core-video",
+] }
+objc2-core-video = { version = "0.3", default-features = false, features = [
+    "std",
+    "CVBase",
+    "CVBuffer",
+    "CVImageBuffer",
+    "CVPixelBuffer",
+] }
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSArray",
+    "NSData",
+    "NSDictionary",
+    "NSEnumerator",
+    "NSError",
+    "NSGeometry",
+    "NSObject",
+    "NSString",
+    "NSURL",
+    "NSValue",
+] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSBitmapImageRep",
+    "NSCursor",
+    "NSGraphics",
+    "NSImage",
+    "NSImageRep",
+    "NSScreen",
+    "objc2-core-foundation",
+] }
