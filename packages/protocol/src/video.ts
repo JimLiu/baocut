@@ -458,7 +458,23 @@ export interface VideoItem extends VisualBase, MediaFields {
   focalPoint?: FocalPoint;
   /** 分屏：画面分成 2–4 格，每格各取原片的一块。只用于全屏加 `cover`；有它时 `focalPoint` 不参与。没有时省略。 */
   panels?: VideoPanel[];
+  /** 屏幕取景（§3.18）：按一份屏幕取景文档放大、跟随并画光标，跟随文档的当前版本。不与 `panels` 并存。没有时省略。 */
+  screenView?: ScreenViewRef;
   embeddedAudio: EmbeddedAudio;
+}
+
+/** 视频实例对屏幕取景文档（`kind: 'screen-view'`，§4.9）的引用。 */
+export interface ScreenViewRef {
+  documentId: Id;
+}
+
+/** 登记在序列上的联动组（§3.18）：成员是这条序列上 `linkGroupId` 等于 `id` 的视频与音频实例。 */
+export interface LinkGroup {
+  id: Id;
+  kind: 'recording';
+  syncVersion: 1;
+  /** 这一组来自哪份录制清单（§4.7）。 */
+  recordingId?: Id;
 }
 
 export interface ImageItem extends VisualBase, MediaFields {
@@ -1068,6 +1084,8 @@ export interface Sequence {
   animationBindings: AnimationBinding[];
   /** 模板层；没有时省略。 */
   template?: TemplateLayers;
+  /** 登记的联动组（§3.18），按 ID 排序；没有时省略。 */
+  linkGroups?: LinkGroup[];
   tracks: Track[];
   items: SequenceItem[];
   /** 按 ID 排序。 */
@@ -1664,7 +1682,13 @@ export type EditOperation =
       focalPoint?: FocalPoint | null;
       /** 视频的分屏格子，整组替换；`null` 去掉（回到一整幅）。 */
       panels?: VideoPanel[] | null;
+      /** 视频的屏幕取景（§3.18）；`null` 去掉。 */
+      screenView?: ScreenViewRef | null;
     }
+  /** 把同一条序列上的视频与音频实例登记成一个联动组（§3.18）；实例不能已经属于别的组。`recording` 是这一组来自的录制清单。 */
+  | { type: 'linkItems'; sequenceId?: Id; itemIds: Id[]; kind: 'recording'; recording?: { documentId: Id } | { ref: string } }
+  /** 解组（§3.18）：删掉登记，清掉成员的 `linkGroupId`。 */
+  | { type: 'unlinkItems'; sequenceId?: Id; groupId: Id }
   /** 改文字实例的内容：`text`、`counter`、`chapter` 给且只给一个，给了的那个替换另外两个。 */
   | { type: 'setText'; sequenceId?: Id; itemId: Id; text?: string; counter?: CounterProps; chapter?: ChapterTextProps }
   /**

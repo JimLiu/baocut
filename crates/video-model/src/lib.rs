@@ -147,6 +147,33 @@ pub struct SequenceHeader {
     /// 模板层（§3.17）；没有时省略。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub template: Option<TemplateLayers>,
+    /// 登记的联动组（§3.18），按 ID 排序；没有时省略。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub link_groups: Vec<LinkGroup>,
+}
+
+/// 联动组的种类：一次录制的各路流（§3.18）。
+pub const LINK_GROUP_RECORDING: &str = "recording";
+/// 联动规则的版本（§3.18）。
+pub const LINK_GROUP_SYNC_VERSION: u32 = 1;
+
+/// 登记在序列上的联动组（§3.18）：成员是这条序列上 `linkGroupId` 等于 `id` 的视频与音频实例。
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LinkGroup {
+    pub id: Id,
+    pub kind: String,
+    pub sync_version: u32,
+    /// 这一组来自哪份录制清单（§4.7）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recording_id: Option<Id>,
+}
+
+/// 视频实例对屏幕取景文档的引用（§3.18），跟随文档的当前版本。
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScreenViewRef {
+    pub document_id: Id,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -331,6 +358,9 @@ pub struct VideoItem {
     /// 分屏（§3.5）：画面分成 2–4 格，每格各取原片的一块。只用于全屏加 `cover`；有它时 `focalPoint` 不参与。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panels: Option<Vec<VideoPanel>>,
+    /// 屏幕取景（§3.18）：这段画面按一份屏幕取景文档放大、跟随并画光标；没有时省略。不与 `panels` 并存。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screen_view: Option<ScreenViewRef>,
     /// 内嵌音频的路由。拆开成独立音频实例之前，跟着画面播放。
     pub embedded_audio: EmbeddedAudio,
 }

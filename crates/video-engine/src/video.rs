@@ -291,6 +291,8 @@ fn operation_label(op: &EditOperation) -> Text {
         EditOperation::ReplaceItemAsset { .. } => msg!("engine.labelReplaceClipAsset", "Replace clip asset"),
         EditOperation::SetTransform { .. } => msg!("engine.labelAdjustPositionAndSize", "Adjust position and size"),
         EditOperation::SetStyle { .. } => msg!("engine.labelEditStyle", "Edit style"),
+        EditOperation::LinkItems { .. } => msg!("engine.labelLinkItems", "Link clips"),
+        EditOperation::UnlinkItems { .. } => msg!("engine.labelUnlinkItems", "Unlink clips"),
         EditOperation::SetText { .. } => msg!("engine.labelEditText", "Edit text"),
         EditOperation::SetProps { .. } | EditOperation::SetCodeParameters { .. } => msg!("engine.labelEditParameters", "Edit parameters"),
         EditOperation::SetAnimation { .. } => msg!("engine.labelSetAnimation", "Set animation"),
@@ -395,6 +397,7 @@ impl Video {
                     duration_policy: DurationPolicy::Derived,
                     animation_bindings: Vec::new(),
                     template: None,
+                    link_groups: Vec::new(),
                 },
                 revision: 0,
             },
@@ -945,6 +948,7 @@ impl Video {
         crate::sequence_end::settle(&mut next)?;
         // 全部操作执行完之后，不再成立的转场被删掉并在回执里报告（视频格式规范 §3.9）。
         crate::elements::prune_bindings(&mut next);
+        crate::recording_links::prune_link_groups(&mut next);
         let transition_changes = crate::transitions::reconcile_transitions(&self.state, &mut next)?;
         // 调用方给的修改名与引用原样保存；没给才由引擎起名（命令与协议规范 §3.1）。
         let label = match &tx.label {

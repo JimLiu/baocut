@@ -694,3 +694,101 @@ fn versions_three_and_four_open_and_writes_become_four() {
     let err = Video::open(&dir, OpenMode::ReadOnly, &ffprobe()).err().expect("更新的版本拒绝打开");
     assert_eq!(err.code, "VIDEO_UNSUPPORTED");
 }
+
+/// 录制在时间线上（视频格式规范 §3.18）：屏幕实例引用一份屏幕取景文档，各路流的实例登记成一个联动组。
+#[test]
+fn a_recording_sits_on_the_timeline_as_a_link_group_with_a_screen_view() {
+    let Some((_media, path)) = clip() else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let mut video = new_video(&dir.path().join("m"));
+    let s = seq(&video);
+    let png = dir.path().join("badge.png");
+    fs::write(&png, include_bytes!("../../caption-scene/tests/fixtures/badge.png")).unwrap();
+    let committed = apply(
+        &mut video,
+        "cmd_add",
+        vec![
+            json!({ "type": "importAsset", "path": path, "ref": "clip" }),
+            json!({ "type": "importAsset", "path": png, "ref": "png" }),
+            json!({ "type": "addItem", "sequenceId": s, "asset": { "ref": "clip" }, "alignment": "nearest-frame" }),
+        ],
+    )
+    .unwrap();
+    let id = committed
+        .receipt
+        .created_ids
+        .iter()
+        .find(|id| video.state().items.contains_key(*id))
+        .unwrap()
+        .clone();
+    let TimelineItem::Video(item) = &video.state().items[&id].value else { unreachable!() };
+    let screen = json!({ "id": item.asset_ref.id, "revision": item.asset_ref.revision });
+    let other = video.state().assets.keys().find(|a| **a != item.asset_ref.id).unwrap().clone();
+
+    let view = |clock: &str| json!({ "schema": "baocut.screen-view/1", "timescale": 1000, "clock": clock, "solver": 1,
+        "zooms": [{ "id": "z1", "t0": "200", "t1": "1800", "scale": 2.0, "focus": { "kind": "point", "x": 0.5, "y": 0.5 }, "origin": "manual" }] });
+    apply(
+        &mut video,
+        "cmd_documents",
+        vec![
+            json!({ "type": "putDocument", "kind": "recording", "ref": "rec", "body": {
+                "schema": "baocut.recording/1", "timescale": 1000, "clock": "recording", "recorder": { "name": "test" },
+                "duration": "2000", "segments": [{ "id": "s0", "t0": "0", "t1": "2000" }],
+                "streams": [{ "id": "s0-screen", "role": "screen", "segmentId": "s0", "assetRef": screen, "start": "0" }],
+                "pointer": { "mode": "none" } } }),
+            json!({ "type": "putDocument", "kind": "screen-view", "name": "view", "sourceDocument": { "ref": "rec" }, "body": view("recording") }),
+            json!({ "type": "putDocument", "kind": "screen-view", "name": "elsewhere", "sourceAsset": { "assetId": other }, "body": view("source-asset") }),
+        ],
+    )
+    .unwrap();
+    let doc = |video: &Video, name: &str| video.state().documents.values().find(|d| d.name == name).unwrap().id.clone();
+    let (rec, good, elsewhere) = (doc(&video, "recording"), doc(&video, "view"), doc(&video, "elsewhere"));
+    let item_json = |video: &Video| serde_json::to_value(&video.state().items[&id].value).unwrap();
+    let groups = |video: &Video| serde_json::to_value(&video.state().sequences[&s].header).unwrap()["linkGroups"].clone();
+
+    // 屏幕取景：文档要是给这段画面写的；不与分屏并存；能去掉。
+    for (n, wrong) in [&rec, &elsewhere].into_iter().enumerate() {
+        let refused = apply(&mut video, &format!("cmd_view_wrong_{n}"), vec![json!({ "type": "setStyle", "itemId": id, "screenView": { "documentId": wrong } })]);
+        assert_eq!(code(refused), "INVALID_OPERATION", "第 {n} 个");
+    }
+    apply(&mut video, "cmd_view", vec![json!({ "type": "setStyle", "itemId": id, "screenView": { "documentId": good } })]).unwrap();
+    assert_eq!(item_json(&video)["screenView"], json!({ "documentId": good }));
+    let rows = json!([
+        { "rect": { "x": 0, "y": 0, "w": 100, "h": 50 }, "focalPoint": { "x": 0.25, "y": 0.4, "zoom": 1.4 } },
+        { "rect": { "x": 0, "y": 50, "w": 100, "h": 50 }, "focalPoint": { "x": 0.75, "y": 0.4, "zoom": 1.4 } },
+    ]);
+    let refused = apply(&mut video, "cmd_panels", vec![json!({ "type": "setStyle", "itemId": id, "fit": "cover", "panels": rows })]);
+    assert!(refused.expect_err("分屏与取景不并存").message.contains("panels"));
+
+    // 联动组：登记、不重复登记、撤销、解组，成员删光时登记跟着删掉。
+    let refused = apply(&mut video, "cmd_link_kind", vec![json!({ "type": "linkItems", "itemIds": [id], "kind": "other" })]);
+    assert_eq!(code(refused), "INVALID_OPERATION");
+    let refused = apply(&mut video, "cmd_link_doc", vec![json!({ "type": "linkItems", "itemIds": [id], "kind": "recording", "recording": { "documentId": good } })]);
+    assert!(refused.expect_err("清单的种类不对").message.contains("recording manifest"));
+    let link = json!({ "type": "linkItems", "itemIds": [id], "kind": "recording", "recording": { "documentId": rec } });
+    let linked = apply(&mut video, "cmd_link", vec![link.clone()]).unwrap();
+    let group = item_json(&video)["linkGroupId"].as_str().unwrap().to_string();
+    assert_eq!(groups(&video), json!([{ "id": group, "kind": "recording", "syncVersion": 1, "recordingId": rec }]));
+    let refused = apply(&mut video, "cmd_link_again", vec![link.clone()]);
+    assert!(refused.expect_err("已经在组里").message.contains("already belongs"));
+    undo(&mut video, "cmd_link_undo", &linked).unwrap();
+    assert_eq!(groups(&video), Value::Null);
+    assert_eq!(item_json(&video)["linkGroupId"], Value::Null);
+
+    apply(&mut video, "cmd_relink", vec![link.clone()]).unwrap();
+    let group = item_json(&video)["linkGroupId"].as_str().unwrap().to_string();
+    assert_eq!(code(apply(&mut video, "cmd_unlink_missing", vec![json!({ "type": "unlinkItems", "groupId": "lg_none" })])), "INVALID_OPERATION");
+    apply(&mut video, "cmd_unlink", vec![json!({ "type": "unlinkItems", "groupId": group })]).unwrap();
+    assert_eq!(groups(&video), Value::Null);
+    assert_eq!(item_json(&video)["linkGroupId"], Value::Null);
+
+    apply(&mut video, "cmd_link_last", vec![link]).unwrap();
+    assert_eq!(groups(&video).as_array().map(Vec::len), Some(1));
+    // 保存成快照再读回来，取景与登记都在。
+    let snapshot = serde_json::to_value(video.snapshot()).unwrap();
+    assert_eq!(snapshot["schemaVersion"], json!(4));
+    assert_eq!(snapshot["sequences"][&s]["linkGroups"].as_array().map(Vec::len), Some(1));
+    assert_eq!(snapshot["sequences"][&s]["items"][0]["screenView"], json!({ "documentId": good }));
+    apply(&mut video, "cmd_delete", vec![json!({ "type": "deleteItems", "itemIds": [id] })]).unwrap();
+    assert_eq!(groups(&video), Value::Null);
+}

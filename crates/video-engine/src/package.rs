@@ -404,6 +404,7 @@ pub(crate) fn validate(state: &VideoState) -> EngineResult<()> {
     for sequence_id in state.sequences.keys() {
         check_overlaps(state, sequence_id)?;
     }
+    crate::recording_links::validate(state).map_err(invalid)?;
     let mut copy = state.clone();
     let changes = crate::transitions::reconcile_transitions(state, &mut copy)?;
     if let Some(first) = changes.removed.first() {

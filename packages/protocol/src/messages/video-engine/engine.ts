@@ -514,6 +514,18 @@ const en = {
   pointerTrackUnreadable: (p: P<'error'>) => `Not a readable pointer track: ${p.error}`,
   recordingFixed: 'A recording manifest cannot change after it is written',
   recordingUnreadable: 'The recording manifest of this screen view cannot be read',
+  linkGroupMember: (p: P<'group'>) => `Link group ${p.group} only takes video and audio clips`,
+  linkGroupKind: (p: P<'kind'>) => `The link group kind must be ${p.kind}`,
+  linkItemsEmpty: "linkItems needs at least one clip, each named once",
+  linkItemsTaken: (p: P<'item'>) => `Clip ${p.item} already belongs to a link group`,
+  linkGroupMissing: (p: P<'group'>) => `There is no link group ${p.group}`,
+  linkRecordingKind: (p: P<'document'>) => `Document ${p.document} is not a recording manifest`,
+  screenViewDocument: (p: P<'document'>) => `Document ${p.document} is not a screen view`,
+  screenViewSource: (p: P<'document'>) => `Screen view ${p.document} was not written for the footage of this clip`,
+  screenViewWithPanels: "A video split into panels cannot have a screen view",
+  screenViewNotVideo: "is not a video, so it cannot have a screen view",
+  labelLinkItems: "Link clips",
+  labelUnlinkItems: "Unlink clips",
 };
 
 export type EngineMessages = typeof en;

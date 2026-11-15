@@ -288,6 +288,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 | 素材 | `importAsset` `collectAssets` `removeAssets` `relinkAsset` | 版本、受影响的实例、缺失的资源、删掉的素材记录 |
 | 片段 | `addItem` `insertItems` `moveItems` `arrangeItem` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `insertRange` `updateItem` `replaceItemAsset` `setSpeed` | 新旧时间、lineage、联动的对象、换掉的素材版本 |
 | 样式 | `setText` `setTransform` `setStyle` `setProps` `setAnimation` `setKeyframes` `setAudioMix` | 属性校验的结果与改变的范围 |
+| 联动组 | `linkItems` `unlinkItems` | 新登记的组与成员（视频格式规范 §3.18）；现在只登记，不强制成组编辑 |
 | 转场与效果 | `setTransition` `removeTransition` `setEffects` | 被连带删掉的转场与原因、随实例变短的单侧转场 |
 | 章节与闪避 | `setChapters` `upsertChapter` `removeChapter` `setDucking` `removeDucking` | 新建或改动的章节与规则 |
 | 字幕 | `correctWords` `updateTranslation` `pinCaptionBreak` `setCaptionStyle` `setCaptionPresentation` | 新的文档版本、失效的依赖；`setCaptionPresentation` 整份替换字幕实例的 `presentation`（视频格式规范 §5.6），`null` 或空的去掉 |
@@ -311,8 +312,9 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 画面实例的字段、转场、效果、章节与闪避的语义见视频格式规范 §3.5–§3.9、§3.13、§3.15、§3.17，字段的取值与适用范围由引擎按元素模型校验（`crates/timeline`）。操作的约定如下：
 
 - `setTransform` 改画面实例的 `place`：`x`、`y`、`w`、`scale`、`scaleY`、`rot` 只改给出的，给 `null` 去掉（回到按种类的缺省）；`flipX`、`flipY` 是布尔。字幕与音频没有 `place`。
-- `setStyle` 只改给出的字段，给 `null` 去掉：`opacity`、`radius`、`cornerRadii` 写进 `place`；`mode`、`fit`、`bg`、`mask` 用于视觉媒体；`tile` 用于图片与文字；`style`、`stylePresetId`、`verticalAlign` 用于文字；`shape` 整个替换图形的参数；`crop` 用于视频与图片，给 `null` 去掉裁剪；`focalPoint` 用于视频与图片（视频格式规范 §3.5），给 `null` 去掉（居中）；它的 `zoom` 在 [1, 4]，越界拒绝，写 1 时不保存。
+- `setStyle` 只改给出的字段，给 `null` 去掉：`opacity`、`radius`、`cornerRadii` 写进 `place`；`mode`、`fit`、`bg`、`mask` 用于视觉媒体；`tile` 用于图片与文字；`style`、`stylePresetId`、`verticalAlign` 用于文字；`shape` 整个替换图形的参数；`crop` 用于视频与图片，给 `null` 去掉裁剪；`focalPoint` 用于视频与图片（视频格式规范 §3.5），给 `null` 去掉（居中）；它的 `zoom` 在 [1, 4]，越界拒绝，写 1 时不保存。`screenView`（`{ documentId }`）只用于视频，引用一份屏幕取景文档（视频格式规范 §3.18），给 `null` 去掉；文档必须是给这段画面写的，有 `panels` 的视频不能有。
 - `trimItem`、`splitItem` 与 `removeRange` 改了实例的窗口时，关键帧绑定与音量包络按视频格式规范 §3.15 跟着换算（`timeline::keyframes` 的 `rewindow`、`split_keyframes`）：`localFrame` 按内容的位移换算，窗口外的帧去掉并在新边界补一帧取样值，`percent` 原样；拆分时左半保留原来的绑定 ID，右半的绑定是新的。`removeRange` 里只缩短的静态实例按跟随剪口的规则换算（起点不动）。
+- `linkItems` 给 `itemIds`（同一条序列上的视频与音频实例，都还没有 `linkGroupId`）、`kind: 'recording'` 与可选的 `recording`（`{ documentId }` 或同一笔 `putDocument` 的 `{ ref }`，必须是录制清单），登记成一个联动组；`unlinkItems` 给 `groupId`，删掉登记并清掉成员的 `linkGroupId`。成员删光的组在事务结束时自动删掉登记。
 - `joinItems` 给 `itemIds`（两个，同一条轨道上首尾相接）与可选的 `keep`（`first`、`second`，按 `itemIds` 的先后），是拆分的逆：种类相同；带源时钟的速率相同、源时间精确连续；其余字段一致（名字、身份与时间除外），关键帧与音量包络能用 `join_keyframes` 拼回同一串帧。字段不一致时须给 `keep`，取那一边的字段（关键帧拼不回时取那一边的原样）。留下时间上靠前的实例（ID、起点、源起点与 lineage），靠后的删掉，列在回执的 `deletedIds`；靠后那件的出场转场、闪避组与字幕的 `scopeItemIds` 改指留下的那件，两件之间的转场随靠后那件删掉，列在 `impact.removedTransitions`。不合时整笔拒绝（`INVALID_OPERATION`，`details.rule` 为 `kind`、`track`、`not-adjacent`、`rate`、`source-gap` 或 `attributes`，后者带不一致的字段名 `keys`；角色贴纸的角色时钟接不上时是 `source-gap`，带 `field: 'motionIn'`）。
 - `setText` 给 `text` 或 `counter`（只给一个），给了的那个替换另一个。`setProps` 整个替换生成类元素与图形的种类参数（与实例种类同名的那一个）。`setAnimation` 整个替换元素动画三槽，`null` 去掉。`setKeyframes` 给 `property` 与 `keyframes`，整个替换这个属性的关键帧，`null` 或空表去掉这条绑定。`setTemplate` 整个替换序列的模板层，`null` 去掉。
 - `setAudioMix` 改音频实例的混音或视频、合成自带的那路声音：`muted`、`volume`（线性倍数，0–4）、`fadeIn`、`fadeOut`（十进制秒，`"0"` 去掉）。

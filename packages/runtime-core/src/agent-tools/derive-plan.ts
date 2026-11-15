@@ -528,7 +528,7 @@ function positionOf(item: SequenceItem): string {
   return `v:${item.span.fromFrame}:${item.span.durationFrames}`;
 }
 
-/** 实例的输入：去掉引擎分配的（ID、来历、轨道、叠放次序）与引用父视频里别的对象的（链接组、跟随的目标），一律跟随剪口。 */
+/** 实例的输入：去掉引擎分配的（ID、来历、轨道、叠放次序）与引用父视频里别的对象的（链接组、屏幕取景的文档、跟随的目标），一律跟随剪口。 */
 function itemInput(item: SequenceItem, settings: DeriveSettings, warnings: DeriveWarning[]): Record<string, unknown> {
   const {
     id: _id,
@@ -536,6 +536,8 @@ function itemInput(item: SequenceItem, settings: DeriveSettings, warnings: Deriv
     trackId: _trackId,
     paintOrder: _paintOrder,
     linkGroupId: _link,
+    // 屏幕取景的文档与录制清单不随派生带走（视频格式规范 §10）：子视频里是没有取景的原画面。
+    screenView: _view,
     followPolicy,
     locked,
     ...rest

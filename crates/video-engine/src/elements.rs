@@ -36,6 +36,7 @@ pub(crate) fn check_item(state: &VideoState, item_id: &str) -> EngineResult<()> 
     check_follow(item).map_err(fail)?;
     check_assets(state, item)?;
     check_link_group_sound(state, &placed.sequence_id, item)?;
+    crate::recording_links::check_item_links(state, &placed.sequence_id, item).map_err(fail)?;
 
     let bindings: Vec<&AnimationBinding> = header.animation_bindings.iter().filter(|b| b.target_id == item_id).collect();
     let mut keyframes = bindings_to_timeline(bindings.iter().copied(), header.fps.ratio().to_f64()).map_err(fail)?;

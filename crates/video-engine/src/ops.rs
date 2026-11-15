@@ -358,6 +358,25 @@ pub enum EditOperation {
         /// 视频的分屏格子（§3.5），整组替换；`null` 去掉（回到一整幅）。
         #[serde(default, deserialize_with = "nullable", skip_serializing_if = "Option::is_none")]
         panels: Option<Option<Vec<VideoPanel>>>,
+        /// 视频的屏幕取景（§3.18）：引用一份屏幕取景文档；`null` 去掉。
+        #[serde(default, deserialize_with = "nullable", skip_serializing_if = "Option::is_none")]
+        screen_view: Option<Option<ScreenViewRef>>,
+    },
+    /// 把同一条序列上的视频与音频实例登记成一个联动组（§3.18）：一次录制的屏幕、摄像头与声音。实例不能已经属于别的组。
+    /// `recording` 是这一组来自的录制清单。
+    LinkItems {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        item_ids: Vec<Id>,
+        kind: String,
+        #[serde(default)]
+        recording: Option<DocumentTarget>,
+    },
+    /// 解组（§3.18）：删掉登记，清掉成员的 `linkGroupId`。
+    UnlinkItems {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        group_id: Id,
     },
     /// 改文字实例的内容：`text`、`counter` 与 `chapter` 给且只给一个，给了的那个替换另外两个（§3.6）。
     SetText {
@@ -1087,6 +1106,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             crop,
             focal_point,
             panels,
+            screen_view,
         } => set_style(
             state,
             sequence_id.as_deref(),
@@ -1107,8 +1127,19 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
                 crop: *crop,
                 focal_point: *focal_point,
                 panels: panels.clone(),
+                screen_view: screen_view.clone(),
             },
         ),
+        EditOperation::LinkItems {
+            sequence_id,
+            item_ids,
+            kind,
+            recording,
+        } => {
+            crate::recording_links::link_items(state, sequence_id.as_deref(), item_ids, kind, recording.as_ref(), ctx)?;
+            item_ids.iter().try_for_each(|id| check_item(state, id))
+        }
+        EditOperation::UnlinkItems { sequence_id, group_id } => crate::recording_links::unlink_items(state, sequence_id.as_deref(), group_id),
         EditOperation::SetTransition {
             sequence_id,
             left_item_id,
@@ -1795,6 +1826,7 @@ fn add_item(
                     crop: None,
                     focal_point: None,
                     panels: None,
+                    screen_view: None,
                     embedded_audio: EmbeddedAudio {
                         enabled: true,
                         volume: 1.0,
@@ -3628,6 +3660,7 @@ struct StyleInput {
     crop: Option<Option<Crop>>,
     focal_point: Option<Option<FocalPoint>>,
     panels: Option<Option<Vec<VideoPanel>>>,
+    screen_view: Option<Option<ScreenViewRef>>,
 }
 
 fn set_style(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str, input: StyleInput) -> EngineResult<()> {
@@ -3706,6 +3739,9 @@ fn set_style(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str, i
     }
     if let Some(focal) = input.focal_point {
         crate::effects::apply_focal_point(item, item_id, focal.as_ref())?;
+    }
+    if let Some(view) = input.screen_view {
+        crate::recording_links::apply_screen_view(item, item_id, view)?;
     }
     match input.panels {
         Some(panels) => crate::effects::apply_panels(item, item_id, panels.as_deref())?,
