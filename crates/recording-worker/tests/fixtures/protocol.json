@@ -1,0 +1,55 @@
+{
+  "protocol": 1,
+  "hello": [
+    { "protocol": 1, "version": "0.4.0", "platform": "darwin", "capture": { "supported": true } },
+    { "protocol": 1, "version": "0.4.0", "platform": "win32", "capture": { "supported": false, "reason": "screen capture is not supported on this platform yet" } }
+  ],
+  "sources": [
+    {
+      "permissions": { "screen": "granted", "camera": "not-determined", "microphone": "denied", "inputMonitoring": "unknown" },
+      "displays": [{ "id": "1", "name": "Built-in Display", "width": 1512, "height": 982, "scale": 2, "primary": true }],
+      "windows": [{ "id": "4242", "title": "Untitled", "app": "TextEdit", "width": 800, "height": 600 }],
+      "cameras": [{ "id": "cam-1", "name": "Camera", "default": true }],
+      "microphones": [{ "id": "mic-1", "name": "Microphone" }]
+    }
+  ],
+  "start": [
+    { "dir": "/tmp/rec", "source": { "kind": "display" }, "camera": null, "microphone": "default", "systemAudio": true, "cursor": "separate", "keys": "off", "fps": 30 },
+    { "dir": "/tmp/rec", "source": { "kind": "display", "displayId": "1" }, "camera": "cam-1", "microphone": null, "systemAudio": false, "cursor": "baked", "keys": "shortcuts", "fps": 60 },
+    { "dir": "/tmp/rec", "source": { "kind": "window", "windowId": "4242" }, "camera": null, "microphone": null, "systemAudio": false, "cursor": "none", "keys": "all", "fps": 30 },
+    { "dir": "/tmp/rec", "source": { "kind": "area", "displayId": "1", "rect": { "x": 10, "y": 20, "width": 640, "height": 360 } }, "camera": null, "microphone": null, "systemAudio": true, "cursor": "separate", "keys": "off", "fps": 30 }
+  ],
+  "startResult": [
+    { "segmentId": "s1", "atNs": "196951569671916", "cursor": "separate", "capture": { "kind": "display", "width": 2560, "height": 1440, "scale": 1 } }
+  ],
+  "segmentResult": [{ "segmentId": "s2", "atNs": "196955718883083" }],
+  "stopResult": [{ "journal": "/tmp/rec/journal.jsonl" }],
+  "events": [
+    { "event": "stream", "params": { "role": "system-audio", "segmentId": "s1", "startNs": "196951652152458" } },
+    { "event": "device-lost", "params": { "role": "microphone", "segmentId": "s1", "atNs": "196952000000000" } },
+    { "event": "disk-low", "params": { "freeBytes": 1048576 } },
+    { "event": "failed", "params": { "code": "WRITER_FAILED", "message": "screen: the writer stopped" } }
+  ],
+  "journal": [
+    { "type": "begin", "recorder": { "name": "baocut", "version": "0.4.0" }, "platform": "darwin", "startedAt": "2026-11-15T22:06:36.816Z", "cursor": "separate", "keyboard": "shortcuts", "capture": { "kind": "display", "width": 2560, "height": 1440, "scale": 1 } },
+    { "type": "begin", "recorder": { "name": "baocut" }, "platform": "darwin", "startedAt": "2026-11-15T22:06:36.816Z", "cursor": "none", "keyboard": null, "capture": { "kind": "window", "width": 800, "height": 600, "scale": 2 } },
+    { "type": "segment", "id": "s1", "startNs": "196951569671916" },
+    { "type": "cursor", "id": "fcb3b73749ac68ac", "file": "cursor-fcb3b73749ac68ac.png", "hotspot": { "x": 0.25, "y": 0.125 }, "scale": 2 },
+    { "type": "pointer", "segmentId": "s1", "file": "s1-pointer.jsonl" },
+    { "type": "keys", "segmentId": "s1", "file": "s1-keys.jsonl" },
+    { "type": "stream", "role": "screen", "segmentId": "s1", "file": "s1-screen.mp4", "startNs": "196951569671916" },
+    { "type": "stream", "role": "microphone", "segmentId": "s1", "file": "s1-microphone.m4a", "startNs": "196951600000000", "device": { "id": "mic-1", "name": "Microphone" } },
+    { "type": "stream-end", "role": "microphone", "segmentId": "s1", "endNs": "196952000000000", "lost": true },
+    { "type": "stream-end", "role": "screen", "segmentId": "s1", "endNs": "196954669327041" },
+    { "type": "segment-end", "id": "s1", "endNs": "196954669327041" }
+  ],
+  "pointerEvents": [
+    ["196951569671916", "m", 0.5, 0.25],
+    ["196951569671916", "b", 0, 1],
+    ["196951569671916", "c", "fcb3b73749ac68ac"]
+  ],
+  "keyEvents": [
+    ["196951600000000", "KeyS", 1, ""],
+    ["196951700000000", "KeyS", 0, "s"]
+  ]
+}
