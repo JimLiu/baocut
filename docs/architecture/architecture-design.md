@@ -161,7 +161,7 @@ Electron Main
               +-- Browser / Remotion Workers：按代码包与隔离域复用
 ```
 
-Recording Worker（`crates/recording-worker`，[屏幕录制设计 §7](../design/screen-recording/README.md#7-进程与职责)）只采集与写文件：macOS 上 ScreenCaptureKit 录屏幕与系统声音、AVFoundation 录摄像头与麦克风，别的平台回答不支持。控制走 stdio 的 JSON 行（`worker-protocol.ts`），可执行文件经 `findBundledBinary` 找，`BAOCUT_RECORDING_WORKER` 可覆盖。它只写录制目录里的媒体分段、指针与键盘的事件文件、光标图片与只追加的 `journal.jsonl`；不碰视频，导入由 Runtime 读日志之后经 Engine Host 的 `edits.apply` 提交，所以 Worker 崩溃与正常停止走同一条收尾路径。它是 Runtime 的子进程，系统的录屏、摄像头、麦克风与输入监控权限按拉起它的应用算。
+Recording Worker（`crates/recording-worker`，[屏幕录制设计 §7](../design/screen-recording/README.md#7-进程与职责)）只采集与写文件：macOS 上 ScreenCaptureKit 录屏幕与系统声音、AVFoundation 录摄像头与麦克风，别的平台回答不支持。控制走 stdio 的 JSON 行（`worker-protocol.ts`），可执行文件经 `findBundledBinary` 找，`BAOCUT_RECORDING_WORKER` 可覆盖。它只写录制目录里的媒体分段、指针与键盘的事件文件、光标图片与只追加的 `journal.jsonl`；不碰视频，导入由 Runtime 读日志之后经 Engine Host 的 `edits.apply` 提交，所以 Worker 崩溃与正常停止走同一条收尾路径。它是 Runtime 的子进程；系统的录屏、摄像头、麦克风与输入监控权限预期按拉起它的应用算，打包后的应用里还没有实机核实（[屏幕录制设计 §14](../design/screen-recording/README.md#14-待评审事项)）。
 
 一个 Runtime Home 对应一个 Supervisor。多个窗口复用同一个 Runtime。不同的 Home 打开同一个视频时，仍然必须竞争视频级的操作系统锁，不能因为 Home 不同而绕过单写。只读打开可以单独协商；含有未知必需能力的视频不得以可写方式打开。
 
