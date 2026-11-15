@@ -4233,10 +4233,13 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
             video_model::editorial_proposal::editorial_proposal_body_problems(input.body)
         }
         s if video_model::caption_style::is_boxed_style_schema(s) || s.starts_with("baocut.caption-scene-style/") => video_model::caption_style::caption_style_body_problems(input.body),
+        // 录制清单与屏幕取景（§4.7、§4.9）整份核对。取景所属清单的鼠标模式在实例引用它时再对（§3.18）。
+        video_model::recording::RECORDING_SCHEMA => video_model::recording::recording_body_problems(input.body),
+        video_model::screen_view::SCREEN_VIEW_SCHEMA => video_model::screen_view::screen_view_body_problems(input.body, None),
         _ => Vec::new(),
     };
     let mut problems = problems;
-    problems.extend(video_model::caption_style::scene_resource_problems(input.body, &state.assets));
+    problems.extend(video_model::document_resource_problems(input.body, &state.assets));
     if !problems.is_empty() {
         return Err(ErrorBody::invalid_operation(msg!(
             "engine.bodyNotSchema",
@@ -4371,7 +4374,7 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
     record.revisions.insert(
         revision.clone(),
         DocumentRevision {
-            asset_refs: video_model::caption_style::scene_asset_refs(input.body).unwrap_or_default(),
+            asset_refs: video_model::document_asset_refs(input.body).unwrap_or_default(),
             revision: revision.clone(),
             content_hash: content_hash.clone(),
             byte_length: text.len() as u64,

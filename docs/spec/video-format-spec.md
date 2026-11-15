@@ -1,6 +1,6 @@
 # BaoCut 视频格式规范
 
-> 视频是权威的可编辑对象；导出的成片与导入的视频文件都不是它。本规范定义它的数据模型：时间、序列与实例、素材与文档、语音与字幕、口播剪辑、配音与版本，以及便携包。
+> 视频是权威的可编辑对象；导出的成片与导入的视频文件都不是它。本规范定义它的数据模型：时间、序列与实例、素材与文档（含录制产生的清单、指针轨与屏幕取景）、语音与字幕、口播剪辑、配音与版本，以及便携包。
 
 格式标识：`baocut.video`，`schemaVersion: 3`。
 
@@ -71,6 +71,7 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [k: string]:
 - 可选的 vendor extensions 保留在自己的命名空间；读到不认识的可选扩展时，写回不得丢失它。
 - 能力矩阵决定哪些实例类型与效果当前可以编辑。尚未实现的类型不得被静默当成普通图片或空白。
 - 视频的 `schemaVersion`（§3.1）是格式版本（架构设计 §13.3 的 `videoSchemaVersion`），当前为 3。新增的对象会改变渲染结果、旧版本的程序读到会画错时（例如把转场画成硬切），版本加一；只增加可以忽略的字段时不加。高于已知版本时拒绝打开，不改写。
+- 屏幕取景与联动组（`VideoItem.screenView`、`Sequence.linkGroups`，§3.18）改变渲染结果与编辑语义：旧版本的程序读到会少画放大与光标、会把一组录制剪散，按上一条属于要加版本的新增，用到它们的视频是版本 4。版本怎么升与 LUT 效果一并待裁决（§10）；裁决并实现之前，引擎不保存这两个字段。录制清单、指针轨与屏幕取景文档（§4.7–§4.9）是开放种类的文档与素材，旧版本读到时原样保留、不参与渲染，不需要加版本。
 - 版本 3 的画面元素采用 v2 的元素模型（§3.4–§3.9、§3.15–§3.17）。按架构设计 §13.4，它不为版本 1–2 的视频保留兼容：读取只接受 3；版本 1–2 的视频拒绝打开并说明版本已不受支持，不改写；它们的内容从原来的旧项目重新导入。这一条就是这次升级的兼容检查（架构设计 §13.3）。
 
 ---
@@ -137,13 +138,14 @@ interface FrameSpan { fromFrame: number; durationFrames: number }
 type TimeDomain =
   | { kind: 'sequence'; sequenceId: Id }
   | { kind: 'source'; assetRef: VersionRef }
+  | { kind: 'recording'; recordingRef: VersionRef }      // 录制时间（§4.7）
   | { kind: 'composition'; itemId: Id; bundleRef: VersionRef }
   | { kind: 'audio'; assetRef: VersionRef; sampleRate: number };
 
 interface TimePoint { domain: TimeDomain; time: MediaTime }
 ```
 
-- 序列时间由上下文的视频版本与序列版本固定；源时间由素材版本固定；合成时间还绑定选中的实例、代码包与 timeMap。
+- 序列时间由上下文的视频版本与序列版本固定；源时间由素材版本固定；合成时间还绑定选中的实例、代码包与 timeMap。录制时间由录制清单的版本固定，它与各路流的素材源时间之间只经清单里那路流的 `start` 换算（§4.7）。
 - 只有同一个时间域里的点才可以直接相减。跨域必须经过显式的映射；不能仅仅因为 `timescale` 相同就比较或覆盖。
 - 所有区间统一为**左闭右开 [start, end)**。
 - 视频中的逻辑位置不为负。素材的原始 PTS 可能有负的 origin；导入时保存原始的 origin 与 edit list，并建立归一化的展示时间，不丢弃原始信息。
@@ -447,6 +449,7 @@ interface Sequence {
   transitions: Transition[];         // §3.9，按 ID 排序
   markers: Marker[];                 // §3.13，按帧排序，同帧按 ID
   ducking: DuckingRule[];            // 闪避规则（§3.9），按 ID 排序
+  linkGroups: LinkGroup[];           // 登记的联动组（§3.18），按 ID 排序；没有时为空
   template?: TemplateLayers;         // 模板层（§3.17）；没有时省略
 }
 ```
@@ -500,7 +503,7 @@ interface ItemBase {
   paintOrder: number;
   followPolicy: FollowPolicy;          // §3.16
   lineage?: ItemLineage;               // 拆分、裁切后的来源关系
-  linkGroupId?: Id;                    // 音画联动组
+  linkGroupId?: Id;                    // 音画联动组；登记过的组按 §3.18 联动
   role?: string;                       // 实例在视频里的作用，见下
   ai?: JsonValue;                      // 生成来源的说明；引擎不解释，原样保留
   untilSequenceEnd?: true;             // 终点跟着序列末尾（§3.16）；不是时省略
@@ -536,6 +539,7 @@ interface VideoItem extends VisualItemBase, MediaFields {
   crop?: Crop;                         // §3.5
   focalPoint?: FocalPoint;             // §3.5
   panels?: VideoPanel[];               // §3.5 分屏：2–4 格，只用于全屏 cover；省略时一整幅
+  screenView?: { documentId: Id };     // 屏幕取景（§3.18）：这段画面的缩放区间与另画的光标；跟随文档的当前版本
   embeddedAudio: EmbeddedAudio;        // 内嵌音频的路由（§3.9）
 }
 
@@ -592,8 +596,9 @@ type SequenceItem =
   - `tile`：文字与图片。
   - `crop`、`focalPoint`：视频与图片。
   - `panels`：只用于 `mode` 为 `fullscreen`、`fit` 为 `cover`（或省略）的视频。
+  - `screenView`：只用于视频；有 `panels` 时不能有。
   - `source`、`html`：只用于图片；有 `html` 时 `source` 必须是 `'html'`。
-- **`role`** 说明实例的作用，供界面分组与智能体理解，不改变渲染。词表开放，读到不认识的取值照常保留。其中五个值写入时校验与种类的搭配：`broll`（图片、视频）、`watermark`（文字、图片、视频、贴纸）、`screentext`（文字）、`overlay` 与 `frame`（图片、视频、贴纸）。其余常用的取值：`a-roll`、`narration`、`dub`、`music`、`sfx`；字幕实例用 `source`、`translation`。
+- **`role`** 说明实例的作用，供界面分组与智能体理解，不改变渲染。词表开放，读到不认识的取值照常保留。其中五个值写入时校验与种类的搭配：`broll`（图片、视频）、`watermark`（文字、图片、视频、贴纸）、`screentext`（文字）、`overlay` 与 `frame`（图片、视频、贴纸）。其余常用的取值：`a-roll`、`narration`、`dub`、`music`、`sfx`；字幕实例用 `source`、`translation`；录制的各路流用 `screen`、`camera`（视频实例）与 `microphone`、`system-audio`（音频实例），与录制清单里流的 `role` 同名（§4.7）。
 - **`extensions`** 的键是命名空间（例如 `baocut.import`）。引擎不解释其中的内容，写回时原样保留。画面元素的参数一律写正式字段，不放进这里（架构设计 §13.4）；这里只放说明来源的数据，例如导入时的原始 ID。
 - **时间**。画面实例的 `span` 在序列的帧网格上。以秒给出的时刻（v2 的元素时间、命令里的秒）按最短的十进制写法读成精确有理数，取最近的帧，等距时取较早的（§2.6），长度至少 1 帧，并给出量化回执（§2.9）。音频实例的位置与长度按 §2.10，不量化。挂在词上的起止写成 `followPolicy` 的 `speech-anchor`，不设终点写成 `untilSequenceEnd`（§3.16）；这两种实例的 `span` 由引擎按当前的时间线求出，同样量化到帧。
 - 同一条轨道上的实例在时间上不重叠，需要叠在一起的画面放在不同的轨道上。导入与编辑器写入遇到重叠时，把后来的实例放到相邻的轨道上（没有空位就新建一条），不改它的时间。
@@ -1252,7 +1257,7 @@ type SemanticAnchor =
   - 跟随者在目标起点之前时，保持到目标新起点的距离。
   - 目标被删掉（拆出来的也一段不剩）时，跟随者在同一笔事务里一起删掉，列在回执的 `impact.removedWithTarget`；跟着它的实例再一起删。
   - 跟随者自己在这笔事务里被移动或修剪过、或者跟随策略是这笔事务写下的，不再补算。写下时目标必须在同一个序列上，否则拒绝（`INVALID_OPERATION`，`details.rule: 'item-local-target'`）。跟随者锁着而要移动或删掉时整笔拒绝（`TARGET_LOCKED`）；移动之后与同轨道的实例重叠时按 §3.10 拒绝。
-- **`explicit-link-group`**。已定：这一版不做联动，只保存与校验形状，编辑时不移动。
+- **`explicit-link-group`**。已定：这一版不做联动，只保存与校验形状，编辑时不移动。成组的联动由登记的联动组（§3.18）决定，不看这个策略；组的成员同时写了它时，`groupId` 必须等于自己的 `linkGroupId`。
 - **`follow-cuts`**。应用或恢复剪口（§6.7）的事务里，这样的实例按剪口之前与之后的时间线移动：
   - 起点与终点各自先从旧的序列时刻映射回被剪素材上的源时刻，再映射到新的序列时刻。
   - 落进被删掉的区间时，起点推到下一个保留的时刻，终点拉到上一个保留的时刻；终点不晚于起点时删掉这个实例，在回执里列出。
@@ -1315,6 +1320,64 @@ type TemplateLayer = {
 
 字段来源：`crates/timeline/src/protocol/template.rs` 的 `TemplateDoc`、`TemplateLayer`、`LayerBox`、`LayerKind`、`MIN_W`、`MIN_H`、`VAR_NAMES`、`HUES`、`MIN_OPACITY`、`validate`、`ratio_lock`；派生规则见 `crates/timeline/src/template.rs` 的 `progress`、`segments`、`vars`、`fill`、`subs_bottom`。
 
+### 3.18 联动组与屏幕取景
+
+录制（屏幕、摄像头、麦克风、系统音频与鼠标）进入视频之后是普通的素材与实例：屏幕与摄像头各是一个视频实例，两路声音各是一个音频实例，继续用现有的几何、遮罩、混音、剪辑与字幕。格式为录制加的只有三样：各路流共用的时钟（录制清单，§4.7），成组的时间编辑（联动组），屏幕画面里的取景与光标（屏幕取景，正文见 §4.9）。整体方案见[屏幕录制设计](../design/screen-recording/README.md)。
+
+```ts
+interface LinkGroup {
+  id: Id;                              // 成员的 linkGroupId
+  kind: 'recording';                   // 认不出的种类按 §1.4 处理
+  syncVersion: 1;                      // 联动规则的版本
+  recordingId?: Id;                    // 这一组来自哪份录制清单（§4.7）
+}
+```
+
+**联动组**
+
+- 组登记在序列的 `linkGroups` 里。成员是同一条序列上 `linkGroupId` 等于组 ID 的实例，只能是视频实例与音频实例；一个实例至多属于一个组。事务结束时没有成员的组，登记一并删掉。
+- **登记了才联动。** `linkGroupId` 没有对应登记的实例保持原有的含义（合成与配音的音画联动组，§3.7），编辑时不联动。已有的视频里没有登记，行为不变。
+- 一个组是一次录制在时间线上的一段连续的使用。同一次录制放上时间线两次是两个组，各有各的实例与屏幕取景文档，互不影响。
+- 成组时，各成员在同一序列时刻对着同一录制时刻：成员在序列时刻 `t` 的源时间是 `s`（按它的 timeMap，§2.5），它所在的流的录制时间就是 `start + s`（§4.7）。比别的流晚开始的流（例如摄像头）实例也晚开始，不把它的第一帧对到组的开头。
+- 外观的编辑只作用于被编辑的成员：摄像头的位置、大小、圆角、镜像与遮罩，声音的音量与淡化。时间的编辑按组进行，规则如下（未实现，§10）：
+
+| 操作 | 规则 |
+| --- | --- |
+| 移动 | 全部成员移动同一段序列时间 |
+| 拆分 | 在同一序列时刻拆开跨过它的每个成员。右半按 §3.4 记 `lineage`，一起登记成一个新组（新的 ID，`recordingId` 相同）；没有跨过拆分点的成员按它所在的一侧归组 |
+| 修剪 | 各成员修剪到同一序列时刻；本来就没有伸到那里的成员不动 |
+| 删除一段并闭合 | 等于拆分两次、删掉中间那一组、后面的内容按命令点明的轨道前移（§3.16「全局 ripple」） |
+| 剪口（§6.7） | 加在一个成员素材上的剪口，经录制清单换算成其余成员素材上的源区间（先到录制时间，再减去各自的 `start`），同一笔事务里一起剪、一起波纹；恢复剪口同样成组 |
+| 变速 | 各成员用同一个速率；内容怎样跟着缩放按 §2.7 的 rateStretch 显式选择 |
+| 删除 | 删除一个成员只删它（例如不要摄像头）；删除整组是删除全部成员 |
+| 复制 | 复制整组得到新的实例与新的组；屏幕取景文档一并复制成新文档 |
+| 单独改一个成员的时间 | 拒绝。先解组，或者做同步校正：只改这一个成员的源起点，位置与长度不变 |
+| 解组 | 删掉登记，清掉成员的 `linkGroupId`；之后各自编辑 |
+
+- 组的时间编辑不看成员自己的 `followPolicy`（与被剪轨道上的实例相同，§3.16）。任一成员或它的轨道锁着时，会移动或改变它的整组事务整笔拒绝（`TARGET_LOCKED`），`details` 指出是哪个成员。
+- 从界面、CLI 与智能体发出的命令走同一套规则：按文稿删掉一句话时，剪口先加在麦克风素材上，再按上表落到整组。
+
+**屏幕取景**
+
+屏幕取景让一段屏幕画面在某些区间放大并跟着鼠标走，并把没有录进画面的光标画回去。视频实例用 `screenView.documentId` 引用一份屏幕取景文档（`kind: 'screen-view'`，§4.9），跟随文档的当前版本。
+
+- **引用的约束**（写入时核对）：文档的 `clock` 是 `recording` 时，文档头的 `sourceDocumentId` 是一份录制清单，实例的 `assetRef` 是清单里一路 `screen` 流的素材版本；`clock` 是 `source-asset` 时，文档头的 `sourceAssetId` 等于实例的素材 ID。文档里有 `pointer`，或有跟着指针的缩放区间时，按清单的鼠标模式再核对一次（§4.9）。
+- **按内容时间求值。** 序列时刻 `t` 先按实例的 timeMap 精确映射到源时间 `s`（§2.5），再到文档的时钟：`recording` 是这路流的 `start + s`，`source-asset` 就是 `s`。这一刻的取景与光标只是内容时间的函数，输入是冻结的文档版本、清单版本、指针轨、光标图片与求值算法的版本；不读播放历史，不读序列上的位置。因此：
+  - 随机拖动播放头与顺序播放得到同一帧；
+  - 只拆分、移动或修剪，每个时刻的画面不变，右半不会从头再放大一次；
+  - 变速时放大与光标跟着内容一起变快或变慢；
+  - 删掉一段内容之后，接缝两侧各按自己的内容时间取值，画面在接缝处直接跳过去，不为被删掉的内容补一段过渡。
+- **画法**，在 §3.5 的裁剪之后、`fit` 之前：
+  1. 源画面按旋转元数据摆正，按 `crop` 取出区域 C。
+  2. 求这一刻的可见区域 V：与 C 同宽高比，宽高是 C 的 1 / k，k 是这一刻的放大倍率（区间之外是 1，区间里由 1 过渡到区间的 `scale`）；位置由焦点决定，并限制在 C 之内，不露出 C 以外的画面。把 V 放大到 C 的大小，得到取景后的画面，尺寸与 C 相同。
+  3. 鼠标模式是 `separate` 时，在取景后的画面上画光标与点击提示：指针位置与光标的大小经过第 2 步的同一个变换，所以光标始终压在它指着的内容上，并随放大一起变大。指针在捕获画面之外、或落在 V 之外时不画，不把它夹到边上。
+  4. 结果当作这个实例的源画面，之后与没有取景的视频完全相同：`fit` 与 `focalPoint`、`fx`、圆角与遮罩、`place` 与动画（§3.5、§3.9、§3.15）。
+- 所以取景只改变框里的内容，不改变框：画中画的屏幕放大时位置与大小不变，边框、圆角与阴影不变；摄像头是另一个实例，不受影响。`focalPoint` 照常决定 `cover` 留下哪一段，它的 `zoom` 与取景的放大相乘。有 `panels` 的实例不能有 `screenView`。
+- **坐标。** 焦点与指针位置都是摆正之后、裁剪之前的源画面的归一化坐标（左上为原点）。改了 `crop`，焦点仍指着同一处内容；焦点落在 C 之外时，V 贴着 C 的边。
+- 预览（WASM）与导出（原生）用同一份求值与画法；舞台上的取景框与命中测试也读它的结果。导出前冻结上面列的全部输入，播放时不读外部的录制目录。
+- **与实例的关系。** 拆分出来的两半引用同一份文档。复制实例（包括整组复制）与把同一次录制再放一次时，文档复制成新的一份，两处的缩放互不影响。删除实例不删文档，撤销可以恢复。
+- 光标已经录进画面的录制（`baked`）可以跟着指针取景，但没有可以隐藏、放大或替换的光标。没有录制清单的普通视频也可以取景，只能固定看一点。
+
 ---
 
 ## 4. 素材与文档
@@ -1360,6 +1423,7 @@ interface AssetRevision {
 - `contentHash` 必填，登记时算好。不存在「摘要待定」的素材版本。
 - `kind: 'lottie'` 是一个 Lottie 动画文件，只能被素材贴纸引用（§3.7）；它没有音轨，显示尺寸取动画声明的宽与高。素材是一份 bodymovin JSON（`mediaType` 是 `application/json`），或一个 `.lottie` 压缩包（`application/zip`，画清单里的当前动画，没有清单时画第一段）。导入时 `.lottie` 文件，以及读出来像 Lottie 的 `.json`（顶层有版本 `v`、数值的 `fr`、`ip`、`op` 与图层数组）记成 `lottie`，别的 JSON 仍是 `other`；版本记下 `video`（动画声明的宽高、帧率，像素比 1，`hasAlpha`）与 `duration`（帧范围除以帧率，按毫秒取整），都用渲染内核读 Lottie 的同一份实现读出。读不开、用了内核不支持的特性或帧范围为空的不收（`MEDIA_PROBE_FAILED`），超过 32 MiB 的不收（`INVALID_OPERATION`）。图片子资源可以是 PNG、JPEG、GIF（首帧）、WebP 或 SVG（按资源声明的宽高光栅，`<text>` 不画），要么内嵌成 data URI，要么放在同一个压缩包里；只写了路径、包里也没有的外部图片读不到，这个实例画不出来，报 `lottie-asset-missing`。
 - `kind: 'puppet'` 是一个角色包（`mediaType` 为 `application/x-baocut-puppet+zip`，格式见角色格式规范）：分层角色包（`.bcpuppet`）或 mesh-avatar 角色包（`.mavatar`，角色格式规范 §2.5），按包里的文件区分，扩展名只决定导入时认不认它是角色包。只能被素材贴纸引用（§3.7）。它没有音轨与时长；版本记下 `video`（分层角色是 `model.json` 的画布宽高，mesh-avatar 角色是 `rig.json` 的 `image` 宽高，像素比 1，帧率记 30/1，`hasAlpha: true`）。分层角色导入时只读 `model.json` 与各贴图的尺寸，不解码像素；mesh-avatar 角色整包读一遍、建好网格；读不开或不合格式的不收（`MEDIA_PROBE_FAILED`），超过 64 MiB 的不收（`INVALID_OPERATION`）。角色的动作轨是 `kind: 'other'` 的 JSON 素材：导入时顶层 `format` 是 `baocut-puppet-track` 的 JSON（先排除 Lottie）按动作轨校验，记成 `application/x-baocut-puppet-track+json`，校验不过不收（`MEDIA_PROBE_FAILED`）。
+- 指针轨（§4.8）同样是 `kind: 'other'` 的 JSON 素材：导入时顶层 `format` 是 `baocut-pointer-track` 的 JSON 按 §4.8 校验，记成 `application/x-baocut-pointer-track+json`，校验不过不收（`MEDIA_PROBE_FAILED`）。
 - `kind: 'caption'` 与 `kind: 'document'` 是**文件**（一个 SRT、一份 PDF），不是 §4.4 的文档。导入字幕文件时，文件是素材，解析出来的字幕行是文档，文档用 `sourceAssetId` 指回文件。
 - 可变帧率的索引、代理、缩略图、波形和反向 conform 都是派生产物，不属于素材版本。
 - 颜色信息（`ColorInfo`）与许可状态（`LicenseState`）尚未纳入（§10）。
@@ -1423,7 +1487,7 @@ interface DocumentRecord {
 }
 
 interface DocumentRevision {
-  assetRefs?: VersionRef[];             // 引擎从正文派生的冻结素材依赖，包含历史版本的保留关系
+  assetRefs?: VersionRef[];             // 引擎从正文派生的冻结素材依赖（动态字幕场景的图片、录制清单的各路流与光标），包含历史版本的保留关系
   revision: Revision;
   contentHash: string;
   byteLength: number;
@@ -1455,6 +1519,7 @@ interface Provenance {
 - 从用户库拷进来的素材，`origin` 为 `library`，`source.library` 记下条目所在的库、条目 ID、版本、内容摘要、名字与种类（架构设计 §5.9）；之后库里的修改与删除不改变这个素材。
 - 从随应用分发的贴纸拷进来的素材（元素面板的贴纸与动态贴纸，命令与协议规范 §4.1 的 `stickers.applyToVideo`），`origin` 为 `sticker-pack`，`source.stickerPack.id` 记贴纸 ID（`<包>-<文件>`，如 `featured-01.svg`；元素面板「虚拟主播」一节的内置主播是角色包，如 `host-rin.bcpuppet`）；文件以 `managed` 拷进视频，之后应用升级换了这张贴纸也不改变这个素材。
 - 元素面板里的 Codex Pets 拷进来的素材（命令与协议规范 §4.1 的 `pets.applyToVideo`），`origin` 为 `codex-pet`，`source.codexPet` 记 `{ source, slug, name, author, license, version }`：`source` 是 `community`（awesome-codex-pet 的社区 pet），`version` 是图集版本（1 或 2），`license` 是作者自报的许可原文。素材是待机那一行编成的循环 APNG（`image/apng`，§3.7），以 `managed` 拷进视频，之后上游换了图集也不改变这个素材。
+- 录制得到的素材（屏幕、摄像头、麦克风、系统音频、指针轨与光标图片），`origin` 为 `recording`，`source.recording` 记 `{ recorder, role }`：`recorder` 同录制清单的 `recorder`（§4.7），`role` 是这路流的角色，光标图片是 `cursor`。它们没有原文件可以指向，总是 `managed`（§4.2）。哪个素材是哪次录制的哪一路、怎样对时，以录制清单为准，不从来源推断。
 - 叠加模板按路径引用的台标（§3.17 的 `src: { file }`）登记成的素材，`origin` 为 `template-logo`，`source.templateLogo.file` 记模板里的那个相对路径；文件以 `linked` 留在项目里，渲染按这个来源找到它。
 - 用户上传的媒体只记录已知的出处；上传不代表拥有第三方素材的全部权利。
 - 临时 URL、blob URL、签名地址、浏览器对象和 GPU 句柄不得进入视频格式。
@@ -1481,9 +1546,11 @@ interface Provenance {
 | `sound-cue-sheet`、`narration-cue-sheet` | 声音事件表、旁白事件表 | 计划 | §7.9、§7.10 |
 | `chapter-sheet` | 章节表：一个序列的每一章的脚本、配音、代码包与它编译成的实例与标记 | `baocut.chapter-sheet/1`（今天只有界面读脚本，编译未实现） | §7.12 |
 | `script` | 做视频时写下的整份脚本（Markdown），版本就是文档的版本 | `baocut.script/1` | §7.13 |
+| `recording` | 录制清单：一次录制的各路流、分段与对时 | `baocut.recording/1` | §4.7 |
+| `screen-view` | 屏幕取景：一段屏幕画面的缩放区间与另画的光标 | `baocut.screen-view/1` | §4.9 |
 
-- 时间在正文里用整数表示，并写明时间基与时钟：`timescale`（每秒的刻度数）与 `clock`（`source-asset`：这份文档或它的来源文档的 `sourceAssetId` 所指素材的时钟；`sequence`：序列时间）。不用浮点秒。
-- 引擎只核对 `baocut.speech/1` 与 `baocut.translation/2` 里 §5.2、§5.3 补充的字段：出现时形状必须对（类型、枚举值与取值范围），引用的词在不在不查；`baocut.cut-set/1` 按 §6.7 的约束整份核对。其余正文不校验。带 `/1` 的几种格式是导入旧项目时定下来的，比 §5 描述的模型简单；二者怎么统一列在 §10。
+- 时间在正文里用整数表示，并写明时间基与时钟：`timescale`（每秒的刻度数）与 `clock`（`source-asset`：这份文档或它的来源文档的 `sourceAssetId` 所指素材的时钟；`sequence`：序列时间；`recording`：录制时间，由这份文档自己（录制清单）或它的 `sourceDocumentId` 所指的录制清单定义，§4.7）。不用浮点秒。
+- 引擎只核对 `baocut.speech/1` 与 `baocut.translation/2` 里 §5.2、§5.3 补充的字段：出现时形状必须对（类型、枚举值与取值范围），引用的词在不在不查；`baocut.cut-set/1` 按 §6.7 的约束整份核对，`baocut.recording/1` 与 `baocut.screen-view/1` 按 §4.7、§4.9 整份核对。其余正文不校验。带 `/1` 的几种格式是导入旧项目时定下来的，比 §5 描述的模型简单；二者怎么统一列在 §10。
 - `export-record` 与 `import-record` 是这台机器上的记录：正文里有本机路径（成片写到了哪里、旧项目原来在哪里）。它们不参与渲染，也不是任何实例的输入；打包成便携包时不带出去，或去掉路径之后再带（§8）；这两种记录还没有实现，现在正文里有本机路径的文档一律在导出便携包时拒绝（§8.2，架构设计 §14）。
 - 读到不认识的 `kind` 或 `schema`：文档头照常显示，正文不解释，写回时保留。
 - `derivation` 记这部视频是从哪个视频的哪一段派生的（`videos.derive`，架构设计 §3.5「派生子视频」）：派生时写一份，正文与文档头的 `summary` 相同（Space 的内容索引只读 `summary`），名字「派生来源」（按当前语言）。之后不随父视频或子视频的修改更新，只记派生那一刻。正文：
@@ -1559,6 +1626,141 @@ interface Provenance {
   ```
 
   读的时候 `schema` 不对就当作什么都没启用，不合的项丢掉；条目在库里删了不改这份文档，用到时跳过并报告。它只经 `library.setVideoSelection` 整份重写（命令与协议规范 §4.1），新建的视频由 Runtime 写入默认启用的术语表。不参与渲染，打包时照常带走（便携包里的条目 ID 在另一台机器的库里可能没有，用到时同样跳过）。
+
+### 4.7 录制清单
+
+录制清单（`kind: 'recording'`）记一次录制产生了什么：分了几段，每段有哪几路流，各是哪个素材版本，怎样落到同一个时钟上。它记的是录下来的事实，录制完成时写一次，之后不再修改；剪辑、布局与取景是别处的编辑意图（§3.18、§4.9）。
+
+```ts
+interface RecordingBody {
+  schema: 'baocut.recording/1';
+  timescale: number;                   // 每秒的刻度数；下面的时刻都是它的整数刻度，写成十进制字符串
+  clock: 'recording';
+  recorder: {
+    name: string;                      // 录制后端，例如 'cap'
+    version?: string;
+    revision?: string;                 // 后端的源码版本
+    importer?: string;                 // 把后端的产物写成清单的导入器与版本，例如 'cap-studio/1'
+  };
+  platform?: string;                   // 'macos'、'windows'、'linux'……（开放）
+  startedAt?: string;                  // RFC 3339
+  duration: string;                    // 有效录制长度，大于 0
+  segments: Array<{ id: string; t0: string; t1: string }>;
+  streams: RecordingStream[];
+  pointer: {
+    mode: 'separate' | 'baked' | 'none';
+    cursors?: RecordingCursor[];       // 光标外观，只在 separate 时有
+  };
+}
+
+interface RecordingStream {
+  id: string;
+  role: 'screen' | 'camera' | 'microphone' | 'system-audio' | 'pointer';
+  segmentId: string;
+  assetRef: VersionRef;
+  start: string;                       // 素材源时间 0 落在录制时间的哪一刻；可以为负
+  coverage?: Array<{ t0: string; t1: string }>;   // 录制时间上真正有内容的区间
+  device?: { id?: string; name?: string };
+  capture?: {                          // 只用于 screen
+    kind: 'display' | 'window' | 'area';
+    width: number; height: number;     // 捕获画面的像素尺寸（已摆正），大于 0
+    scale?: number;                    // 一个逻辑点是几个像素（Retina、Windows 的缩放）
+  };
+}
+
+interface RecordingCursor {
+  id: string;
+  assetRef: VersionRef;                // 一张图片
+  hotspot: { x: number; y: number };   // 热点在图片里的位置，图片宽高的比例，各在 [0, 1]
+  scale?: number;                      // 图片的几个像素对应捕获画面的一个像素，大于 0，缺省 1
+  shape?: string;                      // 系统光标的名字（'arrow'、'ibeam'……），开放
+}
+```
+
+- **录制时间**从 0 开始，暂停的时间不计入。`segments` 按 `t0` 排序、首尾相接，铺满 `[0, duration)`：第一段从 0 开始，每次暂停后恢复是新的一段，最后一段在 `duration` 结束。
+- **流**是一路输入在一段里录下的一个素材：屏幕与摄像头是视频素材，麦克风与系统音频是音频素材，`pointer` 是指针轨（§4.8）。每段每种角色至多一路；一个素材版本只属于一路流。素材按 §4.5 记来源，总是 `managed`。
+- **对时。** 素材源时间 `s`（归一化的展示时间，§2.4）对应录制时间 `start + s`，速率是 1：各路流的时钟由录制后端校到一起，清单不记漂移。比这一段早开始的流 `start` 小于段的 `t0`，晚开始的大于它；导入不得为了凑齐把各路流的第一帧都对到段的开头。
+- **有内容的区间。** `coverage` 按 `t0` 排序、互不重叠，落在所在的段里；省略时是素材全长与所在段的交集。导入按它放实例：区间之外不放，画面露出下层，声音是静音，不停在最后一帧。设备晚启动、中途断开都这样表达。
+- **鼠标模式。** `separate`：屏幕画面里没有光标，光标按指针轨另画，`cursors` 给出各种外观；`baked`：光标已经录在画面里，指针轨只用来驱动取景；`none`：画面里没有光标，也没有指针轨（这时不能有 `pointer` 流）。`cursors` 只在 `separate` 时有，`id` 不重复。
+- **素材依赖。** 清单引用的全部素材版本（各路流，再是光标图片）由引擎登记在这个文档版本的 `assetRefs` 里（§4.4）：它们因此算被用着，随便携包带走（§8），缺失时照 §4.2 报告。写入时引擎核对每个引用在不在、种类对不对；便携包导入时按正文重算，与登记的不一致就拒绝。
+- 写入时整份核对：上面各条，加上 `timescale` 是正的安全整数、时刻是整数刻度、各种 ID 不重复、流的 `segmentId` 存在、`capture` 只出现在屏幕流上。
+- 清单不参与渲染。渲染经由引用它的屏幕取景文档（§4.9）用到它与指针轨；联动组用它换算各成员的时间（§3.18）。
+- 不在这一版里的：键盘事件，一次录多块屏幕，流之间的时钟漂移，录制中捕获尺寸的变化（§10）。
+
+### 4.8 指针轨
+
+指针轨是一次录制里鼠标的位置、按键与光标外观的记录。它是 bytes，不是文稿：存成素材（`kind: 'other'`，`mediaType` 为 `application/x-baocut-pointer-track+json`，§4.1），由录制清单的 `pointer` 流引用。
+
+```ts
+interface PointerTrack {
+  format: 'baocut-pointer-track';
+  version: 1;
+  timescale: number;                              // 每秒的刻度数
+  moves: Array<[t: number, x: number, y: number]>;          // 位置样本
+  buttons: Array<[t: number, button: number, down: 0 | 1]>; // 按下与抬起
+  cursors: Array<[t: number, cursorId: string]>;            // 光标外观的切换
+}
+```
+
+- **时刻**是素材自己的时钟上的非负整数刻度（0 是素材开头），不大于 2⁵³ − 1；三个数组各自按 `t` 不减。落到录制时间按清单里这路流的 `start`（§4.7）。
+- **坐标**是捕获画面（摆正之后）的归一化坐标，左上为原点，(1, 1) 是右下角。指针移到捕获的窗口或区域之外时坐标越出 [0, 1]，照实记录，不夹到边上。窗口在录制中移动时，坐标仍相对当时的捕获画面。
+- **位置**在相邻两个样本之间线性插值；第一个样本之前没有位置，最后一个样本之后停在最后一个样本上。
+- **按键**没有自己的坐标，位置取这一刻的指针位置。`button`：0 是主键，1 是辅键，2 是中键，其余照系统的编号。
+- **光标外观**从 `cursors` 的每一项起换成清单 `pointer.cursors` 里的那一个；第一项之前、或 `cursorId` 在清单里找不到时不画光标。
+- 三种事件合计不超过 400 万条，文件不超过 64 MiB。导入时按这些规则读一遍，不合的不收（`MEDIA_PROBE_FAILED`）。
+- 这是与录制后端无关的格式：导入器把后端自己的事件（浮点毫秒、每条事件带光标 ID 等）换算成它，不把后端的文件原样存进视频。
+
+### 4.9 屏幕取景
+
+屏幕取景（`kind: 'screen-view'`）是一段屏幕画面的编辑意图：哪些区间放大、放大多少、看哪里，另画的光标什么样。由它求出的取景曲线、光标曲线与缓存都是派生产物，可以随时重算。它怎样被实例引用、怎样求值与画出来见 §3.18。
+
+```ts
+interface ScreenViewBody {
+  schema: 'baocut.screen-view/1';
+  timescale: number;
+  clock: 'recording' | 'source-asset';
+  solver: 1;                           // 求值算法的版本
+  zooms: ScreenZoom[];                 // 按 t0 排序，互不重叠
+  follow?: {
+    safeArea?: number;                 // [0, 1)，缺省 0.5
+    smoothing?: number;                // [0, 1]，缺省 0.5
+  };
+  pointer?: ScreenPointerStyle;        // 另画的光标
+}
+
+interface ScreenZoom {
+  id: Id;
+  t0: string; t1: string;              // [t0, t1)，0 ≤ t0 < t1
+  scale: number;                       // (1, 8]
+  focus: { kind: 'pointer' } | { kind: 'point'; x: number; y: number };
+  origin: 'auto' | 'manual';
+  edited?: true;                       // 只用于 origin 为 auto
+  rampIn?: string;                     // 整数刻度，≥ 0
+  rampOut?: string;
+}
+
+interface ScreenPointerStyle {
+  hidden?: true;                       // 不画光标
+  size?: number;                       // [0.25, 8]，缺省 1
+  smoothing?: number;                  // [0, 1]，缺省 0
+  idleHide?: string;                   // 整数刻度，大于 0
+  click?: { effect: 'ripple'; color?: string };   // 颜色是 '#RRGGBB'
+}
+```
+
+- **时钟。** 时刻写在内容的时钟上，不写在序列上，所以拆分、移动、修剪与变速都不用改这份文档（§3.18）。录制的屏幕用录制时间：`clock: 'recording'`，文档头的 `sourceDocumentId` 是录制清单；一份文档覆盖整次录制，跨过各段。没有清单的普通视频用素材的源时钟：`clock: 'source-asset'`，文档头的 `sourceAssetId` 是那个素材。
+- **缩放区间。** 区间之外是全景。区间里可见区域的宽高是全景的 1 / `scale`。
+  - `focus`：`pointer` 跟着指针走；`point` 固定看源画面上的一点（§3.18 的坐标，各在 [0, 1]）。跟着指针要有指针轨：只用于 `clock: 'recording'`，而且清单的鼠标模式不是 `none`。
+  - `rampIn`、`rampOut` 是区间开头与结尾各用多长从全景过渡到放大、再回到全景，两者之和不超过区间的长度；0 是直接切过去，省略时取算法的缺省。前一个区间的终点等于后一个区间的起点时，中间不回到全景，直接从前一个的取景过渡到后一个。
+  - `origin` 记这个区间是按点击自动生成的（`auto`）还是用户或智能体加的（`manual`）。自动生成的区间被改过之后记 `edited: true`。重新生成自动缩放只替换 `auto` 而且没有 `edited` 的区间，其余原样保留；新生成的区间与保留的区间重叠时让开保留的。
+- **跟随。** `follow.safeArea` 是可见区域中间的安全区占它的比例：指针在里面移动时镜头不动，越出去镜头才跟。`smoothing` 是镜头移动的平滑程度，0 是紧跟。可见区域始终限制在画面之内。
+- **光标。** `pointer` 只用于光标另画的录制（`clock: 'recording'`，清单的鼠标模式是 `separate`）；光标录进了画面或没有清单时不能写。省略时按缺省值画：显示、原大小、不平滑、不隐去、没有点击提示。
+  - `size` 是倍率：1 是录制时光标在屏幕上的大小，即图片的像素按清单里这个光标的 `scale` 换成捕获画面的像素。
+  - `smoothing` 平滑的是画出来的轨迹；点击的位置与跟随取景用的仍是录下来的位置。
+  - `idleHide`：指针静止超过这么久就隐去，再动时出现。
+  - `click`：按下主键时在指针处画一圈散开的提示。
+- **求值算法的版本。** `solver` 决定过渡的曲线、缺省的过渡长度、跟随的运动与光标平滑的算法。算法有变就加一，旧文档仍按它写的版本求值，画面不因升级改变。读到不认识的版本时写入拒绝，渲染报告不支持，不按别的版本凑合。版本 1 的曲线与数值随实现写入本节（§10）。
+- 写入时整份核对上面各条。所属清单的鼠标模式在实例引用这份文档时核对（§3.18）。
 
 ---
 
@@ -2729,6 +2931,7 @@ interface SyncGroup {
 - 删除语音段时，按显式的联动范围处理整个同步组。
 - 混合帧率与可变帧率的素材各自按 PTS 映射。
 - 未知的人物或声音身份由用户绑定，不猜测。
+- 一次录制的各路流怎样对时是录下来的事实，以录制清单为准（§4.7），不写成 `SyncGroup`；`SyncGroup` 留给分别导入的素材之间由分析或人工得到的同步。时间线上成组的编辑是联动组（§3.18），与这里的素材级同步是两回事。
 
 ### 7.9 SoundCueSheet
 
@@ -3204,6 +3407,10 @@ File: documents/doc_5b1.json - sha256:41b8…
 | `ItemBase`（§3.4） | 本规范补全 | `paintOrder` 与 `Track.order` 的组合规则 |
 | `Sequence.canvas.workingSpace`（§3.2） | 引擎不限定取值 | 首版支持的工作空间 |
 | `SemanticAnchor`、`FollowPolicy`（§3.16） | 已定：起止各自的锚点、词锚点的偏移、到序列末尾、`follow-cuts` 与它的缺省（按时刻放置的实例从新建起缺省）。已定：`speech-anchor` 每笔事务按时间线重求，出现处与歧义按 v2 的规则，求不出的留在原处、`orphaned` 现算不落盘。已定：`item-local` 按目标的源时刻跟随，拆开跟锚点所在的一段，起点修剪越过锚点时到新起点，目标删掉时一起删。已实现 `sequence-fixed`、`follow-cuts`（剪口事务里）、`speech-anchor`、`item-local` 与到序列末尾；`explicit-link-group` 不在这一版的范围，只保存与校验形状，不移动 | `explicit-link-group` 的联动规则 |
+| 联动组（§3.18） | 已定：登记、成员与各项时间编辑的规则；旧的 `linkGroupId` 不登记就不联动。未实现 | 剪口换算到各成员素材之后怎样写进各自的剪口集合（§6.7）；变速时两路声音的处理；与 `explicit-link-group`、`SyncGroup` 是否最终合成一个概念 |
+| 屏幕取景（§3.18、§4.9） | 已定：正文、两种时钟、画法的次序、与 `crop`、`focalPoint`、`panels` 的关系；正文写入时整份核对。实例上的引用、求值与渲染未实现 | 求值算法 1 的曲线与缺省数值（过渡、跟随、光标平滑）；点击提示的样式；屏幕放大时摄像头是否跟着缩小 |
+| 录制清单与指针轨（§4.7、§4.8） | 已定：正文与素材格式；写入时核对，清单引用的素材登记成文档版本的依赖，指针轨导入时校验。录制后端与导入器未实现 | 键盘事件；一次录多块屏幕；各路流之间的时钟漂移；录制中捕获尺寸的变化 |
+| 格式版本 4（§1.4） | 待裁决：屏幕取景、联动组与 LUT 效果都要加版本 | 按内容升（写过这些字段的视频才是 4）还是新写入的视频一律是 4；见 [LUT 效果设计](../design/color-lut/README.md) §9、§12 |
 | `ProtectionRecord`（§3.10） | 本规范补全 | 持久保护与任务级保护的边界；`confirmed` 的强制程度 |
 | `Checkpoint`（§3.11） | 本规范补全 | 检查点是否允许带分支 |
 | `DependencyLink.kind`（§3.12） | 本规范补全 | 依赖种类的枚举 |

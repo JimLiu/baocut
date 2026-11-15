@@ -34,4 +34,12 @@ export const ko: VideoModelMessages = {
   blockConfidence: (p) => `units[${p.index}]에 있는 정렬 블록의 confidence는 0에서 1 사이여야 합니다`,
   splitPiecesEmpty: (p) => `units[${p.index}]의 alignment.split.pieces는 비어 있을 수 없습니다`,
   splitPieceOrder: (p) => `units[${p.index}]의 alignment.split.pieces에 from이 to보다 큰 조각이 있습니다`,
+  clockOneOf: (p) => `clock은 다음 중 하나여야 합니다: ${p.clocks}`,
+  ticksInvalid: (p) => `${p.field}은(는) 정수 틱이어야 합니다`,
+  rangeInvalid: (p) => `${p.field}은(는) 0 ≤ t0 < t1을 만족해야 합니다`,
+  rangeOrder: (p) => `${p.field}이(가) 이전 구간과 겹치거나 t0 순으로 정렬되어 있지 않습니다`,
+  idsRepeated: (p) => `${p.field}의 ID가 중복되었습니다`,
+  fieldRange: (p) => `${p.field}은(는) ${p.range} 범위여야 합니다`,
+  fieldInvalid: (p) => `${p.field}이(가) 유효하지 않습니다: ${p.rule}`,
+  referenceMissing: (p) => `${p.field}이(가) 가리키는 ${p.id}이(가) 없습니다`,
 };

@@ -34,4 +34,12 @@ export const fr: VideoModelMessages = {
   blockConfidence: (p) => `confidence des blocs d’alignement dans units[${p.index}] doit être entre 0 et 1`,
   splitPiecesEmpty: (p) => `alignment.split.pieces dans units[${p.index}] ne peut pas être vide`,
   splitPieceOrder: (p) => `alignment.split.pieces dans units[${p.index}] a une partie dont from est supérieur à to`,
+  clockOneOf: (p) => `clock doit être l’une des valeurs suivantes : ${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} doit être en ticks entiers`,
+  rangeInvalid: (p) => `${p.field} doit vérifier 0 ≤ t0 < t1`,
+  rangeOrder: (p) => `${p.field} chevauche l’intervalle précédent ou n’est pas trié par t0`,
+  idsRepeated: (p) => `Des ID sont répétés dans ${p.field}`,
+  fieldRange: (p) => `${p.field} doit être compris dans ${p.range}`,
+  fieldInvalid: (p) => `${p.field} n’est pas valide : ${p.rule}`,
+  referenceMissing: (p) => `${p.field} fait référence à ${p.id}, qui n’existe pas`,
 };

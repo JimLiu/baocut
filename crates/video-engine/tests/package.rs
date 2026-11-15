@@ -295,3 +295,101 @@ fn scene_resource_dependencies_survive_package_and_cannot_be_forged() {
     fs::write(&path, snapshot.to_string()).unwrap();
     assert!(import_package(&root.path().join("forged"), &package, None, &ffprobe()).is_err());
 }
+
+/// 录制清单（视频格式规范 §4.7）引用的指针轨与光标图片登记成文档版本的素材依赖，随便携包带走；清单与屏幕取景（§4.9）
+/// 写入时整份核对。
+#[test]
+fn a_recording_manifest_carries_its_assets_and_is_checked_on_write() {
+    let root = tempfile::tempdir().unwrap();
+    let source = source_video(root.path());
+    let source_dir = source.dir().to_path_buf();
+    drop(source);
+    let mut source = Video::open(&source_dir, OpenMode::Write, Path::new("ffprobe")).unwrap();
+    let png = root.path().join("arrow.png");
+    fs::write(&png, include_bytes!("../../caption-scene/tests/fixtures/badge.png")).unwrap();
+    let pointer = root.path().join("pointer.json");
+    fs::write(
+        &pointer,
+        r#"{"format":"baocut-pointer-track","version":1,"timescale":1000,"moves":[[0,0.5,0.5],[40,0.6,0.4]],"buttons":[[20,0,1],[90,0,0]],"cursors":[[0,"arrow"]]}"#,
+    )
+    .unwrap();
+    apply(
+        &mut source,
+        "cmd_recorded",
+        vec![
+            json!({ "type": "importAsset", "path": png, "storage": "managed" }),
+            json!({ "type": "importAsset", "path": pointer, "storage": "managed" }),
+        ],
+    );
+    let reference = |media_type: &str| {
+        let asset = source.state().assets.values().find(|a| a.revisions[&a.current_revision].media_type == media_type).unwrap();
+        json!({ "id": asset.id, "revision": asset.current_revision })
+    };
+    let (cursor, track) = (reference("image/png"), reference("application/x-baocut-pointer-track+json"));
+    let manifest = |role: &str| {
+        json!({
+            "schema": "baocut.recording/1", "timescale": 1000, "clock": "recording",
+            "recorder": { "name": "test" }, "duration": "2000",
+            "segments": [{ "id": "s0", "t0": "0", "t1": "2000" }],
+            "streams": [{ "id": "s0-pointer", "role": role, "segmentId": "s0", "assetRef": track, "start": "0" }],
+            "pointer": { "mode": "separate", "cursors": [{ "id": "arrow", "assetRef": cursor, "hotspot": { "x": 0.1, "y": 0.1 } }] }
+        })
+    };
+    let refuse = |video: &mut Video, command_id: &str, operation: Value| {
+        let transaction = VideoTransaction {
+            command_id: command_id.into(),
+            expected_revision: video.revision(),
+            label: None,
+            label_ref: None,
+            operations: vec![operation],
+            actor: Actor { kind: ActorKind::User, id: "user_local".into() },
+            task_id: None,
+        };
+        video.apply(&transaction).expect_err("拒绝")
+    };
+    // 指针轨素材不能当麦克风；段没有铺满录制的也不收。
+    refuse(&mut source, "cmd_wrong_kind", json!({ "type": "putDocument", "kind": "recording", "body": manifest("microphone") }));
+    let mut gap = manifest("pointer");
+    gap["segments"][0]["t1"] = json!("1500");
+    refuse(&mut source, "cmd_gap", json!({ "type": "putDocument", "kind": "recording", "body": gap }));
+
+    apply(
+        &mut source,
+        "cmd_manifest",
+        vec![json!({ "type": "putDocument", "kind": "recording", "ref": "rec", "body": manifest("pointer") })],
+    );
+    let record = source.state().documents.values().find(|r| r.kind == "recording").unwrap();
+    let (id, rev) = (record.id.clone(), record.current_revision.clone());
+    let refs: Vec<&str> = record.revisions[&rev].asset_refs.iter().map(|r| r.id.as_str()).collect();
+    assert_eq!(refs, [track["id"].as_str().unwrap(), cursor["id"].as_str().unwrap()]);
+
+    let view = |scale: f64| {
+        json!({
+            "schema": "baocut.screen-view/1", "timescale": 1000, "clock": "recording", "solver": 1,
+            "zooms": [{ "id": "z1", "t0": "200", "t1": "1800", "scale": scale, "focus": { "kind": "pointer" }, "origin": "auto" }],
+            "pointer": { "size": 1.5 }
+        })
+    };
+    refuse(
+        &mut source,
+        "cmd_view_bad",
+        json!({ "type": "putDocument", "kind": "screen-view", "sourceDocument": { "documentId": id }, "body": view(1.0) }),
+    );
+    apply(
+        &mut source,
+        "cmd_view",
+        vec![json!({ "type": "putDocument", "kind": "screen-view", "sourceDocument": { "documentId": id }, "body": view(2.0) })],
+    );
+
+    let package = root.path().join("package");
+    write_package(&source, &package);
+    let loaded = import_package(&root.path().join("loaded"), &package, None, &ffprobe()).unwrap();
+    assert_eq!(loaded.state().documents[&id].revisions[&rev].asset_refs.len(), 2);
+    assert!(loaded.state().documents.values().any(|r| r.kind == "screen-view"));
+    drop(loaded);
+    let path = package.join(PACKAGE_SNAPSHOT);
+    let mut snapshot: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    snapshot["documents"][&id]["revisions"][&rev]["assetRefs"] = json!([]);
+    fs::write(&path, snapshot.to_string()).unwrap();
+    assert!(import_package(&root.path().join("forged"), &package, None, &ffprobe()).is_err());
+}

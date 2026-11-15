@@ -489,4 +489,5 @@ export const ru: EngineMessages = {
   snapshotDocumentChanged: (p) => `Файл документа ${p.id} не совпадает со снимком`,
   workspaceSnapshotFormat: "Снимок не является снимком рабочей области BaoCut",
   workspaceSnapshotVersion: "Снимок записан в неподдерживаемой версии формата; откройте его подходящей версией BaoCut",
+  pointerTrackUnreadable: (p) => `Нечитаемая дорожка указателя: ${p.error}`,
 };

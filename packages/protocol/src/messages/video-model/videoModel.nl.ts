@@ -35,4 +35,12 @@ export const nl: VideoModelMessages = {
   blockConfidence: (p: P<'index'>) => `confidence van de uitlijnblokken in units[${p.index}] moet tussen 0 en 1 liggen`,
   splitPiecesEmpty: (p: P<'index'>) => `alignment.split.pieces in units[${p.index}] mag niet leeg zijn`,
   splitPieceOrder: (p: P<'index'>) => `alignment.split.pieces in units[${p.index}] bevat een deel waarvan from groter is dan to`,
+  clockOneOf: (p) => `clock moet een van deze waarden zijn: ${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} moet in gehele ticks zijn`,
+  rangeInvalid: (p) => `${p.field} moet voldoen aan 0 ≤ t0 < t1`,
+  rangeOrder: (p) => `${p.field} overlapt het vorige bereik of is niet gesorteerd op t0`,
+  idsRepeated: (p) => `Er staan dubbele ID’s in ${p.field}`,
+  fieldRange: (p) => `${p.field} moet binnen ${p.range} liggen`,
+  fieldInvalid: (p) => `${p.field} is ongeldig: ${p.rule}`,
+  referenceMissing: (p) => `${p.field} verwijst naar ${p.id}, dat niet bestaat`,
 };

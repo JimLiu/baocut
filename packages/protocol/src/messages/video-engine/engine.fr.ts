@@ -490,4 +490,5 @@ export const fr: EngineMessages = {
   snapshotDocumentChanged: (p) => `Le fichier du document ${p.id} ne correspond pas à l’instantané`,
   workspaceSnapshotFormat: "L’instantané n’est pas un instantané d’espace de travail BaoCut",
   workspaceSnapshotVersion: "Cet instantané utilise une version de format non prise en charge ; ouvrez-le avec un BaoCut compatible",
+  pointerTrackUnreadable: (p) => `Piste de pointeur illisible : ${p.error}`,
 };

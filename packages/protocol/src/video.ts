@@ -1299,6 +1299,118 @@ export interface CutSetBody {
   cuts: { id: Id; t0: string; t1: string; ref?: Id }[];
 }
 
+/**
+ * 录制清单的正文（视频格式规范 §4.7，文档 `kind: 'recording'`）：一次录制的各路流是哪个素材版本、怎样落到录制时间上。
+ * 录制时间从 0 开始，不含暂停；一路流的素材源时间 `s` 对应录制时间 `start + s`。时刻是整数刻度写成的十进制字符串。
+ * 清单记录下来的事实，写好之后不再修改。
+ */
+export interface RecordingBody {
+  schema: 'baocut.recording/1';
+  timescale: number;
+  clock: 'recording';
+  recorder: { name: string; version?: string; revision?: string; importer?: string };
+  /** `macos`、`windows`、`linux`……（开放）。 */
+  platform?: string;
+  /** RFC 3339。 */
+  startedAt?: string;
+  /** 有效录制长度。 */
+  duration: string;
+  /** 按 `t0` 排序、首尾相接，铺满 `[0, duration)`；每次暂停后恢复是新的一段。 */
+  segments: { id: string; t0: string; t1: string }[];
+  streams: RecordingStream[];
+  pointer: { mode: RecordingPointerMode; cursors?: RecordingCursor[] };
+}
+
+export type RecordingStreamRole = 'screen' | 'camera' | 'microphone' | 'system-audio' | 'pointer';
+/** `separate`：光标按指针轨另画；`baked`：光标已经录在画面里；`none`：没有光标也没有指针轨。 */
+export type RecordingPointerMode = 'separate' | 'baked' | 'none';
+
+export interface RecordingStream {
+  id: string;
+  role: RecordingStreamRole;
+  segmentId: string;
+  assetRef: VersionRef;
+  /** 素材源时间 0 落在录制时间的哪一刻（带符号）。 */
+  start: string;
+  /** 录制时间上真正有内容的区间；省略时是素材全长与所在段的交集。 */
+  coverage?: { t0: string; t1: string }[];
+  device?: { id?: string; name?: string };
+  /** 只用于 `screen`：捕获的对象与捕获画面的像素尺寸。 */
+  capture?: { kind: 'display' | 'window' | 'area'; width: number; height: number; scale?: number };
+}
+
+export interface RecordingCursor {
+  id: string;
+  assetRef: VersionRef;
+  /** 热点在图片里的位置，图片宽高的比例。 */
+  hotspot: { x: number; y: number };
+  /** 图片的几个像素对应捕获画面的一个像素，缺省 1。 */
+  scale?: number;
+  shape?: string;
+}
+
+/**
+ * 指针轨（视频格式规范 §4.8）：`kind: 'other'` 的 JSON 素材，媒体类型 `application/x-baocut-pointer-track+json`。
+ * 时刻是素材自己的时钟上的非负整数刻度；坐标是捕获画面的归一化坐标，指针在画面之外时越出 [0, 1]。
+ */
+export interface PointerTrack {
+  format: 'baocut-pointer-track';
+  version: 1;
+  timescale: number;
+  moves: [t: number, x: number, y: number][];
+  /** `button`：0 主键、1 辅键、2 中键；`down`：1 按下、0 抬起。 */
+  buttons: [t: number, button: number, down: 0 | 1][];
+  /** 从这一刻起用清单 `pointer.cursors` 里的哪一个。 */
+  cursors: [t: number, cursorId: string][];
+}
+
+export const POINTER_TRACK_MEDIA_TYPE = 'application/x-baocut-pointer-track+json';
+
+/**
+ * 屏幕取景的正文（视频格式规范 §4.9，文档 `kind: 'screen-view'`）：屏幕画面什么时候放大、看哪里，另画的光标什么样。
+ * 时刻写在内容的时钟上：录制的屏幕用录制时间（文档头的 `sourceDocumentId` 是录制清单），普通视频用素材的源时钟
+ * （`sourceAssetId` 是那个素材）。
+ */
+export interface ScreenViewBody {
+  schema: 'baocut.screen-view/1';
+  timescale: number;
+  clock: 'recording' | 'source-asset';
+  /** 求值算法的版本。 */
+  solver: 1;
+  /** 按 `t0` 排序、互不重叠；区间之外是全景。 */
+  zooms: ScreenZoom[];
+  /** `safeArea` [0, 1)，缺省 0.5；`smoothing` [0, 1]，缺省 0.5。 */
+  follow?: { safeArea?: number; smoothing?: number };
+  /** 只用于光标另画（`separate`）的录制。 */
+  pointer?: ScreenPointerStyle;
+}
+
+export interface ScreenZoom {
+  id: Id;
+  t0: string;
+  t1: string;
+  /** (1, 8]。 */
+  scale: number;
+  /** 跟着指针，或固定看源画面上的一点（归一化坐标）。 */
+  focus: { kind: 'pointer' } | { kind: 'point'; x: number; y: number };
+  origin: 'auto' | 'manual';
+  /** 自动生成之后被改过；重新生成时保留。 */
+  edited?: true;
+  rampIn?: string;
+  rampOut?: string;
+}
+
+export interface ScreenPointerStyle {
+  hidden?: true;
+  /** [0.25, 8]，缺省 1。 */
+  size?: number;
+  /** [0, 1]，缺省 0。 */
+  smoothing?: number;
+  /** 静止超过这么久就隐去（整数刻度）。 */
+  idleHide?: string;
+  click?: { effect: 'ripple'; color?: string };
+}
+
 /** 剪辑提案里的一条建议（视频格式规范 §6.2）：建议剪掉的源区间 `[t0, t1)`，整数刻度写成十进制字符串。 */
 export interface CutSuggestion {
   id: Id;

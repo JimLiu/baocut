@@ -474,4 +474,5 @@ export const nl: EngineMessages = {
   snapshotDocumentChanged: (p: P<'id'>) => `Het bestand van document ${p.id} komt niet overeen met de momentopname`,
   workspaceSnapshotFormat: "De momentopname is geen BaoCut-werkruimtemomentopname",
   workspaceSnapshotVersion: "Deze momentopname gebruikt een niet-ondersteunde formaatversie; open hem met een passende BaoCut",
+  pointerTrackUnreadable: (p) => `Geen leesbaar aanwijzerspoor: ${p.error}`,
 };

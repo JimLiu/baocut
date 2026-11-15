@@ -34,4 +34,12 @@ export const ja: VideoModelMessages = {
   blockConfidence: (p) => `units[${p.index}] の整列ブロックの confidence は 0〜1 の範囲にしてください`,
   splitPiecesEmpty: (p) => `units[${p.index}] の alignment.split.pieces を空にすることはできません`,
   splitPieceOrder: (p) => `units[${p.index}] の alignment.split.pieces に from が to より大きいピースがあります`,
+  clockOneOf: (p) => `clock は次のいずれかにしてください：${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} は整数ティックにしてください`,
+  rangeInvalid: (p) => `${p.field} は 0 ≤ t0 < t1 を満たす必要があります`,
+  rangeOrder: (p) => `${p.field} は前の区間と重なっているか、t0 順に並んでいません`,
+  idsRepeated: (p) => `${p.field} の ID が重複しています`,
+  fieldRange: (p) => `${p.field} は ${p.range} の範囲にしてください`,
+  fieldInvalid: (p) => `${p.field} が無効です：${p.rule}`,
+  referenceMissing: (p) => `${p.field} が参照する ${p.id} は存在しません`,
 };

@@ -489,4 +489,5 @@ export const tr: EngineMessages = {
   snapshotDocumentChanged: (p) => `${p.id} belgesinin dosyası anlık görüntüyle uyuşmuyor`,
   workspaceSnapshotFormat: "Anlık görüntü bir BaoCut çalışma alanı anlık görüntüsü değil",
   workspaceSnapshotVersion: "Bu anlık görüntü desteklenmeyen bir biçim sürümüyle yazılmış; uygun bir BaoCut ile açın",
+  pointerTrackUnreadable: (p) => `Okunabilir bir işaretçi izi değil: ${p.error}`,
 };

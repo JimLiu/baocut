@@ -488,4 +488,5 @@ export const zhHant: EngineMessages = {
   snapshotDocumentChanged: (p) => `文件 ${p.id} 的檔案與快照不符`,
   workspaceSnapshotFormat: '這不是 BaoCut 的工作區快照',
   workspaceSnapshotVersion: '這份快照的格式版本不受支援，請用對應版本的 BaoCut 開啟',
+  pointerTrackUnreadable: (p) => `不是可讀取的指標軌：${p.error}`,
 };

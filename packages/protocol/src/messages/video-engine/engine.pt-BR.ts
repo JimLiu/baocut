@@ -488,4 +488,5 @@ export const ptBR: EngineMessages = {
   snapshotDocumentChanged: (p) => `O arquivo do documento ${p.id} não corresponde ao snapshot`,
   workspaceSnapshotFormat: "O snapshot não é um snapshot de espaço de trabalho do BaoCut",
   workspaceSnapshotVersion: "Este snapshot usa uma versão de formato não compatível; abra-o com um BaoCut correspondente",
+  pointerTrackUnreadable: (p) => `Trilha de ponteiro não legível: ${p.error}`,
 };

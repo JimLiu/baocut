@@ -34,4 +34,12 @@ export const ptBR: VideoModelMessages = {
   blockConfidence: (p) => `confidence dos blocos de alinhamento em units[${p.index}] deve estar entre 0 e 1`,
   splitPiecesEmpty: (p) => `alignment.split.pieces em units[${p.index}] não pode estar vazio`,
   splitPieceOrder: (p) => `alignment.split.pieces em units[${p.index}] tem peça com from maior que to`,
+  clockOneOf: (p) => `clock deve ser um destes: ${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} deve estar em ticks inteiros`,
+  rangeInvalid: (p) => `${p.field} deve satisfazer 0 ≤ t0 < t1`,
+  rangeOrder: (p) => `${p.field} se sobrepõe ao intervalo anterior ou não está ordenado por t0`,
+  idsRepeated: (p) => `Há IDs repetidos em ${p.field}`,
+  fieldRange: (p) => `${p.field} deve estar dentro de ${p.range}`,
+  fieldInvalid: (p) => `${p.field} não é válido: ${p.rule}`,
+  referenceMissing: (p) => `${p.field} faz referência a ${p.id}, que não existe`,
 };

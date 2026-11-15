@@ -489,4 +489,5 @@ export const ja: EngineMessages = {
   snapshotDocumentChanged: (p) => `ドキュメント ${p.id} のファイルがスナップショットと一致しません`,
   workspaceSnapshotFormat: 'BaoCut のワークスペーススナップショットではありません',
   workspaceSnapshotVersion: 'このスナップショットの形式バージョンには対応していません。対応する BaoCut で開いてください',
+  pointerTrackUnreadable: (p) => `読み取れるポインタートラックではありません：${p.error}`,
 };

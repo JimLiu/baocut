@@ -488,4 +488,5 @@ export const pl: EngineMessages = {
   snapshotDocumentChanged: (p) => `Plik dokumentu ${p.id} nie zgadza się z migawką`,
   workspaceSnapshotFormat: "Migawka nie jest migawką obszaru roboczego BaoCut",
   workspaceSnapshotVersion: "Ta migawka ma nieobsługiwaną wersję formatu; otwórz ją odpowiednią wersją BaoCut",
+  pointerTrackUnreadable: (p) => `Nieczytelna ścieżka wskaźnika: ${p.error}`,
 };

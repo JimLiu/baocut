@@ -4,7 +4,8 @@
 //! `null` 的类型，这里另有不写 `null` 的交换形式，校验时换成 `timeline` 的同名类型。
 //! 文稿类内容（转写、翻译、字幕样式、剪口集合等）是版本化的文档：快照里只有文档头，正文按版本另取；
 //! 转写、译文与剪口集合正文的 DTO 在 [`speech`]、[`translation`] 与 [`cut_set`]（§5.2、§5.3、§6.7），字幕样式正文的
-//! 核对在 [`caption_style`]（§5.6）。
+//! 核对在 [`caption_style`]（§5.6）。录制产生的内容（§4.7–§4.9）：录制清单在 [`recording`]，指针轨在 [`pointer_track`]，
+//! 屏幕取景在 [`screen_view`]。
 
 use std::collections::BTreeMap;
 
@@ -21,6 +22,9 @@ pub mod editorial_proposal;
 mod effect;
 mod marker;
 mod place;
+pub mod pointer_track;
+pub mod recording;
+pub mod screen_view;
 pub mod speech;
 mod transition;
 pub mod translation;
@@ -1049,6 +1053,22 @@ pub struct DocumentRevision {
     /// 正文的概要（词数、句数等），让列表与智能体不必读正文。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<Value>,
+}
+
+/// 文档正文引用的素材版本（§4.4 的 `assetRefs`）：动态字幕场景的图片、录制清单的各路流与光标图片。别的正文没有。
+/// 认得的格式形状不对时报错。
+pub fn document_asset_refs(body: &Value) -> Result<Vec<VersionRef>, String> {
+    if body.get("schema").and_then(Value::as_str) == Some(recording::RECORDING_SCHEMA) {
+        return recording::recording_asset_refs(body);
+    }
+    caption_style::scene_asset_refs(body)
+}
+
+/// 正文引用的素材版本在不在、对不对（空表示都对）。
+pub fn document_resource_problems(body: &Value, assets: &BTreeMap<Id, AssetRecord>) -> Vec<message_ref::Text> {
+    let mut problems = caption_style::scene_resource_problems(body, assets);
+    problems.extend(recording::recording_resource_problems(body, assets));
+    problems
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

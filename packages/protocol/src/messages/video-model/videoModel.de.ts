@@ -35,4 +35,12 @@ export const de: VideoModelMessages = {
   blockConfidence: (p: P<'index'>) => `confidence der Ausrichtungsblöcke in units[${p.index}] muss zwischen 0 und 1 liegen`,
   splitPiecesEmpty: (p: P<'index'>) => `alignment.split.pieces in units[${p.index}] darf nicht leer sein`,
   splitPieceOrder: (p: P<'index'>) => `alignment.split.pieces in units[${p.index}] enthält ein Teilstück, dessen from größer als to ist`,
+  clockOneOf: (p) => `clock muss einer dieser Werte sein: ${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} muss in ganzzahligen Ticks angegeben sein`,
+  rangeInvalid: (p) => `${p.field} muss 0 ≤ t0 < t1 erfüllen`,
+  rangeOrder: (p) => `${p.field} überlappt den vorherigen Bereich oder ist nicht nach t0 sortiert`,
+  idsRepeated: (p) => `In ${p.field} wiederholen sich IDs`,
+  fieldRange: (p) => `${p.field} muss innerhalb von ${p.range} liegen`,
+  fieldInvalid: (p) => `${p.field} ist ungültig: ${p.rule}`,
+  referenceMissing: (p) => `${p.field} verweist auf ${p.id}, das nicht existiert`,
 };

@@ -34,4 +34,12 @@ export const zhHant: VideoModelMessages = {
   blockConfidence: (p) => `units[${p.index}] 中對齊區塊的 confidence 必須介於 0 到 1 之間`,
   splitPiecesEmpty: (p) => `units[${p.index}] 中的 alignment.split.pieces 不能為空`,
   splitPieceOrder: (p) => `units[${p.index}] 中的 alignment.split.pieces 有一項的 from 大於 to`,
+  clockOneOf: (p) => `clock 須是其中之一：${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} 必須是整數刻度`,
+  rangeInvalid: (p) => `${p.field} 須滿足 0 ≤ t0 < t1`,
+  rangeOrder: (p) => `${p.field} 與前一個區間重疊或沒有按 t0 排序`,
+  idsRepeated: (p) => `${p.field} 裡的 ID 有重複`,
+  fieldRange: (p) => `${p.field} 須在 ${p.range} 之內`,
+  fieldInvalid: (p) => `${p.field} 不合規則：${p.rule}`,
+  referenceMissing: (p) => `${p.field} 指向的 ${p.id} 不存在`,
 };

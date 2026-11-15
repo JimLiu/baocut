@@ -34,4 +34,12 @@ export const ru: VideoModelMessages = {
   blockConfidence: (p) => `confidence блоков alignment в units[${p.index}] должен быть от 0 до 1`,
   splitPiecesEmpty: (p) => `alignment.split.pieces в units[${p.index}] не может быть пустым`,
   splitPieceOrder: (p) => `alignment.split.pieces в units[${p.index}] содержит часть, где from больше to`,
+  clockOneOf: (p) => `clock должен быть одним из: ${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} должно быть в целых тиках`,
+  rangeInvalid: (p) => `${p.field} должно удовлетворять 0 ≤ t0 < t1`,
+  rangeOrder: (p) => `${p.field} пересекается с предыдущим диапазоном или не отсортировано по t0`,
+  idsRepeated: (p) => `В ${p.field} повторяются ID`,
+  fieldRange: (p) => `${p.field} должно быть в пределах ${p.range}`,
+  fieldInvalid: (p) => `${p.field} недопустимо: ${p.rule}`,
+  referenceMissing: (p) => `${p.field} ссылается на ${p.id}, которого не существует`,
 };

@@ -474,4 +474,5 @@ export const de: EngineMessages = {
   snapshotDocumentChanged: (p: P<'id'>) => `Die Datei des Dokuments ${p.id} passt nicht zum Snapshot`,
   workspaceSnapshotFormat: "Der Snapshot ist kein BaoCut-Arbeitsbereich-Snapshot",
   workspaceSnapshotVersion: "Dieser Snapshot verwendet eine nicht unterstützte Formatversion; öffne ihn mit einem passenden BaoCut",
+  pointerTrackUnreadable: (p) => `Keine lesbare Zeigerspur: ${p.error}`,
 };

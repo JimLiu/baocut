@@ -34,6 +34,8 @@ pub const PUPPET_MEDIA_TYPE: &str = "application/x-baocut-puppet+zip";
 
 /// 角色动作轨（`"format": "baocut-puppet-track"` 的 JSON）的媒体类型。种类仍是 `other`。
 pub const PUPPET_TRACK_MEDIA_TYPE: &str = "application/x-baocut-puppet-track+json";
+/// 指针轨（`"format": "baocut-pointer-track"` 的 JSON，视频格式规范 §4.8）的媒体类型。种类仍是 `other`。
+pub use video_model::pointer_track::POINTER_TRACK_MEDIA_TYPE;
 
 /// 角色包的大小上限（压缩后）。一个角色二三十张分层，WebP 通常几 MiB。
 pub const PUPPET_MAX_BYTES: u64 = 64 << 20;
@@ -132,6 +134,7 @@ pub fn blob_extension(media_type: &str) -> &'static str {
         LOTTIE_ARCHIVE_MEDIA_TYPE => "lottie",
         PUPPET_MEDIA_TYPE => "bcpuppet",
         PUPPET_TRACK_MEDIA_TYPE => "json",
+        POINTER_TRACK_MEDIA_TYPE => "json",
         _ => "bin",
     }
 }
@@ -468,9 +471,12 @@ pub fn prepare_import(
     if kind == AssetKind::Other && media_type == "application/json" {
         if meta.len() <= LOTTIE_MAX_BYTES && looks_like_lottie_json(source) {
             kind = AssetKind::Lottie;
-        } else if declares_puppet_track(source) {
+        } else if declares_format(source, puppet::track::TRACK_FORMAT) {
             check_puppet_track(source)?;
             media_type = PUPPET_TRACK_MEDIA_TYPE;
+        } else if declares_format(source, video_model::pointer_track::POINTER_TRACK_FORMAT) {
+            check_pointer_track(source)?;
+            media_type = POINTER_TRACK_MEDIA_TYPE;
         }
     }
     // 只有 ffprobe 认得的媒体才探测；矢量图、字体、字幕与数据文件没有可探测的流。Lottie 用内核的读法取尺寸与时长。
@@ -582,8 +588,9 @@ fn looks_like_lottie_json(source: &Path) -> bool {
         && doc.get("layers").is_some_and(Value::is_array)
 }
 
-/// JSON 的顶层 `format` 是不是角色动作轨（`baocut-puppet-track`）。只看声明；内容由 [`check_puppet_track`] 查。
-fn declares_puppet_track(source: &Path) -> bool {
+/// JSON 的顶层 `format` 是不是这个值（角色动作轨 `baocut-puppet-track`、指针轨 `baocut-pointer-track`）。只看声明；内容
+/// 由 [`check_puppet_track`]、[`check_pointer_track`] 查。
+fn declares_format(source: &Path, format: &str) -> bool {
     #[derive(serde::Deserialize)]
     struct Head {
         format: Option<String>,
@@ -592,7 +599,28 @@ fn declares_puppet_track(source: &Path) -> bool {
         .ok()
         .and_then(|bytes| serde_json::from_slice::<Head>(&bytes).ok())
         .and_then(|h| h.format)
-        .is_some_and(|f| f == puppet::track::TRACK_FORMAT)
+        .is_some_and(|f| f == format)
+}
+
+/// 指针轨按 §4.8 读一遍（[`video_model::pointer_track::PointerTrack::parse`]）：读不开、不合格式、超出上限的不收。
+fn check_pointer_track(source: &Path) -> EngineResult<()> {
+    let bytes = fs::read(source).map_err(|e| {
+        ErrorBody::asset_missing(
+            "",
+            msg!(
+                "engine.importUnreadable",
+                "Cannot read the file to import: {error}",
+                error = e.to_string()
+            ),
+        )
+    })?;
+    video_model::pointer_track::PointerTrack::parse(&bytes).map(|_| ()).map_err(|error| {
+        ErrorBody::probe_failed(msg!(
+            "engine.pointerTrackUnreadable",
+            "Not a readable pointer track: {error}",
+            error
+        ))
+    })
 }
 
 /// 动作轨按渲染器的读法读一遍（[`puppet::Track::parse`]）：读不开、超出上限的不收。
@@ -1074,6 +1102,20 @@ mod tests {
         assert_eq!(blob_rel_path("sha256:ab", &track.media_type), PathBuf::from("blobs/ab.json"));
 
         let bad = br#"{"format":"baocut-puppet-track","version":1,"fps":30,"duration":1,"params":{"nope":[0]}}"#;
+        let refused = import(dir.path(), "bad.json", bad).unwrap_err();
+        assert_eq!(refused.code, "MEDIA_PROBE_FAILED", "{refused:?}");
+    }
+
+    #[test]
+    fn a_pointer_track_imports_as_other_with_the_track_media_type() {
+        let dir = tempfile::tempdir().unwrap();
+        let good = br#"{"format":"baocut-pointer-track","version":1,"timescale":1000,"moves":[[0,0.5,0.5],[16,0.6,0.5]],"buttons":[[8,0,1]],"cursors":[[0,"c0"]]}"#;
+        let track = import(dir.path(), "pointer.json", good).unwrap();
+        assert_eq!(track.kind, AssetKind::Other);
+        assert_eq!(track.media_type, POINTER_TRACK_MEDIA_TYPE);
+        assert_eq!(blob_rel_path("sha256:ab", &track.media_type), PathBuf::from("blobs/ab.json"));
+
+        let bad = br#"{"format":"baocut-pointer-track","version":1,"timescale":1000,"moves":[[16,0.5,0.5],[0,0.6,0.5]]}"#;
         let refused = import(dir.path(), "bad.json", bad).unwrap_err();
         assert_eq!(refused.code, "MEDIA_PROBE_FAILED", "{refused:?}");
     }

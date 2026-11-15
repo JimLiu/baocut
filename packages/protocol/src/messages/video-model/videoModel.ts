@@ -55,6 +55,14 @@ const en = {
   blockConfidence: (p: P<'index'>) => `confidence of the alignment blocks in units[${p.index}] must be between 0 and 1`,
   splitPiecesEmpty: (p: P<'index'>) => `alignment.split.pieces in units[${p.index}] cannot be empty`,
   splitPieceOrder: (p: P<'index'>) => `alignment.split.pieces in units[${p.index}] has a piece whose from is greater than to`,
+  clockOneOf: (p: P<'clocks'>) => `clock must be one of: ${p.clocks}`,
+  ticksInvalid: (p: P<'field'>) => `${p.field} must be integer ticks`,
+  rangeInvalid: (p: P<'field'>) => `${p.field} must satisfy 0 ≤ t0 < t1`,
+  rangeOrder: (p: P<'field'>) => `${p.field} overlaps the previous range or is not sorted by t0`,
+  idsRepeated: (p: P<'field'>) => `IDs are repeated in ${p.field}`,
+  fieldRange: (p: P<'field' | 'range'>) => `${p.field} must be within ${p.range}`,
+  fieldInvalid: (p: P<'field' | 'rule'>) => `${p.field} is not valid: ${p.rule}`,
+  referenceMissing: (p: P<'field' | 'id'>) => `${p.field} refers to ${p.id}, which does not exist`,
 };
 
 export type VideoModelMessages = typeof en;

@@ -511,6 +511,7 @@ const en = {
   workspaceSnapshotVersion: 'This snapshot was written in an unsupported format version; open it with a matching BaoCut',
   labelUndo: (p: P<'label'>) => `Undo: ${p.label}`,
   labelRedo: (p: P<'label'>) => `Redo: ${p.label}`,
+  pointerTrackUnreadable: (p: P<'error'>) => `Not a readable pointer track: ${p.error}`,
 };
 
 export type EngineMessages = typeof en;

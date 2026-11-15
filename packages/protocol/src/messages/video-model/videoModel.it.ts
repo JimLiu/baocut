@@ -11,4 +11,12 @@ export const it: VideoModelMessages = {
   fxTemperatureRange: 'fx.temperature deve rientrare in -1..=1', fxShadowOffset: 'Gli offset di fx.shadow devono essere numeri finiti', fxShadowBlurRange: 'fx.shadow.blur deve rientrare in 0..=200', fxShadowOpacityRange: 'fx.shadow.opacity deve rientrare in 0..=1', fxShadowColor: 'fx.shadow.color deve essere #RRGGBB o #RRGGBBAA', fxStrokeWidthRange: 'fx.stroke.width deve rientrare in (0, 100]', fxStrokeColor: 'fx.stroke.color deve essere #RRGGBB o #RRGGBBAA',
   layoutProfileEmpty: 'layoutProfileId non può essere una stringa vuota', coverageRange: 'stages.aligned.coverage deve essere compreso tra 0 e 1', transitionParamsInvalid: (p) => `Parametri non validi per ${p.kind}: ${p.error}`, dipColorInvalid: 'color di dip-to-color deve essere #RRGGBB',
   blockConfidence: (p) => `confidence dei blocchi di allineamento in units[${p.index}] deve essere compreso tra 0 e 1`, splitPiecesEmpty: (p) => `alignment.split.pieces in units[${p.index}] non può essere vuoto`, splitPieceOrder: (p) => `alignment.split.pieces in units[${p.index}] ha un elemento con from maggiore di to`,
+  clockOneOf: (p) => `clock deve essere uno tra: ${p.clocks}`,
+  ticksInvalid: (p) => `${p.field} deve essere in tick interi`,
+  rangeInvalid: (p) => `${p.field} deve soddisfare 0 ≤ t0 < t1`,
+  rangeOrder: (p) => `${p.field} si sovrappone all’intervallo precedente o non è ordinato per t0`,
+  idsRepeated: (p) => `Ci sono ID ripetuti in ${p.field}`,
+  fieldRange: (p) => `${p.field} deve essere compreso in ${p.range}`,
+  fieldInvalid: (p) => `${p.field} non è valido: ${p.rule}`,
+  referenceMissing: (p) => `${p.field} fa riferimento a ${p.id}, che non esiste`,
 };

@@ -184,7 +184,7 @@ fn read_package(package_dir: &Path) -> EngineResult<(VideoState, Vec<DocumentBod
     Ok((state, documents))
 }
 
-/// 一个文档版本的正文要是 JSON 对象，它引用的素材要与版本登记的一致（字幕样式的场景素材）。工作区快照重建时同样检查。
+/// 一个文档版本的正文要是 JSON 对象，它引用的素材要与版本登记的一致（字幕样式的场景素材、录制清单的各路流）。工作区快照重建时同样检查。
 pub(crate) fn check_document_body(state: &VideoState, id: &str, version: &DocumentRevision, parsed: &Value) -> EngineResult<()> {
     if !parsed.is_object() {
         return Err(invalid(msg!(
@@ -194,9 +194,9 @@ pub(crate) fn check_document_body(state: &VideoState, id: &str, version: &Docume
             id
         )));
     }
-    let expected = video_model::caption_style::scene_asset_refs(parsed)
+    let expected = video_model::document_asset_refs(parsed)
         .map_err(|error| invalid(msg!("videoModel.bodyShape", "The body has fields of the wrong shape: {error}", error)))?;
-    let problems = video_model::caption_style::scene_resource_problems(parsed, &state.assets);
+    let problems = video_model::document_resource_problems(parsed, &state.assets);
     if expected != version.asset_refs || !problems.is_empty() {
         return Err(invalid(msg!(
             "videoModel.bodyShape", "The body has fields of the wrong shape: {error}",

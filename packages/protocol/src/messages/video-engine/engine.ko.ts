@@ -489,4 +489,5 @@ export const ko: EngineMessages = {
   snapshotDocumentChanged: (p) => `문서 ${p.id}의 파일이 스냅숏과 맞지 않습니다`,
   workspaceSnapshotFormat: 'BaoCut 작업 공간 스냅숏이 아닙니다',
   workspaceSnapshotVersion: '지원하지 않는 형식 버전으로 작성된 스냅숏입니다. 맞는 버전의 BaoCut으로 여세요',
+  pointerTrackUnreadable: (p) => `읽을 수 있는 포인터 트랙이 아닙니다: ${p.error}`,
 };
