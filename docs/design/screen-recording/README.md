@@ -169,7 +169,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 - **Runtime**：录制会话的状态、倒计时、Worker 的启停与恢复、导入（清单、指针轨、键盘轨、取景文档、实例与联动组，经 `edits.apply`）；`record` 与 `recordings` 整组命令、`baocut doctor` 的「录制」一项。
 - **还没有**：§11 的入口、面板与控制条（会话里的 `record` 停在「等待开始」，要等桌面端的面板）；摄像头的预览通道；Windows 的采集；联动组的成组编辑与取景的渲染（阶段 2、3）。
 
-实机验证到哪里：在 macOS 27 上直接经 stdio 驱动 Worker，`sources` 不弹授权窗口；整屏加系统声音、另画光标、只录快捷键，录 3 秒、暂停 1 秒、再录 2 秒，两段 H.264 与 AAC 都可读，时长与日志一致，Runtime 的录制包构建读得懂；录制中强杀 Worker，已经写下的分段文件仍可读。单个窗口（加系统声音与快捷键）和一块区域也各录过两秒：画面尺寸与窗口、区域一致（区域的宽高取成偶数）。录窗口时 Worker 一度因 CoreGraphics 没有初始化被系统结束，现在启动时先连上窗口服务器。显示器睡着时 ScreenCaptureKit 列不出显示器，`start` 以 `CAPTURE_UNAVAILABLE` 失败。没有实机验证的：摄像头与麦克风（那台电脑上这两项还没有授权过，没有去触发授权窗口）、指针移动与点击、真的按键、录制中移动窗口、设备中途断开，见 [§14](#14-待评审事项)。开始时被系统拒绝屏幕、摄像头或麦克风权限，Worker 报出是哪一项，Runtime 换成 `RECORDING_PERMISSION_DENIED` 并带上系统设置的位置。
+实机验证到哪里：在 macOS 27 上直接经 stdio 驱动 Worker，`sources` 不弹授权窗口；整屏加系统声音、另画光标、只录快捷键，录 3 秒、暂停 1 秒、再录 2 秒，两段 H.264 与 AAC 都可读，时长与日志一致，Runtime 的录制包构建读得懂；录制中强杀 Worker，已经写下的分段文件仍可读。单个窗口（加系统声音与快捷键）和一块区域也各录过两秒：画面尺寸与窗口、区域一致（区域的宽高取成偶数）。录窗口时 Worker 一度因 CoreGraphics 没有初始化被系统结束，现在启动时先连上窗口服务器。显示器睡着时 ScreenCaptureKit 列不出显示器，`start` 以 `CAPTURE_UNAVAILABLE` 失败。没有实机验证的：摄像头与麦克风（那台电脑上这两项还没有授权过，没有去触发授权窗口）、指针移动与点击、真的按键、录制中移动窗口、设备中途断开，见 [§14](#14-待评审事项)。开始时被系统拒绝屏幕、摄像头或麦克风权限，Worker 按 SDK 头文件里的错误码报出是哪一项，Runtime 换成 `RECORDING_PERMISSION_DENIED` 并带上系统设置的位置；实机上没有触发过这几种拒绝，Runtime 这一半由假 Worker 的测试覆盖。
 
 必须覆盖的用例：摄像头晚于屏幕启动；暂停后恢复；摄像头中途断开；删掉中间一段；只拆分（画面逐帧相同）；两倍速；同一次录制用两次（效果互不影响）；Retina 与 Windows 的不同缩放比例下光标对得上点击处；窗口移动与区域录制；随机拖动播放头；改导出帧率；导入中进程退出（没有悬空引用、没有重复插入）；撤销、重做与重新打开；便携包换一台机器仍能编辑。
 
@@ -337,8 +337,8 @@ baocut record --no-wait && baocut recordings stop --wait
   - 光标图片：`NSCursor.currentSystemCursor`（AppKit `NSCursor.h`）。新的 SDK 已标为过时，头文件说以后的系统上会返回空；拿不到时 Worker 退到 `baked`，`start` 的回答与清单如实写出。要换成别的取法是待办。
   - 屏幕权限：`CGPreflightScreenCaptureAccess`（CoreGraphics `CGWindow.h`）只问不弹窗，但只分得出「已允许」与「没有」，所以 `sources` 里屏幕只会是 `granted` 或 `not-determined`。
   - 摄像头、麦克风权限：`AVCaptureDevice.authorizationStatusForMediaType:`（AVFoundation「Requesting authorization to capture and save media」），四种状态一一对应。
-  - 监听键盘要单独的「输入监控」权限：状态用 `IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)`（IOKit `IOHIDLib.h`）读，监听用只听不改的 `CGEventTapCreate`（CoreGraphics `CGEvent.h`）。建不起监听时 `start` 以 `INPUT_MONITORING_UNAVAILABLE` 失败，Runtime 换成 `RECORDING_PERMISSION_DENIED`。
-  - 时钟：SCStream 与每个 AVCaptureSession 的 `synchronizationClock`，经 `CMSyncConvertTime`（CoreMedia `CMSync.h`）换到主机时钟。
+  - 监听键盘要单独的「输入监控」权限：状态用 `IOHIDCheckAccess(kIOHIDRequestTypeListenEvent)`（IOKit `IOHIDLib.h`）读，监听用只听不改的 `CGEventTapCreate`（CoreGraphics `CGEvent.h`）。实机上监听建得起来（录过的几段里没有按键）；建不起时 `start` 以 `INPUT_MONITORING_UNAVAILABLE` 失败、Runtime 换成 `RECORDING_PERMISSION_DENIED`，这条路径没有实机触发过。
+  - 时钟：SCStream 与每个 AVCaptureSession 的 `synchronizationClock`，经 `CMSyncConvertTime`（CoreMedia `CMSync.h`）换到主机时钟。实机上只用过 SCStream 的；AVCaptureSession 还没有开过。
   - 崩溃后可读：`AVAssetWriter.movieFragmentInterval`（AVFoundation `AVAssetWriter.h`）设成 1 秒，录制中强杀之后已写下的片段可读（实机验证）。打开分段时 H.264 不能用 B 帧（实机上会以 `-16341` 失败），所以关掉了帧重排。
   - 录单个窗口：`SCContentFilter initWithDesktopIndependentWindow:`（ScreenCaptureKit 文档「SCContentFilter」），画面尺寸取窗口的大小（实机录过）。
 - **系统接口：按文档实现、还没实机验证的。** 窗口移动时指针坐标跟着窗口走（位置从每帧的 `SCStreamFrameInfoScreenRect` 读，录的时候窗口没有动过）；指针移动与点击、真的按键（录过的几段里没有动鼠标、没有按键，事件文件里只有起始那一行或是空的）；设备中途断开；摄像头与麦克风的采集。「安全输入（密码框）期间拿不到按键」只按文档的说法记，没有实机试过；「控制条不被录进画面」「BaoCut 的窗口从整屏的采集里排除」可以用 `SCContentFilter` 的排除窗口与排除应用做到，但 Worker 还没有接（现在整屏录制会录进 BaoCut 自己的窗口）；Windows 一侧都还没有核实。
