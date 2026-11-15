@@ -378,6 +378,20 @@ pub enum EditOperation {
         sequence_id: Option<Id>,
         group_id: Id,
     },
+    /// 同步校正（§3.18）：联动组里一个成员的源起点加上 `offset`（十进制秒，可为负），位置与长度不变。
+    SyncLinkedItem {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        item_id: Id,
+        offset: String,
+    },
+    /// 复制整个联动组（§3.18）：成员复制成新的实例、登记成新的组，最早的成员从 `at` 开始；屏幕取景文档一并复制成新文档。
+    DuplicateLinkGroup {
+        sequence_id: Id,
+        group_id: Id,
+        at: TimelineTimeInput,
+        alignment: FrameAlignment,
+    },
     /// 改文字实例的内容：`text`、`counter` 与 `chapter` 给且只给一个，给了的那个替换另外两个（§3.6）。
     SetText {
         #[serde(default)]
@@ -914,7 +928,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
                 offset: offset.clone(),
                 track_id: track_id.clone(),
             };
-            move_item(state, sequence_id.as_deref(), &mv, *alignment, ctx)
+            crate::recording_links::move_items(state, sequence_id.as_deref(), std::slice::from_ref(&mv), *alignment, ctx)
         }
         EditOperation::MoveItems {
             sequence_id,
@@ -924,10 +938,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             if moves.is_empty() {
                 return Err(ErrorBody::invalid_operation(msg!("engine.moveItemsEmpty", "moveItems needs at least one entry")));
             }
-            for mv in moves {
-                move_item(state, sequence_id.as_deref(), mv, *alignment, ctx)?;
-            }
-            Ok(())
+            crate::recording_links::move_items(state, sequence_id.as_deref(), moves, *alignment, ctx)
         }
         EditOperation::TrimItem {
             sequence_id,
@@ -935,18 +946,24 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             edge,
             at,
             alignment,
-        } => trim_item(state, sequence_id.as_deref(), item_id, *edge, at, *alignment, ctx),
+        } => crate::recording_links::trim(state, sequence_id.as_deref(), item_id, *edge, at, *alignment, ctx),
         EditOperation::SplitItem {
             sequence_id,
             item_id,
             at,
             alignment,
-        } => split_item(state, sequence_id.as_deref(), item_id, at, *alignment, ctx).map(|_| ()),
+        } => crate::recording_links::split(state, sequence_id.as_deref(), item_id, at, *alignment, ctx),
         EditOperation::JoinItems {
             sequence_id,
             item_ids,
             keep,
-        } => join_items(state, sequence_id.as_deref(), item_ids, *keep),
+        } => {
+            // 成组的实例不单独合并：合并会让一个成员的时间离开它的组（§3.18）。恢复剪口里的合并不经过这里。
+            if let Some((id, group)) = item_ids.iter().find_map(|id| Some((id, crate::recording_links::group_of(state, id)?))) {
+                return Err(crate::recording_links::single_time_refused(id, &group));
+            }
+            join_items(state, sequence_id.as_deref(), item_ids, *keep)
+        }
         EditOperation::DeleteItems { sequence_id, item_ids } => delete_items(state, sequence_id.as_deref(), item_ids),
         EditOperation::RemoveRange {
             sequence_id,
@@ -954,7 +971,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             to,
             track_ids,
             alignment,
-        } => remove_range(state, sequence_id.as_deref(), from, to, track_ids, *alignment, ctx),
+        } => remove_range(state, sequence_id.as_deref(), from, to, track_ids, *alignment, ctx).map(|_| ()),
         EditOperation::InsertRange {
             sequence_id,
             at,
@@ -1042,7 +1059,14 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             asset_ref,
             asset_import_ref,
             time_map,
-        } => replace_item_asset(
+        } => {
+            // 换映射是单独改一个成员的时间（§3.18）；只换素材不改映射照常。
+            if time_map.is_some()
+                && let Some(group) = crate::recording_links::group_of(state, item_id)
+            {
+                return Err(crate::recording_links::single_time_refused(item_id, &group));
+            }
+            replace_item_asset(
             state,
             sequence_id.as_deref(),
             item_id,
@@ -1050,7 +1074,8 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             asset_import_ref.as_deref(),
             time_map.as_ref(),
             ctx,
-        ),
+        )
+        }
         EditOperation::SetTransform {
             sequence_id,
             item_id,
@@ -1140,6 +1165,17 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             item_ids.iter().try_for_each(|id| check_item(state, id))
         }
         EditOperation::UnlinkItems { sequence_id, group_id } => crate::recording_links::unlink_items(state, sequence_id.as_deref(), group_id),
+        EditOperation::SyncLinkedItem {
+            sequence_id,
+            item_id,
+            offset,
+        } => crate::recording_links::sync_item(state, sequence_id.as_deref(), item_id, offset),
+        EditOperation::DuplicateLinkGroup {
+            sequence_id,
+            group_id,
+            at,
+            alignment,
+        } => crate::recording_links::duplicate(state, Some(sequence_id), group_id, at, *alignment, ctx).map(|_| ()),
         EditOperation::SetTransition {
             sequence_id,
             left_item_id,
@@ -1362,7 +1398,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             sequence_id,
             item_id,
             rate,
-        } => set_speed(state, sequence_id.as_deref(), item_id, *rate),
+        } => crate::recording_links::set_speed(state, sequence_id.as_deref(), item_id, *rate),
         EditOperation::SetCaptionStyle {
             sequence_id,
             item_id,
@@ -1887,7 +1923,7 @@ fn track_end(state: &VideoState, sequence_id: &str, track_id: &str, fps: Rate) -
 }
 
 /// 精确的音频起点拆成「粗帧 + 余数」，余数落在 [0, 一帧)。
-fn split_audio_start(start: Ratio, fps: Rate) -> EngineResult<(i64, MediaTime)> {
+pub(crate) fn split_audio_start(start: Ratio, fps: Rate) -> EngineResult<(i64, MediaTime)> {
     let frame = frames_at(start, fps).ok_or_else(overflow)?.floor();
     let offset = start
         .checked_sub(frame_time(frame, fps).ok_or_else(overflow)?)
@@ -2843,7 +2879,8 @@ fn captions_forget_deleted(state: &mut VideoState, deleted: &[Id]) {
 ///   静态实例（图片、文字、形状、字幕）缩短区间那么长；
 /// - 区间之后的前移区间那么长（音频保留子帧位置）。
 ///
-/// 轨道或要动的实例锁着时整笔拒绝，不跳过；没声明的轨道不动。
+/// 轨道或要动的实例锁着时整笔拒绝，不跳过；没声明的轨道不动。碰到的联动组整组一起删（§3.18「删除一段并闭合」）：
+/// 组的其余成员不论在哪条轨道上都按同样的规则处理，之后组在区间起点分成两组。返回这样处理过的成员。
 pub(crate) fn remove_range(
     state: &mut VideoState,
     sequence_id: Option<&str>,
@@ -2852,7 +2889,7 @@ pub(crate) fn remove_range(
     track_ids: &[Id],
     alignment: FrameAlignment,
     ctx: &mut EditContext<'_>,
-) -> EngineResult<()> {
+) -> EngineResult<std::collections::BTreeSet<Id>> {
     let (sequence_id, fps, seq_revision) = require_sequence(state, sequence_id)?;
     let sequence_id = sequence_id.to_string();
     if track_ids.is_empty() {
@@ -2889,7 +2926,7 @@ pub(crate) fn remove_range(
 }
 
 /// 已经量化好的波纹删除 `[f0, f1)`（帧）。`straddle` 只管盖住整个区间、两头都伸出去的实例：`Split` 拆开删掉中间，
-/// `Stay` 原地不动（`replaceCodeBundle` 的 `ripple` 用它，铺底音乐不被剪一截）。
+/// `Stay` 原地不动（`replaceCodeBundle` 的 `ripple` 用它，铺底音乐不被剪一截）；联动组的成员这样不动会让组错开，拒绝。
 fn remove_range_frames(
     state: &mut VideoState,
     sequence_id: &str,
@@ -2899,12 +2936,22 @@ fn remove_range_frames(
     track_ids: &[Id],
     straddle: Straddle,
     ctx: &mut EditContext<'_>,
-) -> EngineResult<()> {
+) -> EngineResult<std::collections::BTreeSet<Id>> {
     let sequence_id = sequence_id.to_string();
     let t0 = frame_time(f0 as i128, fps).ok_or_else(overflow)?;
     let t1 = frame_time(f1 as i128, fps).ok_or_else(overflow)?;
     let length = t1.checked_sub(t0).ok_or_else(overflow)?;
-    let affected = items_ending_after(state, &sequence_id, track_ids, t0, fps)?;
+    let mut affected = items_ending_after(state, &sequence_id, track_ids, t0, fps)?;
+    let (groups, extra) = crate::recording_links::touched_groups(state, &sequence_id, &affected, t0, fps)?;
+    affected.extend(extra);
+    affected.sort_by(|x, y| x.0.cmp(&y.0).then_with(|| x.2.cmp(&y.2)));
+    if straddle == Straddle::Stay
+        && let Some((_, _, id)) = affected
+            .iter()
+            .find(|(a, b, id)| *a < t0 && *b > t1 && crate::recording_links::group_of(state, id).is_some())
+    {
+        return Err(crate::recording_links::straddle_refused(state, id));
+    }
 
     let frame = |value: i64| TimelineTimeInput::Frames { value };
     let exact = FrameAlignment::ExactFrame;
@@ -2941,7 +2988,25 @@ fn remove_range_frames(
     if !deleted.is_empty() {
         delete_items(state, seq, &deleted)?;
     }
-    Ok(())
+    regroup(state, &sequence_id, &groups, t0, fps)
+}
+
+/// 波纹编辑之后把碰到的组在 `t0` 分开（左边的终点不晚于它，右边的起点不早于它），返回这些组现在的全部成员。
+fn regroup(
+    state: &mut VideoState,
+    sequence_id: &str,
+    groups: &std::collections::BTreeSet<Id>,
+    t0: Ratio,
+    fps: Rate,
+) -> EngineResult<std::collections::BTreeSet<Id>> {
+    let mut handled = std::collections::BTreeSet::new();
+    for group in groups {
+        let right = crate::recording_links::partition(state, sequence_id, group, t0, fps)?;
+        for g in std::iter::once(group).chain(right.as_ref()) {
+            handled.extend(crate::recording_links::members(state, sequence_id, g, fps)?.into_iter().map(|(_, _, id)| id));
+        }
+    }
+    Ok(handled)
 }
 
 /// 序列上列出的轨道里终点晚于 `t0` 的实例（起点、终点、ID），按起点再按 ID 排；要动的都得没锁。
@@ -3043,7 +3108,18 @@ fn insert_range_frames(
 ) -> EngineResult<()> {
     let t0 = frame_time(f0 as i128, fps).ok_or_else(overflow)?;
     let length = frame_time(frames as i128, fps).ok_or_else(overflow)?;
-    let affected = items_ending_after(state, sequence_id, track_ids, t0, fps)?;
+    let mut affected = items_ending_after(state, sequence_id, track_ids, t0, fps)?;
+    // 碰到的联动组整组一起插（§3.18）：其余成员不论在哪条轨道上都跟着，之后组在插入点分成两组。
+    let (groups, extra) = crate::recording_links::touched_groups(state, sequence_id, &affected, t0, fps)?;
+    affected.extend(extra);
+    affected.sort_by(|x, y| x.0.cmp(&y.0).then_with(|| x.2.cmp(&y.2)));
+    let stays = |id: &Id| straddle == Straddle::Stay || state.items[id].value.base().until_sequence_end;
+    if let Some((_, _, id)) = affected
+        .iter()
+        .find(|(a, _, id)| *a < t0 && stays(id) && crate::recording_links::group_of(state, id).is_some())
+    {
+        return Err(crate::recording_links::straddle_refused(state, id));
+    }
     let seq = Some(sequence_id);
     for (a, _, id) in affected {
         if a >= t0 {
@@ -3060,11 +3136,11 @@ fn insert_range_frames(
             shift_later(state, &right, length, frames, fps)?;
         }
     }
-    Ok(())
+    regroup(state, sequence_id, &groups, t0, fps).map(|_| ())
 }
 
 /// 把实例后移 `length`（= `frames` 帧）。音频按精确时间移，保留子帧位置。
-fn shift_later(state: &mut VideoState, item_id: &str, length: Ratio, frames: i64, fps: Rate) -> EngineResult<()> {
+pub(crate) fn shift_later(state: &mut VideoState, item_id: &str, length: Ratio, frames: i64, fps: Rate) -> EngineResult<()> {
     let placed = state.items.get_mut(item_id).ok_or_else(|| ErrorBody::not_found(kinds::item(), item_id))?;
     match &mut placed.value {
         TimelineItem::Audio(audio) => {
@@ -3837,7 +3913,7 @@ fn set_audio_mix(
     check_item(state, item_id)
 }
 
-fn set_speed(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str, rate: Rate) -> EngineResult<()> {
+pub(crate) fn set_speed(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str, rate: Rate) -> EngineResult<()> {
     rate.validate("rate")?;
     let speed = rate.ratio();
     let (min, max) = (Ratio::new(1, 10).expect("常数"), Ratio::from_int(10).expect("常数"));
@@ -4014,7 +4090,7 @@ fn dropped_field(input: &Value, output: &Value, path: &str) -> Option<String> {
 }
 
 /// 线性映射的源区间必须落在素材之内。
-fn check_time_map(state: &VideoState, id: &str, map: &TimeMap, length: Ratio, asset_ref: Option<&VersionRef>) -> EngineResult<()> {
+pub(crate) fn check_time_map(state: &VideoState, id: &str, map: &TimeMap, length: Ratio, asset_ref: Option<&VersionRef>) -> EngineResult<()> {
     let TimeMap::Linear { source_in, rate } = map else {
         return Ok(());
     };

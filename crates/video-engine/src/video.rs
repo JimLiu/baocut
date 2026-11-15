@@ -293,6 +293,8 @@ fn operation_label(op: &EditOperation) -> Text {
         EditOperation::SetStyle { .. } => msg!("engine.labelEditStyle", "Edit style"),
         EditOperation::LinkItems { .. } => msg!("engine.labelLinkItems", "Link clips"),
         EditOperation::UnlinkItems { .. } => msg!("engine.labelUnlinkItems", "Unlink clips"),
+        EditOperation::SyncLinkedItem { .. } => msg!("engine.labelSyncLinkedItem", "Correct sync"),
+        EditOperation::DuplicateLinkGroup { .. } => msg!("engine.labelDuplicateLinkGroup", "Duplicate recording"),
         EditOperation::SetText { .. } => msg!("engine.labelEditText", "Edit text"),
         EditOperation::SetProps { .. } | EditOperation::SetCodeParameters { .. } => msg!("engine.labelEditParameters", "Edit parameters"),
         EditOperation::SetAnimation { .. } => msg!("engine.labelSetAnimation", "Set animation"),
@@ -874,6 +876,10 @@ impl Video {
                     read_cut_set(asset_id)?;
                     read.extend(crate::proposals::speech_document(&self.state, asset_id, speech_document_id.as_deref()).ok());
                     written.extend(crate::proposals::proposal_document(&self.state, asset_id));
+                }
+                // 复制联动组要复制成员引用的屏幕取景文档（§3.18）。
+                EditOperation::DuplicateLinkGroup { sequence_id, group_id, .. } => {
+                    read.extend(crate::recording_links::duplicate_reads(&self.state, sequence_id, group_id));
                 }
                 EditOperation::AcceptCutSuggestions { proposal_id, .. } => {
                     if let Some(asset_id) = self.state.documents.get(proposal_id).and_then(|d| d.source_asset_id.clone()) {

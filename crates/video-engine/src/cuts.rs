@@ -519,7 +519,7 @@ pub(crate) fn add_cut_ranges(
     // 从后往前删：前面的区间位置不受后面的影响。
     for removal in planned.iter().rev() {
         let tracks: Vec<Id> = removal.tracks.iter().cloned().collect();
-        remove_range(
+        let handled = remove_range(
             state,
             Some(&sequence_id),
             &frames(removal.f0),
@@ -528,7 +528,7 @@ pub(crate) fn add_cut_ranges(
             FrameAlignment::ExactFrame,
             ctx,
         )?;
-        follow_removal(state, &sequence_id, removal, fps, ctx)?;
+        follow_removal(state, &sequence_id, removal, &handled, fps, ctx)?;
     }
     let spans: Vec<(i64, i64)> = planned.iter().map(|r| (r.f0, r.f1)).collect();
     crate::chapters::close_spans(state, &sequence_id, &spans);
@@ -546,21 +546,54 @@ pub(crate) fn add_cut_ranges(
 
 /// 被剪轨道之外、`follow-cuts` 的实例跟着一段波纹删除走（§3.16）：之后的前移；起点落进去的推到区间终点（带源时钟的
 /// 源起点同步后移）再前移；终点落进去的拉回区间起点；跨过的只缩短；整个落在里面的删掉。
-fn follow_removal(state: &mut VideoState, sequence_id: &str, removal: &Removal, fps: Rate, ctx: &mut EditContext<'_>) -> EngineResult<()> {
+///
+/// 联动组（§3.18）：被剪的组已经由 `removeRange` 整组处理（`handled`），这里不再动；别的组整组看：全部成员都是
+/// `follow-cuts`、都在区间之后时整组前移，否则整组不动（不单独缩短或删掉其中一个成员）。
+fn follow_removal(
+    state: &mut VideoState,
+    sequence_id: &str,
+    removal: &Removal,
+    handled: &BTreeSet<Id>,
+    fps: Rate,
+    ctx: &mut EditContext<'_>,
+) -> EngineResult<()> {
     let t0 = frame_time(removal.f0 as i128, fps).ok_or_else(overflow)?;
     let t1 = frame_time(removal.f1 as i128, fps).ok_or_else(overflow)?;
     let length = t1.checked_sub(t0).ok_or_else(overflow)?;
     let count = removal.f1 - removal.f0;
     let mut todo: Vec<(Ratio, Ratio, Id)> = Vec::new();
+    let mut groups: BTreeSet<Id> = BTreeSet::new();
     for (id, placed) in &state.items {
         let base = placed.value.base();
-        if placed.sequence_id != sequence_id || removal.tracks.contains(&base.track_id) || base.follow_policy != FollowPolicy::FollowCuts {
+        if handled.contains(id) || placed.sequence_id != sequence_id {
+            continue;
+        }
+        if let Some(group) = crate::recording_links::group_of(state, id) {
+            groups.insert(group);
+            continue;
+        }
+        if removal.tracks.contains(&base.track_id) || base.follow_policy != FollowPolicy::FollowCuts {
             continue;
         }
         let (a, b) = item_range(&placed.value, fps)?;
         if b > t0 {
             ensure_editable(state, &placed.value)?;
             todo.push((a, b, id.clone()));
+        }
+    }
+    for group in groups {
+        let members = crate::recording_links::members(state, sequence_id, &group, fps)?;
+        let follows = members.iter().all(|(a, _, id)| {
+            let base = state.items[id].value.base();
+            *a >= t1 && !removal.tracks.contains(&base.track_id) && base.follow_policy == FollowPolicy::FollowCuts
+        });
+        if follows {
+            for (_, _, id) in &members {
+                crate::recording_links::ensure_member_editable(state, &group, id)?;
+            }
+            for (_, _, id) in members {
+                shift_earlier(state, &id, length, count, fps)?;
+            }
         }
     }
     todo.sort_by(|x, y| x.0.cmp(&y.0).then_with(|| x.2.cmp(&y.2)));
@@ -753,9 +786,14 @@ pub(crate) fn restore_cut(
     let exact = FrameAlignment::ExactFrame;
     // 从后往前插：前面的接缝位置不受后面的影响。
     for insertion in plan.iter().rev() {
-        insert_gap(state, &sequence_id, insertion, fps)?;
+        let roles = seam_groups(state, insertion);
+        insert_gap(state, &sequence_id, insertion, &roles, fps)?;
         crate::chapters::open_gap(state, &sequence_id, insertion.frame, insertion.frames);
         let (at, count) = (insertion.frame, insertion.frames);
+        let before_merge = roles.members(state, &sequence_id, fps)?;
+        for (left, right) in &roles.pairs {
+            crate::recording_links::merge(state, &sequence_id, left, right);
+        }
         for seam in &insertion.seams {
             match seam {
                 Seam::Both { left, right } => {
@@ -768,22 +806,160 @@ pub(crate) fn restore_cut(
                 Seam::Head { right } => trim_item(state, seq, right, Edge::Start, &frames(at), exact, ctx)?,
             }
         }
+        relay_groups(state, &sequence_id, insertion, &roles, &before_merge, fps, ctx)?;
     }
     loaded.scope = rewrite_scope(state, &sequence_id, fps, asset_id, &scope, &existing)?;
     write(state, ctx, asset_id, &loaded)
 }
 
+/// 一处接缝两边的联动组（§3.18）：接缝左边实例所在的组、右边实例所在的组、同一处 `Both` 接缝两边的组对。
+#[derive(Default)]
+struct SeamGroups {
+    left: BTreeSet<Id>,
+    right: BTreeSet<Id>,
+    pairs: Vec<(Id, Id)>,
+    seam_items: BTreeSet<Id>,
+}
+
+impl SeamGroups {
+    /// 合并组之前各组的成员（组 ID → 成员）。
+    fn members(&self, state: &VideoState, sequence_id: &str, fps: Rate) -> EngineResult<BTreeMap<Id, Vec<(Ratio, Ratio, Id)>>> {
+        let mut out = BTreeMap::new();
+        for group in self.left.iter().chain(&self.right) {
+            out.insert(group.clone(), crate::recording_links::members(state, sequence_id, group, fps)?);
+        }
+        Ok(out)
+    }
+}
+
+fn seam_groups(state: &VideoState, insertion: &Insertion) -> SeamGroups {
+    let mut roles = SeamGroups::default();
+    let group = |id: &Id| crate::recording_links::group_of(state, id);
+    for seam in &insertion.seams {
+        match seam {
+            Seam::Both { left, right } => {
+                roles.seam_items.extend([left.clone(), right.clone()]);
+                let (l, r) = (group(left), group(right));
+                roles.left.extend(l.clone());
+                roles.right.extend(r.clone());
+                if let (Some(l), Some(r)) = (l, r)
+                    && l != r
+                    && !roles.pairs.contains(&(l.clone(), r.clone()))
+                {
+                    roles.pairs.push((l, r));
+                }
+            }
+            Seam::Tail { left } => {
+                roles.seam_items.insert(left.clone());
+                roles.left.extend(group(left));
+            }
+            Seam::Head { right } => {
+                roles.seam_items.insert(right.clone());
+                roles.right.extend(group(right));
+            }
+        }
+    }
+    roles
+}
+
+/// 恢复剪口时接缝两边联动组里其余的成员（§3.18「恢复剪口同样成组」）：左边组里终点正好在接缝的成员延长放回的长度（不超出素材），
+/// 再和右边组里同一轨道、同一素材、从接缝之后开始的成员接回一段；右边的组没有左边的组相对时（剪口在开头），右边组里从接缝之后
+/// 开始的成员把开头放回（不早于素材的开头）。
+#[allow(clippy::too_many_arguments)]
+fn relay_groups(
+    state: &mut VideoState,
+    sequence_id: &str,
+    insertion: &Insertion,
+    roles: &SeamGroups,
+    before_merge: &BTreeMap<Id, Vec<(Ratio, Ratio, Id)>>,
+    fps: Rate,
+    ctx: &mut EditContext<'_>,
+) -> EngineResult<()> {
+    let at = frame_time(insertion.frame as i128, fps).ok_or_else(overflow)?;
+    let length = frame_time(insertion.frames as i128, fps).ok_or_else(overflow)?;
+    let after = frame_time((insertion.frame + insertion.frames) as i128, fps).ok_or_else(overflow)?;
+    let seq = Some(sequence_id);
+    for group in &roles.left {
+        for (_, b, id) in &before_merge[group] {
+            if roles.seam_items.contains(id) || *b != at || !state.items.contains_key(id) {
+                continue;
+            }
+            let (delta, count) = extension(state, id, length, insertion.frames, fps)?;
+            if count > 0 || delta > Ratio::ZERO {
+                resize_end(state, id, delta, count, fps)?;
+            }
+        }
+    }
+    for group in &roles.right {
+        let partner_group = roles.pairs.iter().find(|(_, r)| r == group).map(|(l, _)| l);
+        for (_, _, id) in &before_merge[group] {
+            if roles.seam_items.contains(id) || !state.items.contains_key(id) {
+                continue;
+            }
+            let (start, _) = item_range(&state.items[id].value, fps)?;
+            if start != after {
+                continue;
+            }
+            match partner_group {
+                Some(left) => {
+                    let item = &state.items[id].value;
+                    let (track, asset) = (item.base().track_id.clone(), item.asset_ref().map(|r| r.id.clone()));
+                    let partner = before_merge[left].iter().map(|(_, _, l)| l).find(|l| {
+                        state.items.get(*l).is_some_and(|p| {
+                            p.value.base().track_id == track
+                                && p.value.asset_ref().map(|r| r.id.clone()) == asset
+                                && item_range(&p.value, fps).is_ok_and(|(_, b)| b == after)
+                        })
+                    });
+                    if let Some(partner) = partner {
+                        // 字段已经不一致（之后单独改过）时留成两段。
+                        let _ = join_items(state, seq, &[partner.clone(), id.clone()], None);
+                    }
+                }
+                None => {
+                    let Some(TimeMap::Linear { source_in, rate }) = state.items[id].value.clone().time_map_mut().cloned() else {
+                        continue;
+                    };
+                    let room = source_in.to_ratio("sourceIn")?.checked_div(rate.ratio()).ok_or_else(overflow)?;
+                    let room = quantize_frame(room, fps, FrameAlignment::FloorFrame, "length")?;
+                    let back = room.min(insertion.frames);
+                    if back > 0 {
+                        trim_item(
+                            state,
+                            seq,
+                            id,
+                            Edge::Start,
+                            &frames(insertion.frame + insertion.frames - back),
+                            FrameAlignment::ExactFrame,
+                            ctx,
+                        )?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// 在序列的 `frame` 处放回 `frames` 帧：接缝所在的轨道上从这里开始的实例都后移；其余轨道上 `follow-cuts` 的实例按
 /// 恢复之后的时间线移动（§3.16）：从这里开始的后移，跨过这一点的延长（带源时钟的不超出素材），终点正好在这里的不动。
-fn insert_gap(state: &mut VideoState, sequence_id: &str, insertion: &Insertion, fps: Rate) -> EngineResult<()> {
+///
+/// 联动组整组看（§3.18）：接缝右边的组整组后移，左边的组不动（成员在 [`relay_groups`] 里延长）；别的组全部成员都从这里开始、
+/// 而且每个成员都在接缝的轨道上或是 `follow-cuts` 时整组后移，否则整组不动。
+fn insert_gap(state: &mut VideoState, sequence_id: &str, insertion: &Insertion, roles: &SeamGroups, fps: Rate) -> EngineResult<()> {
     let at = frame_time(insertion.frame as i128, fps).ok_or_else(overflow)?;
     let length = frame_time(insertion.frames as i128, fps).ok_or_else(overflow)?;
     let back = negate(length)?;
     let mut shift = Vec::new();
     let mut extend = Vec::new();
+    let mut groups: BTreeSet<Id> = BTreeSet::new();
     for (id, placed) in &state.items {
         let base = placed.value.base();
         if placed.sequence_id != sequence_id {
+            continue;
+        }
+        if let Some(group) = crate::recording_links::group_of(state, id) {
+            groups.insert(group);
             continue;
         }
         let on_seam = insertion.tracks.contains(&base.track_id);
@@ -797,6 +973,24 @@ fn insert_gap(state: &mut VideoState, sequence_id: &str, insertion: &Insertion, 
         } else if !on_seam && b > at {
             ensure_editable(state, &placed.value)?;
             extend.push(id.clone());
+        }
+    }
+    for group in groups {
+        if roles.left.contains(&group) {
+            continue;
+        }
+        let members = crate::recording_links::members(state, sequence_id, &group, fps)?;
+        let moves = roles.right.contains(&group)
+            || (members.iter().all(|(a, _, _)| *a >= at)
+                && members.iter().all(|(_, _, id)| {
+                    let base = state.items[id].value.base();
+                    insertion.tracks.contains(&base.track_id) || base.follow_policy == FollowPolicy::FollowCuts
+                }));
+        if moves {
+            for (_, _, id) in members {
+                crate::recording_links::ensure_member_editable(state, &group, &id)?;
+                shift.push(id);
+            }
         }
     }
     for id in shift {
