@@ -512,6 +512,8 @@ const en = {
   labelUndo: (p: P<'label'>) => `Undo: ${p.label}`,
   labelRedo: (p: P<'label'>) => `Redo: ${p.label}`,
   pointerTrackUnreadable: (p: P<'error'>) => `Not a readable pointer track: ${p.error}`,
+  recordingFixed: 'A recording manifest cannot change after it is written',
+  recordingUnreadable: 'The recording manifest of this screen view cannot be read',
 };
 
 export type EngineMessages = typeof en;

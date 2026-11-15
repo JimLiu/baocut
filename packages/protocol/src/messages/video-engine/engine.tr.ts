@@ -490,4 +490,6 @@ export const tr: EngineMessages = {
   workspaceSnapshotFormat: "Anlık görüntü bir BaoCut çalışma alanı anlık görüntüsü değil",
   workspaceSnapshotVersion: "Bu anlık görüntü desteklenmeyen bir biçim sürümüyle yazılmış; uygun bir BaoCut ile açın",
   pointerTrackUnreadable: (p) => `Okunabilir bir işaretçi izi değil: ${p.error}`,
+  recordingFixed: 'Kayıt bildirimi yazıldıktan sonra değiştirilemez',
+  recordingUnreadable: 'Bu ekran görünümünün kayıt bildirimi okunamıyor',
 };

@@ -65,7 +65,7 @@
 | `segments[i]` | 清单的一段 `segments[i]` | 段的长度取这一段屏幕流的有效长度；各段首尾相接 |
 | `display`、`camera`（`VideoMeta`） | `screen`、`camera` 流，视频素材 | `start` = 段的 `t0` +（这路的 `start_time` − 这一段最晚的 `start_time`） |
 | `mic`、`system_audio`（`AudioMeta`） | `microphone`、`system-audio` 流，音频素材 | 同上 |
-| `cursor`（每段一个 JSON：`moves`、`clicks`） | `pointer` 流，指针轨素材 | `time_ms`（浮点毫秒，从这一段的管线起点算）换成整数刻度；每条事件上的 `cursor_id` 换成 `cursors` 的切换表；`clicks` 的 `cursor_num` 是按键编号 |
+| `cursor`（每段一个 JSON：`moves`、`clicks`） | `pointer` 流，指针轨素材 | `time_ms`（浮点毫秒，从这一段的管线起点算，流的 `start_time` 也从这个起点算）换成整数刻度，所以 `start` = 段的 `t0` − 这一段最晚的 `start_time`。Cap 自己的渲染把 `time_ms` 直接当段内时间用，没有减这一截（`crates/rendering/src/lib.rs` 的光标插值），两种读法差几十到几百毫秒：导入器落地时拿真实录制对一次点击的画面再定，未实测；每条事件上的 `cursor_id` 换成 `cursors` 的切换表；`clicks` 的 `cursor_num` 是按键编号 |
 | `cursors`（`CursorMeta`：图片、`hotspot`、`shape`） | 清单的 `pointer.cursors`，图片素材 | `hotspot` 在 Cap 里已经是图片宽高的比例，照搬 |
 | 移动事件的 `x`、`y` | 指针轨的坐标 | 已经是相对捕获区域的归一化坐标，窗口录制时跟着窗口走；在区域之外的值越出 [0, 1]，照搬不夹 |
 | `status`（`InProgress`、`NeedsRemux`、`Failed`、`Complete`） | 不进格式 | 只有 `Complete` 的工程可以导入 |

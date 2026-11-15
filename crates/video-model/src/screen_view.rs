@@ -130,6 +130,15 @@ pub enum ClickEffectKind {
     Ripple,
 }
 
+/// 文档头与正文的时钟对不对（§4.9）：录制时间要有一份录制清单作来源文档，素材源时钟要有来源素材。
+pub fn screen_view_source_problems(body: &Value, source_is_recording: bool, has_source_asset: bool) -> Vec<Text> {
+    match body.get("clock").and_then(Value::as_str) {
+        Some(CLOCK_RECORDING) if !source_is_recording => vec![field_invalid("sourceDocumentId", "recording-manifest-required")],
+        Some(CLOCK_SOURCE_ASSET) if !has_source_asset => vec![field_invalid("sourceAssetId", "required")],
+        _ => Vec::new(),
+    }
+}
+
 /// 正文与 §4.9 不合的地方（空表示合）。`pointer_mode` 是所属录制清单的鼠标模式；不知道时（没有读清单）只查形状。
 pub fn screen_view_body_problems(body: &Value, pointer_mode: Option<PointerMode>) -> Vec<Text> {
     let parsed = match serde_json::from_value::<ScreenViewBody>(body.clone()) {

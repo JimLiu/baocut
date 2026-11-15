@@ -490,4 +490,6 @@ export const ru: EngineMessages = {
   workspaceSnapshotFormat: "Снимок не является снимком рабочей области BaoCut",
   workspaceSnapshotVersion: "Снимок записан в неподдерживаемой версии формата; откройте его подходящей версией BaoCut",
   pointerTrackUnreadable: (p) => `Нечитаемая дорожка указателя: ${p.error}`,
+  recordingFixed: 'Манифест записи нельзя изменить после сохранения',
+  recordingUnreadable: 'Не удалось прочитать манифест записи для этого вида экрана',
 };

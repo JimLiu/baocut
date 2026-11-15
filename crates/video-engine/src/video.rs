@@ -836,11 +836,25 @@ impl Video {
             };
             let mut written: Vec<Id> = Vec::new();
             let mut read: Vec<Id> = Vec::new();
+            // 屏幕取景要对所属录制清单的鼠标模式（§4.9）：清单是它的来源文档，正文同样先读出来。
+            let read_manifest = |source: Option<&Id>, read: &mut Vec<Id>| {
+                let manifest = source.and_then(|id| self.state.documents.get(id));
+                read.extend(manifest.filter(|d| d.kind == video_model::recording::RECORDING_KIND).map(|d| d.id.clone()));
+            };
+            if let EditOperation::PutDocument { document_id, source_document, .. } = op {
+                let given = match source_document {
+                    Some(crate::ops::DocumentTarget::Id { document_id }) => Some(document_id),
+                    _ => None,
+                };
+                let kept = document_id.as_ref().and_then(|id| self.state.documents.get(id)).and_then(|d| d.source_document_id.as_ref());
+                read_manifest(given.or(kept), &mut read);
+            }
             match op {
                 EditOperation::PutDocument { document_id: Some(id), .. } => written.push(id.clone()),
                 EditOperation::PatchDocument { document_id, .. }
                 | EditOperation::RenameSpeakers { document_id, .. }
                 | EditOperation::UpdateWords { document_id, .. } => {
+                    read_manifest(self.state.documents.get(document_id).and_then(|d| d.source_document_id.as_ref()), &mut read);
                     read.push(document_id.clone());
                     written.push(document_id.clone());
                 }

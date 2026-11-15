@@ -1064,6 +1064,30 @@ pub fn document_asset_refs(body: &Value) -> Result<Vec<VersionRef>, String> {
     caption_style::scene_asset_refs(body)
 }
 
+/// 种类与正文格式配不配（空表示配）：录制清单与屏幕取景的种类只装各自的格式，这两种格式也只进各自的种类（§4.6）。
+pub fn document_kind_problems(kind: &str, body: &Value) -> Vec<message_ref::Text> {
+    let schema = body.get("schema").and_then(Value::as_str).unwrap_or_default();
+    [
+        (recording::RECORDING_KIND, recording::RECORDING_SCHEMA),
+        (screen_view::SCREEN_VIEW_KIND, screen_view::SCREEN_VIEW_SCHEMA),
+    ]
+    .into_iter()
+    .filter(|(k, s)| (kind == *k) != (schema == *s))
+    .map(|(k, s)| {
+        if kind == k {
+            message_ref::msg!("videoModel.schemaMismatch", "schema must be {schema}", schema = s)
+        } else {
+            recording::field_invalid("kind", k)
+        }
+    })
+    .collect()
+}
+
+/// 录制清单正文里的鼠标模式；读不出时没有。
+pub fn recording_pointer_mode(body: &Value) -> Option<recording::PointerMode> {
+    serde_json::from_value(body.get("pointer")?.get("mode")?.clone()).ok()
+}
+
 /// 正文引用的素材版本在不在、对不对（空表示都对）。
 pub fn document_resource_problems(body: &Value, assets: &BTreeMap<Id, AssetRecord>) -> Vec<message_ref::Text> {
     let mut problems = caption_style::scene_resource_problems(body, assets);

@@ -475,4 +475,6 @@ export const de: EngineMessages = {
   workspaceSnapshotFormat: "Der Snapshot ist kein BaoCut-Arbeitsbereich-Snapshot",
   workspaceSnapshotVersion: "Dieser Snapshot verwendet eine nicht unterstützte Formatversion; öffne ihn mit einem passenden BaoCut",
   pointerTrackUnreadable: (p) => `Keine lesbare Zeigerspur: ${p.error}`,
+  recordingFixed: 'Ein Aufnahmemanifest kann nach dem Schreiben nicht mehr geändert werden',
+  recordingUnreadable: 'Das Aufnahmemanifest dieser Bildschirmansicht kann nicht gelesen werden',
 };

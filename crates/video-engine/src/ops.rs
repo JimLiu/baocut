@@ -4233,12 +4233,12 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
             video_model::editorial_proposal::editorial_proposal_body_problems(input.body)
         }
         s if video_model::caption_style::is_boxed_style_schema(s) || s.starts_with("baocut.caption-scene-style/") => video_model::caption_style::caption_style_body_problems(input.body),
-        // 录制清单与屏幕取景（§4.7、§4.9）整份核对。取景所属清单的鼠标模式在实例引用它时再对（§3.18）。
+        // 录制清单（§4.7）整份核对。屏幕取景（§4.9）要先知道来源，在下面核对。
         video_model::recording::RECORDING_SCHEMA => video_model::recording::recording_body_problems(input.body),
-        video_model::screen_view::SCREEN_VIEW_SCHEMA => video_model::screen_view::screen_view_body_problems(input.body, None),
         _ => Vec::new(),
     };
     let mut problems = problems;
+    problems.extend(video_model::document_kind_problems(kind, input.body));
     problems.extend(video_model::document_resource_problems(input.body, &state.assets));
     if !problems.is_empty() {
         return Err(ErrorBody::invalid_operation(msg!(
@@ -4312,6 +4312,42 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
     {
         return Err(ErrorBody::not_found(kinds::document(), id));
     }
+    // 屏幕取景（§4.9）：正文，加上时钟与文档头的来源配不配、所属清单的鼠标模式容不容。改已有文档时来源沿用记录里的。
+    if schema == video_model::screen_view::SCREEN_VIEW_SCHEMA {
+        let existing = input.document_id.and_then(|id| state.documents.get(id));
+        let manifest_id = source_document_id
+            .as_deref()
+            .or_else(|| existing.and_then(|d| d.source_document_id.as_deref()))
+            .filter(|id| state.documents.get(*id).is_some_and(|d| d.kind == video_model::recording::RECORDING_KIND));
+        let has_asset = source_asset_id.is_some() || existing.is_some_and(|d| d.source_asset_id.is_some());
+        let mut problems = video_model::screen_view::screen_view_source_problems(input.body, manifest_id.is_some(), has_asset);
+        let recorded = input.body.get("clock").and_then(Value::as_str) == Some(video_model::recording::CLOCK_RECORDING);
+        let mode = match manifest_id.filter(|_| recorded) {
+            // 同一笔事务里刚写的清单在上下文里，别的在事务之前读好了。
+            Some(id) => {
+                let written = ctx.documents.iter().rev().find(|d| d.document_id == id).and_then(|d| serde_json::from_str::<Value>(&d.body).ok());
+                let mode = written.as_ref().or_else(|| ctx.document_bodies.get(id)).and_then(video_model::recording_pointer_mode);
+                if mode.is_none() {
+                    return Err(ErrorBody::invalid_operation(msg!(
+                        "engine.recordingUnreadable",
+                        "The recording manifest of this screen view cannot be read"
+                    ))
+                    .entities([id]));
+                }
+                mode
+            }
+            None => None,
+        };
+        problems.extend(video_model::screen_view::screen_view_body_problems(input.body, mode));
+        if !problems.is_empty() {
+            return Err(ErrorBody::invalid_operation(msg!(
+                "engine.bodyNotSchema",
+                "The body does not match {schema}: {problems}",
+                schema,
+                problems = message_ref::join(problems)
+            )));
+        }
+    }
 
     // 正文按键有序的 JSON 保存，摘要与写法无关。
     let text = crate::video::canonical_json(input.body);
@@ -4335,6 +4371,14 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
                     ctx.document_refs.insert(r.to_string(), id.to_string());
                 }
                 return Ok(());
+            }
+            // 录制清单记的是录下来的事实，写一次不再改（§4.7）。
+            if kind == video_model::recording::RECORDING_KIND {
+                return Err(ErrorBody::invalid_operation(msg!(
+                    "engine.recordingFixed",
+                    "A recording manifest cannot change after it is written"
+                ))
+                .entities([id]));
             }
             let latest = existing.revisions.keys().filter_map(|r| r.parse::<u64>().ok()).max().unwrap_or(0);
             let next = latest.max(ctx.document_revision_floor.get(id).copied().unwrap_or(0)) + 1;

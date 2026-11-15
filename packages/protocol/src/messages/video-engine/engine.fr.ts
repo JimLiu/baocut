@@ -491,4 +491,6 @@ export const fr: EngineMessages = {
   workspaceSnapshotFormat: "L’instantané n’est pas un instantané d’espace de travail BaoCut",
   workspaceSnapshotVersion: "Cet instantané utilise une version de format non prise en charge ; ouvrez-le avec un BaoCut compatible",
   pointerTrackUnreadable: (p) => `Piste de pointeur illisible : ${p.error}`,
+  recordingFixed: 'Un manifeste d’enregistrement ne peut plus être modifié une fois écrit',
+  recordingUnreadable: 'Le manifeste d’enregistrement de cette vue d’écran est illisible',
 };
