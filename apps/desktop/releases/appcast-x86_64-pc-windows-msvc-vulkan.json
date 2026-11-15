@@ -2,21 +2,21 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "vulkan",
-  "version": "3.19.1",
-  "build": 96,
-  "date": "2026-11-11",
-  "notes": "Video downloads: When YouTube reports a sign-in check, expired account cookies or a failed n/signature challenge before ending with \"Requested format is not available\", the download now fails as a login or tool-update problem and shows that cause instead of reporting the link as unavailable. The cause survives long format-probe logs, and a concrete final error such as HTTP 403 or a timeout still takes priority.\nPrivacy: Links in download error messages and details are redacted more reliably, including links with quotes in their credentials and links cut off by the log length limit.\nCommand line: The top-level baocut help fits within 40 lines again.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.19.2",
+  "build": 97,
+  "date": "2026-11-15",
+  "notes": "Subtitle translation: Agents now write long translations into the video in batches instead of one very large write, and continue until every sentence is covered. A partly written translation stays listed as running and is reported as unfinished instead of ending silently.\nTranslation progress: While an agent translates in batches, the subtitle panel, video card, video status and task list show how many sentences are translated, with a percentage.\nVideo engine tools: When the login shell environment cannot be read (for example when BaoCut starts from Finder or the Dock), BaoCut now retries later instead of keeping the failure, and also looks for ffmpeg and ffprobe in the standard Homebrew folders that exist on the machine. BAOCUT_FFMPEG and BAOCUT_FFPROBE still take priority.\nPrivacy: Download error details now also redact links that sit directly next to each other.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-3.19.1-build.96-win-x64-vulkan-setup.exe",
-    "size": 242417852,
-    "sha256": "e3df5eb4e36d64b0922cc59b219af3b2a06a411c7c14855acb2d79d290d4e19a"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-win-x64-vulkan-setup.exe",
+    "size": 242419580,
+    "sha256": "cc45675854e8991acbdcca70222f611f73f86eab24c9653e46b294c835e68c9f"
   },
   "cli": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-CLI-3.19.1-build.96-x86_64-pc-windows-msvc-vulkan.zip",
-    "size": 232838015,
-    "sha256": "d7b6a3bfae1e4fdc1a71d5d2129cdf8f67c6458846633a6197cf108d50ff067e"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-CLI-3.19.2-build.97-x86_64-pc-windows-msvc-vulkan.zip",
+    "size": 232844075,
+    "sha256": "a6fd657a28d82cc34e077f8607fb888042419c1e25c74e73386b9f2b9617b42c"
   }
 }
