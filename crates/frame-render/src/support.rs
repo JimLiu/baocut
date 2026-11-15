@@ -190,6 +190,25 @@ pub mod asset_text {
             detail
         )
     }
+
+    pub fn screen_view_unreadable(detail: &str) -> Text {
+        msg!(
+            "frameRender.screenViewUnreadable",
+            "The screen view can’t be applied, so the recording is drawn as recorded: {detail}",
+            detail
+        )
+    }
+
+    pub fn screen_view_pointer_missing() -> Text {
+        msg!(
+            "frameRender.screenViewPointerMissing",
+            "The pointer track of the screen recording isn’t available, so the recording is drawn as recorded"
+        )
+    }
+
+    pub fn screen_view_cursor_unreadable() -> Text {
+        msg!("frameRender.screenViewCursorUnreadable", "A cursor image of the screen recording can’t be read, so the cursor is not drawn")
+    }
 }
 
 pub fn kind_name(kind: LayerKind) -> &'static str {

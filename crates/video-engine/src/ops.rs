@@ -217,6 +217,9 @@ pub enum EditOperation {
         proposal_id: Id,
         suggestion_ids: Vec<Id>,
     },
+    /// 按录制的点击重新生成屏幕取景文档的自动缩放（§4.9）：没改过的自动区间整批替换，手加的与改过的保留，新区间让开
+    /// 它们；写成这份文档的新版本，不改时间线。
+    RegenerateAutoZooms { document_id: Id },
     /// 新增一条轨道，排在最上面。`ref` 供同一事务里后面的 `insertItems` 用 `trackRef` 引用。
     AddTrack {
         #[serde(default)]
@@ -831,6 +834,8 @@ pub struct EditContext<'a> {
     pub cut_sets: &'a HashMap<Id, Value>,
     /// 剪辑提案要读的转写与提案在事务开始时的正文（按文档 ID），在事务之外读出。
     pub document_bodies: &'a HashMap<Id, Value>,
+    /// `regenerateAutoZooms` 要读的指针轨（键是 `素材ID@版本`），在事务之外读出。
+    pub pointer_tracks: &'a HashMap<String, std::sync::Arc<video_model::pointer_track::PointerTrack>>,
     /// 剪口操作写进回执 `impact` 的结果。
     pub cut_impact: crate::cuts::CutImpact,
     /// `replaceCodeBundle` 写进回执 `impact.codeEdits` 的结果。
@@ -1009,6 +1014,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             proposal_id,
             suggestion_ids,
         } => crate::proposals::accept_cut_suggestions(state, sequence_id.as_deref(), proposal_id, suggestion_ids, ctx),
+        EditOperation::RegenerateAutoZooms { document_id } => crate::screen_view_zooms::regenerate_auto_zooms(state, document_id, ctx),
         EditOperation::AddTrack {
             sequence_id,
             kind,

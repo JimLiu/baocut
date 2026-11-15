@@ -497,6 +497,10 @@ export const nl: EngineMessages = {
   screenViewSource: (p) => `Schermweergave ${p.document} is niet voor het materiaal van deze clip geschreven`,
   screenViewWithPanels: "Een in panelen gesplitste video kan geen schermweergave hebben",
   screenViewNotVideo: "is geen video en kan dus geen schermweergave hebben",
+  screenViewUnreadable: "De schermweergave kan niet worden gelezen",
+  autoZoomsNoPointer: "Automatische zooms volgen de klikken van een schermopname, en deze schermweergave heeft geen aanwijzerspoor",
+  recordingPointerTrackUnreadable: (p) => `Het aanwijzerspoor ${p.asset} van de opname kan niet worden gelezen`,
+  labelRegenerateAutoZooms: "Automatische zooms opnieuw maken",
   labelLinkItems: "Clips koppelen",
   labelUnlinkItems: "Clips ontkoppelen",
 };

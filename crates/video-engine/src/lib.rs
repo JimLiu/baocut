@@ -26,6 +26,7 @@ pub mod package;
 pub mod proposals;
 pub mod receipt;
 mod recording_links;
+mod screen_view_zooms;
 mod sequence_end;
 pub mod state;
 pub mod store;

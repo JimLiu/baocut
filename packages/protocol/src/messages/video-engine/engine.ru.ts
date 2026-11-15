@@ -512,6 +512,10 @@ export const ru: EngineMessages = {
   screenViewSource: (p) => `Вид экрана ${p.document} написан не для материала этого клипа`,
   screenViewWithPanels: "У видео, разделённого на панели, не может быть вида экрана",
   screenViewNotVideo: "не является видео и не может иметь вид экрана",
+  screenViewUnreadable: "Не удалось прочитать вид экрана",
+  autoZoomsNoPointer: "Автоматическое увеличение следует за щелчками записи экрана, а у этого вида экрана нет дорожки указателя",
+  recordingPointerTrackUnreadable: (p) => `Не удалось прочитать дорожку указателя ${p.asset} этой записи`,
+  labelRegenerateAutoZooms: "Пересоздать автоматическое увеличение",
   labelLinkItems: "Связать клипы",
   labelUnlinkItems: "Разорвать связь клипов",
 };

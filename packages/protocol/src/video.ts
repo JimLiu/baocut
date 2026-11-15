@@ -1626,6 +1626,11 @@ export type EditOperation =
    * 拒绝（`INVALID_OPERATION`，`details.rule: 'proposal-stale'`）。
    */
   | { type: 'acceptCutSuggestions'; sequenceId: Id; proposalId: Id; suggestionIds: Id[] }
+  /**
+   * 按录制清单指针轨里的点击重新生成屏幕取景的自动缩放（视频格式规范 §4.9）：替换没有 `edited` 的 `origin: 'auto'`
+   * 区间，`manual` 与 `edited` 的留着；结果不变时不写。
+   */
+  | { type: 'regenerateAutoZooms'; documentId: Id }
   /** 新增一条轨道，排在最上面。`ref` 供同一事务里后面的 `insertItems` 用 `trackRef` 引用。 */
   | { type: 'addTrack'; sequenceId?: Id; kind: TrackKind; name?: string; ref?: string }
   /**

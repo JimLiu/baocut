@@ -513,6 +513,10 @@ export const fr: EngineMessages = {
   screenViewSource: (p) => `La vue d’écran ${p.document} n’a pas été écrite pour les images de ce clip`,
   screenViewWithPanels: "Une vidéo divisée en panneaux ne peut pas avoir de vue d’écran",
   screenViewNotVideo: "n’est pas une vidéo et ne peut donc pas avoir de vue d’écran",
+  screenViewUnreadable: "La vue d’écran est illisible",
+  autoZoomsNoPointer: "Les zooms automatiques suivent les clics d’un enregistrement d’écran, et cette vue d’écran n’a pas de piste de pointeur",
+  recordingPointerTrackUnreadable: (p) => `La piste de pointeur ${p.asset} de l’enregistrement est illisible`,
+  labelRegenerateAutoZooms: "Régénérer les zooms automatiques",
   labelLinkItems: "Lier les clips",
   labelUnlinkItems: "Dissocier les clips",
 };

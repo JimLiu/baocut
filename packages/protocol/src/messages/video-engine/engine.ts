@@ -534,6 +534,10 @@ const en = {
   screenViewSource: (p: P<'document'>) => `Screen view ${p.document} was not written for the footage of this clip`,
   screenViewWithPanels: "A video split into panels cannot have a screen view",
   screenViewNotVideo: "is not a video, so it cannot have a screen view",
+  screenViewUnreadable: "The screen view cannot be read",
+  autoZoomsNoPointer: "Automatic zooms follow the clicks of a screen recording, and this screen view has no pointer track",
+  recordingPointerTrackUnreadable: (p: P<'asset'>) => `The pointer track ${p.asset} of the recording cannot be read`,
+  labelRegenerateAutoZooms: "Regenerate automatic zooms",
   labelLinkItems: "Link clips",
   labelUnlinkItems: "Unlink clips",
 };

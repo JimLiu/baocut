@@ -67,6 +67,10 @@ export const es: EngineMessages = {
   screenViewSource: (p) => `La vista de pantalla ${p.document} no se escribió para el material de este clip`,
   screenViewWithPanels: "Un vídeo dividido en paneles no puede tener vista de pantalla",
   screenViewNotVideo: "no es un vídeo, así que no puede tener vista de pantalla",
+  screenViewUnreadable: "No se puede leer la vista de pantalla",
+  autoZoomsNoPointer: "Los zooms automáticos siguen los clics de una grabación de pantalla, y esta vista de pantalla no tiene pista de puntero",
+  recordingPointerTrackUnreadable: (p) => `No se puede leer la pista de puntero ${p.asset} de la grabación`,
+  labelRegenerateAutoZooms: "Regenerar zooms automáticos",
   labelLinkItems: "Vincular clips",
   labelUnlinkItems: "Desvincular clips",
 };

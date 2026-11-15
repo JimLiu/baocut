@@ -511,6 +511,10 @@ export const vi: EngineMessages = {
   screenViewSource: (p) => `Khung nhìn màn hình ${p.document} không được viết cho cảnh quay của clip này`,
   screenViewWithPanels: "Video chia thành ô không thể có khung nhìn màn hình",
   screenViewNotVideo: "không phải video nên không thể có khung nhìn màn hình",
+  screenViewUnreadable: "Không đọc được khung nhìn màn hình",
+  autoZoomsNoPointer: "Phóng to tự động đi theo các cú nhấp của bản ghi màn hình, mà khung nhìn màn hình này không có rãnh con trỏ",
+  recordingPointerTrackUnreadable: (p) => `Không đọc được rãnh con trỏ ${p.asset} của bản ghi`,
+  labelRegenerateAutoZooms: "Tạo lại phóng to tự động",
   labelLinkItems: "Liên kết clip",
   labelUnlinkItems: "Bỏ liên kết clip",
 };

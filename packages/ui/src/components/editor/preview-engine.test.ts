@@ -386,6 +386,75 @@ test('角色层：角色包与动作轨两份字节都送进去；还在取时�
   engine.dispose();
 });
 
+test('屏幕取景：送取景文档与它的录制清单，再送清单里的指针轨与光标图片', async () => {
+  fakeMedia();
+  const screen = { id: 'asset_screen', revision: 'r1' };
+  const pointer = { id: 'asset_pointer', revision: 'r1' };
+  const arrow = { id: 'asset_arrow', revision: 'r1' };
+  const layers = [{ kind: 'video', itemId: 'shot', asset: screen, sourceSeconds: 1, matrix: [1, 0, 0, 1, 0, 0], opacity: 1, sourceRect: [0, 0, 1920, 1080] }];
+  const plan = { canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 }, layers, voices: [] };
+  const sentDocuments: Array<Array<{ documentId: string; sourceDocumentId?: string; body: unknown }>> = [];
+  const sentAssets: unknown[] = [];
+  const planner = {
+    ...fakePlanner(),
+    planAt: () => plan,
+    setDocuments: (documents: Array<{ documentId: string; body: unknown }>) => sentDocuments.push(documents),
+    clearPictures: () => {},
+    setAsset: (asset: unknown) => sentAssets.push(asset),
+    render: () => ({ plan, warnings: [], skipped: [], spectra: [] }),
+    frame: () => new Uint8ClampedArray(960 * 540 * 4),
+  } as unknown as RenderPlanner;
+  const manifest = {
+    schema: 'baocut.recording/1',
+    streams: [
+      { id: 's0-screen', role: 'screen', assetRef: screen },
+      { id: 's0-pointer', role: 'pointer', assetRef: pointer },
+    ],
+    pointer: { mode: 'separate', cursors: [{ id: 'arrow', assetRef: arrow, hotspot: { x: 0, y: 0 } }] },
+  };
+  const view = { schema: 'baocut.screen-view/1', zooms: [] };
+  const bodies: Record<string, unknown> = { doc_rec: manifest, doc_view: view };
+  const loaded = new Set<string>();
+  let arrived = false;
+  let notifyDocuments = () => {};
+  const documents = {
+    peek: (id: string) => (arrived && loaded.has(id) ? bodies[id] : undefined),
+    load: (id: string) => loaded.add(id),
+    subscribe: (listener: () => void) => ((notifyDocuments = listener), () => {}),
+  };
+  const assets = {
+    get: () => ({ state: 'ready', value: new Uint8Array([1]) }),
+    subscribe: () => () => {},
+  };
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner), documents, assets as never);
+  const canvas = { width: 0, height: 0, getContext: () => context };
+  const context = { canvas, putImageData: () => {} };
+  engine.attachCanvas(canvas as unknown as HTMLCanvasElement, 0.5);
+  const shot = { id: 'shot', trackId: 't', type: 'video', assetRef: screen, screenView: { documentId: 'doc_view' }, span: { fromFrame: 0, durationFrames: 300 } };
+  engine.setVideo({ ...sequence, items: [shot] } as unknown as Sequence, {}, {
+    doc_rec: { id: 'doc_rec', kind: 'recording', currentRevision: 'r1' },
+    doc_view: { id: 'doc_view', kind: 'screen-view', currentRevision: 'r1', sourceDocumentId: 'doc_rec' },
+  } as never);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  // 第一次只知道要哪两份文档，正文还在取；清单没到，不知道要哪些素材。
+  expect([...loaded].sort()).toEqual(['doc_rec', 'doc_view']);
+  expect(sentAssets).toEqual([]);
+
+  arrived = true;
+  notifyDocuments();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const docs = sentDocuments.at(-1)!;
+  expect(docs.map((d) => [d.documentId, d.sourceDocumentId, d.body])).toEqual([
+    ['doc_view', 'doc_rec', view],
+    ['doc_rec', undefined, manifest],
+  ]);
+  expect(sentAssets).toContainEqual(pointer);
+  expect(sentAssets).toContainEqual(arrow);
+  expect(sentAssets).not.toContainEqual(screen);
+  engine.dispose();
+  restoreGlobals();
+});
+
 test('本机字体：报缺的族里排字点了名的 face 向宿主要一次，到了注入计划器再画；取的时候不报缺字体，取不到的照报', async () => {
   const layers = [{ kind: 'text', itemId: 'title', matrix: [1, 0, 0, 1, 0, 0], opacity: 1, content: {} }];
   const plan = { canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 }, layers, voices: [] };

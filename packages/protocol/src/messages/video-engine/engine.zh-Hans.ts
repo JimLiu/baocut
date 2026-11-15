@@ -511,6 +511,10 @@ export const zhHans: EngineMessages = {
   screenViewSource: (p) => `屏幕取景 ${p.document} 不是给这个片段的画面写的`,
   screenViewWithPanels: "分屏的视频不能有屏幕取景",
   screenViewNotVideo: "不是视频，不能有屏幕取景",
+  screenViewUnreadable: "读不出这份屏幕取景",
+  autoZoomsNoPointer: "自动缩放按屏幕录制里的点击生成，这份屏幕取景没有指针轨",
+  recordingPointerTrackUnreadable: (p) => `读不出录制的指针轨 ${p.asset}`,
+  labelRegenerateAutoZooms: "重新生成自动缩放",
   labelLinkItems: "联动片段",
   labelUnlinkItems: "解除联动",
 };

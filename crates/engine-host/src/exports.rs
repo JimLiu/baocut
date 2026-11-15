@@ -342,6 +342,32 @@ pub fn plan(video: &Video, value: PlanParams) -> Result<Value, ErrorBody> {
                     }
                 }
             }
+            // 屏幕取景的录制清单（取景文档头的 `sourceDocumentId`）一起冻结；清单引用的素材只取指针轨与光标图片：画面
+            // 只读这两样（视频格式规范 §3.18），其余各路流（摄像头、麦克风、键盘轨）在用到它们的实例里另算。
+            let manifests: Vec<Id> = document_ids
+                .iter()
+                .filter(|id| snapshot.documents.get(*id).is_some_and(|r| r.kind == video_engine::model::screen_view::SCREEN_VIEW_KIND))
+                .filter_map(|id| snapshot.documents.get(id)?.source_document_id.clone())
+                .collect();
+            for id in manifests {
+                if document_ids.contains(&id) {
+                    continue;
+                }
+                if let Some(body) = video
+                    .document(&id, None)
+                    .ok()
+                    .and_then(|content| serde_json::from_value::<video_engine::model::recording::RecordingBody>(content.body).ok())
+                {
+                    let pointer = body.streams.iter().filter(|s| s.role == video_engine::model::recording::StreamRole::Pointer).map(|s| &s.asset_ref);
+                    for asset in pointer.chain(body.pointer.cursors.iter().map(|c| &c.asset_ref)) {
+                        let key = (asset.id.clone(), asset.revision.clone());
+                        if !refs.contains(&key) {
+                            refs.push(key);
+                        }
+                    }
+                }
+                document_ids.push(id);
+            }
             let mut assets = Vec::new();
             if !value.skip_assets {
                 for (id, revision) in &refs {

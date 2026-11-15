@@ -1448,7 +1448,7 @@ export class PreviewEngine {
   }
 
   /**
-   * 字幕层要读的文档（字幕文档与样式文档）：取到的送正文，还没取到的先去取、送 `null`，用到它的层记进 `pending`。
+   * 字幕层要读的文档（字幕文档与样式文档）与视频层的屏幕取景文档及其录制清单：取到的送正文，还没取到的先去取、送 `null`，用到它的层记进 `pending`。
    * 正文对象没变就不重送。
    */
   #sendDocuments(planner: RenderPlanner, layers: VisualLayer[], pending: Set<Id>): void {
@@ -1458,6 +1458,13 @@ export class PreviewEngine {
       for (const id of [layer.content.documentId, layer.content.styleDocumentId]) {
         if (id) wanted.set(id, [...(wanted.get(id) ?? []), layer.itemId]);
       }
+    }
+    // 屏幕取景（格式规范 §3.18）：取景文档与它派生自的录制清单，与导出冻结的同一对。
+    for (const layer of layers) {
+      const view = this.#screenViewOf(layer);
+      if (!view) continue;
+      const manifest = this.#documentRecords[view]?.sourceDocumentId;
+      for (const id of manifest ? [view, manifest] : [view]) wanted.set(id, [...(wanted.get(id) ?? []), layer.itemId]);
     }
     const documents: FrozenDocument[] = [];
     for (const [documentId, itemIds] of wanted) {
@@ -1555,7 +1562,7 @@ export class PreviewEngine {
   }
 
   /**
-   * Lottie 与角色层（角色另有动作轨）、模板的图片台标与 SVG、GIF 图片层的素材字节：取到的送进去（同一份只送一次），
+   * Lottie 与角色层（角色另有动作轨）、模板的图片台标与 SVG、GIF 图片层、屏幕取景的指针轨与光标图片的素材字节：取到的送进去（同一份只送一次），
    * 还在取的层记进 `pending`。
    */
   #sendAssets(planner: RenderPlanner, layers: VisualLayer[], pending: Set<Id>): void {
@@ -1577,7 +1584,11 @@ export class PreviewEngine {
       else if (layer.kind === 'generator' && layer.content.generator === 'baocut.puppet')
         assets = [layer.content.parameters.asset, layer.content.parameters.motion];
       else if (isMediaLayer(layer) && this.#kernelDecoded(layer)) assets = [layer.asset];
-      else continue;
+      else {
+        const view = this.#screenViewOf(layer);
+        if (!view) continue;
+        assets = this.#screenViewAssets(view);
+      }
       for (const asset of assets) {
         if (!isVersionRef(asset) || !this.#assets) continue;
         const state = this.#assets.get(asset, BYTES);
@@ -1585,6 +1596,29 @@ export class PreviewEngine {
         else if (state.state === 'loading') pending.add(layer.itemId);
       }
     }
+  }
+
+  /** 视频层的实例引用的屏幕取景文档（格式规范 §3.18）；有分屏、不是视频实例（如合成的替身）时没有。 */
+  #screenViewOf(layer: VisualLayer): Id | undefined {
+    if (layer.kind !== 'video' || layer.panels) return undefined;
+    const item = this.#video?.sequence.items.find((candidate) => candidate.id === layer.itemId);
+    return item?.type === 'video' && item.assetRef.id === layer.asset.id ? item.screenView?.documentId : undefined;
+  }
+
+  /** 屏幕取景要的素材：录制清单里的指针轨与光标图片（清单还没取到时没有，取到之后下一次对元素时补上）。 */
+  #screenViewAssets(view: Id): unknown[] {
+    const manifest = this.#documentRecords[view]?.sourceDocumentId;
+    const record = manifest ? this.#documentRecords[manifest] : undefined;
+    const body = record && this.#documents?.peek(record.id, record.currentRevision);
+    if (!isRecord(body)) return [];
+    const streams = Array.isArray(body.streams) ? body.streams : [];
+    const pointer = isRecord(body.pointer) ? body.pointer : {};
+    if (pointer.mode === 'none') return [];
+    const cursors = Array.isArray(pointer.cursors) ? pointer.cursors : [];
+    return [
+      ...streams.filter((stream) => isRecord(stream) && stream.role === 'pointer').map((stream) => (stream as { assetRef?: unknown }).assetRef),
+      ...(pointer.mode === 'separate' ? cursors.map((cursor) => (isRecord(cursor) ? cursor.assetRef : undefined)) : []),
+    ];
   }
 
   /**

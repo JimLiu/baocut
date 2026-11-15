@@ -511,6 +511,10 @@ export const ptBR: EngineMessages = {
   screenViewSource: (p) => `A visualização de tela ${p.document} não foi escrita para o material deste clipe`,
   screenViewWithPanels: "Um vídeo dividido em painéis não pode ter visualização de tela",
   screenViewNotVideo: "não é um vídeo, então não pode ter visualização de tela",
+  screenViewUnreadable: "Não é possível ler a visualização de tela",
+  autoZoomsNoPointer: "Os zooms automáticos seguem os cliques de uma gravação de tela, e esta visualização de tela não tem trilha do ponteiro",
+  recordingPointerTrackUnreadable: (p) => `Não é possível ler a trilha do ponteiro ${p.asset} da gravação`,
+  labelRegenerateAutoZooms: "Gerar novamente os zooms automáticos",
   labelLinkItems: "Vincular clipes",
   labelUnlinkItems: "Desvincular clipes",
 };

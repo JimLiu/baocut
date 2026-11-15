@@ -512,6 +512,10 @@ export const ko: EngineMessages = {
   screenViewSource: (p) => `화면 뷰 ${p.document}은(는) 이 클립의 영상용으로 작성된 것이 아닙니다`,
   screenViewWithPanels: "패널로 나눈 비디오에는 화면 뷰를 둘 수 없습니다",
   screenViewNotVideo: "은(는) 비디오가 아니므로 화면 뷰를 둘 수 없습니다",
+  screenViewUnreadable: "화면 뷰를 읽을 수 없습니다",
+  autoZoomsNoPointer: "자동 확대는 화면 녹화의 클릭을 따르는데, 이 화면 뷰에는 포인터 트랙이 없습니다",
+  recordingPointerTrackUnreadable: (p) => `녹화의 포인터 트랙 ${p.asset}을(를) 읽을 수 없습니다`,
+  labelRegenerateAutoZooms: "자동 확대 다시 만들기",
   labelLinkItems: "클립 연결",
   labelUnlinkItems: "클립 연결 해제",
 };

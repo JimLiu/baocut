@@ -26,6 +26,10 @@ use serde_json::{Value, json};
 use subtitle_render::panel_seams::horizontal_seams;
 use subtitle_render::{DynamicAssetNames, OverlayIncludes, OverlayRenderPlan, PanelSeams, SeamWindow, TimelineVisualElement};
 use tiny_skia::{BlendMode, Color, FilterQuality, IntSize, Pixmap, PixmapPaint, PixmapRef, Rect, Transform};
+use video_model::pointer_track::PointerTrack;
+use video_model::recording::{PointerMode, RecordingBody, StreamRole};
+use video_model::screen_view::ScreenViewBody;
+use video_model::screen_view_solver::ScreenViewSolver;
 use video_model::{AssetRecord, Fx, Id, Sequence, TimelineItem, VersionRef};
 
 use crate::caption_words::{SpeechWords, place};
@@ -208,6 +212,11 @@ pub struct FrameRenderer {
     puppet_tracks: HashMap<String, Result<Arc<puppet::Track>, String>>,
     /// 各角色贴纸实例的播放器（跨帧留着物理状态）与它按什么建的（包、动作轨、`motionIn`、种子）：变了就重建。
     puppet_players: HashMap<String, (String, puppet::Player)>,
+    /// 读好的屏幕取景求值器（键是取景文档的 ID，带着按裁剪缓存的跟随路径）；读不出来的记下原因。换文档时清空。缺素材
+    /// （预览还在取指针轨）时不缓存。
+    screen_views: HashMap<String, Result<ScreenViewSolver, String>>,
+    /// 光标图片（键是 `素材ID@版本`）；读不出来的是 `None`。
+    cursor_images: HashMap<String, Option<Arc<Pixmap>>>,
     /// SVG 图片按输出长边光栅好的画面（键是 `素材ID@版本`，换过色的是它的变体 ID）；读不出来的是 `None`。换尺寸时作废。
     svgs: HashMap<String, Option<Arc<Pixmap>>>,
     /// 模板台标的图片（键是 `素材ID@版本`；SVG 按输出长边光栅）；读不出来的是 `None`。换尺寸时作废。
@@ -274,6 +283,8 @@ impl FrameRenderer {
             puppets: HashMap::new(),
             puppet_tracks: HashMap::new(),
             puppet_players: HashMap::new(),
+            screen_views: HashMap::new(),
+            cursor_images: HashMap::new(),
             svgs: HashMap::new(),
             template_logos: HashMap::new(),
             gifs: HashMap::new(),
@@ -308,6 +319,7 @@ impl FrameRenderer {
     /// 换一批冻结的文档（预览里文档会变）。字幕的编译结果随之作废。
     pub fn set_documents(&mut self, documents: Documents) {
         self.documents = documents;
+        self.screen_views.clear();
         self.caption_checks.clear();
         self.caption_signatures.clear();
         self.drop_captions();
@@ -798,18 +810,29 @@ impl FrameRenderer {
                         None => return Ok(None),
                     },
                 };
-                opaque_source = from_host && fx.is_none() && crop_of(item).is_none() && media.picture_is_opaque(layer);
+                let screen_view = match item {
+                    TimelineItem::Video(video) if layer.kind == LayerKind::Video && layer.panels.is_empty() => video.screen_view.as_ref(),
+                    _ => None,
+                };
+                opaque_source =
+                    from_host && fx.is_none() && crop_of(item).is_none() && screen_view.is_none() && media.picture_is_opaque(layer);
                 if layer.kind == LayerKind::Video && !layer.panels.is_empty() {
                     return self.draw_panels(context, layer, &element, &picture, fx.as_ref(), eval).map(Some);
                 }
+                // 屏幕取景（格式规范 §3.18）：裁剪之后、适配之前放大到可见区域，光标与点击提示一起画上去。画不出来时
+                // （按选项报错或跳过）照原画面画。
+                let viewed = match screen_view {
+                    Some(view) => self.screen_view_source(layer, &view.document_id, crop_of(item), &picture, media)?,
+                    None => None,
+                };
                 // 不裁剪时源画面原样共享给内核（导出每帧的整幅视频不再整帧复制）；要作用效果时才复制一份。
-                let mut source =
-                    match crop_of(item) {
-                        None => picture,
-                        Some(rect) => Arc::new(cropped(&picture, rect).ok_or_else(|| {
-                            RenderError::new("EXPORT_RENDER_FAILED", format!("实例 {} 的源画面尺寸不可用", layer.item_id))
-                        })?),
-                    };
+                let mut source = match (viewed, crop_of(item)) {
+                    (Some(viewed), _) => Arc::new(viewed),
+                    (None, None) => picture,
+                    (None, Some(rect)) => Arc::new(cropped(&picture, rect).ok_or_else(|| {
+                        RenderError::new("EXPORT_RENDER_FAILED", format!("item {}: the source picture has no usable size", layer.item_id))
+                    })?),
+                };
                 if let Some(fx) = &fx {
                     apply_to_source(fx, Arc::make_mut(&mut source), short_edge);
                 }
@@ -1132,6 +1155,95 @@ impl FrameRenderer {
             self.lotties.insert(key.clone(), entry);
         }
         Ok(self.lotties.get(&key).cloned().flatten())
+    }
+
+    /// 屏幕取景之后的源画面（[`crate::screen_view::compose`]）。取景文档、清单或指针轨读不出来时按选项报错或跳过，
+    /// 返回 `None`（照原画面画）；光标图片读不出来时只是不画光标。
+    fn screen_view_source(
+        &mut self,
+        layer: &VisualLayer,
+        document_id: &str,
+        crop: Option<[f64; 4]>,
+        picture: &Pixmap,
+        media: &mut dyn LayerMedia,
+    ) -> Result<Option<Pixmap>, RenderError> {
+        if !self.screen_views.contains_key(document_id) {
+            match self.read_screen_view(document_id, media) {
+                Some(entry) => {
+                    self.screen_views.insert(document_id.to_string(), entry);
+                }
+                None => {
+                    self.refuse_or_skip(vec![asset_item(layer, "screen-view-pointer-missing", asset_text::screen_view_pointer_missing())])?;
+                    return Ok(None);
+                }
+            }
+        }
+        let crop = crop.unwrap_or([0.0, 0.0, 1.0, 1.0]);
+        let asset = layer.asset.clone().unwrap_or_else(|| VersionRef { id: String::new(), revision: String::new() });
+        let solved = match self.screen_views.get_mut(document_id) {
+            Some(Ok(solver)) => solver
+                .content_seconds(&asset, layer.source_seconds.unwrap_or(0.0))
+                .map(|t| (solver.frame(t, crop), solver.look().clone(), solver.capture(&asset).cloned()))
+                .map_err(|e| e.to_string()),
+            Some(Err(why)) => Err(why.clone()),
+            None => return Ok(None),
+        };
+        let (frame, look, capture) = match solved {
+            Ok(solved) => solved,
+            Err(why) => {
+                self.refuse_or_skip(vec![asset_item(layer, "screen-view-invalid", asset_text::screen_view_unreadable(&why))])?;
+                return Ok(None);
+            }
+        };
+        let image = match &frame.cursor {
+            Some(cursor) => {
+                let key = format!("{}@{}", cursor.cursor.asset_ref.id, cursor.cursor.asset_ref.revision);
+                if !self.cursor_images.contains_key(&key)
+                    && let Some(bytes) = media.asset_bytes(&cursor.cursor.asset_ref)
+                {
+                    self.cursor_images.insert(key.clone(), crate::screen_view::decode_cursor(&bytes));
+                }
+                let image = self.cursor_images.get(&key).cloned().flatten();
+                if image.is_none() {
+                    self.refuse_or_skip(vec![asset_item(layer, "screen-view-cursor-missing", asset_text::screen_view_cursor_unreadable())])?;
+                }
+                image
+            }
+            None => None,
+        };
+        Ok(crate::screen_view::compose(picture, crop, &frame, &look, capture.as_ref(), image.as_deref()))
+    }
+
+    /// 读取景文档、它的清单与指针轨，建求值器。指针轨的字节还没有时为 `None`（不缓存，下一帧再取）；其余读不出来的
+    /// 是 `Err`（缓存）。
+    fn read_screen_view(&self, document_id: &str, media: &mut dyn LayerMedia) -> Option<Result<ScreenViewSolver, String>> {
+        let Some(document) = self.documents.get(document_id) else {
+            return Some(Err(format!("the screen view document {document_id} is not available")));
+        };
+        let body: ScreenViewBody = match serde_json::from_value(document.body.clone()) {
+            Ok(body) => body,
+            Err(e) => return Some(Err(format!("the screen view body cannot be read: {e}"))),
+        };
+        let manifest: Option<RecordingBody> = document
+            .source_document_id
+            .as_deref()
+            .and_then(|id| self.documents.get(id))
+            .and_then(|manifest| serde_json::from_value(manifest.body.clone()).ok());
+        let mut tracks = HashMap::new();
+        if let Some(manifest) = &manifest
+            && manifest.pointer.mode != PointerMode::None
+        {
+            for stream in manifest.streams.iter().filter(|s| s.role == StreamRole::Pointer) {
+                let bytes = media.asset_bytes(&stream.asset_ref)?;
+                match PointerTrack::parse(&bytes) {
+                    Ok(track) => {
+                        tracks.insert(stream.id.clone(), Arc::new(track));
+                    }
+                    Err(e) => return Some(Err(format!("pointer track {} cannot be read: {e}", stream.asset_ref.id))),
+                }
+            }
+        }
+        Some(ScreenViewSolver::new(&body, manifest.as_ref(), &tracks).map_err(|e| e.to_string()))
     }
 
     /// 角色贴纸实例的播放器：角色包与动作轨按素材版本缓存，播放器按实例留着（换包、换动作轨、改 `motionIn` 或种子

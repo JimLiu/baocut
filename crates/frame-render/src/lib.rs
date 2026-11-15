@@ -17,6 +17,7 @@ pub mod documents;
 pub mod effects;
 pub mod element;
 pub mod renderer;
+pub mod screen_view;
 pub mod spectrum;
 pub mod support;
 pub mod template;

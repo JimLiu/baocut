@@ -512,6 +512,10 @@ export const tr: EngineMessages = {
   screenViewSource: (p) => `${p.document} ekran görünümü bu klibin görüntüsü için yazılmamış`,
   screenViewWithPanels: "Panellere bölünmüş bir videonun ekran görünümü olamaz",
   screenViewNotVideo: "bir video değil, bu yüzden ekran görünümü olamaz",
+  screenViewUnreadable: "Ekran görünümü okunamıyor",
+  autoZoomsNoPointer: "Otomatik yakınlaştırmalar ekran kaydındaki tıklamaları izler ve bu ekran görünümünün işaretçi izi yok",
+  recordingPointerTrackUnreadable: (p) => `Kaydın ${p.asset} işaretçi izi okunamıyor`,
+  labelRegenerateAutoZooms: "Otomatik yakınlaştırmaları yeniden oluştur",
   labelLinkItems: "Klipleri bağla",
   labelUnlinkItems: "Kliplerin bağlantısını kaldır",
 };

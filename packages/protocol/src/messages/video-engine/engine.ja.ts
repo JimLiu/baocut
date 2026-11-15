@@ -512,6 +512,10 @@ export const ja: EngineMessages = {
   screenViewSource: (p) => `画面ビュー ${p.document} はこのクリップの映像用に書かれたものではありません`,
   screenViewWithPanels: "パネルに分割した動画には画面ビューを設定できません",
   screenViewNotVideo: "は動画ではないため、画面ビューを設定できません",
+  screenViewUnreadable: "画面ビューを読み取れません",
+  autoZoomsNoPointer: "自動ズームは画面録画のクリックに合わせて作られますが、この画面ビューにはポインタートラックがありません",
+  recordingPointerTrackUnreadable: (p) => `録画のポインタートラック ${p.asset} を読み取れません`,
+  labelRegenerateAutoZooms: "自動ズームを再生成",
   labelLinkItems: "クリップをリンク",
   labelUnlinkItems: "クリップのリンクを解除",
 };

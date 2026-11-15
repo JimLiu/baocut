@@ -497,6 +497,10 @@ export const de: EngineMessages = {
   screenViewSource: (p) => `Die Bildschirmansicht ${p.document} wurde nicht für das Material dieses Clips geschrieben`,
   screenViewWithPanels: "Ein in Felder geteiltes Video kann keine Bildschirmansicht haben",
   screenViewNotVideo: "ist kein Video und kann daher keine Bildschirmansicht haben",
+  screenViewUnreadable: "Die Bildschirmansicht kann nicht gelesen werden",
+  autoZoomsNoPointer: "Automatische Zooms folgen den Klicks einer Bildschirmaufnahme, und diese Bildschirmansicht hat keine Zeigerspur",
+  recordingPointerTrackUnreadable: (p) => `Die Zeigerspur ${p.asset} der Aufnahme kann nicht gelesen werden`,
+  labelRegenerateAutoZooms: "Automatische Zooms neu erzeugen",
   labelLinkItems: "Clips verknüpfen",
   labelUnlinkItems: "Verknüpfung der Clips lösen",
 };

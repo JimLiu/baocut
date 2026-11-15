@@ -511,6 +511,10 @@ export const pl: EngineMessages = {
   screenViewSource: (p) => `Widok ekranu ${p.document} nie został zapisany dla materiału tego klipu`,
   screenViewWithPanels: "Wideo podzielone na panele nie może mieć widoku ekranu",
   screenViewNotVideo: "nie jest wideo, więc nie może mieć widoku ekranu",
+  screenViewUnreadable: "Nie można odczytać widoku ekranu",
+  autoZoomsNoPointer: "Automatyczne powiększenia podążają za kliknięciami z nagrania ekranu, a ten widok ekranu nie ma ścieżki wskaźnika",
+  recordingPointerTrackUnreadable: (p) => `Nie można odczytać ścieżki wskaźnika ${p.asset} z nagrania`,
+  labelRegenerateAutoZooms: "Wygeneruj ponownie automatyczne powiększenia",
   labelLinkItems: "Połącz klipy",
   labelUnlinkItems: "Rozłącz klipy",
 };

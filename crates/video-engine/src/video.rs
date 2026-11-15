@@ -279,6 +279,7 @@ fn operation_label(op: &EditOperation) -> Text {
         EditOperation::RestoreCut { .. } => msg!("engine.labelRestoreCut", "Restore cut"),
         EditOperation::ProposeCuts { .. } => msg!("engine.labelSuggestCuts", "Suggest cuts"),
         EditOperation::AcceptCutSuggestions { .. } => msg!("engine.labelAcceptSuggestedCuts", "Accept suggested cuts"),
+        EditOperation::RegenerateAutoZooms { .. } => msg!("engine.labelRegenerateAutoZooms", "Regenerate automatic zooms"),
         EditOperation::DeleteItems { .. } => msg!("engine.labelDeleteClips", "Delete clips"),
         EditOperation::RemoveRange { .. } => msg!("engine.labelDeleteTimeRange", "Delete time range"),
         EditOperation::InsertRange { .. } => msg!("engine.labelInsertTimeRange", "Insert time"),
@@ -615,6 +616,32 @@ impl Video {
         Ok(self.resolve_asset(asset_id, revision)?.path)
     }
 
+    /// 录制清单的各路指针轨（键是 `素材ID@版本`）。读不到、解不开的不放进去，由用到它的操作报错。
+    fn read_pointer_tracks(
+        &self,
+        manifest: Option<&Id>,
+        tracks: &mut HashMap<String, std::sync::Arc<video_model::pointer_track::PointerTrack>>,
+    ) -> EngineResult<()> {
+        let Some(manifest) = manifest.filter(|id| self.state.documents.get(*id).is_some_and(|d| d.kind == video_model::recording::RECORDING_KIND))
+        else {
+            return Ok(());
+        };
+        let Ok(body) = serde_json::from_value::<video_model::recording::RecordingBody>(self.document(manifest, None)?.body) else {
+            return Ok(());
+        };
+        for stream in body.streams.iter().filter(|s| s.role == video_model::recording::StreamRole::Pointer) {
+            let key = crate::screen_view_zooms::track_key(&stream.asset_ref.id, &stream.asset_ref.revision);
+            if tracks.contains_key(&key) {
+                continue;
+            }
+            let bytes = self.blob_path(&stream.asset_ref.id, Some(&stream.asset_ref.revision)).ok().and_then(|path| std::fs::read(path).ok());
+            if let Some(track) = bytes.and_then(|bytes| video_model::pointer_track::PointerTrack::parse(&bytes).ok()) {
+                tracks.insert(key, std::sync::Arc::new(track));
+            }
+        }
+        Ok(())
+    }
+
     /// 此刻读不到的素材版本（命令与协议规范 §4.1 的 `videos.assetStatus`）：每个素材的当前版本，加上实例引用的版本。
     /// 原因与 `ASSET_MISSING` 的 `details.reason` 相同：`missing`（不在了）、`changed`（已经不是登记时的文件）、
     /// `outside-project`（相对路径越出了项目目录）。只看文件在不在、长度对不对，不重算摘要。
@@ -829,6 +856,8 @@ impl Video {
         let mut cut_sets: HashMap<Id, Value> = HashMap::new();
         // 剪辑提案要读的转写与提案：同样在事务之外读出（§6.2）。找不到的留给操作本身报错。
         let mut document_bodies: HashMap<Id, Value> = HashMap::new();
+        // 重新生成自动缩放要读的指针轨：字节同样在事务之外读出（§4.9）。
+        let mut pointer_tracks: HashMap<String, std::sync::Arc<video_model::pointer_track::PointerTrack>> = HashMap::new();
         for op in &ops {
             let mut read_cut_set = |asset_id: &str| -> EngineResult<Option<Id>> {
                 let id = crate::cuts::cut_set_document(&self.state, asset_id);
@@ -881,6 +910,13 @@ impl Video {
                 EditOperation::DuplicateLinkGroup { sequence_id, group_id, .. } => {
                     read.extend(crate::recording_links::duplicate_reads(&self.state, sequence_id, group_id));
                 }
+                EditOperation::RegenerateAutoZooms { document_id } => {
+                    let manifest = self.state.documents.get(document_id).and_then(|d| d.source_document_id.as_ref());
+                    read_manifest(manifest, &mut read);
+                    read.extend(self.state.documents.contains_key(document_id).then(|| document_id.clone()));
+                    written.push(document_id.clone());
+                    self.read_pointer_tracks(manifest, &mut pointer_tracks)?;
+                }
                 EditOperation::AcceptCutSuggestions { proposal_id, .. } => {
                     if let Some(asset_id) = self.state.documents.get(proposal_id).and_then(|d| d.source_asset_id.clone()) {
                         written.extend(read_cut_set(&asset_id)?);
@@ -923,6 +959,7 @@ impl Video {
             actor: &tx.actor,
             cut_sets: &cut_sets,
             document_bodies: &document_bodies,
+            pointer_tracks: &pointer_tracks,
             cut_impact: Default::default(),
             code_edits: Vec::new(),
             asset_swaps: Vec::new(),

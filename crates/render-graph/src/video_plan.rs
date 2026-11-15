@@ -28,7 +28,7 @@ pub struct VideoPlan {
     pub transitions: Vec<PlannedTransition>,
     /// 画面要用的素材版本（视频、图片、预渲染替身与代码包，以及 Lottie 贴纸参数里的素材），去重、排序。
     pub assets: Vec<VersionRef>,
-    /// 范围里的字幕实例要读的文档与样式文档，去重、排序。
+    /// 范围里的字幕实例要读的文档与样式文档、视频实例的屏幕取景文档，去重、排序。
     pub documents: Vec<Id>,
 }
 
@@ -66,9 +66,14 @@ pub fn plan_video(video: VideoView<'_>, sequence_id: &str, range: Option<(Ratio,
         if !item.base().enabled || span.end_frame() <= f0 || span.from_frame >= f1 {
             continue;
         }
-        if let TimelineItem::Caption(caption) = item {
-            documents.insert(caption.document_id.clone());
-            documents.extend(caption.style_document_id.clone());
+        match item {
+            TimelineItem::Caption(caption) => {
+                documents.insert(caption.document_id.clone());
+                documents.extend(caption.style_document_id.clone());
+            }
+            // 屏幕取景（格式规范 §3.18）：取景文档；它的清单、指针轨与光标图片由冻结的一方按文档头补上。
+            TimelineItem::Video(video) => documents.extend(video.screen_view.as_ref().map(|v| v.document_id.clone())),
+            _ => {}
         }
         probes.insert(span.from_frame.max(f0));
     }

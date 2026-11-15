@@ -716,6 +716,28 @@ describe.skipIf(!engine || !ffmpeg)('视频（真实引擎）', () => {
     }
   });
 
+  it('链接的指针轨：只放行 format 是指针轨的 JSON', async () => {
+    const { ref, snapshot } = await create();
+    const track = path.join(fixtures, 'pointer.json');
+    const trackJson = (format: string) => JSON.stringify({ format, version: 1, timescale: 1000, moves: [[0, 0.5, 0.5]], buttons: [] });
+    await fs.writeFile(track, trackJson('baocut-pointer-track'));
+    const linked = await client.request('edits.apply', {
+      videoId: ref.videoId,
+      commandId: newId('cmd'),
+      expectedRevision: snapshot.video.revision,
+      operations: [{ type: 'importAsset', path: track, storage: 'linked', ref: 'pointer' }],
+    });
+    const asset = runtime.videos.mirror(ref.videoId)!.video.assets[linked.receipt.refs!.pointer!]!;
+    expect(asset.revisions[asset.currentRevision]!.mediaType).toBe('application/x-baocut-pointer-track+json');
+    const handle = await client.request('media.resolve', { videoId: ref.videoId, assetId: asset.id });
+    expect((await fetch(handle.url)).status).toBe(200);
+
+    // 原处换成 format 不是指针轨的 JSON：不放行。
+    await fs.writeFile(track, trackJson('baocut-pointer-trick'));
+    const refused = await rejection(client.request('media.resolve', { videoId: ref.videoId, assetId: asset.id }));
+    expect(refused.code).toBe('forbidden');
+  });
+
   it('素材分析：波形峰值与缩略图由 Runtime 算出，按内容摘要缓存；只分析音视频', async () => {
     const { ref, snapshot } = await create();
     const added = await importClip(ref.videoId, snapshot.video.revision);

@@ -26,6 +26,7 @@ pub mod key_track;
 pub mod pointer_track;
 pub mod recording;
 pub mod screen_view;
+pub mod screen_view_solver;
 pub mod speech;
 mod transition;
 pub mod translation;

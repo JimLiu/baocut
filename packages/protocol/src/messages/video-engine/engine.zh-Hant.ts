@@ -511,6 +511,10 @@ export const zhHant: EngineMessages = {
   screenViewSource: (p) => `螢幕取景 ${p.document} 不是為這個片段的畫面寫的`,
   screenViewWithPanels: "分割畫面的影片不能有螢幕取景",
   screenViewNotVideo: "不是影片，不能有螢幕取景",
+  screenViewUnreadable: "無法讀取這份螢幕取景",
+  autoZoomsNoPointer: "自動縮放依螢幕錄製裡的點擊產生，這份螢幕取景沒有指標軌",
+  recordingPointerTrackUnreadable: (p) => `無法讀取錄製的指標軌 ${p.asset}`,
+  labelRegenerateAutoZooms: "重新產生自動縮放",
   labelLinkItems: "連動片段",
   labelUnlinkItems: "解除連動",
 };
