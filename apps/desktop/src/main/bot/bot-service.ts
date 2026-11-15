@@ -171,7 +171,7 @@ function electronTrayHost(platform: NodeJS.Platform): TrayHost {
 }
 
 /** `?asset` 打包后文件名带哈希，认不出 `Template` 后缀与 `@2x`：两张各读进来，合成一张标成模板。 */
-function macTrayImage(): NativeImage {
+export function macTrayImage(): NativeImage {
   const image = nativeImage.createEmpty();
   for (const [scaleFactor, file] of [
     [1, trayMacPath],
@@ -184,7 +184,7 @@ function macTrayImage(): NativeImage {
   return image;
 }
 
-function appTrayImage(): NativeImage {
+export function appTrayImage(): NativeImage {
   const image = nativeImage.createFromPath(trayIconPath);
   return image.isEmpty() ? image : image.resize({ width: 16, height: 16, quality: 'best' });
 }

@@ -114,6 +114,7 @@ export const zhHans: RecordingMessages = {
   shortcutHint: '录制中在任何地方都能用，BaoCut 收起时也一样。',
   shortcutPress: '请按键…',
   shortcutNone: '不用',
+  shortcutChange: '更改',
   shortcutClear: '清除',
   shortcutReset: '恢复缺省',
   shortcutFailed: (names) => `设不了「${names}」的快捷键，可能被别的应用占用了。`,

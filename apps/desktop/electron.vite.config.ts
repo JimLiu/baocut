@@ -148,7 +148,13 @@ export default defineConfig({
   preload: {
     build: {
       externalizeDeps: bundleWorkspace,
-      rollupOptions: { input: { index: resolve(import.meta.dirname, 'src/preload/index.ts') } },
+      rollupOptions: {
+        input: {
+          index: resolve(import.meta.dirname, 'src/preload/index.ts'),
+          // 录制控制条的 preload（屏幕录制设计 §11）。
+          'recording-bar': resolve(import.meta.dirname, 'src/preload/recording-bar.ts'),
+        },
+      },
     },
   },
   renderer: {
@@ -176,6 +182,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(import.meta.dirname, 'src/renderer/index.html'),
+          // 录制中总在最前的控制条（屏幕录制设计 §11「录制中」），主进程另开一个小窗口加载。
+          'recording-bar': resolve(import.meta.dirname, 'src/renderer/recording-bar.html'),
           // 产物的自检入口（`tools/check-file-fonts.mjs` 在 file:// 下动态导入）；应用自己不加载它。
           'kernel-check': resolve(import.meta.dirname, 'src/renderer/kernel-check.ts'),
           // 预览播放的端到端基准（`tools/preview-bench.mjs` 同样动态导入）；应用自己不加载它。

@@ -114,6 +114,7 @@ export const es: RecordingMessages = {
   shortcutHint: 'Los atajos funcionan en cualquier parte durante la grabación, incluso con BaoCut oculto.',
   shortcutPress: 'Pulsa las teclas…',
   shortcutNone: 'Ninguno',
+  shortcutChange: 'Cambiar',
   shortcutClear: 'Borrar',
   shortcutReset: 'Restablecer',
   shortcutFailed: (names) => `No se pudo asignar el atajo de «${names}». Puede que lo esté usando otra app.`,

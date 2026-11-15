@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const ko: RecordingBarMessages = {
+  barTitle: '녹화 컨트롤',
+  recording: '녹화 중',
+  paused: '일시 정지됨',
+  countdown: (n) => `${n}초 후 시작`,
+  finishing: '마무리하는 중…',
+  pause: '일시 정지',
+  resume: '계속',
+  stop: '중지',
+  discard: '삭제',
+  discardConfirm: '이 녹화를 삭제할까요?',
+  discardYes: '삭제',
+  discardNo: '유지',
+  lost: (names) => `연결이 끊어졌습니다: ${names}. 녹화는 계속되지만 이후 해당 항목은 기록되지 않습니다.`,
+  roleCamera: '카메라',
+  roleMicrophone: '마이크',
+  roleSystemAudio: '시스템 오디오',
+  roleScreen: '화면',
+  rolePointer: '포인터',
+  roleKeyboard: '키보드',
+  trayTip: (elapsed) => `BaoCut 녹화 중 · ${elapsed}`,
+  trayShow: 'BaoCut 보기',
+  failed: (message) => `완료하지 못했습니다: ${message}`,
+};

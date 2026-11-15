@@ -120,6 +120,7 @@ export const pl: RecordingMessages = {
   shortcutHint: 'Podczas nagrywania skróty działają wszędzie, nawet gdy BaoCut jest ukryty.',
   shortcutPress: 'Naciśnij klawisze…',
   shortcutNone: 'Brak',
+  shortcutChange: 'Zmień',
   shortcutClear: 'Wyczyść',
   shortcutReset: 'Przywróć domyślne',
   shortcutFailed: (names) => `Nie udało się ustawić skrótu dla „${names}”. Może być używany przez inną aplikację.`,

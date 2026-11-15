@@ -34,6 +34,7 @@ import { useSetting, useSettings } from '../../state/settings-store.ts';
 import { useShell, type ColorScheme } from '../../state/shell-store.ts';
 import { DOWNLOAD_SOURCE_COPY as SOURCES } from '../../model/download-source.ts';
 import { SourceKindList } from '../models/download-sources.tsx';
+import { RecordingSettingsGroup } from '../recording/recording-settings.tsx';
 import { M } from './general-settings-copy.ts';
 import { useSaveSettings, useSettingsReady } from './save-settings.ts';
 
@@ -92,6 +93,7 @@ export function GeneralSettings() {
       <InterfaceGroup web={web} />
       <EditingGroup />
       <DownloadsGroup web={web} ready={ready} />
+      <RecordingSettingsGroup />
       <SourcesGroup web={web} ready={ready} />
       <SpaceGroup web={web} ready={ready} />
     </>

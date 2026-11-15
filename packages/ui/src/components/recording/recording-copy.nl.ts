@@ -114,6 +114,7 @@ export const nl: RecordingMessages = {
   shortcutHint: 'Sneltoetsen werken overal tijdens het opnemen, ook als BaoCut is verborgen.',
   shortcutPress: 'Druk op toetsen…',
   shortcutNone: 'Geen',
+  shortcutChange: 'Wijzig',
   shortcutClear: 'Wis',
   shortcutReset: 'Stel opnieuw in',
   shortcutFailed: (names) => `Kan de sneltoets voor “${names}” niet instellen. Mogelijk wordt die door een andere app gebruikt.`,

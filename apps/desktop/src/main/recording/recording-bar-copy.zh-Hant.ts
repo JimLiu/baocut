@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const zhHant: RecordingBarMessages = {
+  barTitle: '錄製控制列',
+  recording: '錄製中',
+  paused: '已暫停',
+  countdown: (n) => `${n} 秒後開始`,
+  finishing: '正在收尾…',
+  pause: '暫停',
+  resume: '繼續',
+  stop: '停止',
+  discard: '捨棄',
+  discardConfirm: '要捨棄這次錄製嗎？',
+  discardYes: '捨棄',
+  discardNo: '繼續錄',
+  lost: (names) => `${names}已中斷連線，錄製會繼續進行，這一路之後不會有內容。`,
+  roleCamera: '攝影機',
+  roleMicrophone: '麥克風',
+  roleSystemAudio: '系統音訊',
+  roleScreen: '螢幕',
+  rolePointer: '滑鼠',
+  roleKeyboard: '鍵盤',
+  trayTip: (elapsed) => `BaoCut 正在錄製 · ${elapsed}`,
+  trayShow: '顯示 BaoCut',
+  failed: (message) => `無法完成：${message}`,
+};

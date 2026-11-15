@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const ru: RecordingBarMessages = {
+  barTitle: 'Управление записью',
+  recording: 'Идёт запись',
+  paused: 'Пауза',
+  countdown: (n) => `Старт через ${n}`,
+  finishing: 'Завершение…',
+  pause: 'Пауза',
+  resume: 'Продолжить',
+  stop: 'Стоп',
+  discard: 'Удалить',
+  discardConfirm: 'Удалить эту запись?',
+  discardYes: 'Удалить',
+  discardNo: 'Оставить',
+  lost: (names) => `Отключено: ${names}. Запись продолжается без этого источника.`,
+  roleCamera: 'камера',
+  roleMicrophone: 'микрофон',
+  roleSystemAudio: 'системный звук',
+  roleScreen: 'экран',
+  rolePointer: 'указатель',
+  roleKeyboard: 'клавиатура',
+  trayTip: (elapsed) => `BaoCut ведёт запись · ${elapsed}`,
+  trayShow: 'Показать BaoCut',
+  failed: (message) => `Не получилось: ${message}`,
+};

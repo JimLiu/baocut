@@ -114,6 +114,7 @@ export const ja: RecordingMessages = {
   shortcutHint: '収録中はどこでも使えます。BaoCut が非表示のときも同様です。',
   shortcutPress: 'キーを押してください…',
   shortcutNone: 'なし',
+  shortcutChange: '変更',
   shortcutClear: 'クリア',
   shortcutReset: 'リセット',
   shortcutFailed: (names) => `「${names}」のショートカットを設定できませんでした。ほかのAppで使われている可能性があります。`,

@@ -114,6 +114,7 @@ export const ptBR: RecordingMessages = {
   shortcutHint: 'Os atalhos funcionam em qualquer lugar durante a gravação, mesmo com o BaoCut oculto.',
   shortcutPress: 'Pressione as teclas…',
   shortcutNone: 'Nenhum',
+  shortcutChange: 'Alterar',
   shortcutClear: 'Limpar',
   shortcutReset: 'Redefinir',
   shortcutFailed: (names) => `Não foi possível definir o atalho de “${names}”. Outro app pode estar usando-o.`,

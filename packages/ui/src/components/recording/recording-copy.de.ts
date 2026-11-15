@@ -114,6 +114,7 @@ export const de: RecordingMessages = {
   shortcutHint: 'Die Kurzbefehle funktionieren während der Aufnahme überall, auch wenn BaoCut ausgeblendet ist.',
   shortcutPress: 'Tasten drücken …',
   shortcutNone: 'Keiner',
+  shortcutChange: 'Ändern',
   shortcutClear: 'Entfernen',
   shortcutReset: 'Zurücksetzen',
   shortcutFailed: (names) => `Der Kurzbefehl für „${names}“ konnte nicht festgelegt werden. Möglicherweise wird er von einer anderen App verwendet.`,

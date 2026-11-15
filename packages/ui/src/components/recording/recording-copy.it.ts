@@ -114,6 +114,7 @@ export const it: RecordingMessages = {
   shortcutHint: 'Le scorciatoie funzionano ovunque durante la registrazione, anche con BaoCut nascosto.',
   shortcutPress: 'Premi i tasti…',
   shortcutNone: 'Nessuna',
+  shortcutChange: 'Modifica',
   shortcutClear: 'Cancella',
   shortcutReset: 'Ripristina',
   shortcutFailed: (names) => `Impossibile impostare la scorciatoia per “${names}”. Potrebbe essere usata da un’altra app.`,

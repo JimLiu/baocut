@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const vi: RecordingBarMessages = {
+  barTitle: 'Điều khiển ghi hình',
+  recording: 'Đang ghi',
+  paused: 'Đã tạm dừng',
+  countdown: (n) => `Bắt đầu sau ${n}`,
+  finishing: 'Đang hoàn tất…',
+  pause: 'Tạm dừng',
+  resume: 'Tiếp tục',
+  stop: 'Dừng',
+  discard: 'Hủy bỏ',
+  discardConfirm: 'Hủy bản ghi này?',
+  discardYes: 'Hủy bỏ',
+  discardNo: 'Giữ lại',
+  lost: (names) => `Đã ngắt kết nối: ${names}. Bản ghi vẫn tiếp tục mà không có nguồn này.`,
+  roleCamera: 'camera',
+  roleMicrophone: 'micro',
+  roleSystemAudio: 'âm thanh hệ thống',
+  roleScreen: 'màn hình',
+  rolePointer: 'con trỏ',
+  roleKeyboard: 'bàn phím',
+  trayTip: (elapsed) => `BaoCut đang ghi hình · ${elapsed}`,
+  trayShow: 'Hiện BaoCut',
+  failed: (message) => `Không thực hiện được: ${message}`,
+};

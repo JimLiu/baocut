@@ -114,6 +114,7 @@ export const vi: RecordingMessages = {
   shortcutHint: 'Phím tắt hoạt động ở mọi nơi khi đang ghi, kể cả khi BaoCut bị ẩn.',
   shortcutPress: 'Nhấn phím…',
   shortcutNone: 'Không có',
+  shortcutChange: 'Thay đổi',
   shortcutClear: 'Xóa',
   shortcutReset: 'Đặt lại',
   shortcutFailed: (names) => `Không thể đặt phím tắt cho “${names}”. Có thể một ứng dụng khác đang dùng nó.`,

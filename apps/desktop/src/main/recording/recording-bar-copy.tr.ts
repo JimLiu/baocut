@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const tr: RecordingBarMessages = {
+  barTitle: 'Kayıt denetimleri',
+  recording: 'Kaydediliyor',
+  paused: 'Duraklatıldı',
+  countdown: (n) => `${n} sn sonra başlıyor`,
+  finishing: 'Tamamlanıyor…',
+  pause: 'Duraklat',
+  resume: 'Sürdür',
+  stop: 'Durdur',
+  discard: 'Sil',
+  discardConfirm: 'Bu kayıt silinsin mi?',
+  discardYes: 'Sil',
+  discardNo: 'Tut',
+  lost: (names) => `Bağlantı kesildi: ${names}. Kayıt bu olmadan devam ediyor.`,
+  roleCamera: 'kamera',
+  roleMicrophone: 'mikrofon',
+  roleSystemAudio: 'sistem sesi',
+  roleScreen: 'ekran',
+  rolePointer: 'imleç',
+  roleKeyboard: 'klavye',
+  trayTip: (elapsed) => `BaoCut kayıt yapıyor · ${elapsed}`,
+  trayShow: 'BaoCut’u göster',
+  failed: (message) => `Yapılamadı: ${message}`,
+};

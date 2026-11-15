@@ -72,6 +72,24 @@ const notifications: NonNullable<HostBridge['notifications']> = {
 };
 
 /**
+ * 录制（屏幕录制设计 §11）：控制条、菜单栏图标与全局快捷键在主进程里；界面只把设置交过去、打开系统设置的隐私页。
+ * 录制目前只有 macOS 上的 Worker（Windows 上 Runtime 报不支持，入口置灰写原因）；两边都给这一项，可不可用由 Runtime 说。
+ */
+const recording: NonNullable<HostBridge['recording']> = {
+  openSystemSettings: (permission) => ipcRenderer.invoke('baocut:recording-open-settings', permission),
+  configure: (settings) =>
+    ipcRenderer.send('baocut:recording-configure', {
+      shortcuts: { stop: settings.shortcuts.stop, pause: settings.shortcuts.pause },
+      hideWindow: settings.hideWindow,
+    }),
+  onShortcutFailed: (listener) => {
+    const handler = (_event: IpcRendererEvent, failed: Array<'stop' | 'pause'>) => listener(failed);
+    ipcRenderer.on('baocut:recording-shortcut-failed', handler);
+    return () => void ipcRenderer.removeListener('baocut:recording-shortcut-failed', handler);
+  },
+};
+
+/**
  * 渲染进程能用的全部原生能力。保持最小：业务请求不经过这里，界面直连 Runtime。
  * 形状与 @baocut/ui 的 HostBridge 一致。
  */
@@ -92,6 +110,7 @@ contextBridge.exposeInMainWorld('baocut', {
   web,
   updates,
   notifications,
+  recording,
   openExternal: (url: string) => ipcRenderer.invoke('baocut:open-external', url),
   // macOS 的完全磁盘访问权限（架构设计 §12.11）：只在 macOS 提供；地址与确认都在主进程里。
   ...(process.platform === 'darwin'

@@ -114,6 +114,7 @@ export const fr: RecordingMessages = {
   shortcutHint: 'Les raccourcis fonctionnent partout pendant l’enregistrement, même quand BaoCut est masqué.',
   shortcutPress: 'Appuyez sur les touches…',
   shortcutNone: 'Aucun',
+  shortcutChange: 'Modifier',
   shortcutClear: 'Effacer',
   shortcutReset: 'Réinitialiser',
   shortcutFailed: (names) => `Impossible de définir le raccourci pour « ${names} ». Une autre app l’utilise peut-être.`,

@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const ja: RecordingBarMessages = {
+  barTitle: '録画コントロール',
+  recording: '録画中',
+  paused: '一時停止中',
+  countdown: (n) => `${n} 秒後に開始`,
+  finishing: '仕上げています…',
+  pause: '一時停止',
+  resume: '再開',
+  stop: '停止',
+  discard: '破棄',
+  discardConfirm: 'この録画を破棄しますか？',
+  discardYes: '破棄',
+  discardNo: '続ける',
+  lost: (names) => `接続が切れました：${names}。録画はそのまま続きますが、以降その分は記録されません。`,
+  roleCamera: 'カメラ',
+  roleMicrophone: 'マイク',
+  roleSystemAudio: 'システム音声',
+  roleScreen: '画面',
+  rolePointer: 'ポインタ',
+  roleKeyboard: 'キーボード',
+  trayTip: (elapsed) => `BaoCut が録画中 · ${elapsed}`,
+  trayShow: 'BaoCut を表示',
+  failed: (message) => `実行できませんでした：${message}`,
+};

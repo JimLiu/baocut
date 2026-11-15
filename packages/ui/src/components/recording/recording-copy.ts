@@ -138,6 +138,7 @@ const en = {
   shortcutHint: 'Shortcuts work everywhere while recording, even when BaoCut is hidden.',
   shortcutPress: 'Press keys…',
   shortcutNone: 'None',
+  shortcutChange: 'Change',
   shortcutClear: 'Clear',
   shortcutReset: 'Reset',
   shortcutFailed: (names: string) => `Couldn’t set the shortcut for ${names}. Another app may be using it.`,

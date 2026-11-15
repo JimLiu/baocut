@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const de: RecordingBarMessages = {
+  barTitle: 'Aufnahmesteuerung',
+  recording: 'Aufnahme läuft',
+  paused: 'Pausiert',
+  countdown: (n) => `Start in ${n}`,
+  finishing: 'Wird abgeschlossen…',
+  pause: 'Pause',
+  resume: 'Fortsetzen',
+  stop: 'Stopp',
+  discard: 'Verwerfen',
+  discardConfirm: 'Diese Aufnahme verwerfen?',
+  discardYes: 'Verwerfen',
+  discardNo: 'Behalten',
+  lost: (names) => `Getrennt: ${names}. Die Aufnahme läuft ohne weiter.`,
+  roleCamera: 'Kamera',
+  roleMicrophone: 'Mikrofon',
+  roleSystemAudio: 'Systemton',
+  roleScreen: 'Bildschirm',
+  rolePointer: 'Zeiger',
+  roleKeyboard: 'Tastatur',
+  trayTip: (elapsed) => `BaoCut nimmt auf · ${elapsed}`,
+  trayShow: 'BaoCut anzeigen',
+  failed: (message) => `Das hat nicht geklappt: ${message}`,
+};

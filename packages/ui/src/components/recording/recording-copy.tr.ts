@@ -114,6 +114,7 @@ export const tr: RecordingMessages = {
   shortcutHint: 'Kayıt sırasında kısayollar, BaoCut gizliyken bile her yerde çalışır.',
   shortcutPress: 'Tuşlara basın…',
   shortcutNone: 'Yok',
+  shortcutChange: 'Değiştir',
   shortcutClear: 'Temizle',
   shortcutReset: 'Sıfırla',
   shortcutFailed: (names) => `“${names}” için kısayol ayarlanamadı. Başka bir uygulama kullanıyor olabilir.`,

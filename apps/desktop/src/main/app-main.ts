@@ -28,6 +28,7 @@ import { writeRecording } from './recording-file.ts';
 import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeRequest } from './runtime-origin.ts';
 import { installBotService, type BotService } from './bot/bot-service.ts';
 import { launchedHidden } from './bot/login-item.ts';
+import { barPageOf, installRecordingService, type RecordingService } from './recording/recording-service.ts';
 
 /**
  * 桌面端主进程：找到或启动 Runtime、开窗口、提供少量原生能力（选目录、在文件夹中显示）。
@@ -85,6 +86,8 @@ export function startDesktopApp(): void {
   let updates: AppUpdateService | null = null;
   /** Bot 后台服务（技术方案 §15.2）：托盘、通知、常驻判断。就绪之前还没有。 */
   let bot: BotService | null = null;
+  /** 录制中的控制条、菜单栏图标与全局快捷键（屏幕录制设计 §11）。就绪之前还没有。 */
+  let recording: RecordingService | null = null;
   const appContents = new Set<number>();
   let runtimeEndpoint: string | null = null;
 
@@ -146,9 +149,14 @@ export function startDesktopApp(): void {
     return win;
   }
 
+  /** 应用自己的窗口：不含录制控制条之类主进程另开的小窗口。 */
+  function appWindows(): BrowserWindow[] {
+    return BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed() && appContents.has(win.webContents.id));
+  }
+
   /** 打开应用窗口并带到前台；没有窗口时新开一个（托盘、通知把应用从后台叫回来）。 */
   function showWindow(): BrowserWindow {
-    const existing = BrowserWindow.getAllWindows().find((win) => !win.isDestroyed());
+    const existing = appWindows()[0];
     if (!existing) return createWindow();
     if (existing.isMinimized()) existing.restore();
     existing.show();
@@ -418,8 +426,18 @@ export function startDesktopApp(): void {
     } else {
       createWindow();
     }
+    // 录制中（屏幕录制设计 §11）：主进程自己连 Runtime，管控制条、菜单栏图标、全局快捷键与收起、放回应用窗口。
+    recording = installRecordingService({
+      connection,
+      version: app.getVersion(),
+      platform: process.platform,
+      appWindows,
+      showWindow,
+      barPage: barPageOf(devServerUrl, __dirname),
+      barPreload: path.join(__dirname, '../preload/recording-bar.js'),
+    });
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      if (appWindows().length === 0) createWindow();
     });
     app.on('second-instance', () => showWindow());
   });
@@ -461,6 +479,7 @@ export function startDesktopApp(): void {
       }
       quitState = 'stopping';
       bot?.dispose();
+      recording?.dispose();
       if (choice === 'background') await supervisor.detach();
       await supervisor.stop().catch(() => {});
       // 要装更新（「重启并更新」或退出即安装）：同一个 Home 上从本包拉起的 CLI Runtime 空闲时也请它停下（CLI 独立使用与发布 §4.3）。

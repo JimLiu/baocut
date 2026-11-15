@@ -114,6 +114,7 @@ export const ko: RecordingMessages = {
   shortcutHint: '녹화 중에는 BaoCut이 숨겨져 있어도 어디서든 단축키가 작동합니다.',
   shortcutPress: '키를 누르세요…',
   shortcutNone: '없음',
+  shortcutChange: '변경',
   shortcutClear: '지우기',
   shortcutReset: '재설정',
   shortcutFailed: (names) => `“${names}” 단축키를 설정할 수 없습니다. 다른 앱에서 사용 중일 수 있습니다.`,

@@ -1,0 +1,26 @@
+import type { RecordingBarMessages } from './recording-bar-copy.ts';
+
+export const nl: RecordingBarMessages = {
+  barTitle: 'Opnamebediening',
+  recording: 'Opnemen',
+  paused: 'Gepauzeerd',
+  countdown: (n) => `Start over ${n}`,
+  finishing: 'Afronden…',
+  pause: 'Pauzeren',
+  resume: 'Hervatten',
+  stop: 'Stoppen',
+  discard: 'Weggooien',
+  discardConfirm: 'Deze opname weggooien?',
+  discardYes: 'Weggooien',
+  discardNo: 'Bewaren',
+  lost: (names) => `Verbinding verbroken: ${names}. De opname gaat zonder verder.`,
+  roleCamera: 'camera',
+  roleMicrophone: 'microfoon',
+  roleSystemAudio: 'systeemgeluid',
+  roleScreen: 'scherm',
+  rolePointer: 'aanwijzer',
+  roleKeyboard: 'toetsenbord',
+  trayTip: (elapsed) => `BaoCut neemt op · ${elapsed}`,
+  trayShow: 'BaoCut tonen',
+  failed: (message) => `Dat is niet gelukt: ${message}`,
+};

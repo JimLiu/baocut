@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { Id, RecordingState, RecordingSummary } from '@baocut/protocol';
+import { localizeText, type Id, type RecordingState, type RecordingSummary } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
 import { autoOpenWaiting, recordingEntry, shouldOpenAfter, type RecordingBlock, type RecordingEntry, type SourcesState } from '../../model/recording.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -128,6 +128,11 @@ function useOpenAfter(runtime: RuntimeSession) {
   handler.current = (r, snapshot) => {
     const before = snapshot ? undefined : seen.current.get(r.recordingId);
     seen.current.set(r.recordingId, r.state);
+    // 看着失败的（不是智能体发起的；那些在会话的卡片上）：窗口放回来时说一声为什么，例如什么都没录下。
+    if (r.state === 'failed' && before !== undefined && before !== 'failed' && !r.requestedBy) {
+      ToastQueue.negative(RC.cardFailed(r.error ? localizeText(r.error.message, r.error.messageRef) : ''), { timeout: 8000 });
+      return;
+    }
     if (!shouldOpenAfter(before, r) || !r.result) return;
     if ('videoId' in r.target) return;
     const from = r.target.create.conversationId

@@ -120,6 +120,7 @@ export const ru: RecordingMessages = {
   shortcutHint: 'Во время записи сочетания работают везде, даже когда BaoCut скрыт.',
   shortcutPress: 'Нажмите клавиши…',
   shortcutNone: 'Нет',
+  shortcutChange: 'Изменить',
   shortcutClear: 'Очистить',
   shortcutReset: 'Сбросить',
   shortcutFailed: (names) => `Не удалось задать сочетание для «${names}». Возможно, оно занято другим приложением.`,

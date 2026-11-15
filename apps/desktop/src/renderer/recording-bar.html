@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- 录制控制条（屏幕录制设计 §11「录制中」）：只跑本地脚本，不连网。 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>BaoCut</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #1d1d1d;
+        --fg: #f2f2f2;
+        --muted: #a6a6a6;
+        --line: #3a3a3a;
+        --hover: #2f2f2f;
+        --red: #ff5a4f;
+        --amber: #f5b33d;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; }
+      body {
+        font: 13px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .bar { display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 8px 0 12px; -webkit-app-region: drag; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); flex: none; }
+      .bar[data-phase='recording'] .dot { animation: pulse 1.6s ease-in-out infinite; }
+      .bar[data-phase='paused'] .dot, .bar[data-phase='countdown'] .dot { background: var(--amber); }
+      .bar[data-phase='finishing'] .dot { background: var(--muted); }
+      @keyframes pulse { 50% { opacity: 0.35; } }
+      .text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+      .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .time { font-variant-numeric: tabular-nums; color: var(--muted); }
+      .notice { color: var(--amber); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      button {
+        -webkit-app-region: no-drag;
+        font: inherit;
+        color: var(--fg);
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        height: 30px;
+        padding: 0 10px;
+        cursor: default;
+        white-space: nowrap;
+      }
+      button:hover { background: var(--hover); }
+      button:focus-visible { outline: 2px solid #4b9cf5; outline-offset: 1px; }
+      button.stop { background: var(--red); border-color: var(--red); color: #fff; }
+      button.danger { color: var(--red); }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="bar" id="bar" role="toolbar">
+      <span class="dot" aria-hidden="true"></span>
+      <div class="text">
+        <span class="title" id="title"></span>
+        <span class="time" id="time"></span>
+        <span class="notice" id="notice" hidden></span>
+      </div>
+      <span id="main">
+        <button id="pause" type="button" hidden></button>
+        <button id="resume" type="button" hidden></button>
+        <button id="stop" class="stop" type="button" hidden></button>
+        <button id="discard" type="button" hidden></button>
+      </span>
+      <span id="confirm" hidden>
+        <span class="title" id="confirm-text"></span>
+        <button id="discard-yes" class="danger" type="button"></button>
+        <button id="discard-no" type="button"></button>
+      </span>
+    </div>
+    <script type="module" src="./recording-bar.ts"></script>
+  </body>
+</html>

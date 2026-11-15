@@ -114,6 +114,7 @@ export const zhHant: RecordingMessages = {
   shortcutHint: '錄製期間在任何地方都能使用，BaoCut 隱藏時也一樣。',
   shortcutPress: '請按下按鍵…',
   shortcutNone: '無',
+  shortcutChange: '更改',
   shortcutClear: '清除',
   shortcutReset: '重置',
   shortcutFailed: (names) => `無法設定「${names}」的快速鍵，可能已被其他 App 佔用。`,
