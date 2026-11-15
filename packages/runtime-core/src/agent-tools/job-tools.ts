@@ -553,6 +553,8 @@ function digestJob(record: JobRecord, related: ReadonlyMap<Id, JobRecord> = new 
         }
       : {}),
     ...(record.cancellation ? { cancellation: record.cancellation } : {}),
+    // 录屏（屏幕录制设计 §12）：录制会话与导入的结果（视频、清单与取景文档、联动组、实例、时长）。
+    ...(record.recording ? { recording: { recordingId: record.recording.recordingId, result: record.recording.result } } : {}),
     // 固定流程（一级动词 transcribe、translate、dub、transcode、download）：每一步的状态与完成时的摘要（新文稿、字幕层、文件）。
     ...(record.pipeline
       ? {

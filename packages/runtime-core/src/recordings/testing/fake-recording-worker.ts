@@ -27,6 +27,8 @@ interface Scenario {
   loseCameraAfterMs?: number;
   crashAfterMs?: number;
   startError?: { code: string; message: string };
+  /** Write the params of every `start` call to this file (JSON), so tests can check what the Runtime sent. */
+  startParamsFile?: string;
 }
 
 type Role = 'screen' | 'camera' | 'microphone' | 'system-audio';
@@ -191,6 +193,7 @@ function handle(method: string, params: Record<string, unknown>): unknown {
       };
     case 'start': {
       if (segment) throw { code: 'ALREADY_RECORDING', message: 'A recording is already running' };
+      if (scenario.startParamsFile) fs.writeFileSync(scenario.startParamsFile, JSON.stringify(params));
       if (scenario.startError) throw scenario.startError;
       dir = String(params.dir);
       fs.mkdirSync(dir, { recursive: true });

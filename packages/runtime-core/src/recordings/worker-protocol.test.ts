@@ -53,6 +53,8 @@ describe('recording worker protocol fixture', () => {
   it('keeps start params and event rows in the documented shapes', () => {
     const start = items('start') as WorkerStartParams[];
     expect(start.map((params) => params.source.kind).sort()).toEqual(['area', 'display', 'display', 'window']);
+    // 排除名单是后加的可选字段：有的样例带，有的不带。
+    expect(start.filter((params) => params.exclude).map((params) => params.exclude)).toEqual([{ bundleIds: ['com.baocut.app'], pids: [4242] }]);
     const pointer = items('pointerEvents') as PointerEventLine[];
     expect(pointer.map((row) => row[1])).toEqual(['m', 'b', 'c']);
     const keys = items('keyEvents') as KeyEventLine[];

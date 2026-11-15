@@ -2,15 +2,17 @@ import path from 'node:path';
 import { refOf, RpcError, type Actor, type EditOperation, type Id, type RecordingResult, type SequenceItem, type TransactionReceipt } from '@baocut/protocol';
 import { RcRecordings } from '@baocut/protocol/messages/runtime-core';
 import type { VideoService } from '../videos/video-service.ts';
-import { generateAutoZooms } from './auto-zoom.ts';
-import { defaultScreenView, manifestBody, TIMESCALE, VIEW_TIMESCALE, type PackageStream, type RecordingPackage, type VersionRef } from './recording-package.ts';
+import { defaultScreenView, manifestBody, TIMESCALE, type PackageStream, type RecordingPackage, type VersionRef } from './recording-package.ts';
 
 /**
  * 把一份录制导入视频（屏幕录制设计 §7「导入」，视频格式规范 §3.18、§4.7–§4.10）。三笔事务，命令 ID 都由 `recordingId` 定下，
  * 中途退出之后再来一次时已经提交的那几笔按同一个命令 ID 重放（引擎回答原来的回执），不会导入两份：
  *
  * 1. `assets`：全部文件导入成 `managed` 素材（来源 `recording`），加上屏幕、摄像头、麦克风、系统音频各一条新轨道。
- * 2. `documents`：录制清单、屏幕取景文档（缺省取景，自动缩放的调用点在这里）。
+ * 2. `documents`：录制清单、屏幕取景文档（缺省取景，没有缩放区间）。
+ * 2a. `auto-zoom`：紧跟着的一笔 `regenerateAutoZooms`，按指针轨的点击生成 `origin: 'auto'` 的缩放区间（视频格式规范 §4.9）。
+ *    操作要已经提交的取景文档与清单（引擎在事务之前读它们与指针轨），所以不能并进上一笔。不要自动缩放（`autoZoom: false`）
+ *    或录制实际的鼠标模式是 `none`（没有指针轨）时不调；引擎拒绝时导入照常完成，只记一条警告。
  * 3. 每一段 `items-<n>`：这一段每路流一个实例，放在 `at + 流的 start` 秒处，盖住整个素材；`trim-<n>`：每个实例都修到
  *    有内容的区间结尾（文件常比区间长一点，时长按帧取整也可能多一帧，不修的话会压到下一段的实例上）。
  * 4. `link`：全部实例登记成一个联动组，屏幕实例挂上取景，摄像头裁成正方形、圆形遮罩、放在右下角。
@@ -36,6 +38,10 @@ export interface ImportRecordingRequest {
   /** 每一笔第一次提交时用的版本与标签（按命令 ID）；调用方在 `persist` 里落盘，重做时原样传回来。 */
   steps: Record<string, { expectedRevision: string; label: string }>;
   persist: () => Promise<void>;
+  /** 收尾时生成自动缩放（`RecordingOptions.autoZoom`）。 */
+  autoZoom: boolean;
+  /** 不影响导入结果的问题（英文，进任务的警告）。 */
+  onWarning?: (detail: string) => void;
 }
 
 export async function importRecording(videos: VideoService, request: ImportRecordingRequest): Promise<RecordingResult> {
@@ -111,20 +117,27 @@ export async function importRecording(videos: VideoService, request: ImportRecor
 
   // 2. 清单与取景。
   const seconds = (ticks: number) => (request.at + ticks / TIMESCALE).toFixed(6);
-  const pointerTracks = new Map<string, unknown>();
-  const view = defaultScreenView();
-  const zooms = generateAutoZooms(pkg, pointerTracks, VIEW_TIMESCALE);
   const documentsReceipt = await apply(
     'documents',
     [
       { type: 'putDocument', kind: 'recording', ref: 'manifest', body: manifestBody(pkg, versionOf) },
-      { type: 'putDocument', kind: 'screen-view', ref: 'view', sourceDocument: { ref: 'manifest' }, body: { ...view, zooms } },
+      { type: 'putDocument', kind: 'screen-view', ref: 'view', sourceDocument: { ref: 'manifest' }, body: defaultScreenView() },
     ],
     RcRecordings.importLabel(),
   );
   const manifestDocumentId = documentsReceipt.refs?.manifest;
   const screenViewDocumentId = documentsReceipt.refs?.view;
   if (!manifestDocumentId || !screenViewDocumentId) throw new Error('The recording documents were not created');
+
+  // 2a. 自动缩放：引擎按清单与指针轨生成，规则只有一份（视频格式规范 §4.9）。
+  if (request.autoZoom && pkg.cursor !== 'none') {
+    try {
+      await apply('auto-zoom', [{ type: 'regenerateAutoZooms', documentId: screenViewDocumentId }], RcRecordings.importLabel());
+    } catch (error) {
+      if (!(error instanceof RpcError)) throw error;
+      request.onWarning?.(`Automatic zooms were not generated: ${error.message}`);
+    }
+  }
 
   // 3. 一段一段放实例，放完修到有内容的区间结尾，下一段才不会压上来。
   const itemOf = new Map<PackageStream, SequenceItem>();
@@ -184,12 +197,13 @@ export async function importRecording(videos: VideoService, request: ImportRecor
   request.onStep?.('link');
   return {
     videoId,
+    recordingId,
     manifestDocumentId,
     screenViewDocumentId,
     groupId: groupId?.linkGroupId ?? '',
     itemIds,
     duration: pkg.duration / TIMESCALE,
-    autoZoomPending: zooms.length === 0,
+    autoZoomPending: false,
   };
 }
 

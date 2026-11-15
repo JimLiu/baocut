@@ -40,6 +40,15 @@ describe('edits_apply 的操作表', () => {
     expect(style.schema.safeParse({ type: 'setStyle', itemId: 'item_1', screenView: null }).success).toBe(true);
   });
 
+  it('屏幕取景的自动缩放：regenerateAutoZooms 在表里，只带 documentId，原样交给引擎', () => {
+    expect(OPERATION_TYPES).toContain('regenerateAutoZooms');
+    const spec = EDIT_OPERATIONS.find((s) => s.type === 'regenerateAutoZooms')!;
+    expect(spec.family).toBe('documents-and-versions');
+    expect(spec.schema.safeParse({ type: 'regenerateAutoZooms' }).success).toBe(false);
+    const [normalized] = normalizeOperations([{ type: 'regenerateAutoZooms', documentId: 'doc_view' }], 'seq_root', '/tmp');
+    expect(normalized).toEqual({ type: 'regenerateAutoZooms', documentId: 'doc_view' });
+  });
+
   for (const spec of EDIT_OPERATIONS) {
     it(`${spec.type}：示例通过 schema 与编译后的 JSON Schema，能补成引擎的形态`, () => {
       expect(spec.example.type).toBe(spec.type);

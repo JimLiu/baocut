@@ -40,6 +40,7 @@ import {
   workerEvent,
   type WorkerHello,
   type WorkerSources,
+  type WorkerExclusion,
   type WorkerStartParams,
 } from './worker-protocol.ts';
 
@@ -52,6 +53,8 @@ import {
  *   收尾 `finalizing`，导入 `applying`；进度是已录秒数，没有总量。
  * - 取消（`jobs.cancel`）与 Runtime 停止（中断）在采集中途时：停下 Worker、保留文件，录制变成可恢复的 `importable`。
  * - 启动时扫描目录：上次没收完的（采集中、收尾中、导入中）记成 `importable` + `unfinished`，等用户恢复或删除，不自动删。
+ * - 开始采集之前就失败的（权限在开始时被拒、Worker 起不来）：状态 `failed` 带着错误，`recordings.status` / `list` 查得到，
+ *   直到用户丢弃或 Runtime 重启（最多留最近 10 次）；不能恢复。取消与丢弃的从此查不到（`RECORDING_NOT_FOUND`）。
  */
 
 const ACTIVE: ReadonlySet<RecordingState> = new Set(['waiting', 'preparing', 'countdown', 'recording', 'paused', 'stopping', 'finalizing', 'importing']);
@@ -64,6 +67,15 @@ const RECORDING_WORKER_ENV = 'BAOCUT_RECORDING_WORKER';
 const MIN_FREE_BYTES = 512 * 1024 * 1024;
 const WARN_FREE_BYTES = 2 * 1024 * 1024 * 1024;
 const DISK_POLL_MS = 5000;
+/** 开始采集之前就失败的录制在内存里留几次（`recordings.status` 查得到原因）。 */
+const KEPT_EARLY_FAILURES = 10;
+/** 打包的桌面端的 bundle id（`apps/desktop` 的 App ID）：整屏录制缺省排除它的窗口。 */
+export const DESKTOP_BUNDLE_ID = 'com.baocut.app';
+
+/** 开始采集之前就失败了：什么都没录，没有目录，只剩状态与错误。 */
+function neverCaptured(session: { summary: RecordingSummary }): boolean {
+  return session.summary.state === 'failed' && session.summary.startedAt === null;
+}
 
 const PERMISSION_LABELS: Record<keyof RecordingPermissions, () => Localized> = {
   screen: RcRecordings.permScreen,
@@ -116,6 +128,11 @@ export interface RecordingServiceOptions {
   probe: ProbeDuration;
   /** 这台电脑上开着 BaoCut 的桌面端（屏幕录制设计 §14：没有窗口的 Runtime 先不录）。 */
   hasWindow: () => boolean;
+  /**
+   * 整屏与区域录制时排除的 BaoCut 窗口（`RecordingOptions.includeSelf` 不是 true 时传给 Worker 的 `exclude`）。
+   * 不给时不排除；Runtime 缺省给桌面端的 bundle id 与拉起它的进程。
+   */
+  selfExclusion?: () => WorkerExclusion | null;
   log: Logger;
   platform?: NodeJS.Platform;
   /** 测试用：剩余空间与倒计时的一秒。 */
@@ -393,6 +410,11 @@ export class RecordingService {
     }
     if (BEFORE_CAPTURE.has(state)) {
       await this.#dropBeforeCapture(session, 'cancelled', null);
+    } else if (neverCaptured(session)) {
+      // 开始之前就失败的：任务早已结束，目录也没有了，只把它从列表里去掉。
+      session.summary.state = 'discarded';
+      this.#sessions.delete(recordingId);
+      this.topic.publish({ type: 'recording.upsert', recording: this.#view(session) });
     } else {
       if (CAPTURING.has(state)) await this.#stopWorker(session, 'kill');
       this.#clearTimers(session);
@@ -410,7 +432,9 @@ export class RecordingService {
   async recover(recordingId: Id, submitter: JobSubmitter): Promise<RecordingSummary> {
     const session = this.#get(recordingId);
     if (ACTIVE.has(session.summary.state)) throw notState('RECORDING_BUSY', RcRecordings.stillActive(), session);
-    if (!RECOVERABLE.has(session.summary.state)) throw notState('RECORDING_NOT_RECOVERABLE', RcRecordings.notRecoverable(), session);
+    if (!RECOVERABLE.has(session.summary.state) || neverCaptured(session)) {
+      throw notState('RECORDING_NOT_RECOVERABLE', RcRecordings.notRecoverable(), session);
+    }
     const busy = this.#current();
     if (busy) throw new RpcError('conflict', RcRecordings.busy(), { code: 'RECORDING_BUSY', recordingId: busy.summary.recordingId });
     session.submitter = submitter;
@@ -574,16 +598,36 @@ export class RecordingService {
     return { code, message: message.text, messageRef: refOf(message), ...(details !== undefined ? { details } : {}) };
   }
 
+  /**
+   * 开始采集之前就结束了：什么都没录，目录删掉。取消与中断的会话随之去掉（`recordings.status` 查不到）；失败的留在内存里，
+   * `recordings.status` / `list` 照样查得到状态与错误（`--no-wait` 之后才知道为什么没录成），直到用户丢弃它或 Runtime 重启；
+   * 这样的失败最多留最近的 [`KEPT_EARLY_FAILURES`] 次。
+   */
   async #dropBeforeCapture(session: Session, end: 'cancelled' | 'interrupted' | 'failed', error: JobError | null): Promise<void> {
     this.#clearTimers(session);
     if (session.worker) await this.#stopWorker(session, 'kill');
+    // 先删目录再改状态：看到终态的一方不会再看到目录。
+    await fs.rm(session.summary.dir, { recursive: true, force: true }).catch(() => {});
     session.summary.state = end === 'failed' ? 'failed' : 'discarded';
     session.summary.error = error;
+    delete session.summary.countdownLeft;
     await session.job?.finish(end, error ? { error } : undefined);
-    await fs.rm(session.summary.dir, { recursive: true, force: true }).catch(() => {});
-    this.#sessions.delete(session.summary.recordingId);
     this.topic.publish({ type: 'recording.upsert', recording: this.#view(session) });
+    if (end === 'failed') {
+      this.#pruneEarlyFailures();
+      return;
+    }
+    this.#sessions.delete(session.summary.recordingId);
     this.topic.publish({ type: 'recording.removed', recordingId: session.summary.recordingId });
+  }
+
+  /** 开始之前就失败的（没有采集过、目录已删）：只留最近的几次。 */
+  #pruneEarlyFailures(): void {
+    const early = [...this.#sessions.values()].filter(neverCaptured).sort((a, b) => b.summary.createdAt.localeCompare(a.summary.createdAt));
+    for (const old of early.slice(KEPT_EARLY_FAILURES)) {
+      this.#sessions.delete(old.summary.recordingId);
+      this.topic.publish({ type: 'recording.removed', recordingId: old.summary.recordingId });
+    }
   }
 
   #clearTimers(session: Session): void {
@@ -599,7 +643,7 @@ export class RecordingService {
     session.timers.add(timer);
   }
 
-  /** 准备、倒计时、开始采集（在后台走；失败时会话以 `failed` 结束、目录删掉，什么都还没录）。 */
+  /** 准备、倒计时、开始采集（在后台走；失败时会话以 `failed` 结束、目录删掉，什么都还没录，状态与错误仍查得到）。 */
   #begin(session: Session): void {
     void (async () => {
       const { options } = session.summary;
@@ -637,6 +681,8 @@ export class RecordingService {
           keys: options.keys,
           fps: options.fps,
         };
+        const exclude = options.source.kind !== 'window' && options.includeSelf !== true ? this.#o.selfExclusion?.() : null;
+        if (exclude && ((exclude.bundleIds?.length ?? 0) > 0 || (exclude.pids?.length ?? 0) > 0)) params.exclude = exclude;
         startResult.parse(await worker.request('start', params, { timeoutMs: 60_000 }));
         if (!BEFORE_CAPTURE.has(session.summary.state)) return;
         session.activeSince = Date.now();
@@ -785,6 +831,8 @@ export class RecordingService {
         onStep: (step) => this.#o.faults?.afterImportStep?.(step),
         steps: (session.importSteps ??= {}),
         persist: () => this.#persist(session),
+        autoZoom: session.summary.options.autoZoom,
+        onWarning: (detail) => pkg.warnings.push(detail),
       });
       session.summary.unfinished = false;
       session.summary.error = null;

@@ -912,6 +912,15 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     },
   },
   {
+    type: 'regenerateAutoZooms',
+    family: 'documents-and-versions',
+    doc: [
+      '- {"type":"regenerateAutoZooms","documentId"}：按录制清单指针轨里的点击重新生成屏幕取景文档（kind screen-view）的自动缩放区间（origin auto）。没改过的自动区间整批替换；手加的（manual）与改过的（edited）留着，新区间让开它们；结果与原来一样时不出新版本。录屏导入时已经生成过一次，删掉或改乱自动区间之后用它重来。文档不是屏幕取景、取景不按录制时钟、录制没录鼠标（pointer.mode none）时失败（INVALID_OPERATION）。要读已经提交的清单与指针轨，和同一笔里新建的取景文档不能放在一起。',
+    ],
+    schema: op('regenerateAutoZooms', { documentId: idOf('屏幕取景文档 ID（kind screen-view）') }),
+    example: { type: 'regenerateAutoZooms', documentId: 'doc_view' },
+  },
+  {
     type: 'createCheckpoint',
     family: 'documents-and-versions',
     doc: ['- {"type":"createCheckpoint","name","note"?}：在历史里留一个检查点。'],

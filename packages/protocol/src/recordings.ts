@@ -67,10 +67,15 @@ export interface RecordingOptions {
   countdown: number;
   /** 到时自动停止（秒）；null 不限。 */
   duration: number | null;
-  /** 收尾时生成自动缩放（还没实现：取景文档没有自动区间，见 `autoZoomPending`）。 */
+  /** 收尾时按点击生成自动缩放（引擎的 `regenerateAutoZooms`）；鼠标模式是 `none` 时不生成。 */
   autoZoom: boolean;
   /** 完成后让桌面端打开编辑器。 */
   open: boolean;
+  /**
+   * 整屏与区域录制时也录进 BaoCut 自己的窗口。缺省（不给或 false）排除桌面端的窗口；选单个窗口时不起作用。
+   * 后加的可选字段：旧的调用方不给。
+   */
+  includeSelf?: boolean;
 }
 
 export const RECORDING_DEFAULTS: RecordingOptions = {
@@ -107,6 +112,8 @@ export interface RecordingStreamStatus {
 /** 导入完成后的结果（`record` 与任务的结果）。 */
 export interface RecordingResult {
   videoId: Id;
+  /** 这次录制的会话 ID（`recordings status` 的参数）。后加的字段：之前落盘的结果里没有。 */
+  recordingId?: Id;
   /** 录制清单的文档 ID。 */
   manifestDocumentId: Id;
   screenViewDocumentId: Id;
@@ -114,7 +121,9 @@ export interface RecordingResult {
   itemIds: Id[];
   /** 有效录制长度（秒）。 */
   duration: number;
-  /** 自动缩放还没有实现：取景文档里没有自动区间。 */
+  /**
+   * @deprecated 恒为 false：导入时已经按点击生成自动缩放（`regenerateAutoZooms`）。只为旧的读取方留着，不要再读。
+   */
   autoZoomPending: boolean;
 }
 

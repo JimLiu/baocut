@@ -289,8 +289,11 @@ async function completed(ctx: RunContext, submitted: Record<string, unknown>, jo
   // 提交回执里的 state 是提交那一刻的（queued / running）：等到终态之后换成终态，与 job.state 一致。
   // 导出回执的 files 是提交时定下的名字，发布时重名会加序号（`a (2).mp4`）：换成实际写下的文件名，与 outputs 一致。
   const published = publishedNames(outputs);
+  // 录屏：导入的结果（videoId、清单与取景文档、groupId、itemIds、duration）放到顶层，与 `record` 的结果字段一致（屏幕录制设计 §12）。
+  const recording = isRecord(record.recording) && isRecord(record.recording.result) ? record.recording.result : null;
   const result = {
     ...rest,
+    ...(recording ?? {}),
     ...('state' in rest ? { state: job.state } : {}),
     ...(Array.isArray(rest.files) && published ? { files: published } : {}),
     job: recordRest,

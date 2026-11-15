@@ -49,7 +49,11 @@ const schemas = {
     video: z.string().min(1).optional().describe('Record into this existing video (videoId or path). Default: a new video.'),
     name: z.string().min(1).max(120).optional().describe('Name of the new video. Default: "Screen recording <date time>".'),
     project: z.string().min(1).optional().describe('Project (id or directory) for the new video. Default: the current project.'),
-    noAutoZoom: z.boolean().optional().describe('Do not generate automatic zooms.'),
+    noAutoZoom: z.boolean().optional().describe('Do not generate automatic zooms from the clicks.'),
+    includeSelf: z
+      .boolean()
+      .optional()
+      .describe("Also record BaoCut's own windows when recording a display or an area. Default: they are left out. No effect on a window recording."),
     noOpen: z.boolean().optional().describe('Do not open the editor in the desktop app when done.'),
     dryRun: z.boolean().optional().describe('Only check sources, permissions and disk space; report what would be recorded without starting.'),
   }),
@@ -75,7 +79,8 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       'Record this computer\'s screen into a video.',
       'The source is a display, a window or an area, optionally with a camera, the microphone and system audio.',
       'In a conversation the recording does not start by itself: it waits, and the BaoCut desktop app shows a prefilled recording panel. The user checks it and presses Start; that press is the approval. Closing the panel cancels the job. After calling record, tell the user to press Stop when done and end your turn; do not poll. The finished job comes back to the conversation.',
-      'In the terminal it checks permissions and disk space, counts down and starts capturing; the job ends when the recording is in the video. The result has videoId, manifestDocumentId, screenViewDocumentId, groupId (the link group of all recorded items), itemIds and duration.',
+      'In the terminal it checks permissions and disk space, counts down and starts capturing; the job ends when the recording is in the video. The result has videoId, recordingId, manifestDocumentId, screenViewDocumentId, groupId (the link group of all recorded items), itemIds and duration (seconds). Automatic zooms from the clicks are already in the screen view; regenerateAutoZooms in edits_apply makes them again.',
+      'A display or area recording leaves out the BaoCut desktop app\'s own windows unless includeSelf is set.',
       'Refused with RECORDING_UNATTENDED in scheduled, bot or other unattended runs, and with RECORDING_UNAVAILABLE when the desktop app is not open on this computer, on remote connections, or when this system cannot record. Missing system permissions fail with RECORDING_PERMISSION_DENIED; details.systemAccess lists them with their place in System Settings. Tell the user; never try to change those settings. Only one recording at a time (RECORDING_BUSY).',
     ].join('\n'),
     effect: 'job',
@@ -111,7 +116,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
   recordings_list: {
     title: 'List recordings',
     description:
-      'List the current recording and the unfinished ones (interrupted by a crash or a failed import) that recordings_recover can still finish. Read-only.',
+      'List the current recording and the unfinished ones (interrupted by a crash or a failed import) that recordings_recover can still finish.\nRecordings that failed before capturing anything are listed too, with their error, until discarded or BaoCut restarts. Read-only.',
     annotations: { readOnlyHint: true },
     effect: 'query',
     examples: [{ title: 'List recordings', args: {} }],
@@ -346,6 +351,7 @@ export function optionsOf(args: Args<'record'>): Partial<RecordingOptions> {
   if (args.duration !== undefined) options.duration = args.duration;
   if (args.noAutoZoom) options.autoZoom = false;
   if (args.noOpen) options.open = false;
+  if (args.includeSelf) options.includeSelf = true;
   return options;
 }
 

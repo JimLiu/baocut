@@ -37,6 +37,7 @@ export const recordingOptionsSchema = z
     duration: z.number().finite().positive().max(24 * 3600).nullable(),
     autoZoom: z.boolean(),
     open: z.boolean(),
+    includeSelf: z.boolean().optional(),
   })
   .strict();
 

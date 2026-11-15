@@ -82,6 +82,32 @@ describe('runTool：等任务（Agent 面设计 §5.2、§5.4）', () => {
     expect(body.result.job.state).toBe('completed');
   });
 
+  it('录屏完成：导入的结果字段放到顶层（屏幕录制设计 §12）', async () => {
+    const { fake, run, envelope } = setup(command('record'), { countdown: 0 });
+    const recorded = {
+      videoId: 'vid_1',
+      recordingId: 'rec_1',
+      manifestDocumentId: 'doc_manifest',
+      screenViewDocumentId: 'doc_view',
+      groupId: 'lg_1',
+      itemIds: ['item_screen', 'item_mic'],
+      duration: 12.5,
+      autoZoomPending: false,
+    };
+    fake.tools.record = () => {
+      later(fake, { jobId: 'job_1', state: 'completed' });
+      return { ok: true, result: { jobId: 'job_1', recordingId: 'rec_1', state: 'recording', next: '停止用 recordings_stop' } };
+    };
+    fake.tools.jobs_inspect = () => ({
+      ok: true,
+      result: { jobId: 'job_1', kind: 'recording', state: 'completed', recording: { recordingId: 'rec_1', result: recorded } },
+    });
+    expect(await run()).toBe(0);
+    const body = envelope();
+    expect(body.result).toMatchObject({ ...recorded, jobId: 'job_1', state: 'completed' });
+    expect(body.result.job.recording.result).toEqual(recorded);
+  });
+
   it('完成：提交回执里的 state 换成终态，与 job.state 一致', async () => {
     const { fake, run, envelope } = setup(command('transcode'), { files: ['a.mp4'] });
     fake.tools.transcode = () => {

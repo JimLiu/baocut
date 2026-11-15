@@ -143,7 +143,7 @@ import { upscaleImageDefinition } from './external-tools/upscale-image-wiring.ts
 import { footageDefinitions } from './external-tools/footage-wiring.ts';
 import { resolveDownloadsDirectory, resolveSaveDirectory } from './external-tools/downloads-directory.ts';
 import { entryPlace, pipelineTargets, videoPlace } from './videos/pipeline-targets.ts';
-import { ffprobeDuration, RecordingService, resolveRecordingWorkerCommand, type RecordingServiceOptions } from './recordings/recording-service.ts';
+import { DESKTOP_BUNDLE_ID, ffprobeDuration, RecordingService, resolveRecordingWorkerCommand, type RecordingServiceOptions } from './recordings/recording-service.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
 import { LinkImportTools } from './agent-tools/link-import-tools.ts';
 import { RecordingTools } from './agent-tools/recording-tools.ts';
@@ -204,7 +204,13 @@ export interface StartRuntimeOptions {
    */
   recordingWorker?: { command: string; args?: string[]; env?: NodeJS.ProcessEnv } | null;
   /** 测试用：替换「这台电脑上开着桌面端」的判断（屏幕录制设计 §14：没有窗口的 Runtime 先不录）与倒计时的一秒。 */
-  recordings?: { hasWindow?: () => boolean; secondMs?: number; freeBytes?: (dir: string) => Promise<number>; faults?: RecordingServiceOptions['faults'] };
+  recordings?: {
+    hasWindow?: () => boolean;
+    secondMs?: number;
+    freeBytes?: (dir: string) => Promise<number>;
+    faults?: RecordingServiceOptions['faults'];
+    selfExclusion?: RecordingServiceOptions['selfExclusion'];
+  };
   /** Model Worker 的命令。默认取 `BAOCUT_MODEL_WORKER` 或仓库里构建出的 `model-worker`；null 表示本地推理不可用。 */
   modelWorker?: ModelWorkerCommand | null;
   /** 模型空闲多久后卸载（默认 10 分钟）。 */
@@ -866,6 +872,11 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       },
       probe: ffprobeDuration(async () => ({ command: process.env.BAOCUT_FFPROBE || 'ffprobe', env: await toolEnv() })),
       hasWindow: options.recordings?.hasWindow ?? (() => present.size > 0),
+      // 整屏录制不录进 BaoCut 自己（屏幕录制设计 §7「自己的窗口」）：打包的桌面端按 bundle id 认；桌面端拉起的 Runtime
+      // （`launchedBy` 是 null）的父进程就是桌面端主进程，开发态（bundle id 不同）也按进程 ID 排除。
+      selfExclusion:
+        options.recordings?.selfExclusion ??
+        (() => ({ bundleIds: [DESKTOP_BUNDLE_ID], pids: (options.launchedBy ?? null) === null && process.ppid > 1 ? [process.ppid] : [] })),
       log: log.child('recordings'),
       ...(options.recordings?.secondMs !== undefined ? { secondMs: options.recordings.secondMs } : {}),
       ...(options.recordings?.freeBytes ? { freeBytes: options.recordings.freeBytes } : {}),

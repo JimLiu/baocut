@@ -142,7 +142,9 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     // 暂停的时间不算：两段大约 0.8 秒，不到 1.1 秒。
     expect(done.result!.duration).toBeGreaterThan(0.5);
     expect(done.result!.duration).toBeLessThan(1.1);
-    expect(done.result!.autoZoomPending).toBe(true);
+    // 结果字段（屏幕录制设计 §12）：会话 ID 与 `recordings status` 的参数一致；`autoZoomPending` 已弃用，恒为 false。
+    expect(done.result!.recordingId).toBe(recording.recordingId);
+    expect(done.result!.autoZoomPending).toBe(false);
 
     const video = await videoOf(done.videoId!);
     const manifest = video.documents[done.result!.manifestDocumentId]!;
@@ -299,6 +301,56 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
       details: { workerCode: 'SCREEN_PERMISSION_DENIED', systemAccess: [expect.objectContaining({ permission: 'screen', state: 'denied' })] },
     });
     expect((await client.request('jobs.inspect', { jobId: started.jobId! })).state).toBe('failed');
+    // 开始之前就失败的留在列表里（屏幕录制设计 §7「失败的录制」）：还能查到状态与错误，不能恢复，丢弃之后才查不到。
+    expect((await client.request('recordings.status', { recordingId: started.recordingId })).recording).toMatchObject({ state: 'failed', startedAt: null });
+    expect((await client.request('recordings.list', {})).recordings).toEqual([expect.objectContaining({ recordingId: started.recordingId, state: 'failed' })]);
+    await expect(fs.stat(started.dir)).rejects.toThrow();
+    const notRecoverable = await rejection(client.request('recordings.recover', { recordingId: started.recordingId }));
+    expect((notRecoverable.details as { code?: string }).code).toBe('RECORDING_NOT_RECOVERABLE');
+    expect(await client.request('recordings.discard', { recordingId: started.recordingId })).toEqual({ recordingId: started.recordingId, removed: true });
+    const gone = await rejection(client.request('recordings.status', { recordingId: started.recordingId }));
+    expect((gone.details as { code?: string }).code).toBe('RECORDING_NOT_FOUND');
+    // 下一次照常开始，不被失败的那次占着。
+    await shutdown();
+    await boot();
+    const next = await startRecording();
+    await until(next.recordingId, (r) => r.state === 'recording');
+    await client.request('recordings.discard', { recordingId: next.recordingId });
+  }, 60_000);
+
+  it('自动缩放：有点击的录制导入后取景里有 origin: auto 的区间；关掉自动缩放或不录鼠标时没有', async () => {
+    const zoomsOf = async (options: Record<string, unknown>) => {
+      const started = await startRecording({ countdown: 0, microphone: null, ...options });
+      await until(started.recordingId, (r) => r.state === 'recording');
+      // 假 Worker 在每段中间点一下：录 2 秒，点击前后都有足够的余量，生成一个区间。
+      await sleep(2000);
+      await client.request('recordings.stop', {});
+      const done = await until(started.recordingId, settled);
+      expect(done.error).toBeNull();
+      expect(done.state).toBe('in-timeline');
+      const content = await client.request('documents.read', { videoId: done.videoId!, documentId: done.result!.screenViewDocumentId });
+      return (content.body as { zooms: Array<{ origin: string; t0: number; t1: number }> }).zooms;
+    };
+    await boot();
+    const zooms = await zoomsOf({});
+    expect(zooms.length).toBeGreaterThan(0);
+    expect(zooms.every((z) => z.origin === 'auto')).toBe(true);
+    expect(await zoomsOf({ autoZoom: false })).toEqual([]);
+    expect(await zoomsOf({ cursor: 'none' })).toEqual([]);
+  }, 90_000);
+
+  it('整屏录制缺省排除 BaoCut 自己的窗口，includeSelf 时不排除；选窗口时不排除', async () => {
+    const paramsFile = path.join(dir, 'start-params.json');
+    await boot({ startParamsFile: paramsFile }, { recordings: { hasWindow: () => true, secondMs: 20, freeBytes: async () => 100 * 1024 ** 3, selfExclusion: () => ({ bundleIds: ['com.baocut.app'], pids: [4242] }) } });
+    const sent = async (options: Record<string, unknown>) => {
+      const started = await startRecording({ countdown: 0, microphone: null, ...options });
+      await until(started.recordingId, (r) => r.state === 'recording');
+      await client.request('recordings.discard', { recordingId: started.recordingId });
+      return JSON.parse(await fs.readFile(paramsFile, 'utf8')) as { exclude?: unknown };
+    };
+    expect((await sent({})).exclude).toEqual({ bundleIds: ['com.baocut.app'], pids: [4242] });
+    expect((await sent({ includeSelf: true })).exclude).toBeUndefined();
+    expect((await sent({ source: { kind: 'window', windowId: 'window-7' } })).exclude).toBeUndefined();
   }, 60_000);
 
   it('等待开始：界面按开始才采集，关掉面板任务以取消结束', async () => {

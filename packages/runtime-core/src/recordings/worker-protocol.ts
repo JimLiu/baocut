@@ -56,6 +56,16 @@ export interface WorkerStartParams {
   cursor: 'separate' | 'baked' | 'none';
   keys: 'off' | 'shortcuts' | 'all';
   fps: number;
+  /**
+   * 整屏与区域录制时不录进画面的应用（按 bundle id 或进程 ID 认，ScreenCaptureKit 的内容过滤）。不给时什么都不排除；
+   * 选单个窗口时不起作用。后加的可选字段，协议版本不变：旧的 Worker 不认识就忽略。
+   */
+  exclude?: WorkerExclusion;
+}
+
+export interface WorkerExclusion {
+  bundleIds?: string[];
+  pids?: number[];
 }
 
 export const startResult = z.object({
