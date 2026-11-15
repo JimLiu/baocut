@@ -288,7 +288,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 | 素材 | `importAsset` `collectAssets` `removeAssets` `relinkAsset` | 版本、受影响的实例、缺失的资源、删掉的素材记录 |
 | 片段 | `addItem` `insertItems` `moveItems` `arrangeItem` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `insertRange` `updateItem` `replaceItemAsset` `setSpeed` | 新旧时间、lineage、联动的对象、换掉的素材版本 |
 | 样式 | `setText` `setTransform` `setStyle` `setProps` `setAnimation` `setKeyframes` `setAudioMix` | 属性校验的结果与改变的范围 |
-| 联动组 | `linkItems` `unlinkItems` `syncLinkedItem` `duplicateLinkGroup` | 新登记的组与成员（视频格式规范 §3.18）；成组编辑带上的其余成员、拆分出来的新组、复制出来的实例与文档 |
+| 联动组 | `linkItems` `unlinkItems` `syncLinkedItem` `duplicateLinkGroup` | 新登记的组与成员（视频格式规范 §3.18）；成组编辑带上的其余成员列在 `updatedIds`，拆分、复制出来的实例与文档列在 `createdIds`，新组的 ID 是它们的 `linkGroupId` |
 | 转场与效果 | `setTransition` `removeTransition` `setEffects` | 被连带删掉的转场与原因、随实例变短的单侧转场 |
 | 章节与闪避 | `setChapters` `upsertChapter` `removeChapter` `setDucking` `removeDucking` | 新建或改动的章节与规则 |
 | 字幕 | `correctWords` `updateTranslation` `pinCaptionBreak` `setCaptionStyle` `setCaptionPresentation` | 新的文档版本、失效的依赖；`setCaptionPresentation` 整份替换字幕实例的 `presentation`（视频格式规范 §5.6），`null` 或空的去掉 |

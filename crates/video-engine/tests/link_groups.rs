@@ -773,3 +773,84 @@ fn undo_redo_and_reopen_keep_the_group_in_sync() {
     assert!(in_sync(&reopened, &starts) > 0);
     assert_eq!(timeline(&reopened), state_after, "重新打开是同一条时间线");
 }
+
+/// 复制之后撤销、重做与重新打开：副本的实例、组与取景文档一起来去，重新打开后取景文档读得到。
+#[test]
+fn duplicate_survives_undo_redo_and_reopen() {
+    let Some(mut f) = rec() else { return };
+    let docs = f.video.state().documents.len();
+    apply(
+        &mut f.video,
+        "cmd_duplicate",
+        vec![json!({ "type": "duplicateLinkGroup", "sequenceId": f.seq, "groupId": f.group, "at": seconds("12"), "alignment": "exact-frame" })],
+    )
+    .unwrap();
+    let after = timeline(&f.video);
+    history(&mut f.video, "cmd_undo", UndoTarget::Undo);
+    assert_eq!(groups(&f.video).len(), 1);
+    assert_eq!(f.video.state().items.len(), 5);
+    assert_eq!(f.video.state().documents.len(), docs, "复制出来的取景文档随撤销去掉");
+    history(&mut f.video, "cmd_redo", UndoTarget::Redo);
+    assert_eq!(timeline(&f.video), after);
+    assert_eq!(f.video.state().documents.len(), docs + 1);
+    let dir = f.dir.path().join("m");
+    let Rec { video, starts, view, .. } = f;
+    drop(video);
+    let reopened = Video::open(&dir, OpenMode::Write, &ffprobe()).unwrap();
+    assert_eq!(timeline(&reopened), after);
+    assert_eq!(in_sync(&reopened, &starts), 28);
+    let copy = groups(&reopened).into_iter().find(|g| members_of(&reopened, &g.id).iter().all(|id| range(&reopened, id).0 >= r(12, 1))).unwrap();
+    let copied_view = members_of(&reopened, &copy.id)
+        .iter()
+        .find_map(|id| match &reopened.state().items[id].value {
+            TimelineItem::Video(v) => v.screen_view.as_ref().map(|s| s.document_id.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert_ne!(copied_view, view);
+    assert_eq!(reopened.document(&copied_view, None).unwrap().body, reopened.document(&view, None).unwrap().body);
+}
+
+/// 四倍速：摄像头的理想起点落在帧之间（7.5 帧），取不早于它的整帧（8 帧），源起点补上那一点，仍对着同一录制时刻。
+#[test]
+fn speed_off_the_frame_grid_compensates_the_source_start() {
+    let Some(mut f) = rec() else { return };
+    apply(&mut f.video, "cmd_speed", vec![json!({ "type": "setSpeed", "sequenceId": f.seq, "itemId": f.screen0, "rate": { "num": 4, "den": 1 } })]).unwrap();
+    assert_eq!(range(&f.video, &f.screen0), (r(0, 1), r(3, 2)));
+    assert_eq!(range(&f.video, &f.cam0).0, r(8, 30));
+    assert_eq!(time_map(&f.video, &f.cam0), (r(1, 15), r(4, 1)));
+    assert_eq!(range(&f.video, &f.screen1).0, r(3, 2));
+    assert!(in_sync(&f.video, &f.starts) > 0);
+}
+
+/// 同一次录制放了两次时剪口加在素材上：剪口集合按素材，两个组都剪、都保持同步；恢复剪口两处都放回。
+#[test]
+fn a_cut_on_a_recording_placed_twice_cuts_both_placements() {
+    let Some(mut f) = rec() else { return };
+    let manifest = groups(&f.video)[0].recording_id.clone().unwrap();
+    let second = place(&mut f.video, "p2", 600, &f.assets, (&f.v1, &f.v2, &f.a1), &manifest, &f.view);
+    let before = timeline(&f.video);
+    let mic = asset_of(&f.video, &f.mic0);
+    apply(&mut f.video, "cmd_cut", vec![json!({ "type": "addCuts", "sequenceId": f.seq, "assetId": mic, "cuts": [{ "from": "2", "to": "3" }] })]).unwrap();
+    assert_eq!(groups(&f.video).len(), 4, "两次放置各分成两组");
+    assert_eq!(range(&f.video, &f.mic0).1, r(2, 1));
+    assert_eq!(range(&f.video, &second[2]).1, r(21, 1), "第二次放的那组在它自己的 2 秒处剪开");
+    assert!(in_sync(&f.video, &f.starts) > 0);
+    let cut_set = f.video.state().documents.values().find(|d| d.source_asset_id.as_deref() == Some(mic.as_str())).unwrap().id.clone();
+    let cut_id = f.video.document(&cut_set, None).unwrap().body["cuts"][0]["id"].as_str().unwrap().to_string();
+    apply(&mut f.video, "cmd_restore", vec![json!({ "type": "restoreCut", "sequenceId": f.seq, "assetId": mic, "cutId": cut_id })]).unwrap();
+    assert_eq!(groups(&f.video).len(), 2);
+    assert_eq!(f.video.state().items.len(), 10);
+    assert_eq!(timeline(&f.video)[&f.seq]["items"].as_array().unwrap().len(), before[&f.seq]["items"].as_array().unwrap().len());
+    for id in [&f.screen0, &f.cam0, &f.mic0, &second[0], &second[1], &second[2]] {
+        assert_eq!(range(&f.video, id), {
+            let base = if second.contains(id) { r(20, 1) } else { r(0, 1) };
+            let (a, b) = match id {
+                _ if *id == f.cam0 || *id == second[1] => (r(1, 1), r(6, 1)),
+                _ => (r(0, 1), r(6, 1)),
+            };
+            (a.checked_add(base).unwrap(), b.checked_add(base).unwrap())
+        });
+    }
+    assert!(in_sync(&f.video, &f.starts) > 0);
+}
