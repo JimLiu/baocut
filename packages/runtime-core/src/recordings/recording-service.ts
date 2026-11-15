@@ -65,6 +65,21 @@ const MIN_FREE_BYTES = 512 * 1024 * 1024;
 const WARN_FREE_BYTES = 2 * 1024 * 1024 * 1024;
 const DISK_POLL_MS = 5000;
 
+const PERMISSION_LABELS: Record<keyof RecordingPermissions, () => Localized> = {
+  screen: RcRecordings.permScreen,
+  camera: RcRecordings.permCamera,
+  microphone: RcRecordings.permMicrophone,
+  inputMonitoring: RcRecordings.permInputMonitoring,
+};
+
+/** Worker 在开始时被系统拒绝的错误码，对应缺的那项权限。 */
+const WORKER_PERMISSION_CODES: Partial<Record<string, keyof RecordingPermissions>> = {
+  SCREEN_PERMISSION_DENIED: 'screen',
+  CAMERA_PERMISSION_DENIED: 'camera',
+  MICROPHONE_PERMISSION_DENIED: 'microphone',
+  INPUT_MONITORING_UNAVAILABLE: 'inputMonitoring',
+};
+
 export function resolveRecordingWorkerCommand(env: NodeJS.ProcessEnv = process.env): string | null {
   if (env[RECORDING_WORKER_ENV]) return env[RECORDING_WORKER_ENV];
   return findBundledBinary('recording-worker', path.dirname(fileURLToPath(import.meta.url)), env);
@@ -823,6 +838,16 @@ export class RecordingService {
       return this.#jobError(error.code, error.code === 'RECORDING_EMPTY' ? RcRecordings.empty() : RcRecordings.journalInvalid(), { reason: error.message });
     }
     if (error instanceof WorkerRequestError) {
+      // 预检只挡「拒绝过」的权限：屏幕权限分不出拒绝与没问过，还没问过的又可能在开始时被拒，Worker 这时报出是哪一项。
+      const permission = Object.hasOwn(WORKER_PERMISSION_CODES, error.code) ? WORKER_PERMISSION_CODES[error.code] : undefined;
+      if (permission) {
+        const paths = SETTINGS_PATHS[this.#platform] ?? SETTINGS_PATHS.darwin!;
+        const systemAccess: SystemAccessNeed[] = [{ permission, state: 'denied', settingsPath: paths[permission] }];
+        return this.#jobError('RECORDING_PERMISSION_DENIED', RcRecordings.permissionDenied({ names: PERMISSION_LABELS[permission]().text }), {
+          systemAccess,
+          workerCode: error.code,
+        });
+      }
       return this.#jobError('RECORDING_WORKER_FAILED', RcRecordings.workerFailed({ reason: error.message }), { workerCode: error.code });
     }
     const reason = error instanceof Error ? error.message : String(error);
@@ -839,8 +864,7 @@ export class RecordingService {
     if (missing.length === 0) return;
     const paths = SETTINGS_PATHS[this.#platform] ?? SETTINGS_PATHS.darwin!;
     const systemAccess: SystemAccessNeed[] = missing.map((permission) => ({ permission, state: permissions[permission], settingsPath: paths[permission] }));
-    const label = { screen: RcRecordings.permScreen, camera: RcRecordings.permCamera, microphone: RcRecordings.permMicrophone, inputMonitoring: RcRecordings.permInputMonitoring };
-    const names = missing.map((p) => label[p]().text).join(', ');
+    const names = missing.map((p) => PERMISSION_LABELS[p]().text).join(', ');
     throw new RpcError('forbidden', RcRecordings.permissionDenied({ names }), { code: 'RECORDING_PERMISSION_DENIED', systemAccess });
   }
 

@@ -76,7 +76,14 @@ impl DeviceCapture {
     pub fn start(video: bool, device: Retained<AVCaptureDevice>, track: Arc<Track>) -> Result<Self, WorkerError> {
         let what = if video { "camera" } else { "microphone" };
         let input = unsafe { AVCaptureDeviceInput::deviceInputWithDevice_error(&device) }.map_err(|error| {
-            WorkerError::new("DEVICE_UNAVAILABLE", format!("cannot open the {what}: {}", error.localizedDescription()))
+            // `AVErrorApplicationIsNotAuthorizedToUseDevice`（AVFoundation `AVError.h`）：用户没有允许，Runtime 换成缺权限的错误。
+            let denied = error.domain().to_string() == "AVFoundationErrorDomain" && error.code() == -11852;
+            let code = match (denied, video) {
+                (true, true) => "CAMERA_PERMISSION_DENIED",
+                (true, false) => "MICROPHONE_PERMISSION_DENIED",
+                (false, _) => "DEVICE_UNAVAILABLE",
+            };
+            WorkerError::new(code, format!("cannot open the {what}: {}", error.localizedDescription()))
         })?;
         let session = unsafe { AVCaptureSession::new() };
         let output = DeviceOutput::new(Arc::clone(&track));

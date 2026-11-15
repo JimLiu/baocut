@@ -289,6 +289,18 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     expect((await client.request('recordings.list', {})).recordings).toEqual([]);
   }, 60_000);
 
+  it('开始时系统才拒绝权限：Worker 报出的那项换成 RECORDING_PERMISSION_DENIED 与系统设置位置', async () => {
+    await boot({ startError: { code: 'SCREEN_PERMISSION_DENIED', message: 'The user declined TCCs for application, window, display capture' } });
+    const started = await startRecording();
+    const failed = await until(started.recordingId, settled);
+    expect(failed.state).toBe('failed');
+    expect(failed.error).toMatchObject({
+      code: 'RECORDING_PERMISSION_DENIED',
+      details: { workerCode: 'SCREEN_PERMISSION_DENIED', systemAccess: [expect.objectContaining({ permission: 'screen', state: 'denied' })] },
+    });
+    expect((await client.request('jobs.inspect', { jobId: started.jobId! })).state).toBe('failed');
+  }, 60_000);
+
   it('等待开始：界面按开始才采集，关掉面板任务以取消结束', async () => {
     await boot();
     ({ project } = await client.request('projects.create', { name: 'Waiting' }));

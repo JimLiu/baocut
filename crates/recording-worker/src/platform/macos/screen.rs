@@ -61,7 +61,12 @@ pub fn resolve(source: &Source) -> Result<Resolved, WorkerError> {
             Some(id) => id.parse::<u32>().map_err(|_| WorkerError::new("SOURCE_NOT_FOUND", format!("display {id} does not exist")))?,
             None => CGMainDisplayID(),
         };
-        unsafe { content.displays() }
+        let displays = unsafe { content.displays() };
+        // 显示器睡着或屏幕锁着时 ScreenCaptureKit 一块屏幕也不给：说清楚，不说成 ID 不对。
+        if displays.is_empty() {
+            return Err(WorkerError::new("CAPTURE_UNAVAILABLE", "ScreenCaptureKit lists no displays (the display may be asleep or the screen locked)"));
+        }
+        displays
             .iter()
             .find(|display| unsafe { display.displayID() } == wanted)
             .ok_or_else(|| WorkerError::new("SOURCE_NOT_FOUND", format!("display {wanted} does not exist")))
@@ -243,8 +248,8 @@ impl ScreenCapture {
             unsafe { stream.addStreamOutput_type_sampleHandlerQueue_error(as_output, SCStreamOutputType::Audio, Some(&audio_queue)) }
                 .map_err(|error| capture_error("cannot add the system audio output", &error))?;
         }
-        wait_for(|done| unsafe { stream.startCaptureWithCompletionHandler(Some(done)) })
-            .map_err(|message| WorkerError::new("CAPTURE_UNAVAILABLE", format!("ScreenCaptureKit did not start: {message}")))?;
+        wait_for_error(|done| unsafe { stream.startCaptureWithCompletionHandler(Some(done)) })
+            .map_err(|(message, declined)| start_error(message, declined))?;
         let clock = unsafe { stream.synchronizationClock() }.map(super::clock::cf_clock);
         screen.set_clock(clock.clone());
         if let Some(audio) = &audio {
@@ -266,15 +271,36 @@ fn capture_error(what: &str, error: &NSError) -> WorkerError {
 
 /// 调一个带完成回调（参数是可空的 NSError）的方法，等它完成。
 fn wait_for(call: impl FnOnce(&block2::DynBlock<dyn Fn(*mut NSError)>)) -> Result<(), String> {
-    let (tx, rx) = mpsc::sync_channel::<Option<String>>(1);
+    wait_for_error(call).map_err(|(message, _)| message)
+}
+
+/// `SCStreamErrorDomain` 的 `SCStreamErrorUserDeclined`（ScreenCaptureKit `SCError.h`）：用户没有允许录屏。
+const SC_STREAM_ERROR_DOMAIN: &str = "com.apple.ScreenCaptureKit.SCStreamErrorDomain";
+const SC_STREAM_ERROR_USER_DECLINED: isize = -3801;
+
+/// 开始采集失败时按原因给错误码：没有录屏权限是 `SCREEN_PERMISSION_DENIED`（Runtime 换成缺权限的错误），别的是采集不可用。
+fn start_error(message: String, declined: bool) -> WorkerError {
+    if declined {
+        WorkerError::new("SCREEN_PERMISSION_DENIED", format!("ScreenCaptureKit did not start: {message}"))
+    } else {
+        WorkerError::new("CAPTURE_UNAVAILABLE", format!("ScreenCaptureKit did not start: {message}"))
+    }
+}
+
+/// 等一个完成回调；失败时给说明，以及是不是「用户没有允许」。
+fn wait_for_error(call: impl FnOnce(&block2::DynBlock<dyn Fn(*mut NSError)>)) -> Result<(), (String, bool)> {
+    let (tx, rx) = mpsc::sync_channel::<Option<(String, bool)>>(1);
     let block = RcBlock::new(move |error: *mut NSError| {
-        let message = unsafe { error.as_ref() }.map(|error| error.localizedDescription().to_string());
-        let _ = tx.try_send(message);
+        let failure = unsafe { error.as_ref() }.map(|error| {
+            let declined = error.domain().to_string() == SC_STREAM_ERROR_DOMAIN && error.code() == SC_STREAM_ERROR_USER_DECLINED;
+            (error.localizedDescription().to_string(), declined)
+        });
+        let _ = tx.try_send(failure);
     });
     call(&block);
     match rx.recv_timeout(START_TIMEOUT) {
         Ok(None) => Ok(()),
-        Ok(Some(message)) => Err(message),
-        Err(_) => Err("timed out".to_owned()),
+        Ok(Some(failure)) => Err(failure),
+        Err(_) => Err(("timed out".to_owned(), false)),
     }
 }

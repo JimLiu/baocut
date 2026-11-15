@@ -34,6 +34,9 @@ pub struct MacPlatform {
 impl MacPlatform {
     pub fn new() -> Self {
         let mtm = MainThreadMarker::new().expect("the recording worker handles requests on the main thread");
+        // 先连上窗口服务器：录窗口时没有别的显示器调用在前，监视线程里的 `NSCursor` 会撞上 CoreGraphics 没有初始化的断言
+        // （`CGS_REQUIRE_INIT`）把进程结束。任何一个 CGDisplay 调用都会建好这条连接。
+        let _ = objc2_core_graphics::CGMainDisplayID();
         Self { mtm }
     }
 }

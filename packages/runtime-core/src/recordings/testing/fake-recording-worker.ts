@@ -10,7 +10,8 @@
  * - `cameraDelayMs`: the camera's first sample arrives this long after the segment starts;
  * - `loseCameraAfterMs`: the camera disconnects this long into the first segment;
  * - `crashAfterMs`: the worker writes the media of the open segment and exits with code 1 this long after `start`,
- *   leaving the journal without its end lines (like a crash with fragmented MP4 files on disk).
+ *   leaving the journal without its end lines (like a crash with fragmented MP4 files on disk);
+ * - `startError`: `start` answers with this error (`{code, message}`), like the system refusing a permission at start.
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -25,6 +26,7 @@ interface Scenario {
   cameraDelayMs?: number;
   loseCameraAfterMs?: number;
   crashAfterMs?: number;
+  startError?: { code: string; message: string };
 }
 
 type Role = 'screen' | 'camera' | 'microphone' | 'system-audio';
@@ -189,6 +191,7 @@ function handle(method: string, params: Record<string, unknown>): unknown {
       };
     case 'start': {
       if (segment) throw { code: 'ALREADY_RECORDING', message: 'A recording is already running' };
+      if (scenario.startError) throw scenario.startError;
       dir = String(params.dir);
       fs.mkdirSync(dir, { recursive: true });
       const p = params as unknown as WorkerStartParams;
