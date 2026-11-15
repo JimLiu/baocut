@@ -110,6 +110,8 @@ export const fr: CliMessages = {
     `Cette CLI utilise la version d’interface des outils ${cli}, le Runtime utilise ${runtime}. ${update === 'cli' ? "Mettez la CLI à jour." : "Mettez l’application BaoCut à jour (ou redémarrez le Runtime depuis le même dépôt que la CLI)."}`,
 
   jobCancelling: (jobId: string) => `Annulation de ${jobId}… (appuyez à nouveau sur Ctrl-C pour arrêter immédiatement l’attente)`,
+  recordingStopping: (jobId: string) => `Arrêt de l’enregistrement, qui est conservé ; attente de son ajout à la vidéo (${jobId})… (appuyez de nouveau sur Ctrl-C pour arrêter d’attendre tout de suite)`,
+  recordingStopFailed: (reason: string) => `Impossible d’arrêter l’enregistrement : ${reason}`,
   jobCancelFailed: (reason: string) => `Impossible d’annuler le traitement : ${reason}`,
   jobEnded: (state: string) => `Le traitement s’est terminé : ${state}.`,
   statusFullNext:

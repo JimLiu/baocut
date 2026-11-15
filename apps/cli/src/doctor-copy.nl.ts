@@ -19,6 +19,7 @@ export const nl: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Inloggegevens',
     fullDiskAccess: 'Volledige schijftoegang',
+    recording: 'Schermopname',
     build: 'Build',
   },
   remedyLabel: 'oplossing',
@@ -58,6 +59,10 @@ export const nl: DoctorMessages = {
     `Volledige schijftoegang staat uit voor de Runtime die de opdrachtregel heeft gestart; macOS rekent die toe aan ${app ?? 'de app die de opdracht uitvoerde (je terminal, of de app waarin de agent draait)'}. Zet die app aan bij Systeeminstellingen › Privacy en beveiliging › Volledige schijftoegang en open hem opnieuw, of stop deze Runtime (baocut runtime stop) en open de BaoCut-app; voer daarna baocut doctor opnieuw uit.`,
   fdaMissingOwn: (app) =>
     `Volledige schijftoegang staat uit voor de Runtime die de opdrachtregel heeft gestart. Die draait zelfstandig als ${app}, dus macOS rekent hem toe aan ${app}, niet aan je terminal: zet ${app} aan bij Systeeminstellingen › Privacy en beveiliging › Volledige schijftoegang, stop deze Runtime (baocut runtime stop) en voer daarna baocut doctor opnieuw uit.`,
+  recordingOk: (displays: number) => `Schermopname is beschikbaar (${displays} schermen); opnemen start vanuit de BaoCut-desktopapp`,
+  recordingUnavailable: (reason: string) => `Schermopname is niet beschikbaar: ${reason}`,
+  recordingPermissions: (names: string) => `Voor schermopname ontbreken systeemrechten: ${names}. Zet ze aan in Systeeminstellingen`,
+  recordingUnknown: 'Deze Runtime meldt geen status voor schermopname',
   fdaNotRunning: 'Wordt alleen gecontroleerd terwijl een Runtime draait',
   buildOk: (count) => `De native programma’s starten en de ${count} builds komen overeen met de broncode`,
   buildNotSource: 'Wordt gecontroleerd als de Runtime vanuit een kopie van de repository draait',

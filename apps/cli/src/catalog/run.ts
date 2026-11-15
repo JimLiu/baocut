@@ -17,6 +17,8 @@ import { waitForJob, watchJobs, type JobWatcher } from '../job-wait.ts';
  * - `models install` 没有 `--yes`：先报大小、不下载（§4.3），同样退出码 4；已经装好或正在下载时照常调用（不会再下载）。
  * - `job`：默认等到终态（订阅 `jobs` 主题，不轮询 `jobs_wait`），结果是提交时的结果加 `job`（`jobs_inspect` 的记录）与
  *   `outputs`；`--no-wait` 直接返回 `jobId`；`--timeout` 到时给出 `jobId` 与最近的进度，退出码 1，任务继续；Ctrl-C 取消任务。
+ *   例外是 `record`（屏幕录制设计 §12）：第一次 Ctrl-C 是停止并保留（`recordings_stop`），照旧等到录制进了视频。
+ * - `recordings stop --wait`：停止的回执带 `jobId`，明确给了 `--wait` 时等这个任务到终态。
  *   `jobs retry` 只认这次重跑（结果的 `attempt`）之后的记录。
  * - `jobs wait`：不调用 `jobs_wait`（它最多等一会儿就返回），与默认等待同一条路径，退出码按终态。
  * - 结果超过 `--max-bytes`（默认 64 KiB）或给了 `--result-file`：完整结果写到文件，stdout 只给覆盖范围、路径与
@@ -59,7 +61,8 @@ export async function runTool(ctx: RunContext): Promise<ExitCode> {
   }
 
   // 先订阅再提交：提交之后的每一次变化都不会漏掉。
-  const watcher = tool.effect === 'job' && (globals.wait ?? true) ? watchJobs(ctx.session.client) : null;
+  const waits = tool.effect === 'job' ? (globals.wait ?? true) : WAIT_ON_REQUEST.has(tool.name) && globals.wait === true;
+  const watcher = waits ? watchJobs(ctx.session.client) : null;
   let call;
   try {
     call = await request(ctx, () =>
@@ -78,10 +81,22 @@ export async function runTool(ctx: RunContext): Promise<ExitCode> {
   if (watcher && result && jobId) {
     // 重跑（`jobs retry`）沿用同一个 jobId：之前那次的终态不算。
     const minAttempt = typeof result.attempt === 'number' ? result.attempt : undefined;
-    return waitAndReport(ctx, result, jobId, watcher, { minAttempt });
+    const interrupt = tool.name === 'record' && typeof result.recordingId === 'string' ? stopRecording(ctx, result.recordingId) : undefined;
+    return waitAndReport(ctx, result, jobId, watcher, { minAttempt, ...(interrupt ? { interrupt } : {}) });
   }
   watcher?.close();
   return finish(ctx, call.result);
+}
+
+/** 不是任务、但回执带 `jobId` 的命令：明确给了 `--wait` 时等那个任务（`recordings stop --wait`）。 */
+const WAIT_ON_REQUEST = new Set(['recordings_stop']);
+
+/** `record` 等待中的第一次 Ctrl-C：停止并保留（与 `recordings stop` 同一条路径）。 */
+function stopRecording(ctx: RunContext, recordingId: string): () => Promise<unknown> {
+  return async () => {
+    const call = await ctx.session.client.request('catalog.call', { name: 'recordings_stop', args: { recordingId }, cwd: ctx.cwd });
+    if (!call.ok) throw new Error(call.error.message);
+  };
 }
 
 /**
@@ -230,7 +245,7 @@ async function waitAndReport(
   submitted: Record<string, unknown>,
   jobId: string,
   watcher: JobWatcher,
-  options: { minAttempt?: number | undefined; initial?: JobRecord } = {},
+  options: { minAttempt?: number | undefined; initial?: JobRecord; interrupt?: () => Promise<unknown> } = {},
 ): Promise<ExitCode> {
   const progress = new ProgressReporter(ctx.globals.progress, ctx.output.stderr);
   const outcome = await waitForJob(ctx.session.client, jobId, watcher, {
@@ -238,6 +253,7 @@ async function waitAndReport(
     timeoutSec: ctx.globals.timeout,
     ...(options.minAttempt !== undefined ? { minAttempt: options.minAttempt } : {}),
     ...(options.initial ? { initial: options.initial } : {}),
+    ...(options.interrupt ? { interrupt: options.interrupt } : {}),
   });
   if (outcome.kind === 'finished') {
     return outcome.job.state === 'completed' ? completed(ctx, submitted, outcome.job) : stopped(ctx, outcome.job);

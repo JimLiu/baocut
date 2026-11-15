@@ -33,4 +33,9 @@ export const ko: RcRecordingsMessages = {
   diskLowStopped: "디스크가 거의 가득 차서 녹화를 중지했습니다. 지금까지 녹화한 내용은 보존되었습니다.",
   importFailed: (p: { reason: string }) => `녹화를 동영상에 추가하지 못했습니다: ${p.reason}`,
   interrupted: "녹화 중에 BaoCut이 중지되었습니다. 지금까지 녹화한 내용은 보존되어 복구할 수 있습니다.",
+  confirmPause: "화면 녹화 일시 정지",
+  confirmResume: "화면 녹화 재개",
+  confirmStop: "화면 녹화를 중지하고 동영상에 추가",
+  confirmDiscard: "화면 녹화를 버리고 녹화된 파일 삭제",
+  confirmRecover: "완료되지 않은 화면 녹화를 마무리하고 동영상에 추가",
 };

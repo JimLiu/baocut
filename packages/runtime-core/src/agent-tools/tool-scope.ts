@@ -249,6 +249,17 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   docs_delete: 'edit',
   docs_upload: 'edit',
   docs_export: 'edit',
+  // 屏幕录制（屏幕录制设计 §13）：开始录制是 high，但会话里不另放审批卡，用户在面板上按「开始录制」就是批准；暂停、继续、停止与
+  // 恢复是 command；丢弃删掉的是用户录下的文件，是 high；来源、状态与列表只读。
+  record: 'high',
+  recordings_sources: 'read',
+  recordings_status: 'read',
+  recordings_list: 'read',
+  recordings_pause: 'command',
+  recordings_resume: 'command',
+  recordings_stop: 'command',
+  recordings_recover: 'command',
+  recordings_discard: 'high',
 };
 
 export function toolRisk(request: ToolConfirmation): RiskLevel {

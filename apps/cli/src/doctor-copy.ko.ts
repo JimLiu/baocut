@@ -18,6 +18,7 @@ export const ko: DoctorMessages = {
     runtime: 'Runtime',
     credentials: '자격 증명',
     fullDiskAccess: '전체 디스크 접근 권한',
+    recording: '화면 녹화',
     build: '빌드',
   },
   remedyLabel: '해결',
@@ -56,6 +57,10 @@ export const ko: DoctorMessages = {
     `명령줄이 시작한 Runtime의 전체 디스크 접근 권한이 꺼져 있습니다. macOS는 이를 ${app ?? '명령을 실행한 앱(터미널 또는 Agent를 실행하는 앱)'}의 권한으로 봅니다. 시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한에서 그 앱을 켜고 다시 열거나, 이 Runtime을 중지하고(baocut runtime stop) BaoCut 앱을 여세요. 그런 다음 baocut doctor를 다시 실행하세요.`,
   fdaMissingOwn: (app) =>
     `명령줄이 시작한 Runtime의 전체 디스크 접근 권한이 꺼져 있습니다. 이 Runtime은 ${app}(으)로 따로 실행되므로 macOS는 이를 터미널이 아닌 ${app}의 권한으로 봅니다. 시스템 설정 › 개인정보 보호 및 보안 › 전체 디스크 접근 권한에서 ${app}을(를) 켜고, 이 Runtime을 중지한 다음(baocut runtime stop) baocut doctor를 다시 실행하세요.`,
+  recordingOk: (displays: number) => `화면 녹화를 사용할 수 있습니다(디스플레이 ${displays}개). 녹화는 BaoCut 데스크톱 앱에서 시작합니다`,
+  recordingUnavailable: (reason: string) => `화면 녹화를 사용할 수 없습니다: ${reason}`,
+  recordingPermissions: (names: string) => `화면 녹화에 필요한 시스템 권한이 없습니다: ${names}. 시스템 설정에서 켜 주세요`,
+  recordingUnknown: '이 Runtime은 화면 녹화 상태를 알려 주지 않습니다',
   fdaNotRunning: 'Runtime이 실행 중일 때만 확인합니다',
   buildOk: (count) => `네이티브 프로그램이 모두 시작되고 빌드 ${count}개가 소스와 일치합니다`,
   buildNotSource: 'Runtime을 저장소에서 실행할 때 점검합니다',

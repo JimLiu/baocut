@@ -117,6 +117,8 @@ export const de: CliMessages = {
 
   // 任务（§5.4）
   jobCancelling: (jobId: string) => `Abbrechen: ${jobId}… (drücken Sie erneut Ctrl-C, um das Warten sofort zu beenden)`,
+  recordingStopping: (jobId: string) => `Aufnahme wird beendet und behalten; warte, bis sie im Video ist (${jobId})… (Ctrl-C erneut drücken, um sofort nicht mehr zu warten)`,
+  recordingStopFailed: (reason: string) => `Die Aufnahme ließ sich nicht beenden: ${reason}`,
   jobCancelFailed: (reason: string) => `Der Auftrag ließ sich nicht abbrechen: ${reason}`,
   jobEnded: (state: string) => `Der Auftrag wurde beendet: ${state}.`,
   statusFullNext:

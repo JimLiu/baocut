@@ -34,8 +34,9 @@ const en = {
     runtime: 'Runtime',
     credentials: 'Credentials',
     fullDiskAccess: 'Full Disk Access',
+    recording: 'Screen recording',
     build: 'Build',
-  } as Record<'entry' | 'runtime' | 'credentials' | 'fullDiskAccess' | 'build', string>,
+  } as Record<'entry' | 'runtime' | 'credentials' | 'fullDiskAccess' | 'recording' | 'build', string>,
   remedyLabel: 'fix',
 
   // 入口
@@ -80,6 +81,10 @@ const en = {
     `Full Disk Access is off for the Runtime the command line started; macOS counts it against ${app ?? 'the app that ran the command (your terminal, or the app hosting the agent)'}. Turn that app on in System Settings › Privacy & Security › Full Disk Access and reopen it, or stop this Runtime (baocut runtime stop) and open the BaoCut app; then run baocut doctor again.`,
   fdaMissingOwn: (app: string) =>
     `Full Disk Access is off for the Runtime the command line started. It runs on its own as ${app}, so macOS counts it against ${app}, not your terminal: turn on ${app} in System Settings › Privacy & Security › Full Disk Access, stop this Runtime (baocut runtime stop), then run baocut doctor again.`,
+  recordingOk: (displays: number) => `Screen recording is available (${displays} displays); recording starts from the BaoCut desktop app`,
+  recordingUnavailable: (reason: string) => `Screen recording is not available: ${reason}`,
+  recordingPermissions: (names: string) => `Screen recording is missing system permissions: ${names}. Turn them on in System Settings`,
+  recordingUnknown: 'This Runtime does not report screen recording',
   fdaNotRunning: 'Checked while a Runtime is running',
   // 构建（开发态）
   buildOk: (count: number) => `The native programs start, and the ${count} builds match the source`,

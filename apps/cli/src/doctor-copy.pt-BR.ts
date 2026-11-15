@@ -18,6 +18,7 @@ export const ptBR: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Credenciais',
     fullDiskAccess: 'Acesso Total ao Disco',
+    recording: 'Gravação de tela',
     build: 'Build',
   },
   remedyLabel: 'correção',
@@ -57,6 +58,10 @@ export const ptBR: DoctorMessages = {
     `O Acesso Total ao Disco está desativado para o Runtime que a linha de comando iniciou; o macOS usa a permissão deste app: ${app ?? 'o app que executou o comando (seu terminal ou o app que hospeda o agente)'}. Ative esse app em Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco e reabra-o, ou pare este Runtime (baocut runtime stop) e abra o app BaoCut; depois execute baocut doctor novamente.`,
   fdaMissingOwn: (app) =>
     `O Acesso Total ao Disco está desativado para o Runtime que a linha de comando iniciou. Ele roda por conta própria como ${app}, então o macOS usa a permissão de ${app}, não a do seu terminal: ative ${app} em Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco, pare este Runtime (baocut runtime stop) e depois execute baocut doctor novamente.`,
+  recordingOk: (displays: number) => `A gravação de tela está disponível (${displays} telas); ela começa pelo aplicativo BaoCut para desktop`,
+  recordingUnavailable: (reason: string) => `A gravação de tela não está disponível: ${reason}`,
+  recordingPermissions: (names: string) => `Faltam permissões do sistema para gravar a tela: ${names}. Ative-as em Ajustes do Sistema`,
+  recordingUnknown: 'Este Runtime não informa o estado da gravação de tela',
   fdaNotRunning: 'Verificado apenas com um Runtime em execução',
   buildOk: (count) => `Os programas nativos iniciam e os ${count} builds correspondem ao código-fonte`,
   buildNotSource: 'Verificado quando o Runtime roda a partir de uma cópia do repositório',

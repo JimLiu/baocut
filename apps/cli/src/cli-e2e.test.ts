@@ -10,6 +10,7 @@ import { BaoCutClient } from '@baocut/client';
 import { resolveEngineHostCommand } from '../../../packages/runtime-core/src/videos/engine-host.ts';
 import { startRuntime, type RunningRuntime } from '../../../packages/runtime-core/src/runtime.ts';
 import { isProcessAlive } from './runtime/connection.ts';
+import { HELP_MAX_LINES } from './catalog/help.ts';
 
 /**
  * 端到端：把 CLI 当子进程跑（`node apps/cli/src/main.ts`），对着隔离 BAOCUT_HOME 里的真实 Runtime。
@@ -112,7 +113,7 @@ describe.skipIf(!engine || !ffmpeg)('CLI 子进程（真实 Runtime）', () => {
   it('--help 一屏、spec 是带接口版本的 JSON', async () => {
     const help = await run(['--help']);
     expect(help.code).toBe(0);
-    expect(help.stdout.trimEnd().split('\n').length).toBeLessThanOrEqual(40);
+    expect(help.stdout.trimEnd().split('\n').length).toBeLessThanOrEqual(HELP_MAX_LINES);
     const spec = await run(['spec']);
     expect(spec.code).toBe(0);
     expect(spec.json.interfaceVersion).toBe(MCP_INTERFACE_VERSION);

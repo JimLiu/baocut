@@ -17,6 +17,7 @@ export const zhHans: DoctorMessages = {
     runtime: 'Runtime',
     credentials: '凭据',
     fullDiskAccess: '完全磁盘访问',
+    recording: '录屏',
     build: '构建',
   },
   remedyLabel: '补救',
@@ -51,6 +52,10 @@ export const zhHans: DoctorMessages = {
     `命令行拉起的 Runtime 没有完全磁盘访问权限；macOS 把它算在${app ?? '运行命令的那个应用（终端，或运行 Agent 的应用）'}头上。在「系统设置 › 隐私与安全性 › 完全磁盘访问权限」里打开那个应用并重新打开它，或者停掉这个 Runtime（baocut runtime stop）再打开 BaoCut App；之后运行 baocut doctor 复查。`,
   fdaMissingOwn: (app) =>
     `命令行拉起的 Runtime 没有完全磁盘访问权限。它以 ${app} 的身份单独运行，macOS 把它算在 ${app} 头上，不是终端：在「系统设置 › 隐私与安全性 › 完全磁盘访问权限」里打开 ${app}，停掉这个 Runtime（baocut runtime stop），再运行 baocut doctor 复查。`,
+  recordingOk: (displays: number) => `可以录屏（${displays} 块屏幕）；录制要从 BaoCut 桌面端开始`,
+  recordingUnavailable: (reason: string) => `不能录屏：${reason}`,
+  recordingPermissions: (names: string) => `录屏缺系统权限：${names}。请在系统设置里打开`,
+  recordingUnknown: '这个 Runtime 不报告录屏的状态',
   fdaNotRunning: 'Runtime 在跑时才查',
   buildOk: (count) => `原生程序都能启动，${count} 份构建与源码一致`,
   buildNotSource: 'Runtime 从仓库运行时才查',

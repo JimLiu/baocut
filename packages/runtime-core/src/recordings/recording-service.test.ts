@@ -319,6 +319,28 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     expect(done.result!.itemIds).toHaveLength(1);
   }, 60_000);
 
+  it('终端的 record（catalog.call）：直接开始，recordings_stop 停止并保留，任务完成；第二次 record 是 RECORDING_BUSY', async () => {
+    await boot();
+    const cwd = path.join(dir, 'work');
+    await fs.mkdir(cwd, { recursive: true });
+    const call = await client.request('catalog.call', { name: 'record', args: { countdown: 0, noMic: true, name: 'From the CLI' }, cwd });
+    expect(call.ok).toBe(true);
+    const submitted = (call as { result: { jobId: string; recordingId: string } }).result;
+    expect(submitted.jobId).toBeTruthy();
+    await until(submitted.recordingId, (r) => r.state === 'recording');
+    const busy = await client.request('catalog.call', { name: 'record', args: { countdown: 0 }, cwd });
+    expect(busy).toMatchObject({ ok: false, error: { code: 'RECORDING_BUSY' } });
+    await sleep(400);
+    const stop = await client.request('catalog.call', { name: 'recordings_stop', args: {}, cwd });
+    expect(stop).toMatchObject({ ok: true, result: { jobId: submitted.jobId } });
+    const done = await until(submitted.recordingId, settled);
+    expect(done.error).toBeNull();
+    expect(done.state).toBe('in-timeline');
+    expect((await client.request('jobs.inspect', { jobId: submitted.jobId })).state).toBe('completed');
+    const list = await client.request('catalog.call', { name: 'recordings_list', args: {}, cwd });
+    expect(list).toMatchObject({ ok: true });
+  }, 60_000);
+
   it('没有开着桌面端：开始录制拒绝（RECORDING_UNAVAILABLE）；sources 照常回答', async () => {
     await boot({}, { recordings: { hasWindow: () => false } });
     ({ project } = await client.request('projects.create', { name: 'No window' }));

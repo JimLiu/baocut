@@ -2,7 +2,16 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { MCP_INTERFACE_VERSION, PROTOCOL_VERSION, STANDALONE_APP_NAME, standaloneLayout, type ComponentBuild, type RuntimeInfo } from '@baocut/protocol';
+import {
+  MCP_INTERFACE_VERSION,
+  PROTOCOL_VERSION,
+  STANDALONE_APP_NAME,
+  standaloneLayout,
+  type ComponentBuild,
+  type RecordingPermissions,
+  type RecordingSources,
+  type RuntimeInfo,
+} from '@baocut/protocol';
 import { cliInstallCommand } from './admin/cli-entry.ts';
 import { M } from './cli-copy.ts';
 import { D } from './doctor-copy.ts';
@@ -33,7 +42,7 @@ import { S } from './standalone/standalone-copy.ts';
  */
 
 export type DoctorLevel = 'ok' | 'warn' | 'fail' | 'skip';
-export type DoctorCheckId = 'entry' | 'runtime' | 'credentials' | 'fullDiskAccess' | 'build';
+export type DoctorCheckId = 'entry' | 'runtime' | 'credentials' | 'fullDiskAccess' | 'recording' | 'build';
 
 export interface DoctorCheck {
   id: DoctorCheckId;
@@ -63,6 +72,8 @@ export type DoctorRuntime =
       info: RuntimeInfo;
       interfaceVersion: string;
       access: { platform: string; fullDiskAccess?: 'granted' | 'missing' } | null;
+      /** 屏幕录制（屏幕录制设计 §12）：能不能录、各项系统权限；旧版 Runtime 没有这个方法时 null 或不给。 */
+      recording?: RecordingSources | null;
     };
 
 /** Runtime 的 `--self-check --probe`（各原生程序启动一次，比对构建与源码）的结论；没跑完时说为什么。 */
@@ -97,6 +108,7 @@ export interface DoctorInputs {
 export function doctorReport(inputs: DoctorInputs): DoctorResult {
   const checks = [entryCheck(inputs), runtimeCheck(inputs), credentialsCheck(inputs)];
   if (inputs.platform === 'darwin') checks.push(fullDiskAccessCheck(inputs));
+  checks.push(recordingCheck(inputs));
   checks.push(buildCheck(inputs));
   return { ok: checks.every((check) => check.level !== 'fail'), checks };
 }
@@ -231,6 +243,23 @@ function fullDiskAccessCheck({ runtime, terminalProgram, launch }: DoctorInputs)
   }
   const message = launchedBy === 'cli' ? D.fdaMissingCli(terminalAppName(terminalProgram)) : D.fdaMissingApp;
   return { id: 'fullDiskAccess', level: 'warn', message, details: { ...details, terminal: terminalProgram } };
+}
+
+/**
+ * 屏幕录制（屏幕录制设计 §12）：这台电脑能不能录、各项系统权限。只问 Runtime 记下的状态，不触发系统的授权窗口；
+ * 录不了与缺权限都只是 warn（别的事照样能做）。`not-determined` 不算缺：第一次录时系统会问。
+ */
+function recordingCheck({ runtime }: DoctorInputs): DoctorCheck {
+  if (runtime.state !== 'running') return { id: 'recording', level: 'skip', message: D.fdaNotRunning, details: {} };
+  const sources = runtime.recording;
+  if (!sources) return { id: 'recording', level: 'skip', message: D.recordingUnknown, details: {} };
+  const details = { available: sources.available, platform: sources.platform, permissions: sources.permissions };
+  if (!sources.available) return { id: 'recording', level: 'warn', message: D.recordingUnavailable(sources.reason ?? sources.platform), details };
+  const missing = (Object.keys(sources.permissions) as (keyof RecordingPermissions)[]).filter(
+    (name) => sources.permissions[name] === 'denied' || sources.permissions[name] === 'restricted',
+  );
+  if (missing.length) return { id: 'recording', level: 'warn', message: D.recordingPermissions(missing.join(', ')), details: { ...details, missing } };
+  return { id: 'recording', level: 'ok', message: D.recordingOk(sources.displays.length), details };
 }
 
 /** 少了就做不了事的组件：缺了或起不来算 fail；其余（本地语音、Electron 宿主、凭据助手等）算 warn。 */
@@ -403,7 +432,8 @@ async function runningRuntime(home: string): Promise<DoctorRuntime> {
     try {
       const catalog = await client.request('catalog.list', {});
       const access = await client.request('runtime.access', {}).catch(() => null);
-      return { state: 'running', info, interfaceVersion: catalog.interfaceVersion, access };
+      const recording = await client.request('recordings.sources', {}).catch(() => null);
+      return { state: 'running', info, interfaceVersion: catalog.interfaceVersion, access, recording };
     } finally {
       client.close();
     }

@@ -18,6 +18,7 @@ import { ModelTools } from './model-tools.ts';
 import { OpenMediaTools } from './open-media-tools.ts';
 import { AudioTools } from './audio-tools.ts';
 import { ProjectTools } from './project-tools.ts';
+import { RecordingTools } from './recording-tools.ts';
 import { SkillTools } from './skill-tools.ts';
 import { SlidesTools } from './slides-tools.ts';
 import { DesignTools } from './design-tools.ts';
@@ -48,6 +49,7 @@ export function allToolSets(): ToolSet[] {
     new ProjectTools(none),
     new LibraryTools(none),
     new HostTools(none),
+    new RecordingTools(none),
     new SpaceTools(none),
     new SemanticTools(none),
     new SkillTools(none),

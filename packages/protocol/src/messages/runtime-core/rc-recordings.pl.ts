@@ -33,4 +33,9 @@ export const pl: RcRecordingsMessages = {
   diskLowStopped: "Dysk jest prawie pełny, więc nagrywanie zostało zatrzymane. To, co nagrano do tej pory, zostało zachowane.",
   importFailed: (p: { reason: string }) => `Nie udało się dodać nagrania do filmu: ${p.reason}`,
   interrupted: "BaoCut zatrzymał się w trakcie nagrywania. To, co nagrano do tej pory, zostało zachowane i można to odzyskać.",
+  confirmPause: "Wstrzymaj nagrywanie ekranu",
+  confirmResume: "Wznów nagrywanie ekranu",
+  confirmStop: "Zatrzymaj nagrywanie ekranu i dodaj je do filmu",
+  confirmDiscard: "Odrzuć nagranie ekranu i usuń jego pliki",
+  confirmRecover: "Dokończ niezakończone nagranie ekranu i dodaj je do filmu",
 };

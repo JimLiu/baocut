@@ -33,4 +33,9 @@ export const ja: RcRecordingsMessages = {
   diskLowStopped: "ディスクの空きがほとんどないため、収録を停止しました。ここまでの内容は保存されています。",
   importFailed: (p: { reason: string }) => `収録をビデオに追加できませんでした: ${p.reason}`,
   interrupted: "収録中に BaoCut が停止しました。ここまでの内容は保存されており、復元できます。",
+  confirmPause: "画面収録を一時停止",
+  confirmResume: "画面収録を再開",
+  confirmStop: "画面収録を停止してビデオに追加",
+  confirmDiscard: "画面収録を破棄して収録したファイルを削除",
+  confirmRecover: "未完了の画面収録を仕上げてビデオに追加",
 };

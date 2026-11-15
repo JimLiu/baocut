@@ -33,4 +33,9 @@ export const nl: RcRecordingsMessages = {
   diskLowStopped: "De schijf is bijna vol, dus de opname is gestopt. Wat tot nu toe is opgenomen is bewaard.",
   importFailed: (p: { reason: string }) => `De opname kon niet aan de video worden toegevoegd: ${p.reason}`,
   interrupted: "BaoCut is tijdens de opname gestopt. Wat tot nu toe is opgenomen is bewaard en kan worden hersteld.",
+  confirmPause: "Schermopname pauzeren",
+  confirmResume: "Schermopname hervatten",
+  confirmStop: "Schermopname stoppen en aan de video toevoegen",
+  confirmDiscard: "Schermopname verwijderen en de bestanden wissen",
+  confirmRecover: "Onvoltooide schermopname afronden en aan de video toevoegen",
 };

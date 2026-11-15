@@ -33,4 +33,9 @@ export const fr: RcRecordingsMessages = {
   diskLowStopped: "Le disque est presque plein : l’enregistrement s’est arrêté. Ce qui a été enregistré a été conservé.",
   importFailed: (p: { reason: string }) => `Impossible d’ajouter l’enregistrement à la vidéo : ${p.reason}`,
   interrupted: "BaoCut s’est arrêté pendant l’enregistrement. Ce qui a été enregistré a été conservé et peut être récupéré.",
+  confirmPause: "Mettre en pause l'enregistrement de l'écran",
+  confirmResume: "Reprendre l'enregistrement de l'écran",
+  confirmStop: "Arrêter l'enregistrement de l'écran et l'ajouter à la vidéo",
+  confirmDiscard: "Abandonner l'enregistrement de l'écran et supprimer ses fichiers",
+  confirmRecover: "Terminer l'enregistrement de l'écran inachevé et l'ajouter à la vidéo",
 };

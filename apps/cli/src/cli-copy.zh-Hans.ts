@@ -103,6 +103,8 @@ export const zhHans: CliMessages = {
     `这个 CLI 的工具接口版本是 ${cli}，Runtime 是 ${runtime}。${update === 'cli' ? '请更新 CLI。' : '请更新 BaoCut 应用（或用与 CLI 同一份代码重启 Runtime）。'}`,
 
   jobCancelling: (jobId) => `正在取消 ${jobId}…（再按一次 Ctrl-C 立即退出，不再等待）`,
+  recordingStopping: (jobId: string) => `正在停止并保留录制，等它进视频（${jobId}）……（再按一次 Ctrl-C 立即退出等待）`,
+  recordingStopFailed: (reason: string) => `停止录制失败：${reason}`,
   jobCancelFailed: (reason) => `取消失败：${reason}`,
   jobEnded: (state) => `任务结束：${state}。`,
   statusFullNext:

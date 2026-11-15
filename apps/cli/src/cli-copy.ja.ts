@@ -110,6 +110,8 @@ export const ja: CliMessages = {
     `この CLI のツールインターフェースのバージョンは ${cli}、Runtime は ${runtime} です。${update === 'cli' ? 'CLI を更新してください。' : 'BaoCut アプリを更新してください（または CLI と同じチェックアウトから Runtime を再起動してください）。'}`,
 
   jobCancelling: (jobId) => `${jobId} をキャンセル中…（もう一度 Ctrl-C を押すと、すぐに待機をやめます）`,
+  recordingStopping: (jobId: string) => `収録を停止して保存し、ビデオに入るまで待っています（${jobId}）…（もう一度 Ctrl-C を押すと、すぐに待機をやめます）`,
+  recordingStopFailed: (reason: string) => `収録を停止できませんでした：${reason}`,
   jobCancelFailed: (reason) => `ジョブをキャンセルできませんでした：${reason}`,
   jobEnded: (state) => `ジョブが終了しました：${state}。`,
   statusFullNext:

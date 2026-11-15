@@ -107,6 +107,8 @@ export const ko: CliMessages = {
     `이 CLI의 도구 인터페이스 버전은 ${cli}, Runtime은 ${runtime}입니다. ${update === 'cli' ? 'CLI를 업데이트하세요.' : 'BaoCut 앱을 업데이트하세요(또는 CLI와 같은 체크아웃에서 Runtime을 다시 시작하세요).'}`,
 
   jobCancelling: (jobId) => `${jobId} 처리를 취소하는 중…(바로 기다림을 멈추려면 Ctrl-C를 한 번 더 누르세요)`,
+  recordingStopping: (jobId: string) => `녹화를 중지하고 보관하는 중입니다. 동영상에 들어갈 때까지 기다립니다(${jobId})… (Ctrl-C를 한 번 더 누르면 바로 기다리기를 멈춥니다)`,
+  recordingStopFailed: (reason: string) => `녹화를 중지하지 못했습니다: ${reason}`,
   jobCancelFailed: (reason) => `처리를 취소하지 못했습니다: ${reason}`,
   jobEnded: (state) => `처리가 끝났습니다: ${state}.`,
   statusFullNext:

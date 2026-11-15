@@ -26,8 +26,8 @@ const NOUN_ORDER = [
   'library',
 ];
 
-/** 一屏帮助的行数上限（§5.7）。 */
-export const HELP_MAX_LINES = 40;
+/** 一屏帮助的行数上限（§5.7 的「约 40 行」；录屏的 `record` 与 `recordings` 各占一行之后是 42，再加一行就要把名词或流程并排）。 */
+export const HELP_MAX_LINES = 42;
 const WIDTH = 100;
 
 /** 管理桶的一个名词：一屏帮助只列名字，`help <名字>` 列子命令。 */

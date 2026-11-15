@@ -18,6 +18,7 @@ export const ja: DoctorMessages = {
     runtime: 'Runtime',
     credentials: '資格情報',
     fullDiskAccess: 'フルディスクアクセス',
+    recording: '画面収録',
     build: 'ビルド',
   },
   remedyLabel: '対処',
@@ -56,6 +57,10 @@ export const ja: DoctorMessages = {
     `コマンドラインが起動した Runtime のフルディスクアクセスがオフです。macOS はこれを${app ?? 'コマンドを実行したアプリ（ターミナル、または Agent を動かしているアプリ）'}の権限として扱います。「システム設定 › プライバシーとセキュリティ › フルディスクアクセス」でそのアプリをオンにして開き直すか、この Runtime を停止（baocut runtime stop）して BaoCut アプリを開いてください。そのあと baocut doctor をもう一度実行してください。`,
   fdaMissingOwn: (app) =>
     `コマンドラインが起動した Runtime のフルディスクアクセスがオフです。この Runtime は ${app} として単独で動いているため、macOS はターミナルではなく ${app} の権限として扱います。「システム設定 › プライバシーとセキュリティ › フルディスクアクセス」で ${app} をオンにし、この Runtime を停止（baocut runtime stop）してから、baocut doctor をもう一度実行してください。`,
+  recordingOk: (displays: number) => `画面収録を利用できます（ディスプレイ ${displays} 台）。収録は BaoCut デスクトップアプリから開始します`,
+  recordingUnavailable: (reason: string) => `画面収録を利用できません：${reason}`,
+  recordingPermissions: (names: string) => `画面収録に必要なシステムの許可がありません：${names}。システム設定でオンにしてください`,
+  recordingUnknown: 'この Runtime は画面収録の状態を報告しません',
   fdaNotRunning: 'Runtime の実行中にのみ確認します',
   buildOk: (count) => `ネイティブプログラムはすべて起動し、${count} 件のビルドがソースと一致しています`,
   buildNotSource: 'Runtime をリポジトリから実行しているときにチェックします',

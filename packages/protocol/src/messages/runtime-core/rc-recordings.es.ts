@@ -33,4 +33,9 @@ export const es: RcRecordingsMessages = {
   diskLowStopped: "El disco está casi lleno, así que la grabación se detuvo. Lo grabado hasta ahora se conservó.",
   importFailed: (p: { reason: string }) => `No se pudo añadir la grabación al vídeo: ${p.reason}`,
   interrupted: "BaoCut se detuvo durante la grabación. Lo grabado hasta ahora se conservó y se puede recuperar.",
+  confirmPause: "Pausar la grabación de pantalla",
+  confirmResume: "Reanudar la grabación de pantalla",
+  confirmStop: "Detener la grabación de pantalla y añadirla al vídeo",
+  confirmDiscard: "Descartar la grabación de pantalla y eliminar sus archivos",
+  confirmRecover: "Terminar la grabación de pantalla pendiente y añadirla al vídeo",
 };

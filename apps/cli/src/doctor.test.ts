@@ -85,6 +85,7 @@ describe('doctorReport（CLI 独立使用与发布 §8.1）', () => {
       ['runtime', 'ok'],
       ['credentials', 'ok'],
       ['fullDiskAccess', 'skip'],
+      ['recording', 'skip'],
       ['build', 'skip'],
     ]);
     expect(check(result, 'entry').message).toContain('3.16.4');
@@ -184,6 +185,32 @@ describe('doctorReport（CLI 独立使用与发布 §8.1）', () => {
     expect(doctorReport(inputs({ platform: 'win32' })).checks.map((c) => c.id)).not.toContain('fullDiskAccess');
     expect(terminalAppName('iTerm.app')).toBe('iTerm');
     expect(terminalAppName('something-else')).toBeNull();
+  });
+
+  it('录制：Runtime 不在跑或不报告时 skip；录不了与缺权限是 warn，没问过的权限不算缺；都好是 ok', () => {
+    const permissions = { screen: 'granted', camera: 'not-determined', microphone: 'granted', inputMonitoring: 'unknown' } as const;
+    const sources = {
+      platform: 'darwin',
+      available: true,
+      reason: null,
+      permissions,
+      displays: [{ id: '1', name: 'Built-in', width: 1512, height: 982, scale: 2, primary: true }],
+      windows: [],
+      cameras: [],
+      microphones: [],
+    };
+    const running = (recording: unknown) =>
+      doctorReport(inputs({ runtime: { state: 'running', info: info(), interfaceVersion: MCP_INTERFACE_VERSION, access: null, recording: recording as never } }));
+    expect(check(doctorReport(inputs()), 'recording').level).toBe('skip');
+    expect(check(running(null), 'recording').level).toBe('skip');
+    expect(check(running(sources), 'recording')).toMatchObject({ level: 'ok', details: { available: true } });
+    const denied = check(running({ ...sources, permissions: { ...permissions, screen: 'denied' } }), 'recording');
+    expect(denied).toMatchObject({ level: 'warn', details: { missing: ['screen'] } });
+    expect(denied.message).toContain('screen');
+    const unsupported = check(running({ ...sources, available: false, reason: 'Not on this system' }), 'recording');
+    expect(unsupported).toMatchObject({ level: 'warn' });
+    expect(unsupported.message).toContain('Not on this system');
+    expect(running({ ...sources, available: false, reason: 'x' }).ok).toBe(true);
   });
 
   it('构建（开发态）：自检的核心组件有问题是 fail、其余是 warn，各带重建命令；构建比源码旧是 warn；都好是 ok', () => {

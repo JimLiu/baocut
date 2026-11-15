@@ -18,6 +18,7 @@ export const tr: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Kimlik bilgileri',
     fullDiskAccess: 'Tam Disk Erişimi',
+    recording: 'Ekran kaydı',
     build: 'Derleme',
   },
   remedyLabel: 'çözüm',
@@ -57,6 +58,10 @@ export const tr: DoctorMessages = {
     `Komut satırının başlattığı Runtime için Tam Disk Erişimi kapalı; macOS bunu şu uygulamanın iznine göre değerlendirir: ${app ?? 'komutu çalıştıran uygulama (terminaliniz veya ajanı barındıran uygulama)'}. O uygulamayı Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi bölümünde açıp yeniden başlatın ya da bu Runtime'ı durdurup (baocut runtime stop) BaoCut uygulamasını açın; ardından baocut doctor komutunu yeniden çalıştırın.`,
   fdaMissingOwn: (app) =>
     `Komut satırının başlattığı Runtime için Tam Disk Erişimi kapalı. Bu Runtime ${app} olarak kendi başına çalışıyor, bu yüzden macOS izni terminalinize değil ${app} uygulamasına göre değerlendirir: Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi bölümünde ${app} uygulamasını açın, bu Runtime'ı durdurun (baocut runtime stop), ardından baocut doctor komutunu yeniden çalıştırın.`,
+  recordingOk: (displays: number) => `Ekran kaydı kullanılabilir (${displays} ekran); kayıt BaoCut masaüstü uygulamasından başlatılır`,
+  recordingUnavailable: (reason: string) => `Ekran kaydı kullanılamıyor: ${reason}`,
+  recordingPermissions: (names: string) => `Ekran kaydı için sistem izinleri eksik: ${names}. Sistem Ayarları’ndan açın`,
+  recordingUnknown: 'Bu Runtime ekran kaydı durumunu bildirmiyor',
   fdaNotRunning: 'Yalnızca bir Runtime çalışırken denetlenir',
   buildOk: (count) => `Yerel programlar başlıyor ve ${count} derleme kaynak kodla eşleşiyor`,
   buildNotSource: 'Runtime depo kopyasından çalışırken denetlenir',

@@ -115,6 +115,12 @@ export class ProgressReporter {
     else this.#message(M.jobCancelling(jobId));
   }
 
+  /** 录制的第一次 Ctrl-C（Agent 面设计 §5.4 的例外）：停止并保留，继续等到收尾完成。 */
+  stopping(jobId: string): void {
+    if (this.#mode === 'jsonl') this.#event({ type: 'stopping', jobId });
+    else this.#message(M.recordingStopping(jobId));
+  }
+
   #event(event: Record<string, unknown>): void {
     this.#stream.write(`${JSON.stringify(event)}\n`);
   }

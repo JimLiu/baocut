@@ -33,4 +33,9 @@ export const it: RcRecordingsMessages = {
   diskLowStopped: "Il disco è quasi pieno, quindi la registrazione si è interrotta. Ciò che è stato registrato finora è stato conservato.",
   importFailed: (p: { reason: string }) => `Impossibile aggiungere la registrazione al video: ${p.reason}`,
   interrupted: "BaoCut si è interrotto durante la registrazione. Ciò che è stato registrato finora è stato conservato e si può recuperare.",
+  confirmPause: "Metti in pausa la registrazione dello schermo",
+  confirmResume: "Riprendi la registrazione dello schermo",
+  confirmStop: "Interrompi la registrazione dello schermo e aggiungila al video",
+  confirmDiscard: "Scarta la registrazione dello schermo ed elimina i suoi file",
+  confirmRecover: "Completa la registrazione dello schermo non finita e aggiungila al video",
 };

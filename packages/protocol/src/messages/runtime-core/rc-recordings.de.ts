@@ -33,4 +33,9 @@ export const de: RcRecordingsMessages = {
   diskLowStopped: "Der Speicher ist fast voll, daher wurde die Aufnahme beendet. Das bisher Aufgenommene wurde behalten.",
   importFailed: (p: { reason: string }) => `Die Aufnahme konnte dem Video nicht hinzugefügt werden: ${p.reason}`,
   interrupted: "BaoCut wurde während der Aufnahme beendet. Das bisher Aufgenommene wurde behalten und kann wiederhergestellt werden.",
+  confirmPause: "Bildschirmaufnahme pausieren",
+  confirmResume: "Bildschirmaufnahme fortsetzen",
+  confirmStop: "Bildschirmaufnahme beenden und zum Video hinzufügen",
+  confirmDiscard: "Bildschirmaufnahme verwerfen und ihre Dateien löschen",
+  confirmRecover: "Unvollständige Bildschirmaufnahme abschließen und zum Video hinzufügen",
 };

@@ -33,4 +33,9 @@ export const ptBR: RcRecordingsMessages = {
   diskLowStopped: "O disco está quase cheio, então a gravação parou. O que foi gravado até agora foi mantido.",
   importFailed: (p: { reason: string }) => `Não foi possível adicionar a gravação ao vídeo: ${p.reason}`,
   interrupted: "O BaoCut parou durante a gravação. O que foi gravado até agora foi mantido e pode ser recuperado.",
+  confirmPause: "Pausar a gravação de tela",
+  confirmResume: "Retomar a gravação de tela",
+  confirmStop: "Parar a gravação de tela e adicioná-la ao vídeo",
+  confirmDiscard: "Descartar a gravação de tela e apagar os arquivos",
+  confirmRecover: "Concluir a gravação de tela inacabada e adicioná-la ao vídeo",
 };

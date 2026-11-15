@@ -18,6 +18,7 @@ export const pl: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Poświadczenia',
     fullDiskAccess: 'Pełny dostęp do dysku',
+    recording: 'Nagrywanie ekranu',
     build: 'Kompilacja',
   },
   remedyLabel: 'naprawa',
@@ -57,6 +58,10 @@ export const pl: DoctorMessages = {
     `Pełny dostęp do dysku jest wyłączony dla Runtime uruchomionego z wiersza poleceń; macOS bierze pod uwagę uprawnienia tej aplikacji: ${app ?? 'aplikacja, która uruchomiła polecenie (twój terminal lub aplikacja, w której działa agent)'}. Włącz tę aplikację w Ustawienia systemowe › Prywatność i ochrona › Pełny dostęp do dysku i otwórz ją ponownie albo zatrzymaj ten Runtime (baocut runtime stop) i otwórz aplikację BaoCut; potem ponownie uruchom baocut doctor.`,
   fdaMissingOwn: (app) =>
     `Pełny dostęp do dysku jest wyłączony dla Runtime uruchomionego z wiersza poleceń. Działa on samodzielnie jako ${app}, więc macOS bierze pod uwagę uprawnienia ${app}, a nie terminala: włącz ${app} w Ustawienia systemowe › Prywatność i ochrona › Pełny dostęp do dysku, zatrzymaj ten Runtime (baocut runtime stop), a potem ponownie uruchom baocut doctor.`,
+  recordingOk: (displays: number) => `Nagrywanie ekranu jest dostępne (ekrany: ${displays}); nagrywanie uruchamia się w aplikacji BaoCut na komputer`,
+  recordingUnavailable: (reason: string) => `Nagrywanie ekranu jest niedostępne: ${reason}`,
+  recordingPermissions: (names: string) => `Do nagrywania ekranu brakuje uprawnień systemowych: ${names}. Włącz je w Ustawieniach systemowych`,
+  recordingUnknown: 'Ten Runtime nie podaje stanu nagrywania ekranu',
   fdaNotRunning: 'Sprawdzane tylko, gdy działa Runtime',
   buildOk: (count) => `Natywne programy się uruchamiają, a kompilacje (${count}) zgadzają się z kodem źródłowym`,
   buildNotSource: 'Sprawdzane, gdy Runtime działa z repozytorium',

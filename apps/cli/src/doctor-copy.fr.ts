@@ -19,6 +19,7 @@ export const fr: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Identifiants',
     fullDiskAccess: 'Accès complet au disque',
+    recording: 'Enregistrement de l’écran',
     build: 'Compilation',
   },
   remedyLabel: 'correctif',
@@ -58,6 +59,10 @@ export const fr: DoctorMessages = {
     `L’Accès complet au disque est désactivé pour le Runtime démarré par la ligne de commande ; macOS l’attribue à ${app ?? 'l’app qui a lancé la commande (votre terminal, ou l’app qui héberge l’agent)'}. Activez cette app dans Réglages Système › Confidentialité et sécurité › Accès complet au disque et rouvrez-la, ou arrêtez ce Runtime (baocut runtime stop) et ouvrez l’app BaoCut ; puis relancez baocut doctor.`,
   fdaMissingOwn: (app) =>
     `L’Accès complet au disque est désactivé pour le Runtime démarré par la ligne de commande. Il s’exécute seul en tant que ${app}, donc macOS l’attribue à ${app}, et non à votre terminal : activez ${app} dans Réglages Système › Confidentialité et sécurité › Accès complet au disque, arrêtez ce Runtime (baocut runtime stop), puis relancez baocut doctor.`,
+  recordingOk: (displays: number) => `L’enregistrement de l’écran est disponible (${displays} écrans) ; il se lance depuis l’app de bureau BaoCut`,
+  recordingUnavailable: (reason: string) => `L’enregistrement de l’écran n’est pas disponible : ${reason}`,
+  recordingPermissions: (names: string) => `Autorisations système manquantes pour l’enregistrement de l’écran : ${names}. Activez-les dans Réglages Système`,
+  recordingUnknown: 'Ce Runtime n’indique pas l’état de l’enregistrement de l’écran',
   fdaNotRunning: 'Vérifié seulement quand un Runtime est actif',
   buildOk: (count) => `Les programmes natifs démarrent et les ${count} compilations correspondent aux sources`,
   buildNotSource: 'Vérifié quand le Runtime s’exécute depuis une copie du dépôt',

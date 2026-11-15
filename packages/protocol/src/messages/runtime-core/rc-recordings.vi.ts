@@ -33,4 +33,9 @@ export const vi: RcRecordingsMessages = {
   diskLowStopped: "Ổ đĩa gần đầy nên đã dừng quay. Phần đã quay được giữ lại.",
   importFailed: (p: { reason: string }) => `Không thể thêm bản quay vào video: ${p.reason}`,
   interrupted: "BaoCut đã dừng giữa lúc quay. Phần đã quay được giữ lại và có thể khôi phục.",
+  confirmPause: "Tạm dừng quay màn hình",
+  confirmResume: "Tiếp tục quay màn hình",
+  confirmStop: "Dừng quay màn hình và thêm vào video",
+  confirmDiscard: "Bỏ bản quay màn hình và xóa các tệp đã quay",
+  confirmRecover: "Hoàn tất bản quay màn hình còn dang dở và thêm vào video",
 };

@@ -146,6 +146,7 @@ import { entryPlace, pipelineTargets, videoPlace } from './videos/pipeline-targe
 import { ffprobeDuration, RecordingService, resolveRecordingWorkerCommand, type RecordingServiceOptions } from './recordings/recording-service.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
 import { LinkImportTools } from './agent-tools/link-import-tools.ts';
+import { RecordingTools } from './agent-tools/recording-tools.ts';
 import { servicesPaidProbe } from './agent-tools/paid-calls.ts';
 import { OpenMediaTools } from './agent-tools/open-media-tools.ts';
 import { AudioTools } from './agent-tools/audio-tools.ts';
@@ -1153,6 +1154,15 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         new ProjectTools({ harness, videos, git: projectGit, scope: toolScope }),
         new LibraryTools({ library, scope: toolScope }),
         new HostTools({ stickers: stickerPacks, scope: toolScope }),
+        // 屏幕录制（屏幕录制设计 §12、§13）：只在工具桥与 CLI 上；会话里的 record 停在等待开始，没人在场的回合拒绝。
+        new RecordingTools({
+          recordings: () => recordings,
+          scope: toolScope,
+          run: (conversationId) => {
+            const run = harness.runInfo(conversationId);
+            return run ? { attended: run.attended, role: harness.conversationOf(conversationId)?.role ?? 'chat' } : null;
+          },
+        }),
         // Space 目录在后面才建好：工具调用时再取。
         new SpaceTools({ space: () => space, scope: toolScope, jobs: models.jobs }),
         // 本机语义检索与按意图取材（只读）；取材的句子编号与 speech_sentences 共用一份登记。

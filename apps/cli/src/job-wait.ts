@@ -8,7 +8,8 @@ import type { ProgressReporter } from './catalog/progress.ts';
  * 等一个任务到终态（Agent 面设计 §5.4）：派生命令的 `--wait` 与管理桶里要跟进度的命令共用。
  *
  * - 订阅 `jobs` 主题，不轮询；提交之前先订阅（`watchJobs`），提交之后的每次变化都不会漏掉。
- * - Ctrl-C 请 Runtime 取消任务、照旧等到终态（`cancelled`）；再按一次直接退出（130），任务照旧在 Runtime 里。
+ * - Ctrl-C 请 Runtime 取消任务、照旧等到终态（`cancelled`）；再按一次直接退出（130），任务照旧在 Runtime 里。录制例外
+ *   （`interrupt`）：第一次 Ctrl-C 是停止并保留，照旧等到录制进了视频。
  * - 连接断开：`RUNTIME_UNAVAILABLE`（退出码 3）。
  */
 
@@ -76,6 +77,10 @@ export interface WaitOptions {
   initial?: JobRecord;
   /** 每次记录变化（进度之外还要做的事，例如逐行打出命令的输出）。 */
   onUpdate?: (job: JobRecord) => void;
+  /**
+   * 第一次 Ctrl-C 做的事，代替取消任务（`record`：停止并保留，屏幕录制设计 §12）。第二次照旧直接退出，任务照旧在 Runtime 里。
+   */
+  interrupt?: () => Promise<unknown>;
 }
 
 export type WaitOutcome = { kind: 'finished'; job: JobRecord } | { kind: 'timeout'; job: JobRecord | null };
@@ -128,6 +133,11 @@ export function waitForJob(client: BaoCutClient, jobId: string, watcher: JobWatc
     const onSigint = () => {
       if (cancelRequested) process.exit(130);
       cancelRequested = true;
+      if (options.interrupt) {
+        progress.stopping(jobId);
+        options.interrupt().catch((error: unknown) => progress.note(M.recordingStopFailed(String(error))));
+        return;
+      }
       progress.cancelling(jobId);
       client.request('jobs.cancel', { jobId }).catch((error: unknown) => progress.note(M.jobCancelFailed(String(error))));
     };

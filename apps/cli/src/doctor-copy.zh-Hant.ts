@@ -17,6 +17,7 @@ export const zhHant: DoctorMessages = {
     runtime: 'Runtime',
     credentials: '憑證',
     fullDiskAccess: '完整磁碟取用權限',
+    recording: '螢幕錄製',
     build: '建置',
   },
   remedyLabel: '補救',
@@ -51,6 +52,10 @@ export const zhHant: DoctorMessages = {
     `命令列啟動的 Runtime 沒有完整磁碟取用權限；macOS 把它算在${app ?? '執行命令的那個應用程式（終端機，或執行 Agent 的應用程式）'}頭上。在「系統設定 › 隱私權與安全性 › 完整磁碟取用權限」中打開那個應用程式並重新開啟它，或停止這個 Runtime（baocut runtime stop）再開啟 BaoCut 應用程式；之後執行 baocut doctor 重新檢查。`,
   fdaMissingOwn: (app) =>
     `命令列啟動的 Runtime 沒有完整磁碟取用權限。它以 ${app} 的身分單獨執行，macOS 把它算在 ${app} 頭上，而不是終端機：在「系統設定 › 隱私權與安全性 › 完整磁碟取用權限」中打開 ${app}，停止這個 Runtime（baocut runtime stop），再執行 baocut doctor 重新檢查。`,
+  recordingOk: (displays: number) => `可以錄製螢幕（${displays} 個螢幕）；錄製要從 BaoCut 桌面版開始`,
+  recordingUnavailable: (reason: string) => `無法錄製螢幕：${reason}`,
+  recordingPermissions: (names: string) => `錄製螢幕缺少系統權限：${names}。請在系統設定裡開啟`,
+  recordingUnknown: '這個 Runtime 不回報螢幕錄製的狀態',
   fdaNotRunning: 'Runtime 執行中才會檢查',
   buildOk: (count) => `原生程式都能啟動，${count} 份建置與原始碼一致`,
   buildNotSource: 'Runtime 從儲存庫執行時才檢查',

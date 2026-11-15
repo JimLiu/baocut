@@ -18,6 +18,7 @@ export const es: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Credenciales',
     fullDiskAccess: 'Acceso total al disco',
+    recording: 'Grabación de pantalla',
     build: 'Compilación',
   },
   remedyLabel: 'solución',
@@ -57,6 +58,10 @@ export const es: DoctorMessages = {
     `El Acceso total al disco está desactivado para el Runtime que inició la línea de comandos; macOS se lo atribuye a ${app ?? 'la app que ejecutó el comando (tu terminal o la app que aloja al agente)'}. Activa esa app en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco y vuelve a abrirla, o detén este Runtime (baocut runtime stop) y abre la app de BaoCut; después vuelve a ejecutar baocut doctor.`,
   fdaMissingOwn: (app) =>
     `El Acceso total al disco está desactivado para el Runtime que inició la línea de comandos. Se ejecuta por su cuenta como ${app}, así que macOS se lo atribuye a ${app}, no a tu terminal: activa ${app} en Ajustes del Sistema › Privacidad y seguridad › Acceso total al disco, detén este Runtime (baocut runtime stop) y vuelve a ejecutar baocut doctor.`,
+  recordingOk: (displays: number) => `La grabación de pantalla está disponible (${displays} pantallas); se inicia desde la app de escritorio de BaoCut`,
+  recordingUnavailable: (reason: string) => `La grabación de pantalla no está disponible: ${reason}`,
+  recordingPermissions: (names: string) => `Faltan permisos del sistema para grabar la pantalla: ${names}. Actívalos en Ajustes del Sistema`,
+  recordingUnknown: 'Este Runtime no informa sobre la grabación de pantalla',
   fdaNotRunning: 'Solo se comprueba con un Runtime en ejecución',
   buildOk: (count) => `Los programas nativos se inician y las ${count} compilaciones coinciden con el código fuente`,
   buildNotSource: 'Se comprueba cuando el Runtime se ejecuta desde una copia del repositorio',

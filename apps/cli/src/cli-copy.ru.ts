@@ -99,6 +99,8 @@ export const ru: CliMessages = {
   interfaceMismatch: (cli, runtime, update) => `CLI использует версию интерфейса инструментов ${cli}, Runtime использует ${runtime}. ${update === 'cli' ? "Обновите CLI." : "Обновите BaoCut (или перезапустите Runtime из той же рабочей копии, что CLI)."}`,
 
   jobCancelling: (jobId) => `Отмена ${jobId}… (нажмите Ctrl-C снова для немедленной остановки ожидания)`,
+  recordingStopping: (jobId: string) => `Запись останавливается и сохраняется; ждём, пока она появится в видео (${jobId})… (нажмите Ctrl-C ещё раз, чтобы сразу перестать ждать)`,
+  recordingStopFailed: (reason: string) => `Не удалось остановить запись: ${reason}`,
   jobCancelFailed: (reason) => `Не удалось отменить задание: ${reason}`,
   jobEnded: (state) => `Задание завершено: ${state}.`,
   statusFullNext:

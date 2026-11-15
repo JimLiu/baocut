@@ -60,6 +60,13 @@ const en = {
   diskLowStopped: 'The disk is almost full, so recording stopped. What was recorded so far was kept.',
   importFailed: (p: { reason: string }) => `The recording could not be added to the video: ${p.reason}`,
   interrupted: 'BaoCut stopped while recording. What was recorded so far was kept and can be recovered.',
+
+  // ---- 确认（会话里的审批卡） ----
+  confirmPause: 'Pause the screen recording',
+  confirmResume: 'Resume the screen recording',
+  confirmStop: 'Stop the screen recording and add it to the video',
+  confirmDiscard: 'Discard the screen recording and delete its files',
+  confirmRecover: 'Finish the unfinished screen recording and add it to the video',
 };
 
 export type RcRecordingsMessages = typeof en;

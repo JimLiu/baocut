@@ -33,4 +33,9 @@ export const zhHant: RcRecordingsMessages = {
   diskLowStopped: "磁碟快滿了，錄製已停止。已經錄下的內容保留了。",
   importFailed: (p: { reason: string }) => `錄製無法加入影片：${p.reason}`,
   interrupted: "BaoCut 在錄製途中停止了。已經錄下的內容保留了，可以復原。",
+  confirmPause: "暫停螢幕錄製",
+  confirmResume: "繼續螢幕錄製",
+  confirmStop: "停止螢幕錄製並加入影片",
+  confirmDiscard: "捨棄這次螢幕錄製並刪除錄下的檔案",
+  confirmRecover: "把未完成的螢幕錄製收尾並加入影片",
 };

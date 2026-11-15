@@ -139,6 +139,8 @@ const en = {
 
   // 任务（§5.4）
   jobCancelling: (jobId: string) => `Cancelling ${jobId}… (press Ctrl-C again to stop waiting right away)`,
+  recordingStopping: (jobId: string) => `Stopping the recording and keeping it; waiting until it is in the video (${jobId})… (press Ctrl-C again to stop waiting right away)`,
+  recordingStopFailed: (reason: string) => `Could not stop the recording: ${reason}`,
   jobCancelFailed: (reason: string) => `Could not cancel the job: ${reason}`,
   jobEnded: (state: string) => `The job ended: ${state}.`,
   statusFullNext:

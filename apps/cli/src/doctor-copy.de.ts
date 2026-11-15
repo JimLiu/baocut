@@ -19,6 +19,7 @@ export const de: DoctorMessages = {
     runtime: 'Runtime',
     credentials: 'Anmeldedaten',
     fullDiskAccess: 'Festplattenvollzugriff',
+    recording: 'Bildschirmaufnahme',
     build: 'Build',
   },
   remedyLabel: 'Behebung',
@@ -58,6 +59,10 @@ export const de: DoctorMessages = {
     `Festplattenvollzugriff ist für die Runtime deaktiviert, die die Befehlszeile gestartet hat; macOS richtet sich dabei nach der Berechtigung von ${app ?? 'der App, die den Befehl ausgeführt hat (Ihrem Terminal oder der App, in der der Agent läuft)'}. Aktivieren Sie diese App unter Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff und öffnen Sie sie neu, oder beenden Sie diese Runtime (baocut runtime stop) und öffnen Sie die BaoCut-App; führen Sie danach baocut doctor erneut aus.`,
   fdaMissingOwn: (app) =>
     `Festplattenvollzugriff ist für die Runtime deaktiviert, die die Befehlszeile gestartet hat. Die Runtime läuft eigenständig als ${app}, daher richtet sich macOS nach der Berechtigung von ${app}, nicht nach Ihrem Terminal: Aktivieren Sie ${app} unter Systemeinstellungen › Datenschutz & Sicherheit › Festplattenvollzugriff, beenden Sie diese Runtime (baocut runtime stop) und führen Sie dann baocut doctor erneut aus.`,
+  recordingOk: (displays: number) => `Bildschirmaufnahme ist verfügbar (${displays} Bildschirme); sie startet in der BaoCut-Desktop-App`,
+  recordingUnavailable: (reason: string) => `Bildschirmaufnahme ist nicht verfügbar: ${reason}`,
+  recordingPermissions: (names: string) => `Für die Bildschirmaufnahme fehlen Systemberechtigungen: ${names}. Aktiviere sie in den Systemeinstellungen`,
+  recordingUnknown: 'Diese Runtime meldet keinen Status zur Bildschirmaufnahme',
   fdaNotRunning: 'Wird nur geprüft, während eine Runtime läuft',
   buildOk: (count) => `Die nativen Programme starten, und die ${count} Builds passen zum Quellcode`,
   buildNotSource: 'Wird geprüft, wenn die Runtime aus einem Repository-Checkout läuft',

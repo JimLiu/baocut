@@ -33,4 +33,9 @@ export const zhHans: RcRecordingsMessages = {
   diskLowStopped: "磁盘快满了，录制已停止。已经录下的内容保留了。",
   importFailed: (p: { reason: string }) => `录制没能加入视频：${p.reason}`,
   interrupted: "BaoCut 在录制中途停止了。已经录下的内容保留了，可以恢复。",
+  confirmPause: "暂停屏幕录制",
+  confirmResume: "继续屏幕录制",
+  confirmStop: "停止屏幕录制并加入视频",
+  confirmDiscard: "丢弃这次屏幕录制并删除录下的文件",
+  confirmRecover: "把没收完的屏幕录制收尾并加入视频",
 };

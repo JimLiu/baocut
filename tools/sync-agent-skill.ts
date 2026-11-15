@@ -324,13 +324,19 @@ function renderCraftToolNames(text: string, names: readonly string[]): string {
         const command = `baocut ${toolCommandName(name).display}`;
         const ticks = [...line.slice(0, offset)].filter((c) => c === '`').length;
         const at = fence ? 'fence' : ticks % 2 === 1 ? 'span' : 'prose';
-        if (!name.includes('_') && !isVerbReference(line, offset, name.length, at)) return name;
+        if (!name.includes('_') && (PLAIN_WORD_VERBS.has(name) || !isVerbReference(line, offset, name.length, at))) return name;
         if (at !== 'prose') return command;
         return `\`${command}\``;
       });
     })
     .join('\n');
 }
+
+/**
+ * 在中文正文里也是普通名词的一级动词：设计稿的 craft 把清单里的一条记作「一条 record」，不是 `baocut record`（录屏）。
+ * 要在 craft 里提到这些命令，写成 `{{tool:record}}`。
+ */
+const PLAIN_WORD_VERBS: ReadonlySet<string> = new Set(['record']);
 
 /**
  * 一级动词在哪里算工具名：代码块里只认行首的命令（`transcribe --url x`，不认 `translate(-50%)`）；行内代码里是取值

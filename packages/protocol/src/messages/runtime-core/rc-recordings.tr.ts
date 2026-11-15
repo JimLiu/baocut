@@ -33,4 +33,9 @@ export const tr: RcRecordingsMessages = {
   diskLowStopped: "Disk neredeyse dolu olduğu için kayıt durdu. Şimdiye kadar kaydedilenler korundu.",
   importFailed: (p: { reason: string }) => `Kayıt videoya eklenemedi: ${p.reason}`,
   interrupted: "BaoCut kayıt sırasında durdu. Şimdiye kadar kaydedilenler korundu ve kurtarılabilir.",
+  confirmPause: "Ekran kaydını duraklat",
+  confirmResume: "Ekran kaydını sürdür",
+  confirmStop: "Ekran kaydını durdur ve videoya ekle",
+  confirmDiscard: "Ekran kaydını at ve dosyalarını sil",
+  confirmRecover: "Bitmemiş ekran kaydını tamamla ve videoya ekle",
 };
