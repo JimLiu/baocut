@@ -292,7 +292,7 @@ pub fn parse(files: &SnapshotFiles, home: Option<&Path>) -> EngineResult<ParsedS
     let video_schema = raw.get("videoSchemaVersion").and_then(Value::as_u64).unwrap_or(0);
     let contract = raw.get("timeContractVersion").and_then(Value::as_u64).unwrap_or(0);
     if schema != u64::from(SNAPSHOT_SCHEMA_VERSION)
-        || video_schema != u64::from(SCHEMA_VERSION)
+        || !(u64::from(MIN_SCHEMA_VERSION)..=u64::from(SCHEMA_VERSION)).contains(&video_schema)
         || contract != u64::from(TIME_CONTRACT_VERSION)
     {
         return Err(invalid(msg!(

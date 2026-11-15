@@ -47,8 +47,10 @@ pub type Id = String;
 pub type Revision = String;
 
 pub const VIDEO_FORMAT: &str = "baocut.video";
-/// 当前的格式版本。3 起画面元素采用 v2 的元素模型（§1.4）；只接受这一个版本，旧版本的视频要重新导入。
-pub const SCHEMA_VERSION: u32 = 3;
+/// 写出去的格式版本（§1.4）。4 加了屏幕取景与联动组（§3.18）；新建的视频、写过的视频、快照与便携包都是它。
+pub const SCHEMA_VERSION: u32 = 4;
+/// 还读得开的最低版本：3 起画面元素采用 v2 的元素模型，更早的视频要重新导入。
+pub const MIN_SCHEMA_VERSION: u32 = 3;
 /// 画布底色的缺省值（§3.2）。
 pub const DEFAULT_CANVAS_BACKGROUND: &str = "#000000";
 

@@ -105,8 +105,8 @@ fn read_package(package_dir: &Path) -> EngineResult<(VideoState, Vec<DocumentBod
         return Err(invalid(msg!("engine.snapshotNotVideo", "The snapshot is not a BaoCut video")));
     }
     let schema = raw.get("schemaVersion").and_then(Value::as_u64).unwrap_or(0);
-    if schema != u64::from(SCHEMA_VERSION) {
-        // 只接受当前版本（视频格式规范 §1.4）：更高的版本不认识，1–2 用的是旧的元素模型，不保留兼容。
+    if !(u64::from(MIN_SCHEMA_VERSION)..=u64::from(SCHEMA_VERSION)).contains(&schema) {
+        // 读得开版本 3 与 4（视频格式规范 §1.4）：更高的版本不认识，1–2 用的是旧的元素模型，不保留兼容。
         let message = if schema > u64::from(SCHEMA_VERSION) {
             msg!(
                 "engine.packageSchemaTooNew",
@@ -118,11 +118,11 @@ fn read_package(package_dir: &Path) -> EngineResult<(VideoState, Vec<DocumentBod
                 "engine.packageSchemaRetired",
                 "Video format version {version} in the package is no longer supported: from version {current}, picture elements use a new element model; import again from the original project",
                 version = schema,
-                current = SCHEMA_VERSION
+                current = MIN_SCHEMA_VERSION
             )
         };
         return Err(ErrorBody::new("PACKAGE_VERSION_UNSUPPORTED", message, Retryability::Never)
-            .details(json!({ "schemaVersion": schema, "supported": [SCHEMA_VERSION] })));
+            .details(json!({ "schemaVersion": schema, "supported": crate::store::supported_schema_versions() })));
     }
     let contract = raw.get("timeContractVersion").and_then(Value::as_u64).unwrap_or(0);
     if contract != u64::from(TIME_CONTRACT_VERSION) {

@@ -9,7 +9,7 @@ use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use serde_json::Value;
 
 use crate::error::{EngineResult, ErrorBody, MessageRef, msg};
-use crate::model::{AssetRevision, Id, SCHEMA_VERSION, VIDEO_FORMAT};
+use crate::model::{AssetRevision, Id, MIN_SCHEMA_VERSION, SCHEMA_VERSION, VIDEO_FORMAT};
 use crate::receipt::{HistoryEntry, TransactionReceipt, VideoEvent};
 use crate::state::{EntityChange, EntityKind, VideoState};
 
@@ -546,6 +546,11 @@ impl Store {
                 "Write access to the video has moved, or the revision was changed elsewhere"
             )));
         }
+        // 写过的视频就是当前的格式版本（§1.4）：版本 3 的视频第一次被改时升上来，只读打开不动它。
+        tx.execute(
+            "UPDATE meta SET value = ?1 WHERE key = 'schemaVersion' AND value <> ?1",
+            [SCHEMA_VERSION.to_string()],
+        )?;
         let rows = state.entities();
         for change in record.changes {
             match rows.get(&change.id) {
@@ -937,24 +942,29 @@ impl Store {
     }
 }
 
-/// 版本门（视频格式规范 §1.4）：只接受当前版本。版本 1–2 的视频用的是旧的元素模型，不为它们保留兼容，
+/// 版本门（视频格式规范 §1.4）：读得开版本 3 与 4。版本 1–2 的视频用的是旧的元素模型，不为它们保留兼容，
 /// 拒绝打开并说明原因，不改写；更高的版本是更新的 BaoCut 写的，同样拒绝。
 pub fn schema_version_supported(version: &str) -> EngineResult<()> {
     match version.parse::<u32>() {
-        Ok(v) if v == SCHEMA_VERSION => Ok(()),
-        Ok(v @ 1..SCHEMA_VERSION) => Err(ErrorBody::unsupported_video(msg!(
+        Ok(v) if (MIN_SCHEMA_VERSION..=SCHEMA_VERSION).contains(&v) => Ok(()),
+        Ok(v @ 1..MIN_SCHEMA_VERSION) => Err(ErrorBody::unsupported_video(msg!(
             "engine.schemaRetired",
             "Video format version {version} is no longer supported: from version {current}, picture elements use a new element model and older videos can no longer be opened; import again from the original project",
             version = v,
-            current = SCHEMA_VERSION
+            current = MIN_SCHEMA_VERSION
         ))
         .recovery(msg!("engine.schemaRetiredRecovery", "Import this video again from the original project"))
-        .details(serde_json::json!({ "schemaVersion": v, "supported": [SCHEMA_VERSION], "reason": "element-model" }))),
+        .details(serde_json::json!({ "schemaVersion": v, "supported": supported_schema_versions(), "reason": "element-model" }))),
         _ => Err(ErrorBody::unsupported_video(msg!(
             "engine.schemaTooNew",
             "Video format version {version} is not supported; open it with a newer BaoCut",
             version
         ))
-            .details(serde_json::json!({ "schemaVersion": version, "supported": [SCHEMA_VERSION] }))),
+            .details(serde_json::json!({ "schemaVersion": version, "supported": supported_schema_versions() }))),
     }
+}
+
+/// 读得开的格式版本，从低到高（错误的 `details.supported`）。
+pub fn supported_schema_versions() -> Vec<u32> {
+    (MIN_SCHEMA_VERSION..=SCHEMA_VERSION).collect()
 }

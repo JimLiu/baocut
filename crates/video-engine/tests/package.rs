@@ -215,6 +215,21 @@ fn a_tampered_or_newer_package_is_rejected_and_leaves_nothing() {
     let err = import_package(&target, &package, None, &ffprobe()).err().expect("应拒绝");
     assert_eq!(err.code, "PACKAGE_VERSION_UNSUPPORTED");
 
+    // 版本 3 写的包照常导入，成为当前版本的视频（§1.4）。
+    let mut snapshot: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(snapshot["schemaVersion"], json!(4));
+    snapshot["schemaVersion"] = json!(3);
+    fs::write(&snapshot_path, snapshot.to_string()).unwrap();
+    let older = root.path().join("older");
+    assert_eq!(import_package(&older, &package, None, &ffprobe()).unwrap().snapshot().schema_version, 4);
+    for retired in [2, 5] {
+        snapshot["schemaVersion"] = json!(retired);
+        fs::write(&snapshot_path, snapshot.to_string()).unwrap();
+        let err = import_package(&target, &package, None, &ffprobe()).err().expect("应拒绝");
+        assert_eq!(err.code, "PACKAGE_VERSION_UNSUPPORTED");
+        assert_eq!(err.details["supported"], json!([3, 4]));
+    }
+
     // 引用了包里没有的素材。
     let mut snapshot: Value = serde_json::from_str(&text).unwrap();
     let seq = snapshot["rootSequenceId"].as_str().unwrap().to_string();

@@ -653,9 +653,10 @@ fn ducking_groups_follow_splits_and_survive_deletions() {
     );
 }
 
-/// 版本门（视频格式规范 §1.4）：只读写版本 3。版本 1、2 是元素模型之前的格式，说明原因并拒绝；更新的版本也拒绝。
+/// 版本门（视频格式规范 §1.4）：读得开版本 3 与 4，写出去的是 4。版本 3 的视频第一次被改时升到 4，只读打开不动；
+/// 版本 1、2 是元素模型之前的格式，说明原因并拒绝；更新的版本也拒绝。
 #[test]
-fn only_version_three_videos_open() {
+fn versions_three_and_four_open_and_writes_become_four() {
     let Fixture { video, _dir, .. } = fixture();
     let dir = _dir.path().join("m");
     drop(video);
@@ -664,11 +665,20 @@ fn only_version_three_videos_open() {
         conn.query_row("SELECT value FROM meta WHERE key = 'schemaVersion'", [], |r| r.get(0))
             .unwrap()
     };
-    assert_eq!(version(&conn), "3");
+    assert_eq!(version(&conn), "4");
     Video::open(&dir, OpenMode::ReadOnly, &ffprobe()).unwrap();
 
-    for old in ["1", "2"] {
-        conn.execute("UPDATE meta SET value = ?1 WHERE key = 'schemaVersion'", [old])
+    // 旧版本写的视频：照常打开，只读与没有改动时版本不变，第一笔修改把它升到 4。
+    conn.execute("UPDATE meta SET value = '3' WHERE key = 'schemaVersion'", []).unwrap();
+    drop(Video::open(&dir, OpenMode::ReadOnly, &ffprobe()).unwrap());
+    let mut old = Video::open(&dir, OpenMode::Write, &ffprobe()).unwrap();
+    assert_eq!(version(&conn), "3");
+    apply(&mut old, "cmd_touch_old", vec![json!({ "type": "renameVideo", "name": "改过名" })]).unwrap();
+    assert_eq!(version(&conn), "4");
+    drop(old);
+
+    for retired in ["1", "2"] {
+        conn.execute("UPDATE meta SET value = ?1 WHERE key = 'schemaVersion'", [retired])
             .unwrap();
         for mode in [OpenMode::ReadOnly, OpenMode::Write] {
             let err = Video::open(&dir, mode, &ffprobe()).err().expect("旧版本拒绝打开");
@@ -676,11 +686,11 @@ fn only_version_three_videos_open() {
             assert!(err.message.contains("import again"), "{}", err.message);
             assert_eq!(err.message_ref.as_ref().map(|r| r.key.as_str()), Some("engine.schemaRetired"));
             assert_eq!(err.recovery_ref.as_ref().map(|r| r.key.as_str()), Some("engine.schemaRetiredRecovery"));
-            assert_eq!(err.details["supported"], json!([3]));
+            assert_eq!(err.details["supported"], json!([3, 4]));
         }
-        assert_eq!(version(&conn), old, "拒绝时不改版本");
+        assert_eq!(version(&conn), retired, "拒绝时不改版本");
     }
-    conn.execute("UPDATE meta SET value = '4' WHERE key = 'schemaVersion'", []).unwrap();
+    conn.execute("UPDATE meta SET value = '5' WHERE key = 'schemaVersion'", []).unwrap();
     let err = Video::open(&dir, OpenMode::ReadOnly, &ffprobe()).err().expect("更新的版本拒绝打开");
     assert_eq!(err.code, "VIDEO_UNSUPPORTED");
 }
