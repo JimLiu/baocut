@@ -1256,6 +1256,99 @@ mod tests {
         );
     }
 
+    /// 屏幕取景（视频格式规范 §3.18）：成片计划冻结取景文档与它的录制清单，以及清单里的指针轨与光标图片；清单引用的
+    /// 其余素材不因取景冻结。没有 ffmpeg 时跳过。
+    #[test]
+    fn a_video_plan_freezes_the_screen_view_with_its_manifest_pointer_track_and_cursor() {
+        let root = tempfile::tempdir().unwrap();
+        let clip = root.path().join("screen.mp4");
+        let made = std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=30:duration=2", "-c:v", "mpeg4"])
+            .arg(&clip)
+            .status()
+            .is_ok_and(|s| s.success());
+        if !made {
+            return;
+        }
+        let png = root.path().join("arrow.png");
+        std::fs::write(&png, include_bytes!("../../caption-scene/tests/fixtures/badge.png")).unwrap();
+        let pointer = root.path().join("pointer.json");
+        std::fs::write(
+            &pointer,
+            r#"{"format":"baocut-pointer-track","version":1,"timescale":1000,"moves":[[0,0.5,0.5]],"buttons":[],"cursors":[[0,"arrow"]]}"#,
+        )
+        .unwrap();
+        let extra = root.path().join("keys.wav");
+        write_wav(&extra, 2);
+        let mut host = host();
+        let created = create(&mut host, &root.path().join("录屏"));
+        let video_id = created["videoId"].as_str().unwrap().to_string();
+        let sequence_id = host.handle("videos.snapshot", json!({ "videoId": video_id }), &mut |_| {}).unwrap()["snapshot"]["rootSequenceId"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let actor = json!({ "kind": "user", "id": "user_local" });
+        let mut revision = 0;
+        let mut apply = |host: &mut Host, operations: Value| {
+            let params = json!({ "videoId": video_id, "commandId": format!("cmd_{revision}"), "expectedRevision": revision.to_string(),
+                "actor": actor, "operations": operations });
+            revision += 1;
+            host.handle("edits.apply", params, &mut |_| {}).unwrap()["receipt"].clone()
+        };
+        let receipt = apply(
+            &mut host,
+            json!([
+                { "type": "importAsset", "path": clip, "storage": "managed", "ref": "clip" },
+                { "type": "importAsset", "path": png, "storage": "managed", "ref": "png" },
+                { "type": "importAsset", "path": pointer, "storage": "managed", "ref": "ptr" },
+                { "type": "importAsset", "path": extra, "storage": "managed", "ref": "mic" },
+                { "type": "addItem", "sequenceId": sequence_id, "asset": { "ref": "clip" }, "alignment": "nearest-frame" },
+            ]),
+        );
+        let reference = |name: &str| json!({ "id": receipt["refs"][name], "revision": "1" });
+        let manifest = json!({
+            "schema": "baocut.recording/1", "timescale": 1000, "clock": "recording", "recorder": { "name": "test" }, "duration": "2000",
+            "segments": [{ "id": "s0", "t0": "0", "t1": "2000" }],
+            "streams": [
+                { "id": "s0-screen", "role": "screen", "segmentId": "s0", "assetRef": reference("clip"), "start": "0" },
+                { "id": "s0-mic", "role": "microphone", "segmentId": "s0", "assetRef": reference("mic"), "start": "0" },
+                { "id": "s0-pointer", "role": "pointer", "segmentId": "s0", "assetRef": reference("ptr"), "start": "0" },
+            ],
+            "pointer": { "mode": "separate", "cursors": [{ "id": "arrow", "assetRef": reference("png"), "hotspot": { "x": 0.1, "y": 0.1 } }] }
+        });
+        let view = json!({ "schema": "baocut.screen-view/1", "timescale": 1000, "clock": "recording", "solver": 1,
+            "zooms": [{ "id": "z1", "t0": "200", "t1": "1800", "scale": 2.0, "focus": { "kind": "pointer" }, "origin": "auto" }] });
+        apply(
+            &mut host,
+            json!([
+                { "type": "putDocument", "kind": "recording", "ref": "rec", "body": manifest },
+                { "type": "putDocument", "kind": "screen-view", "ref": "view", "sourceDocument": { "ref": "rec" }, "body": view },
+            ]),
+        );
+        let snapshot = host.handle("videos.snapshot", json!({ "videoId": video_id }), &mut |_| {}).unwrap()["snapshot"].clone();
+        let item_id = snapshot["sequences"][&sequence_id]["items"][0]["id"].clone();
+        let (rec_id, view_id) = {
+            let documents = snapshot["documents"].as_object().unwrap();
+            let find = |kind: &str| documents.values().find(|d| d["kind"] == kind).unwrap()["id"].clone();
+            (find("recording"), find("screen-view"))
+        };
+        apply(&mut host, json!([{ "type": "setStyle", "itemId": item_id, "screenView": { "documentId": view_id } }]));
+
+        let plan = host.handle("exports.plan", json!({ "videoId": video_id, "kind": "video" }), &mut |_| {}).unwrap();
+        let documents: Vec<(Value, Value)> = plan["documents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| (d["documentId"].clone(), d["sourceDocumentId"].clone()))
+            .collect();
+        assert_eq!(documents, [(view_id.clone(), rec_id.clone()), (rec_id, Value::Null)]);
+        let assets: std::collections::BTreeSet<String> =
+            plan["assets"].as_array().unwrap().iter().map(|a| a["assetId"].as_str().unwrap().to_string()).collect();
+        let expected: std::collections::BTreeSet<String> =
+            ["clip", "png", "ptr"].iter().map(|name| receipt["refs"][*name].as_str().unwrap().to_string()).collect();
+        assert_eq!(assets, expected, "the microphone of the recording is not frozen for the screen view");
+    }
+
     /// 成片的声音来源（架构设计 §9.13）：选择只套在声音计划上，画面计划与冻结的序列（`document`）照原样，视频本身也不变。
     #[test]
     fn a_video_plan_applies_the_audio_item_selection_to_the_sound_only() {
