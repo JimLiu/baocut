@@ -383,7 +383,8 @@ fn a_recording_manifest_carries_its_assets_and_is_checked_on_write() {
     let view_id = source.state().documents.values().find(|r| r.kind == "screen-view").unwrap().id.clone();
 
     // 录制时间的取景要有清单作来源；种类与正文格式要配。
-    refuse(&mut source, "cmd_view_orphan", json!({ "type": "putDocument", "kind": "screen-view", "body": view(2.0) }));
+    let orphan = refuse(&mut source, "cmd_view_orphan", json!({ "type": "putDocument", "kind": "screen-view", "body": view(2.0) }));
+    assert!(orphan.message.contains("recording-manifest-required"), "{}", orphan.message);
     refuse(&mut source, "cmd_view_kind", json!({ "type": "putDocument", "kind": "note", "sourceDocument": { "documentId": id }, "body": view(2.0) }));
     refuse(&mut source, "cmd_manifest_kind", json!({ "type": "putDocument", "kind": "recording", "body": { "schema": "note/1" } }));
     // 清单写一次不再改：同样的正文不产生新版本，改了的不收。
@@ -391,7 +392,8 @@ fn a_recording_manifest_carries_its_assets_and_is_checked_on_write() {
     assert_eq!(source.state().documents[&id].current_revision, rev);
     let mut longer = manifest("pointer");
     longer["recorder"]["name"] = json!("other");
-    refuse(&mut source, "cmd_manifest_changed", json!({ "type": "putDocument", "documentId": id, "kind": "recording", "body": longer }));
+    let changed = refuse(&mut source, "cmd_manifest_changed", json!({ "type": "putDocument", "documentId": id, "kind": "recording", "body": longer }));
+    assert!(changed.message.contains("cannot change"), "{}", changed.message);
 
     // 光标录进了画面的录制：可以跟着指针取景，不能写另画的光标。同一笔事务里刚写的清单也读得到。
     let mut baked = manifest("pointer");
@@ -411,7 +413,8 @@ fn a_recording_manifest_carries_its_assets_and_is_checked_on_write() {
         actor: Actor { kind: ActorKind::User, id: "user_local".into() },
         task_id: None,
     };
-    source.apply(&styled).expect_err("光标录进了画面，不能另画");
+    let styled = source.apply(&styled).expect_err("光标录进了画面，不能另画");
+    assert!(styled.message.contains("pointer"), "{}", styled.message);
     let mut plain = view(2.0);
     plain.as_object_mut().unwrap().remove("pointer");
     apply(&mut source, "cmd_baked_plain", both(plain.clone()));
@@ -429,12 +432,17 @@ fn a_recording_manifest_carries_its_assets_and_is_checked_on_write() {
         .unwrap()
         .id
         .clone();
-    refuse(
+    let patched = refuse(
         &mut source,
         "cmd_baked_patch",
         json!({ "type": "patchDocument", "documentId": baked_view, "changes": [{ "path": ["pointer"], "value": { "size": 2.0 } }] }),
     );
-    refuse(&mut source, "cmd_view_rewrite", json!({ "type": "putDocument", "documentId": baked_view, "kind": "screen-view", "body": view(2.0) }));
+    assert!(patched.message.contains("baocut.screen-view/1") && patched.message.contains("pointer"), "{}", patched.message);
+    let rewritten = refuse(&mut source, "cmd_view_rewrite", json!({ "type": "putDocument", "documentId": baked_view, "kind": "screen-view", "body": view(2.0) }));
+    assert!(rewritten.message.contains("baocut.screen-view/1") && rewritten.message.contains("pointer"), "{}", rewritten.message);
+    // 不带来源重写同一份文档：来源沿用记录里的清单，正文合规就收。
+    plain["zooms"][0]["scale"] = json!(3.0);
+    apply(&mut source, "cmd_view_rewrite_plain", vec![json!({ "type": "putDocument", "documentId": baked_view, "kind": "screen-view", "body": plain })]);
 
     let package = root.path().join("package");
     write_package(&source, &package);

@@ -65,7 +65,7 @@
 | `segments[i]` | 清单的一段 `segments[i]` | 段的长度取这一段屏幕流的有效长度；各段首尾相接 |
 | `display`、`camera`（`VideoMeta`） | `screen`、`camera` 流，视频素材 | `start` = 段的 `t0` +（这路的 `start_time` − 这一段最晚的 `start_time`） |
 | `mic`、`system_audio`（`AudioMeta`） | `microphone`、`system-audio` 流，音频素材 | 同上 |
-| `cursor`（每段一个 JSON：`moves`、`clicks`） | `pointer` 流，指针轨素材 | `time_ms`（浮点毫秒，从这一段的管线起点算，流的 `start_time` 也从这个起点算）换成整数刻度，所以 `start` = 段的 `t0` − 这一段最晚的 `start_time`。Cap 自己的渲染把 `time_ms` 直接当段内时间用，没有减这一截（`crates/rendering/src/lib.rs` 的光标插值），两种读法差几十到几百毫秒：导入器落地时拿真实录制对一次点击的画面再定，未实测；每条事件上的 `cursor_id` 换成 `cursors` 的切换表；`clicks` 的 `cursor_num` 是按键编号 |
+| `cursor`（每段一个 JSON：`moves`、`clicks`） | `pointer` 流，指针轨素材 | `time_ms`（浮点毫秒，从这一段的管线起点算，流的 `start_time` 也从这个起点算）换成整数刻度，所以 `start` = 段的 `t0` − 这一段最晚的 `start_time`。Cap 自己的渲染也是这样对的：查光标用的时间是段内时间加上最晚的 `start_time`（`crates/rendering/src/segment_timing.rs` 的 `segment_frame_times`）。还没有拿真实录制实测；每条事件上的 `cursor_id` 换成 `cursors` 的切换表；`clicks` 的 `cursor_num` 是按键编号 |
 | `cursors`（`CursorMeta`：图片、`hotspot`、`shape`） | 清单的 `pointer.cursors`，图片素材 | `hotspot` 在 Cap 里已经是图片宽高的比例，照搬 |
 | 移动事件的 `x`、`y` | 指针轨的坐标 | 已经是相对捕获区域的归一化坐标，窗口录制时跟着窗口走；在区域之外的值越出 [0, 1]，照搬不夹 |
 | `status`（`InProgress`、`NeedsRemux`、`Failed`、`Complete`） | 不进格式 | 只有 `Complete` 的工程可以导入 |
@@ -127,7 +127,7 @@ MIT 这条路也要查完整的依赖链（例如 Windows 的 `scap-direct3d` �
 | 0 格式（本稿） | 规范 §3.18、§4.7–§4.9；清单与取景正文的校验、清单的素材依赖、指针轨的导入校验 | 已完成：见规范 §10 的状态行 |
 | 1 导入 | 读 Cap Studio 工程，写素材、清单、取景文档与实例 | 一份真实录制能预览与导出；摄像头与声音对得上；暂停的时间不进成片 |
 | 2 联动组 | 格式版本的门；`linkGroups` 的登记与成组的移动、拆分、修剪、删段、变速、复制、解组；剪口成组 | 怎么剪，屏幕、摄像头、声音与鼠标都不失步 |
-| 3 取景与光标 | `screenView` 的引用、共享的求值、预览与导出接线、缩放与鼠标的附属行、自动缩放 | 光标与屏幕用同一个变换；随机拖动、拆分、变速之后结果确定 |
+| 3 取景与光标 | `screenView` 的引用、共享的求值、预览与导出接线（Runtime 下发素材的名单要加上指针轨，Web 预览才取得到）、缩放与鼠标的附属行、自动缩放 | 光标与屏幕用同一个变换；随机拖动、拆分、变速之后结果确定 |
 | 4 内置录制 | Recording Worker、来源与设备选择、控制条、收尾与恢复、自动导入、两个平台的权限与打包 | 从 BaoCut 开始录，停止后直接进编辑器 |
 | 5 体验 | 布局场景切换、放大时摄像头联动、智能体改缩放与布局、大分辨率性能 | — |
 
