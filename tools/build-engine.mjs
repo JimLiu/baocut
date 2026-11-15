@@ -1,4 +1,4 @@
-// 构建原生进程：视频引擎（engine-host）、Render Worker（export-worker）、speech-worker、人脸检测（face-detect）、抠像（matte）与本地推理进程（model-worker）。
+// 构建原生进程：视频引擎（engine-host）、Render Worker（export-worker）、speech-worker、人脸检测（face-detect）、抠像（matte）、录屏（recording-worker）与本地推理进程（model-worker）。
 // model-worker 的推理后端随平台（架构设计 §6.5）：Apple Silicon 的 macOS 用默认 feature（MLX + Core ML + LiteRT-LM）；
 // 别的平台关掉默认 feature、开 candle、whisper.cpp 的 Whisper（`whisper-ggml`，构建要 CMake 与 C++ 编译器）与 LiteRT-LM 的文本嵌入
 // （`backend-litert`，运行期才打开 C 库，构建不要额外的工具链；Windows 的 C 库由 `npm run build:litertlm-runtime` 放好）。
@@ -38,7 +38,7 @@ function cargo(args) {
 ensureCargo();
 
 // --no-default-features 作用于命令里的每个包，所以 model-worker 单独构建。
-const ENGINE_BINARIES = ['engine-host', 'export-worker', 'speech-worker', 'face-detect', 'matte'];
+const ENGINE_BINARIES = ['engine-host', 'export-worker', 'speech-worker', 'face-detect', 'matte', 'recording-worker'];
 const engines = cargo(['build', '--keep-going', ...ENGINE_BINARIES.flatMap((name) => ['-p', name]), ...extra]);
 const worker = cargo([
   'build',

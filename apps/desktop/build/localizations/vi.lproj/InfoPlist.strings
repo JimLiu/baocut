@@ -1,2 +1,3 @@
 "NSLocalNetworkUsageDescription" = "BaoCut cần truy cập mạng cục bộ để tìm và kết nối với các nút Remote Compute.";
 "NSMicrophoneUsageDescription" = "BaoCut sử dụng micrô để ghi âm phục vụ việc phiên âm và để ghi giọng của bạn để nhân bản trong Giọng của tôi.";
+"NSCameraUsageDescription" = "BaoCut sử dụng camera để thêm hình ảnh camera của bạn vào bản ghi màn hình.";

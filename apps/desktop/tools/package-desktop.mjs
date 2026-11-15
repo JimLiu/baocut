@@ -476,6 +476,8 @@ try {
         extendInfo: {
           NSLocalNetworkUsageDescription: 'BaoCut discovers and connects to local compute devices for transcription and generation.',
           NSMicrophoneUsageDescription: 'BaoCut needs microphone access to record audio for transcription.',
+          // 录屏时的摄像头（`recording-worker` 是应用的子进程，系统按应用问权限；没有这条说明的进程一碰摄像头就被系统结束）。
+          NSCameraUsageDescription: 'BaoCut uses the camera to add your camera to screen recordings.',
           NSBonjourServices: ['_baocut-node._tcp'],
         },
         extraFiles: [...cliFiles, { from: path.join(DESKTOP, 'build/localizations'), to: 'Resources' }],

@@ -1,2 +1,3 @@
 "NSLocalNetworkUsageDescription" = "BaoCut, Remote Compute düğümlerini keşfetmek ve bunlara bağlanmak için yerel ağınıza erişmelidir.";
 "NSMicrophoneUsageDescription" = "BaoCut, yazıya dökülecek sesi kaydetmek ve Seslerim bölümünde klonlanacak sesinizi kaydetmek için mikrofonu kullanır.";
+"NSCameraUsageDescription" = "BaoCut, ekran kayıtlarına kamera görüntünüzü eklemek için kamerayı kullanır.";

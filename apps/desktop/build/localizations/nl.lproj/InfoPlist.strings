@@ -1,2 +1,3 @@
 "NSLocalNetworkUsageDescription" = "BaoCut heeft toegang tot je lokale netwerk nodig om Remote Compute-nodes te vinden en ermee te verbinden.";
 "NSMicrophoneUsageDescription" = "BaoCut gebruikt de microfoon om audio op te nemen voor transcriptie en om je stem op te nemen om te klonen in Mijn stemmen.";
+"NSCameraUsageDescription" = "BaoCut gebruikt de camera om je camerabeeld aan schermopnamen toe te voegen.";
