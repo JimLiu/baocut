@@ -2,21 +2,21 @@
   "schema": 1,
   "target": "aarch64-apple-darwin",
   "variant": "cpu",
-  "version": "3.19.1",
-  "build": 96,
-  "date": "2026-11-11",
-  "notes": "Video downloads: When YouTube reports a sign-in check, expired account cookies or a failed n/signature challenge before ending with \"Requested format is not available\", the download now fails as a login or tool-update problem and shows that cause instead of reporting the link as unavailable. The cause survives long format-probe logs, and a concrete final error such as HTTP 403 or a timeout still takes priority.\nPrivacy: Links in download error messages and details are redacted more reliably, including links with quotes in their credentials and links cut off by the log length limit.\nCommand line: The top-level baocut help fits within 40 lines again.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.19.2",
+  "build": 97,
+  "date": "2026-11-15",
+  "notes": "Subtitle translation: Agents now write long translations into the video in batches instead of one very large write, and continue until every sentence is covered. A partly written translation stays listed as running and is reported as unfinished instead of ending silently.\nTranslation progress: While an agent translates in batches, the subtitle panel, video card, video status and task list show how many sentences are translated, with a percentage.\nVideo engine tools: When the login shell environment cannot be read (for example when BaoCut starts from Finder or the Dock), BaoCut now retries later instead of keeping the failure, and also looks for ffmpeg and ffprobe in the standard Homebrew folders that exist on the machine. BAOCUT_FFMPEG and BAOCUT_FFPROBE still take priority.\nPrivacy: Download error details now also redact links that sit directly next to each other.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
   "notesLocalized": {},
   "app": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-3.19.1-build.96-aarch64-apple-darwin.zip",
-    "size": 306096662,
-    "sha256": "ecb6aa1d680c8b06242b2f97573e7ed0d5b920a22b0c1afd1cf6990846a315f0"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-aarch64-apple-darwin.zip",
+    "size": 306103967,
+    "sha256": "f31d41518a75c4dffa635502fe2d44d5f7936bfa15c4d3a7f4edcec56e3680f5"
   },
   "cli": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.1-build.96/BaoCut-CLI-3.19.1-build.96-aarch64-apple-darwin.zip",
-    "size": 217508857,
-    "sha256": "ce4f12ddd199aa5b0601f8b8ac0fa44b430c22df88c3def05b84096fbed0cd66"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-CLI-3.19.2-build.97-aarch64-apple-darwin.zip",
+    "size": 217514811,
+    "sha256": "4bcc1c857c9a4c76d01957eb00135f892ff8833cba7ba84ecf6a858c03bd65e6"
   }
 }
