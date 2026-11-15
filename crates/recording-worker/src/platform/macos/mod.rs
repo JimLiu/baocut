@@ -78,7 +78,7 @@ struct MacCapturer {
 impl MacCapturer {
     fn open(params: &StartParams, sink: Arc<Sink>) -> Result<Self, WorkerError> {
         let dir = PathBuf::from(&params.dir);
-        let resolved = screen::resolve(&params.source)?;
+        let resolved = screen::resolve(&params.source, params.exclude.as_ref())?;
         // `separate` 要系统的光标图片；拿不到时让 ScreenCaptureKit 把光标画进画面。
         let cursor = match params.cursor {
             CursorMode::Separate if !pointer::system_cursor_available() => CursorMode::Baked,
@@ -132,7 +132,7 @@ impl MacCapturer {
                 return Err(error);
             }
         }
-        match Monitor::start(dir, sink, rect, cursor != CursorMode::None, cursor == CursorMode::Separate, capturer.devices.clone()) {
+        match Monitor::start(dir, sink, rect, resolved.scale, cursor != CursorMode::None, cursor == CursorMode::Separate, capturer.devices.clone()) {
             Ok(monitor) => capturer.monitor = Some(monitor),
             Err(error) => {
                 capturer.close();

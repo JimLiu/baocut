@@ -14,7 +14,7 @@
     }
   ],
   "start": [
-    { "dir": "/tmp/rec", "source": { "kind": "display" }, "camera": null, "microphone": "default", "systemAudio": true, "cursor": "separate", "keys": "off", "fps": 30 },
+    { "dir": "/tmp/rec", "source": { "kind": "display" }, "camera": null, "microphone": "default", "systemAudio": true, "cursor": "separate", "keys": "off", "fps": 30, "exclude": { "bundleIds": ["com.baocut.app"], "pids": [4242] } },
     { "dir": "/tmp/rec", "source": { "kind": "display", "displayId": "1" }, "camera": "cam-1", "microphone": null, "systemAudio": false, "cursor": "baked", "keys": "shortcuts", "fps": 60 },
     { "dir": "/tmp/rec", "source": { "kind": "window", "windowId": "4242" }, "camera": null, "microphone": null, "systemAudio": false, "cursor": "none", "keys": "all", "fps": 30 },
     { "dir": "/tmp/rec", "source": { "kind": "area", "displayId": "1", "rect": { "x": 10, "y": 20, "width": 640, "height": 360 } }, "camera": null, "microphone": null, "systemAudio": true, "cursor": "separate", "keys": "off", "fps": 30 }

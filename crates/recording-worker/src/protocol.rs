@@ -182,6 +182,19 @@ pub struct StartParams {
     pub cursor: CursorMode,
     pub keys: KeysMode,
     pub fps: u32,
+    /// 整屏与区域录制时不录进画面的应用。后加的可选字段，协议版本不变：旧的 Runtime 不发，缺省什么都不排除；选窗口时不起作用。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exclude: Option<Exclusion>,
+}
+
+/// 按 bundle id 或进程 ID 认的应用（ScreenCaptureKit 的 `SCRunningApplication`）。
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Exclusion {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bundle_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pids: Vec<i32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]

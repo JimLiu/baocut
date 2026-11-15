@@ -4,7 +4,9 @@
 //!   画面外的位置照记（小于 0 或大于 1）。只在变了时写一行。
 //! - 按键：`CGEventSourceButtonState`（左、右、中三个键），变了时写一行。轮询不需要任何系统权限。
 //! - 光标图片（`separate` 时）：每秒 40 次看 `NSCursor.currentSystemCursor`，图片的 TIFF 字节换了就是新光标：存成
-//!   `cursor-<hash>.png`，日志写一行 `cursor`（热点按图片尺寸的比例，`scale` 是每点的像素数），事件文件写 `c` 行。
+//!   `cursor-<hash>.png`，日志写一行 `cursor`，事件文件写 `c` 行。热点按图片尺寸（点）的比例。`scale` 按格式规范 §4.7
+//!   是图片的几个像素对应捕获画面的一个像素：存下的那张位图的像素宽 ÷（光标的点宽 × 捕获画面每点的像素数）。
+//!   TIFF 里常有几张不同分辨率的位图，取像素最多的那张存。
 //! - 设备：每半秒看一次摄像头、麦克风还连着没有，断了交给 [`Track::lose`]。
 //!
 //! 段外不写事件文件；段开始时开文件、记进日志，先写当前的位置、按着的键与光标，段内的事件从那里接着。
@@ -21,7 +23,7 @@ use objc2::rc::Retained;
 use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSCursor};
 use objc2_core_foundation::CGRect;
 use objc2_core_graphics::{CGEvent, CGEventSource, CGEventSourceStateID, CGMouseButton};
-use objc2_foundation::NSDictionary;
+use objc2_foundation::{NSData, NSDictionary};
 
 use crate::protocol::{Hotspot, JournalLine, Ns, WorkerError};
 use crate::sink::{self, Sink, TrackFile};
@@ -76,11 +78,12 @@ pub fn system_cursor_available() -> bool {
 }
 
 impl Monitor {
-    /// `pointer` 时记指针，`cursor_images` 时另记光标图片。
+    /// `pointer` 时记指针，`cursor_images` 时另记光标图片；`capture_scale` 是捕获画面每点的像素数（光标的 `scale` 按它换算）。
     pub fn start(
         dir: PathBuf,
         sink: Arc<Sink>,
         rect: SharedRect,
+        capture_scale: f64,
         pointer: bool,
         cursor_images: bool,
         devices: Vec<Arc<DeviceCapture>>,
@@ -91,6 +94,7 @@ impl Monitor {
             dir: dir.clone(),
             sink: Arc::clone(&sink),
             rect,
+            capture_scale: capture_scale.max(1.0),
             pointer,
             cursor_images,
             devices: Devices(devices),
@@ -151,6 +155,7 @@ struct Worker {
     dir: PathBuf,
     sink: Arc<Sink>,
     rect: SharedRect,
+    capture_scale: f64,
     pointer: bool,
     cursor_images: bool,
     devices: Devices,
@@ -237,13 +242,13 @@ impl Worker {
     }
 
     /// 存一张光标图片，日志写一行 `cursor`。
-    fn save_cursor(&self, id: &str, cursor: &Retained<NSCursor>, tiff: &objc2_foundation::NSData) -> bool {
+    fn save_cursor(&self, id: &str, cursor: &Retained<NSCursor>, tiff: &NSData) -> bool {
         let image = cursor.image();
         let size = image.size();
         if size.width <= 0.0 || size.height <= 0.0 {
             return false;
         }
-        let Some(bitmap) = NSBitmapImageRep::imageRepWithData(tiff) else { return false };
+        let Some(bitmap) = largest_bitmap(tiff) else { return false };
         let pixels = bitmap.pixelsWide() as f64;
         let properties = NSDictionary::new();
         let Some(png) = (unsafe { bitmap.representationUsingType_properties(NSBitmapImageFileType::PNG, &properties) }) else {
@@ -258,9 +263,38 @@ impl Worker {
             id: id.to_owned(),
             file,
             hotspot: Hotspot { x: (hotspot.x / size.width).clamp(0.0, 1.0), y: (hotspot.y / size.height).clamp(0.0, 1.0) },
-            scale: (pixels > 0.0).then(|| pixels / size.width),
+            scale: (pixels > 0.0).then(|| cursor_scale(pixels, size.width, self.capture_scale)),
             shape: None,
         };
         self.sink.journal(&line, false).is_ok()
+    }
+}
+
+/// TIFF 里像素最多的那张位图（光标图片常同时带 1 倍与 2 倍的）。
+fn largest_bitmap(tiff: &NSData) -> Option<Retained<NSBitmapImageRep>> {
+    NSBitmapImageRep::imageRepsWithData(tiff)
+        .iter()
+        .filter_map(|rep| rep.downcast::<NSBitmapImageRep>().ok())
+        .max_by_key(|bitmap| bitmap.pixelsWide())
+}
+
+/// 光标的 `scale`（格式规范 §4.7）：图片的几个像素对应捕获画面的一个像素。光标在屏幕上 `points_wide` 点宽，
+/// 捕获画面每点 `capture_scale` 个像素，所以它在画面里占 `points_wide × capture_scale` 个像素。
+fn cursor_scale(image_pixels: f64, points_wide: f64, capture_scale: f64) -> f64 {
+    image_pixels / (points_wide * capture_scale)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::cursor_scale;
+
+    #[test]
+    fn cursor_scale_is_image_pixels_per_capture_pixel() {
+        // 2 倍屏上录：32 像素宽的 2 倍光标图片画成 16 点 = 32 个画面像素，一比一。
+        assert_eq!(cursor_scale(32.0, 16.0, 2.0), 1.0);
+        // 1 倍屏上录同一张 2 倍图片：16 点 = 16 个画面像素，图片两个像素对一个。
+        assert_eq!(cursor_scale(32.0, 16.0, 1.0), 2.0);
+        // 2 倍屏上只拿到 1 倍图片：图片一个像素对两个画面像素。
+        assert_eq!(cursor_scale(16.0, 16.0, 2.0), 0.5);
     }
 }

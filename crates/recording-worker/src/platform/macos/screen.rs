@@ -1,6 +1,8 @@
 //! 屏幕、窗口或区域与系统声音：ScreenCaptureKit 的 `SCStream`。
 //!
-//! - 内容：屏幕用 `SCContentFilter initWithDisplay:excludingWindows:`（空的排除表）；窗口用
+//! - 内容：屏幕用 `SCContentFilter initWithDisplay:excludingApplications:exceptingWindows:`，排除 `start` 的 `exclude`
+//!   里的应用（按 `SCShareableContent.applications` 的 `bundleIdentifier` 或 `processID` 认，没有例外窗口；名单空时
+//!   什么都不排除），这些应用的窗口不进画面，桌面与程序坞照常录；窗口用
 //!   `initWithDesktopIndependentWindow:`（窗口移动时跟着它）；区域是屏幕加 `SCStreamConfiguration.sourceRect`
 //!   （屏幕自己的点坐标）。输出的像素尺寸是内容的点尺寸乘 `SCContentFilter.pointPixelScale`（macOS 14）。
 //! - 光标：`showsCursor` 只在 `baked` 时打开，`separate` 时由指针线程另记（[`super::pointer`]）。
@@ -24,11 +26,11 @@ use objc2_core_graphics::{CGDisplayBounds, CGMainDisplayID, CGRectMakeWithDictio
 use objc2_core_media::{CMSampleBuffer, CMTime};
 use objc2_foundation::{NSArray, NSDictionary, NSError, NSNumber, NSObject, NSObjectProtocol, NSString};
 use objc2_screen_capture_kit::{
-    SCContentFilter, SCFrameStatus, SCStream, SCStreamConfiguration, SCStreamDelegate, SCStreamFrameInfoScreenRect,
-    SCStreamFrameInfoStatus, SCStreamOutput, SCStreamOutputType, SCWindow,
+    SCContentFilter, SCDisplay, SCFrameStatus, SCRunningApplication, SCShareableContent, SCStream, SCStreamConfiguration,
+    SCStreamDelegate, SCStreamFrameInfoScreenRect, SCStreamFrameInfoStatus, SCStreamOutput, SCStreamOutputType, SCWindow,
 };
 
-use crate::protocol::{CaptureKind, Rect, Source, WorkerError, WorkerEvent};
+use crate::protocol::{CaptureKind, Exclusion, Rect, Source, WorkerError, WorkerEvent};
 use crate::sink::Sink;
 
 use super::sources;
@@ -53,8 +55,8 @@ pub struct Resolved {
     pub height: u32,
 }
 
-/// 把来源换成内容过滤器与几何。
-pub fn resolve(source: &Source) -> Result<Resolved, WorkerError> {
+/// 把来源换成内容过滤器与几何；整屏与区域按 `exclude` 排除应用（窗口录制不看它）。
+pub fn resolve(source: &Source, exclude: Option<&Exclusion>) -> Result<Resolved, WorkerError> {
     let content = sources::shareable_content()?;
     let display_for = |id: Option<&str>| {
         let wanted = match id {
@@ -71,11 +73,10 @@ pub fn resolve(source: &Source) -> Result<Resolved, WorkerError> {
             .find(|display| unsafe { display.displayID() } == wanted)
             .ok_or_else(|| WorkerError::new("SOURCE_NOT_FOUND", format!("display {wanted} does not exist")))
     };
-    let no_windows = NSArray::<SCWindow>::new();
     match source {
         Source::Display { display_id } => {
             let display = display_for(display_id.as_deref())?;
-            let filter = unsafe { SCContentFilter::initWithDisplay_excludingWindows(SCContentFilter::alloc(), &display, &no_windows) };
+            let filter = display_filter(&content, &display, exclude);
             let rect = CGDisplayBounds(unsafe { display.displayID() });
             Ok(geometry(filter, CaptureKind::Display, rect, None))
         }
@@ -94,10 +95,31 @@ pub fn resolve(source: &Source) -> Result<Resolved, WorkerError> {
             let display = display_for(display_id.as_deref())?;
             let bounds = CGDisplayBounds(unsafe { display.displayID() });
             let inside = clamp(rect, bounds.size).ok_or_else(|| WorkerError::new("INVALID_REQUEST", "the area is outside the display"))?;
-            let filter = unsafe { SCContentFilter::initWithDisplay_excludingWindows(SCContentFilter::alloc(), &display, &no_windows) };
+            let filter = display_filter(&content, &display, exclude);
             let global = CGRect::new(CGPoint::new(bounds.origin.x + inside.origin.x, bounds.origin.y + inside.origin.y), inside.size);
             Ok(geometry(filter, CaptureKind::Area, global, Some(inside)))
         }
+    }
+}
+
+/// 整块屏幕减去排除的应用。名单里的应用此刻没在运行（`applications` 里没有）就没有什么要排除；排除表空时与
+/// `initWithDisplay:excludingWindows:` 加空表一样。
+fn display_filter(content: &SCShareableContent, display: &SCDisplay, exclude: Option<&Exclusion>) -> Retained<SCContentFilter> {
+    let excluded: Vec<Retained<SCRunningApplication>> = match exclude {
+        Some(exclude) if !exclude.bundle_ids.is_empty() || !exclude.pids.is_empty() => unsafe { content.applications() }
+            .iter()
+            .filter(|app| {
+                let bundle = unsafe { app.bundleIdentifier() }.to_string();
+                let pid = unsafe { app.processID() };
+                exclude.bundle_ids.iter().any(|id| *id == bundle) || exclude.pids.contains(&pid)
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+    let applications = NSArray::from_retained_slice(&excluded);
+    let no_windows = NSArray::<SCWindow>::new();
+    unsafe {
+        SCContentFilter::initWithDisplay_excludingApplications_exceptingWindows(SCContentFilter::alloc(), display, &applications, &no_windows)
     }
 }
 
