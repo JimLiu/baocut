@@ -45,6 +45,8 @@ import { createBlankVideo } from './start/blank-video.ts';
 import { BriefTokens } from './start/brief-tokens.tsx';
 import { GateCard } from './start/gate-card.tsx';
 import { HomeStarters } from './start/home-starters.tsx';
+import { RC } from './recording/recording-copy.ts';
+import { blockText, useRecordingEntry } from './recording/recording-host.tsx';
 import { HomeTemplateShelf } from './start/home-template-shelf.tsx';
 import { startDraftKey } from './start/open-home.ts';
 import { ProjectPicker } from './start/project-picker.tsx';
@@ -205,6 +207,17 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
 
   // 新建空白视频（原型 `createBlank`）：16:9，建在这一页的项目里（没选项目时先建一个：没有会话，视频没有别处可放）。
   const createBlank = () => void createBlankVideo(runtime, projectId, '16:9');
+  // 录制（屏幕录制设计 §11）：与新建空白视频同类，录成这一页的项目里的一个新视频；Web 不显示。
+  const recording = useRecordingEntry();
+  const record =
+    recording.entry.kind === 'hidden'
+      ? null
+      : {
+          label: RC.record,
+          tip: RC.recordTip,
+          disabled: recording.entry.kind === 'disabled' ? blockText(recording.entry.block) : null,
+          onPress: () => recording.open({ target: { home: { projectId } } }),
+        };
 
   // 选文件是异步的：并进去时按 store 里最新的那份算，不用渲染时的快照。
   const addPaths = (paths: readonly string[]) => {
@@ -401,7 +414,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
         />
         <SlotHint labels={gate === null || gate.ok ? slots : []} onNext={() => setSlotTick((n) => n + 1)} />
         {guide ? <GateCard guide={guide} /> : null}
-        <HomeStarters target={lastTarget} narrow={narrow} onPick={applyStarter} onBlank={createBlank} />
+        <HomeStarters target={lastTarget} narrow={narrow} onPick={applyStarter} onBlank={createBlank} record={record} />
         <HomeTemplateShelf
           catalog={catalog.templates}
           scene={brief.template}

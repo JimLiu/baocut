@@ -57,7 +57,10 @@ type Item<K extends TimelineItem['kind']> = Extract<TimelineItem, { kind: K }>;
 
 export type ThreadCard =
   /** `jobIds`：这条会话归这部视频的活（行），按提交先后（与 `conversationVideoJobs` 同一份）。 */
-  { kind: 'video'; key: string; video: ConversationOutput; jobIds: Id[] } | { kind: 'download'; key: string; jobId: Id };
+  | { kind: 'video'; key: string; video: ConversationOutput; jobIds: Id[] }
+  | { kind: 'download'; key: string; jobId: Id }
+  /** 智能体发起的屏幕录制（屏幕录制设计 §13）：等待开始、录制中、收尾，到放进视频；状态读 `recordings` 主题。 */
+  | { kind: 'recording'; key: string; jobId: Id; recordingId: Id };
 
 /** 进视频卡做一行的 Job：转录、导出、固定流程（翻译、转录……）、智能体自己翻译。从链接导入在下载卡上，不进视频卡。 */
 function isRowJob(job: JobRecord): boolean {
@@ -262,6 +265,10 @@ export function threadCards(input: {
         const key = `download:${job.jobId}`;
         refs.set(key, { first: at, last: at, seq: seq++, card: { kind: 'download', key, jobId: job.jobId }, jobTurns: new Map() });
       }
+    } else if (job.kind === 'recording' && job.recording) {
+      if (owner !== job) continue;
+      const key = `recording:${job.recording.recordingId}`;
+      refs.set(key, { first: at, last: at, seq: seq++, card: { kind: 'recording', key, jobId: job.jobId, recordingId: job.recording.recordingId }, jobTurns: new Map() });
     } else if (job.videoId && isRowJob(job)) refer(job.videoId, at, job.jobId);
   }
 

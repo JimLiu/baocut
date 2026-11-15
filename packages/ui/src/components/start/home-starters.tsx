@@ -1,11 +1,21 @@
 import { ActionButton, Text, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import DeviceDesktop from '@react-spectrum/s2/icons/DeviceDesktop';
 import FileAdd from '@react-spectrum/s2/icons/FileAdd';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { HOME_COPY } from '../../copy.ts';
 import { homeStarters, type HomeStarter, type StarterKey } from '../../model/home-starters.ts';
 import { shelfGrid, shelfHead, shelfHeading } from './home-template-shelf.tsx';
 
+/** 「录制」入口（屏幕录制设计 §11）：没有时不显示（Web）；`disabled` 是置灰的原因。 */
+export interface HomeRecordEntry {
+  label: string;
+  tip: string;
+  disabled: string | null;
+  onPress(): void;
+}
+
 const section = style({ marginTop: 24 });
+const recordWrap = style({ display: 'inline-flex', outlineStyle: 'none' });
 // 卡片的底、悬停与焦点环同模板卡（home-template-shelf.tsx）；插画的几何在 app.css（.bc-quick-art），色从这里给，跟着主题走。
 const card = style({
   display: 'flex',
@@ -60,18 +70,20 @@ const STARTER_ART: Record<StarterKey, number> = { shorts: 3, sub: 2, trans: 4, c
  * 一行四张与模板对齐，第五张换到下一行；上面一幅按色系画的小插画（竖屏短片、字幕条、双语行、波形），下面是名字。
  * 点一下把一句提示词放进输入框，不发送。
  * 标题行尾的「新建空白视频」不经过 Agent，直接建一个空视频在功能区打开。`target` 是上次「转录并翻译」填的目标语言，没有时那句话留待填项。
- * `narrow` 与模板网格同一个开关：窄时两列。
+ * `narrow` 与模板网格同一个开关：窄时两列。旁边的「录制」同类：不经过 Agent，把屏幕录成一个新视频（屏幕录制设计 §11）。
  */
 export function HomeStarters({
   target,
   narrow,
   onPick,
   onBlank,
+  record,
 }: {
   target: string | null;
   narrow: boolean;
   onPick(starter: HomeStarter): void;
   onBlank(): void;
+  record?: HomeRecordEntry | null;
 }) {
   return (
     <section className={section} aria-labelledby="home-quick-title">
@@ -86,6 +98,23 @@ export function HomeStarters({
           </ActionButton>
           <Tooltip>{HOME_COPY.blankVideoTip}</Tooltip>
         </TooltipTrigger>
+        {record?.disabled ? (
+          // 置灰的按钮不接悬停，提示框出不来：原因放在包裹的 title 上，读屏读按钮的说明。
+          <span title={record.disabled} className={recordWrap}>
+            <ActionButton isQuiet size="S" isDisabled aria-label={`${record.label}. ${record.disabled}`}>
+              <DeviceDesktop />
+              <Text>{record.label}</Text>
+            </ActionButton>
+          </span>
+        ) : record ? (
+          <TooltipTrigger placement="bottom">
+            <ActionButton isQuiet size="S" onPress={record.onPress}>
+              <DeviceDesktop />
+              <Text>{record.label}</Text>
+            </ActionButton>
+            <Tooltip>{record.tip}</Tooltip>
+          </TooltipTrigger>
+        ) : null}
       </div>
       <div className={shelfGrid({ isNarrow: narrow })}>
         {homeStarters(target).map((starter) => (

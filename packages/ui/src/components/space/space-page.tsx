@@ -35,6 +35,7 @@ import Add from '@react-spectrum/s2/icons/Add';
 import AppsAll from '@react-spectrum/s2/icons/AppsAll';
 import Archive from '@react-spectrum/s2/icons/Archive';
 import Delete from '@react-spectrum/s2/icons/Delete';
+import DeviceDesktop from '@react-spectrum/s2/icons/DeviceDesktop';
 import FileAdd from '@react-spectrum/s2/icons/FileAdd';
 import Filmstrip from '@react-spectrum/s2/icons/Filmstrip';
 import Import from '@react-spectrum/s2/icons/Import';
@@ -94,6 +95,8 @@ import { takeSpaceFocus, useSpaceFocus } from '../../state/space-focus-store.ts'
 import { EditorWorkspace } from '../editor/editor-workspace.tsx';
 import { VideoQuickChat } from '../editor/video-quick-chat.tsx';
 import { createBlankVideo } from '../start/blank-video.ts';
+import { RC } from '../recording/recording-copy.ts';
+import { blockText, useRecordingEntry } from '../recording/recording-host.tsx';
 import { openHome } from '../start/open-home.ts';
 import { PageSidebar, SidebarNote, SidebarTitle, sidebarBody } from '../page-sidebar.tsx';
 import { useNarrow } from '../use-narrow.ts';
@@ -868,6 +871,7 @@ function SpaceVideo({ video }: { video: FileTarget }) {
  * - 从文件新建视频：新建空视频，导入选的文件放上主序列，再进编辑器（不自动转录：转录是另一个要排队的任务）；
  * - 从便携包新建视频：选一个 .baocut，在项目里建成新视频（`videos.importPackage`，只在桌面端）；
  * - 导入素材：登记为项目的素材，不放进任何视频（导入框里选项目）。
+ * - 录制新视频：打开录制面板，录成项目里的一个新视频（屏幕录制设计 §11；Web 不列，录不了时置灰并说明原因）。
  * 视频是项目目录下的一个子目录：筛了项目时直接建在那里，否则先选项目。
  */
 function NewMenu({ projectId, onImport }: { projectId: Id | null; onImport: () => void }) {
@@ -907,10 +911,13 @@ function NewMenu({ projectId, onImport }: { projectId: Id | null; onImport: () =
     });
     if (path) await openPackageAs(runtime, { projectId }, path);
   };
+  const recording = useRecordingEntry();
+  const recordBlocked = recording.entry.kind === 'disabled' ? blockText(recording.entry.block) : null;
+  const createByRecording = (projectId: Id) => recording.open({ target: { create: { projectId } } });
   const choices = projects.filter((p) => !p.archived).sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
 
   /** 没筛项目时，「新建空视频」「从文件新建视频」「从便携包新建视频」各带一个选项目的子菜单。 */
-  const projectMenu = (id: 'blank' | 'file' | 'package', Icon: ComponentType, label: string, hint: string, run: (projectId: Id) => unknown) =>
+  const projectMenu = (id: 'blank' | 'file' | 'package' | 'record', Icon: ComponentType, label: string, hint: string, run: (projectId: Id) => unknown) =>
     owner ? (
       <MenuItem id={id} textValue={label}>
         <Icon />
@@ -962,11 +969,22 @@ function NewMenu({ projectId, onImport }: { projectId: Id | null; onImport: () =
           else if (owner && key === 'blank') void createBlank(owner.id);
           else if (owner && key === 'file') void createFromFile(owner.id);
           else if (owner && key === 'package') void createFromPackage(owner.id);
-        }}>
+          else if (owner && key === 'record') createByRecording(owner.id);
+        }}
+        disabledKeys={recordBlocked ? ['record'] : []}>
         <MenuSection>
           {projectMenu('blank', Filmstrip, COPY.newBlank, COPY.newBlankHint, createBlank)}
           {projectMenu('file', FileAdd, COPY.newFromFile, COPY.newFromFileHint, createFromFile)}
           {pickFiles ? projectMenu('package', Archive, COPY.newFromPackage, COPY.newFromPackageHint, createFromPackage) : null}
+          {recording.entry.kind === 'hidden' ? null : recordBlocked ? (
+            <MenuItem id="record" textValue={RC.recordNewVideo}>
+              <DeviceDesktop />
+              <Text slot="label">{RC.recordNewVideo}</Text>
+              <Text slot="description">{recordBlocked}</Text>
+            </MenuItem>
+          ) : (
+            projectMenu('record', DeviceDesktop, RC.recordNewVideo, RC.recordTip, createByRecording)
+          )}
         </MenuSection>
         <MenuSection>
           <MenuItem id="import" textValue={COPY.importAssets}>

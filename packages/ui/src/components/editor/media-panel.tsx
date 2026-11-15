@@ -7,6 +7,7 @@ import Add from '@react-spectrum/s2/icons/Add';
 import AIMark from '@react-spectrum/s2/icons/AIMark';
 import AudioWave from '@react-spectrum/s2/icons/AudioWave';
 import Collection from '@react-spectrum/s2/icons/Collection';
+import DeviceDesktop from '@react-spectrum/s2/icons/DeviceDesktop';
 import Image from '@react-spectrum/s2/icons/Image';
 import Import from '@react-spectrum/s2/icons/Import';
 import Microphone from '@react-spectrum/s2/icons/Microphone';
@@ -36,6 +37,8 @@ import { ASSET_DRAG_TYPE } from './timeline.tsx';
 import { TtsPanel } from './tts-panel.tsx';
 import { useAssetUrl } from './use-asset-url.ts';
 import { MEDIA_COPY as MC } from './media-copy.ts';
+import { RC } from '../recording/recording-copy.ts';
+import { blockText, useRecordingEntry } from '../recording/recording-host.tsx';
 
 const body = style({ display: 'flex', flexDirection: 'column', gap: 8 });
 /** 导入框（原型 .vl-import）：虚线框，左边说明，右边「导入」；文件可以直接拖进来。 */
@@ -53,6 +56,7 @@ const importBox = style({
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
 const importText = style({ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: 1, minWidth: 0 });
+const recordWrap = style({ display: 'inline-flex' });
 const strong = style({ font: 'ui-sm', fontWeight: 'bold', color: 'gray-900' });
 const small = style({ font: 'ui-xs', color: 'gray-600' });
 const heading = style({ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, paddingTop: 8, paddingX: 4 });
@@ -178,6 +182,13 @@ export function MediaPanel({ kind, sequence, assets }: { kind: PlaceableKind; se
     if (videoId) openAiTool(videoId, 'dub');
   };
 
+  // 「导入」旁的「录制」（屏幕录制设计 §11）：录进这个视频，联动组放在播放头处的新轨道上。只有视频页、桌面端有。
+  const recording = useRecordingEntry();
+  const recordBlocked = recording.entry.kind === 'disabled' ? blockText(recording.entry.block) : !editable ? '' : null;
+  const record = () => {
+    if (videoId) recording.open({ target: { videoId, at: useEditor.getState().playhead } });
+  };
+
   const importPaths = async (paths: string[]) => {
     if (!paths.length) return;
     const receipt = await apply(
@@ -249,6 +260,24 @@ export function MediaPanel({ kind, sequence, assets }: { kind: PlaceableKind; se
           <Import />
           <Text>{MC.import}</Text>
         </Button>
+        {kind === 'video' && videoId && recording.entry.kind !== 'hidden' ? (
+          recordBlocked !== null ? (
+            <span title={recordBlocked || undefined} className={recordWrap}>
+              <Button variant="secondary" size="S" isDisabled aria-label={recordBlocked ? `${RC.recordIntoVideo}. ${recordBlocked}` : undefined}>
+                <DeviceDesktop />
+                <Text>{RC.recordIntoVideo}</Text>
+              </Button>
+            </span>
+          ) : (
+            <TooltipTrigger>
+              <Button variant="secondary" size="S" onPress={record}>
+                <DeviceDesktop />
+                <Text>{RC.recordIntoVideo}</Text>
+              </Button>
+              <Tooltip>{RC.recordIntoTip}</Tooltip>
+            </TooltipTrigger>
+          )
+        ) : null}
       </div>
       <div className={heading}>
         <span className={strong}>{MC.existing(kind)}</span>

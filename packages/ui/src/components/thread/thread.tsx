@@ -39,6 +39,7 @@ import { TaskFooter } from './task-footer.tsx';
 import { ForkMarker } from './fork-marker.tsx';
 import { ImportedMarker } from './imported-marker.tsx';
 import { DownloadCard, useJobsForPlacement } from './video-card-rows.tsx';
+import { RecordingCard } from '../recording/recording-card.tsx';
 
 const scroller = style({ flexGrow: 1, minHeight: 0, overflowY: 'auto' });
 export const column = style({
@@ -506,6 +507,8 @@ function ThreadCards({ cards, conversationId }: { cards: readonly ThreadCard[]; 
       {cards.map((card) =>
         card.kind === 'video' ? (
           <OutputCard key={card.key} output={card.video} conversationId={conversationId} jobIds={card.jobIds} />
+        ) : card.kind === 'recording' ? (
+          <RecordingCard key={card.key} recordingId={card.recordingId} conversationId={conversationId} />
         ) : (
           <DownloadCard key={card.key} jobId={card.jobId} conversationId={conversationId} />
         ),

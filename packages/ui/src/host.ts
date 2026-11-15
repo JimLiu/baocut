@@ -70,6 +70,11 @@ export interface HostBridge {
    * 只有这样才截得到。桌面端才有；Web 没有它，界面退回拷预览画布。
    */
   captureFrame?(rect: CaptureRect): Promise<Uint8Array | null>;
+  /**
+   * 屏幕录制（屏幕录制设计 §11）：只有桌面端、Runtime 就在这台电脑上时才有；没有它的宿主（Web）不显示录制入口。
+   * 录制中的控制条、菜单栏图标与全局快捷键在主进程里，自己订阅 `recordings` 主题；界面只把设置交过去。
+   */
+  recording?: RecordingHost;
   /** 应用自动更新（架构设计 §2.6，桌面端才有）。没有它的宿主里，更新相关的界面一概不出现。 */
   updates?: UpdatesHost;
   /** 系统通知与徽标（产品设计 §3.1「提醒」，桌面端才有）。没有它的宿主（Web）只在应用里提示。 */
@@ -81,6 +86,16 @@ export interface HostBridge {
    * 在开发时来自开发服务器、出货时与 Runtime 同一次构建，没有这个问题。
    */
   buildNotes?(): Promise<WebBuildNote[]>;
+}
+
+/** 录制在宿主一侧的部分（apps/desktop 的 `recording/`）。 */
+export interface RecordingHost {
+  /** 打开系统设置里对应的隐私页（屏幕录制、摄像头、麦克风、输入监控）；BaoCut 不替用户改。 */
+  openSystemSettings(permission: 'screen' | 'camera' | 'microphone' | 'inputMonitoring'): Promise<void>;
+  /** 设置 › 录制的几项：全局快捷键（Electron accelerator，空串不用）与录制时是否收起窗口。启动时与每次改动时调用。 */
+  configure(settings: { shortcuts: { stop: string; pause: string }; hideWindow: boolean }): void;
+  /** 快捷键注册不上（被别的应用占了）时通知界面：给出没注册上的那几个。 */
+  onShortcutFailed?(listener: (failed: Array<'stop' | 'pause'>) => void): () => void;
 }
 
 /**
