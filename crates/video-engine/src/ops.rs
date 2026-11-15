@@ -4388,6 +4388,8 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
     // 正文按键有序的 JSON 保存，摘要与写法无关。
     let text = crate::video::canonical_json(input.body);
     let content_hash = crate::video::sha256_text(&text);
+    // 去掉键盘轨的清单：旧版本一并从记录里拿掉，见下面。
+    let mut supersedes = false;
     let (id, revision) = match input.document_id {
         Some(id) => {
             let existing = state.documents.get(id).ok_or_else(|| ErrorBody::not_found(kinds::document(), id))?;
@@ -4415,12 +4417,16 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
                     .or_else(|| ctx.document_bodies.get(id))
                     .is_some_and(|old| &video_model::recording::without_keyboard(old) == input.body)
             };
-            if kind == video_model::recording::RECORDING_KIND && !drops_keyboard() {
-                return Err(ErrorBody::invalid_operation(msg!(
-                    "engine.recordingFixed",
-                    "A recording manifest cannot change after it is written"
-                ))
-                .entities([id]));
+            if kind == video_model::recording::RECORDING_KIND {
+                if !drops_keyboard() {
+                    return Err(ErrorBody::invalid_operation(msg!(
+                        "engine.recordingFixed",
+                        "A recording manifest cannot change after it is written"
+                    ))
+                    .entities([id]));
+                }
+                // 带键盘的旧版本不留在记录里：留着的话键盘轨仍算被用着，删不掉，便携包也照样带上它。
+                supersedes = true;
             }
             let latest = existing.revisions.keys().filter_map(|r| r.parse::<u64>().ok()).max().unwrap_or(0);
             let next = latest.max(ctx.document_revision_floor.get(id).copied().unwrap_or(0)) + 1;
@@ -4457,6 +4463,9 @@ pub(crate) fn put_document(state: &mut VideoState, input: PutDocumentInput<'_>, 
         record.extensions.insert(key.clone(), value.clone());
     }
     record.current_revision = revision.clone();
+    if supersedes {
+        record.revisions.clear();
+    }
     record.revisions.insert(
         revision.clone(),
         DocumentRevision {

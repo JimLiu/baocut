@@ -489,12 +489,23 @@ fn a_recording_manifest_carries_its_assets_and_is_checked_on_write() {
     let dropped = &source.state().documents[&typed_id];
     assert_eq!(dropped.current_revision, "2");
     assert_eq!(dropped.revisions["2"].asset_refs.len(), 2);
+    assert_eq!(dropped.revisions.len(), 1, "带键盘的旧版本不留在记录里");
+    // 键盘轨不再被用着：删得掉，便携包里也没有它。
+    let key_asset = key_track["id"].as_str().unwrap().to_string();
+    let key_hash = {
+        let asset = &source.state().assets[&key_asset];
+        asset.revisions[&asset.current_revision].content_hash.clone()
+    };
+    apply(&mut source, "cmd_keys_removed", vec![json!({ "type": "removeAssets", "assetIds": [key_asset] })]);
+    assert!(!source.state().assets.contains_key(&key_asset));
 
     let package = root.path().join("package");
     write_package(&source, &package);
     let loaded = import_package(&root.path().join("loaded"), &package, None, &ffprobe()).unwrap();
     assert_eq!(loaded.state().documents[&id].revisions[&rev].asset_refs.len(), 2);
     assert!(loaded.state().documents.values().any(|r| r.kind == "screen-view"));
+    assert!(!package.join(package_asset_path(&key_hash, "application/x-baocut-key-track+json")).exists());
+    assert_eq!(loaded.state().documents[&typed_id].revisions.len(), 1);
     drop(loaded);
     let path = package.join(PACKAGE_SNAPSHOT);
     let mut snapshot: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();

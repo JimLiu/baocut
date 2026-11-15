@@ -132,6 +132,7 @@ pub(crate) fn link_items(
             ))
             .entities([item_id]));
         }
+        crate::ops::ensure_editable(state, &placed.value)?;
         if !matches!(placed.value, TimelineItem::Video(_) | TimelineItem::Audio(_)) {
             return Err(ErrorBody::invalid_operation(msg!(
                 "engine.linkGroupMember",
