@@ -44,6 +44,7 @@ import { LegacyImportBanner } from './legacy-import/legacy-import-task.tsx';
 import { createBlankVideo } from './start/blank-video.ts';
 import { BriefTokens } from './start/brief-tokens.tsx';
 import { GateCard } from './start/gate-card.tsx';
+import { RecoveryPrompt } from './recording/recovery-prompt.tsx';
 import { HomeStarters } from './start/home-starters.tsx';
 import { RC } from './recording/recording-copy.ts';
 import { blockText, useRecordingEntry } from './recording/recording-host.tsx';
@@ -414,6 +415,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
         />
         <SlotHint labels={gate === null || gate.ok ? slots : []} onNext={() => setSlotTick((n) => n + 1)} />
         {guide ? <GateCard guide={guide} /> : null}
+        <RecoveryPrompt />
         <HomeStarters target={lastTarget} narrow={narrow} onPick={applyStarter} onBlank={createBlank} record={record} />
         <HomeTemplateShelf
           catalog={catalog.templates}

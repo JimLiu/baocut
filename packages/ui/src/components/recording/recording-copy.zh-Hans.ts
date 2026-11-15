@@ -97,7 +97,7 @@ export const zhHans: RecordingMessages = {
   cardOpenVideo: '打开视频',
 
   recoverTitle: '有一次没有收完的录制',
-  recoverBody: (date, duration) => `${date} 的录制（${duration}）在放进视频之前中断了。可以恢复，或者删掉录下的文件。`,
+  recoverBody: (date, duration) => `${date}的录制（${duration}）在放进视频之前中断了。可以恢复，或者删掉录下的文件。`,
   recoverMore: (n) => `还有 ${n} 次没有收完的录制`,
   recover: '恢复',
   delete: '删除',

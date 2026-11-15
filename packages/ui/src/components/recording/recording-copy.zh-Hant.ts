@@ -97,7 +97,7 @@ export const zhHant: RecordingMessages = {
   cardOpenVideo: '打開影片',
 
   recoverTitle: '有一個錄製尚未完成',
-  recoverBody: (date, duration) => `${date} 的錄製（${duration}）在加入影片之前中斷了。你可以復原它，或刪除已錄下的檔案。`,
+  recoverBody: (date, duration) => `${date}的錄製（${duration}）在加入影片之前中斷了。你可以復原它，或刪除已錄下的檔案。`,
   recoverMore: (n) => `還有 ${n} 個未完成的錄製`,
   recover: '復原',
   delete: '刪除',
