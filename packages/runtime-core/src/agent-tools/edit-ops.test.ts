@@ -16,6 +16,30 @@ describe('edits_apply 的操作表', () => {
     for (const family of OPERATION_FAMILIES) expect(EDIT_OPERATIONS.some((s) => s.family === family)).toBe(true);
   });
 
+  it('联动组的操作：登记、解组、同步校正与复制都在表里，补成引擎的形态', () => {
+    for (const type of ['linkItems', 'unlinkItems', 'syncLinkedItem', 'duplicateLinkGroup']) expect(OPERATION_TYPES).toContain(type);
+    const [sync, duplicate] = normalizeOperations(
+      [
+        { type: 'syncLinkedItem', itemId: 'item_mic', offset: -0.04 },
+        { type: 'duplicateLinkGroup', groupId: 'lg_1', at: 60 },
+      ],
+      'seq_root',
+      '/tmp',
+    );
+    // 同步校正的 offset 是源时钟上的十进制秒，不换成序列时间。
+    expect(sync).toEqual({ type: 'syncLinkedItem', itemId: 'item_mic', offset: '-0.04' });
+    expect(duplicate).toEqual({
+      type: 'duplicateLinkGroup',
+      groupId: 'lg_1',
+      at: { unit: 'seconds', value: '60' },
+      sequenceId: 'seq_root',
+      alignment: 'nearest-frame',
+    });
+    const style = EDIT_OPERATIONS.find((s) => s.type === 'setStyle')!;
+    expect(style.schema.safeParse({ type: 'setStyle', itemId: 'item_1', screenView: { documentId: 'doc_view' } }).success).toBe(true);
+    expect(style.schema.safeParse({ type: 'setStyle', itemId: 'item_1', screenView: null }).success).toBe(true);
+  });
+
   for (const spec of EDIT_OPERATIONS) {
     it(`${spec.type}：示例通过 schema 与编译后的 JSON Schema，能补成引擎的形态`, () => {
       expect(spec.example.type).toBe(spec.type);

@@ -281,6 +281,59 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     example: { type: 'insertRange', at: 30, duration: 4, trackIds: ['track_v1', 'track_a1'] },
   },
   {
+    type: 'linkItems',
+    family: 'items',
+    doc: [
+      '- {"type":"linkItems","itemIds":["片段 ID"],"kind":"recording","recording"?:{"documentId"}|{"ref"}}：把同一次录制的屏幕、摄像头与声音片段（同一条序列上的视频与音频片段，都还不在别的组里）登记成一个联动组；recording 是这一组来自的录制清单（kind recording 的文档，或同一笔 putDocument 的 ref）。登记之后 moveItem、moveItems、trimItem、splitItem、setSpeed 指到一个成员就整组进行，removeRange、insertRange 与剪口也带上没列出轨道上的成员，各成员在同一时刻对着同一录制时刻；拆分出来的右半登记成新组。外观（位置、大小、遮罩、音量）只改指到的那个。删整组要在 deleteItems 里列出全部成员。单独改一个成员的时间（joinItems 合并成员、replaceItemAsset 给新的 timeMap）失败（details.rule: link-group）：先 unlinkItems，或用 syncLinkedItem 校正。任一成员或它的轨道锁着时整笔失败（TARGET_LOCKED，details.itemId 指出是哪个成员）。',
+    ],
+    schema: op('linkItems', {
+      itemIds: z.array(idOf('片段 ID')).min(1).describe('同一次录制的视频与音频片段'),
+      kind: z.literal('recording').describe('recording'),
+      recording: z
+        .union([z.object({ documentId: idOf('录制清单的文档 ID') }), z.object({ ref: z.string().describe('同一笔 putDocument 的 ref') })])
+        .optional()
+        .describe('这一组来自的录制清单'),
+      sequenceId,
+    }),
+    example: { type: 'linkItems', itemIds: ['item_screen', 'item_camera', 'item_mic'], kind: 'recording', recording: { documentId: 'doc_recording' } },
+  },
+  {
+    type: 'unlinkItems',
+    family: 'items',
+    doc: ['- {"type":"unlinkItems","groupId":"联动组 ID"}：解组：删掉登记，清掉成员的 linkGroupId，之后各自编辑。组 ID 是片段的 linkGroupId。'],
+    schema: op('unlinkItems', {
+      groupId: idOf('联动组 ID（片段的 linkGroupId）'),
+      sequenceId,
+    }),
+    example: { type: 'unlinkItems', groupId: 'lg_1' },
+  },
+  {
+    type: 'syncLinkedItem',
+    family: 'items',
+    doc: [
+      '- {"type":"syncLinkedItem","itemId","offset":秒}：同步校正：联动组里一个成员（例如对不上口型的麦克风）的源起点加上 offset（可为负，正数让它播得更靠后的内容），位置与长度不变，其余成员不动；之后的整组编辑保留这个校正。不在组里时失败；超出素材时 SOURCE_TIME_OUT_OF_RANGE。',
+    ],
+    schema: op('syncLinkedItem', {
+      itemId: idOf('联动组里的片段 ID'),
+      offset: seconds.describe('源起点加上多少秒（可为负）'),
+      sequenceId,
+    }),
+    example: { type: 'syncLinkedItem', itemId: 'item_mic', offset: 0.04 },
+  },
+  {
+    type: 'duplicateLinkGroup',
+    family: 'items',
+    doc: [
+      '- {"type":"duplicateLinkGroup","groupId":"联动组 ID","at":秒}：复制整个联动组：成员复制成新的片段、登记成新的组（同一份录制清单），最早的成员从 at 开始，屏幕取景（放大与光标）文档一并复制成新文档；之后两组各改各的。新的片段与取景文档列在回执的 createdIds，新组的 ID 是它们的 linkGroupId。',
+    ],
+    schema: op('duplicateLinkGroup', {
+      groupId: idOf('联动组 ID（片段的 linkGroupId）'),
+      at: time.describe('复制出来的最早的成员从哪一刻开始'),
+      ...timed,
+    }),
+    example: { type: 'duplicateLinkGroup', groupId: 'lg_1', at: 60 },
+  },
+  {
     type: 'updateItem',
     family: 'items',
     doc: [
@@ -367,7 +420,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'setStyle',
     family: 'styles',
     doc: [
-      '- {"type":"setStyle","itemId","mode"?:"fullscreen"|"pip","fit"?:"cover"|"contain","bg"?:"blur"|"black"|"#RRGGBB","opacity"?,"radius"?,"mask"?:{"shape":"ellipse","feather"?},"crop"?:{"left","top","right","bottom"},"focalPoint"?:{"x","y","zoom"?},"panels"?:[{"rect":{"x","y","w","h"},"focalPoint":{"x","y","zoom"?}}],"style"?:{…},"verticalAlign"?:"top"|"center"|"bottom"}：改片段的外观，只改给出的字段，给 null 回到缺省。mode 只用于视频、图片、素材贴纸、占位框与白板：fullscreen 铺满画布（画中画的位置与宽保留，切回 pip 时还原），pip 按 setTransform 的位置与宽摆放，缺省为 pip；fit 是铺满时裁切（cover）还是留边（contain），bg 是留边的底。opacity 在 0 到 1；radius 是圆角，按 540 短边下的像素；mask 的 feather 不小于 0；crop 每边是 0 到 1 的比例，左右、上下之和小于 1，只用于视频与图片；focalPoint 是 cover 裁掉多余部分时留哪一段（x、y 在 0 到 1，0 贴左 / 上，0.5 居中，1 贴右 / 下），源画面不裁，换画幅时还在；zoom 是在刚好铺满之上再放大多少（1 到 4，缺省 1），源上 x、y 那一点在画面上不动、围着它放大；只用于视频与图片。panels 把全屏 cover 的视频分成 2 到 4 格（rect 是画面的百分比，不重叠；上下两格是 {x:0,y:0,w:100,h:50} 与 {x:0,y:50,w:100,h:50}），每格各按自己的 focalPoint 铺满这一格，有 panels 时片段的 focalPoint 不起作用；数组整份替换，null 换回一人；mode 或 fit 改得不再是全屏 cover 时格子跟着去掉。style 与 verticalAlign 只用于文字片段；字幕的位置与样式用 setCaptionStyle。',
+      '- {"type":"setStyle","itemId","mode"?:"fullscreen"|"pip","fit"?:"cover"|"contain","bg"?:"blur"|"black"|"#RRGGBB","opacity"?,"radius"?,"mask"?:{"shape":"ellipse","feather"?},"crop"?:{"left","top","right","bottom"},"focalPoint"?:{"x","y","zoom"?},"panels"?:[{"rect":{"x","y","w","h"},"focalPoint":{"x","y","zoom"?}}],"screenView"?:{"documentId"},"style"?:{…},"verticalAlign"?:"top"|"center"|"bottom"}：改片段的外观，只改给出的字段，给 null 回到缺省。mode 只用于视频、图片、素材贴纸、占位框与白板：fullscreen 铺满画布（画中画的位置与宽保留，切回 pip 时还原），pip 按 setTransform 的位置与宽摆放，缺省为 pip；fit 是铺满时裁切（cover）还是留边（contain），bg 是留边的底。opacity 在 0 到 1；radius 是圆角，按 540 短边下的像素；mask 的 feather 不小于 0；crop 每边是 0 到 1 的比例，左右、上下之和小于 1，只用于视频与图片；focalPoint 是 cover 裁掉多余部分时留哪一段（x、y 在 0 到 1，0 贴左 / 上，0.5 居中，1 贴右 / 下），源画面不裁，换画幅时还在；zoom 是在刚好铺满之上再放大多少（1 到 4，缺省 1），源上 x、y 那一点在画面上不动、围着它放大；只用于视频与图片。panels 把全屏 cover 的视频分成 2 到 4 格（rect 是画面的百分比，不重叠；上下两格是 {x:0,y:0,w:100,h:50} 与 {x:0,y:50,w:100,h:50}），每格各按自己的 focalPoint 铺满这一格，有 panels 时片段的 focalPoint 不起作用；数组整份替换，null 换回一人；mode 或 fit 改得不再是全屏 cover 时格子跟着去掉。screenView 只用于屏幕录制的视频片段，引用一份屏幕取景文档（kind screen-view，录屏时的放大与光标），文档必须是给这段画面写的，有 panels 的视频不能有，null 去掉。style 与 verticalAlign 只用于文字片段；字幕的位置与样式用 setCaptionStyle。',
     ],
     schema: op('setStyle', {
       itemId: idOf('画面片段 ID'),
@@ -414,6 +467,11 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
         .nullable()
         .optional()
         .describe('分屏（只用于全屏 cover 的视频）：2 到 4 格，不重叠；整份替换，null 去掉换回一人'),
+      screenView: z
+        .object({ documentId: idOf('屏幕取景文档 ID') })
+        .nullable()
+        .optional()
+        .describe('屏幕录制的视频片段的取景（放大与光标）；null 去掉'),
       style: z.record(z.string(), z.unknown()).nullable().optional().describe('文字样式对象（只用于文字片段）'),
       verticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional().describe('文字的垂直对齐：top、center、bottom'),
       sequenceId,

@@ -1704,10 +1704,23 @@ export type EditOperation =
       /** 视频的屏幕取景（§3.18）；`null` 去掉。 */
       screenView?: ScreenViewRef | null;
     }
-  /** 把同一条序列上的视频与音频实例登记成一个联动组（§3.18）；实例不能已经属于别的组。`recording` 是这一组来自的录制清单。 */
+  /**
+   * 把同一条序列上的视频与音频实例登记成一个联动组（§3.18）；实例不能已经属于别的组。`recording` 是这一组来自的录制清单。
+   * 登记之后移动、拆分、修剪、删除一段、剪口、变速都整组进行，单独改一个成员的时间拒绝（`details.rule: 'link-group'`）。
+   */
   | { type: 'linkItems'; sequenceId?: Id; itemIds: Id[]; kind: 'recording'; recording?: { documentId: Id } | { ref: string } }
   /** 解组（§3.18）：删掉登记，清掉成员的 `linkGroupId`。 */
   | { type: 'unlinkItems'; sequenceId?: Id; groupId: Id }
+  /**
+   * 同步校正（§3.18）：联动组里一个成员的源起点加上 `offset`（十进制秒，可为负），位置与长度不变，其余成员不动。
+   * 不在组里或时间映射不是线性时拒绝（`INVALID_OPERATION`）；超出素材时 `SOURCE_TIME_OUT_OF_RANGE`。
+   */
+  | { type: 'syncLinkedItem'; sequenceId?: Id; itemId: Id; offset: string }
+  /**
+   * 复制整个联动组（§3.18）：成员复制成新的实例、登记成新的组（同一份录制清单），最早的成员从 `at` 开始；成员引用的屏幕取景
+   * 文档复制成新文档。新的实例与文档列在 `createdIds`，新组的 ID 是它们的 `linkGroupId`。
+   */
+  | { type: 'duplicateLinkGroup'; sequenceId: Id; groupId: Id; at: TimelineTimeInput; alignment: FrameAlignment }
   /** 改文字实例的内容：`text`、`counter`、`chapter` 给且只给一个，给了的那个替换另外两个。 */
   | { type: 'setText'; sequenceId?: Id; itemId: Id; text?: string; counter?: CounterProps; chapter?: ChapterTextProps }
   /**

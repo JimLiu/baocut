@@ -478,7 +478,19 @@ export function digestReceipt(receipt: TransactionReceipt, fps: Rate, replayed: 
 // ---- 操作的规范化 ----
 
 /** 这些操作带时间：缺 `sequenceId` 时用根序列，缺 `alignment` 时取最近的帧。 */
-const TIMED = new Set(['addItem', 'moveItem', 'moveItems', 'trimItem', 'splitItem', 'removeRange', 'insertRange', 'setTransition', 'setChapters', 'upsertChapter']);
+const TIMED = new Set([
+  'addItem',
+  'moveItem',
+  'moveItems',
+  'trimItem',
+  'splitItem',
+  'removeRange',
+  'insertRange',
+  'setTransition',
+  'setChapters',
+  'upsertChapter',
+  'duplicateLinkGroup',
+]);
 const SEQUENCE_SCOPED = new Set([
   ...TIMED,
   'deleteItems',
@@ -510,7 +522,7 @@ export class OperationShapeError extends Error {
  * 不改语义；字段与取值的校验仍在引擎里做，未知字段由引擎拒绝。
  *
  * - 时间可以写成数字或数字字符串（秒），换成 `{ unit: 'seconds', value }`；`{ unit, value }` 原样保留。
- * - `setAudioMix` 的淡入淡出、`setDucking` 的 attack / release 可以写数字（秒），换成十进制字符串。
+ * - `setAudioMix` 的淡入淡出、`setDucking` 的 attack / release、`syncLinkedItem` 的 `offset` 可以写数字（秒），换成十进制字符串。
  * - `setTransition.duration`、`insertRange.duration`、`setChapters` 每一章的 `at`、`upsertChapter.at` 与 `removeRange` 的 `from` / `to`
  *   同上换成时间输入。
  * - `addItem.asset` 与章节的 `thumbnail` 可以直接写素材 ID。
@@ -525,8 +537,13 @@ export function normalizeOperations(operations: unknown[], rootSequenceId: Id, c
     if (typeof type !== 'string') throw new OperationShapeError(index, '缺少 type');
     if (SEQUENCE_SCOPED.has(type) && op.sequenceId === undefined) op.sequenceId = rootSequenceId;
     if (TIMED.has(type) && op.alignment === undefined) op.alignment = 'nearest-frame';
-    for (const key of ['at', 'offset'] as const) {
-      if (op[key] !== undefined) op[key] = timeInput(op[key], index);
+    // 同步校正的 `offset` 是源时钟上的十进制秒，不是序列时间。
+    if (type === 'syncLinkedItem') {
+      if (typeof op.offset === 'number' && Number.isFinite(op.offset)) op.offset = decimal(op.offset);
+    } else {
+      for (const key of ['at', 'offset'] as const) {
+        if (op[key] !== undefined) op[key] = timeInput(op[key], index);
+      }
     }
     if (type === 'removeRange') {
       for (const key of ['from', 'to'] as const) {
