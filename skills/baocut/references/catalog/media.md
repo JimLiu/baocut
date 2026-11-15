@@ -1,8 +1,8 @@
 ---
-description: 媒体的机制：从链接下载、检索与下载网上素材、转码与合并、放大与修改图片（去水印、去物体、重绘、扩图）、取帧看画面、导入素材（链接还是复制）、新建视频、打开便携包、内置主播的角色包、生成图片（含成套的角色姿势与场景底图），以及看一条视频的证据阶梯。下载、导入、取帧、修图或生成图片之前读。
+description: 媒体的机制：从链接下载、检索与下载网上素材、转码与合并、放大与修改图片（去水印、去物体、重绘、扩图）、取帧看画面、导入素材（链接还是复制）、新建视频、打开便携包、录屏、内置主播的角色包、生成图片（含成套的角色姿势与场景底图），以及看一条视频的证据阶梯。下载、导入、取帧、修图或生成图片之前读。
 ---
 
-# 媒体：下载、网上素材、转码、修图、取帧、素材与新建视频
+# 媒体：下载、网上素材、转码、修图、取帧、素材、新建视频与录屏
 
 ## 何时用
 
@@ -179,6 +179,29 @@ baocut retouch shot.png --op watermark --mask '{"boxes":[{"x":1500,"y":980,"widt
 | 新建项目 | {{tool:projects_create}}，{{arg:path}}（只在用户要求时） |
 
 导入默认**链接**原文件、不复制：之后移动或删除那个文件，素材就缺失了。用户要求复制进视频，或文件是你生成之后会清理的临时文件时，给 `managed`；已经链接的素材要收进视频，用 {{tool:edits_apply}} 的 `collectAssets`。
+
+### 录屏
+
+只录运行 BaoCut 的这台电脑；只在用户要录的时候用。
+
+| 要做的事 | 调用 |
+| --- | --- |
+| 看能录什么、权限怎样 | {{tool:recordings_sources}}：屏幕、窗口、摄像头、麦克风的 ID，与屏幕、摄像头、麦克风、输入监控的权限状态。窗口标题可能是隐私，只用来和用户确认录哪个 |
+| 开始录 | {{tool:record}}：缺省是主屏幕、缺省麦克风、另画光标、不录键盘；{{arg:window}} 或 {{arg:area}} 换来源，{{arg:camera}}、{{arg:systemAudio}}、{{arg:keys}} 按用户说的加；{{arg:video}} 录进已有视频，不给就新建 |
+| 先检查不开始 | {{tool:record}} 加 {{arg:dryRun}} |
+| 暂停、继续、停止 | {{tool:recordings_pause}}、{{tool:recordings_resume}}、{{tool:recordings_stop}}（停止并保留） |
+| 看状态、找没收完的 | {{tool:recordings_status}}、{{tool:recordings_list}}；没收完的用 {{tool:recordings_recover}} 收尾导入 |
+| 丢掉一次录制 | {{tool:recordings_discard}}：删掉录下的文件，先征得用户同意 |
+
+<!-- surface: agent -->
+会话里调 {{tool:record}} 不会直接开始：桌面端弹出预填的录制面板，用户按开始才录。调用之后告诉用户录完按停止，结束这一轮，不要轮询；录完的任务会交回会话。
+<!-- /surface -->
+<!-- surface: cli -->
+`baocut record` 会倒计时后直接开始录；等它的时候第一次 Ctrl-C 是停止并保留，不是取消。
+<!-- /surface -->
+
+- 录完是一个联动组：屏幕、摄像头、麦克风、系统声音各是时间线上的片段，鼠标与键盘是素材；结果里有 `videoId`、`groupId`、`itemIds`。之后转录麦克风、剪口误，都用现有的工具。
+- 缺系统权限时报 `RECORDING_PERMISSION_DENIED`，`details.systemAccess` 列出缺哪几项与在系统设置里的位置：告诉用户去开，不要试图改系统设置。没开桌面端、远程连接或这个系统不能录时 `RECORDING_UNAVAILABLE`；无人在场的运行里 `RECORDING_UNATTENDED`；已经在录时 `RECORDING_BUSY`。
 
 ### 内置主播
 

@@ -47,6 +47,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 压缩、转码、合并、提取音频 | 文件到文件，不建视频，原文件不动 | [media](references/catalog/media.md) | — |
 | 放大图片、去水印、去掉物体、重画一块、扩图 | 文件到文件，输出新的 PNG，原图不动 | [media](references/catalog/media.md) | — |
 | 截几帧、看看画面 | 按时刻取帧成图片再看 | [media](references/catalog/media.md) | — |
+| 录屏、录我的屏幕、录一段操作演示 | 录这台电脑的屏幕（可加摄像头、麦克风、系统声音）进视频，录完在时间线上接着剪 | [media](references/catalog/media.md) | — |
 | 生成图片、配图、画插图 | 先看图片生成能用哪个服务，再按图要去的地方生成：进视频的导入为候选素材，给文章、幻灯片的存进工作目录 | [media](references/catalog/media.md) | 所在任务的 craft（封面、B-roll、旁白成片、成片分镜、文章与幻灯片配图） |
 <!-- surface: cli -->
 | 看成片画面、字幕位置，在编辑器里拖一下，让我在编辑器里看 | 开网页版编辑器直达这个视频；请用户审时把审片页开在宿主的浏览器里、给审片链接；文字与时间线的修改仍走命令 | [web](references/catalog/web.md) | — |

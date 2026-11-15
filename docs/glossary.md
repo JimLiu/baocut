@@ -208,6 +208,9 @@
 | Supervisor | 启动并监管 Runtime Worker 的常驻进程 |
 | Engine Host | Runtime 私有管理的 Rust 宿主进程，承载 VideoEngine 与 VideoStore |
 | Model Worker | Runtime 按需启动的 Rust 推理进程，一个进程承载一个常驻模型包，一次只执行一个任务 |
+| Recording Worker | 录屏时 Runtime 启动的 Rust 进程（`recording-worker`）：采集屏幕、窗口、摄像头与声音，记鼠标与键盘，把各路写成分段文件与一份录制日志；不碰视频，导入由 Runtime 做。macOS 以外回答不支持。见屏幕录制设计 §7 |
+| 录制日志（journal） | Recording Worker 在录制目录里只追加写的 `journal.jsonl`：开始、每段的起止、每路流的文件与起止时刻、指针与键盘的事件文件、光标图片。Runtime 收尾与崩溃后恢复都只读它 |
+| 段（Segment） | 一次录制里两次暂停之间连续录下的一截；每次恢复开始新的一段，每路流每段一个文件。暂停的时间不进录制时间 |
 | 远端节点 | 开启了共享的另一台机器上的 Runtime；只接受能力任务，不接触视频 |
 | 节点服务 | Runtime 内面向局域网的监听面，承载远端节点的配对与能力任务 |
 | 对外服务 | Runtime 向其他程序或设备开放的受管入口：MCP 服务、模型接口服务、Web 服务与节点服务。各有自己的监听面、认证与访问策略，默认关闭 |

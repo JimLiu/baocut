@@ -159,6 +159,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `upscale` | 放大图片（`upscale-image` 流程：本机的 Real-ESRGAN、Upscayl 权重、waifu2x、Lanczos，或交给生图模型重画） | `files`（1–50 张 PNG、JPEG、WebP）、`scale`（2、3、4，默认 4）、`model`（13 种，`photo` 默认，见架构设计 §7.9）、`denoise`（只有 waifu2x 的模型收）、`provider`、`image-model`、`prompt`（只有 `generative` 收）、`out-dir`（默认保存位置）。给了所选引擎不收的参数时在确认之前拒绝；所选模型要的工具或权重包没有安装时按 `external_tools_install`（`high`）确认、一次只提交一个安装；`generative` 先选定生图模型再确认，确认卡写出它，外发的授权与预算同 `image`；对外服务不收 |
 | `retouch` | 去除物体、去水印、重绘局部、扩展画面（`remove-object` 等四个流程） | `op`（`erase`、`watermark`、`repaint`、`expand`）、`files`（去水印 1–50 张，别的 1 张）、`mask`（原图像素的 `boxes` / `strokes`；扩图不收）、`method`（`fill` 本机 ffmpeg、`model` 能改图的图像模型）、`prompt`（重绘必填、扩图可选）、`expand`（`ratio` + `anchor` 或 `margins`）、`provider` / `model`（不给模型时用生图的默认，它不能改图就换第一个能改图的）、`out-dir`。`model` 补法在确认前选定模型，确认与结果写出实际用的；没有能改图的模型时同步拒绝，补救是快速填充或请用户装一个。按 `retouch`（`command`）确认；对外服务不收 |
 | `music` | 生成音乐（歌曲或配乐）：只有本机的音乐模型包（含 audio.cpp 引擎组件），很慢 | `mode`（`song` / `instrumental`）、`style`、`lyrics`（只在 `song`）、`target-duration-sec`、`max-duration-sec`、`planning`、`seed`、`provider`、`model`、`video`、`out` |
+| `record` | 录这台电脑的屏幕进视频（[屏幕录制设计 §12、§13](../screen-recording/README.md#12-命令行)）：采集、收尾、导入成一个联动组；只录 Runtime 所在的电脑，只在工具桥与 CLI，不在 MCP 面 | `display` / `window` / `area` 三选一、`camera`、`mic` / `no-mic`、`system-audio`、`cursor`（`separate` / `baked` / `none`）、`keys`（`off` / `shortcuts` / `all`）、`fps`、`countdown`、`duration`、`video` 或 `name` + `project`、`no-auto-zoom`、`no-open`、`dry-run`。会话里不直接采集：停在「等待开始」，桌面端弹出预填的面板，用户按开始就是批准；无人在场的运行 `RECORDING_UNATTENDED`；没开桌面端、远程连接或平台不能录时 `RECORDING_UNAVAILABLE`；缺系统权限 `RECORDING_PERMISSION_DENIED`（`details.systemAccess`）；同一时刻一次（`RECORDING_BUSY`） |
 
 `text`（调一次文本模型）不进 Agent 面：Agent 自己就是文本模型。它留在 CLI 给人用（§7）。
 
@@ -183,6 +184,10 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `captions` | `create` | mutation | 把转写或译文做成字幕层（现 `captions_create`），`bilingual`、`layout-profile`、`style`（位置与样式：字幕样式文档的键 `y`、`verticalAlign`、`width`、`fontSize`、对齐与贴边（`textAlign`、`alignWithinWrap`）、行高、字距、标点、描边与底板开关等，双语另有两行的次序与间距（`order`、`gap`）和原文、译文一行的覆盖（`origStyle`、`transStyle`），当前词效果（`wordAnimation` 选 `none` 或 `colourHighlight`，`textMotion.karaoke` 开 KTV 扫色，视频格式规范 §5.6），以默认样式为底；建好后用 `edits_apply` 的 `setCaptionStyle` 改，架构设计 §3.5） |
 | `assets` | `import` | mutation | **新增 sugar**：导入一个文件或 `artifactId`，可选 `place`（同一事务里 `addItem` 到主轨末尾或指定时间）。编译成 `importAsset` [+ `addItem`] |
 | `jobs` | `list` / `inspect` / `wait` / `cancel` / `retry` | query / query / query / mutation / job | `wait` 阻塞到终态或超时；`retry` 是现 `pipelines retry` |
+| `recordings` | `sources` / `status` / `list` | query | 录屏（[屏幕录制设计 §12](../screen-recording/README.md#12-命令行)）：能录的屏幕、窗口、摄像头、麦克风与各项系统权限的状态（只问，不弹授权窗口；窗口标题可能带出隐私）；一次录制的状态；当前的与没有收完的录制。只在工具桥与 CLI |
+| | `pause` / `resume` / `stop` | mutation | 暂停（恢复是新的一段）、继续、停止并保留；`stop` 收到就返回 `jobId`，收尾与导入在那个任务里 |
+| | `discard` | destructive | 丢弃一次录制并删掉它录下的文件，要 `--yes`；已经进了视频的不收 |
+| | `recover` | job | 把崩溃或导入失败留下的录制收尾并导入，按同样的命令 ID 重做，不重复插入 |
 | `models` | `capabilities` | query | 每种能力可用的 Provider、模型、默认值、限制与不可用原因；`settingsHref` 是对应能力的设置路径，提示用户配置时将它写成 Markdown 链接（产品设计 §3.2.2） |
 | | `list` | query | 本地模型包与状态（现 `models bundles`） |
 | | `install` / `test` | job | 安装本地模型包（先报大小，`--yes` 跳过确认）；跑样本检查。两者只在工具桥与 CLI，不开放给 MCP |
@@ -271,6 +276,7 @@ export --video V --kind subtitles --format srt --bilingual
 
 - 返回 `jobId` 的命令默认 `--wait`：阻塞到终态，退出码按终态，结果里带 `outputs`（文件路径、`documentId`、`assetId`、`artifactId`）与终态的任务记录 `job`；提交回执里的 `state` 换成终态，与 `job.state` 一致；导出回执里提交时定下的 `files` 换成实际写下的文件名（发布时重名会加序号），与 `outputs` 的路径一致。`--no-wait` 立即返回 `jobId`。`--timeout <秒>` 到时打印 `jobId` 与最近进度，以退出码 1 返回，任务继续跑。
 - Ctrl-C 取消任务（现有行为），`--no-wait` 后用 `jobs cancel`。
+- 例外是 `record`：等它的时候第一次 Ctrl-C 是**停止并保留**录制，继续等到收尾与导入完成；第二次才退出等待，任务照常收尾。按 Ctrl-C 的人要的是录到这里，不是扔掉录好的；要扔掉用 `recordings discard`（[屏幕录制设计 §12](../screen-recording/README.md#12-命令行)）。
 - 进度走 stderr，不污染 stdout 的 JSON。
 
 ### 5.5 大结果落盘
@@ -294,7 +300,7 @@ export --video V --kind subtitles --format srt --bilingual
 
 ### 5.7 帮助的形态
 
-`baocut --help` 的全部内容必须在一屏（约 40 行）以内，形如：
+`baocut --help` 的全部内容必须在一屏（约 40 行，测试的上限是 42 行：录屏的 `record` 与 `recordings` 加进来之后）以内，形如：
 
 ```text
 baocut — 用 BaoCut 转录、翻译、剪辑、配音与导出视频。先 `baocut status` 看这台机器能做什么。
@@ -304,11 +310,12 @@ baocut — 用 BaoCut 转录、翻译、剪辑、配音与导出视频。先 `ba
   dub          翻译配音                                       download    从链接下载，可导入或新建视频
   export       导出字幕 / 文稿 / 音频 / 成片 / 便携包 / 工程   transcode   压缩、合并、提取音轨（文件到文件）
   speak        合成语音                                       image       生成图片
-  music        生成音乐（本机模型，很慢）
+  music        生成音乐（本机模型，很慢）                       record      录这台电脑的屏幕进视频
 对象
   videos       list · inspect · create · frames · history · delete · import-package
   documents    read · put            edits     apply · undo · ops        captions  create
   assets       import                jobs      list · inspect · wait · cancel · retry
+  recordings   sources · status · list · pause · resume · stop · discard · recover
   models       capabilities · list · install · test              space   list · search
   projects     list · create         artifacts save               skills  list · read      library  list · show
 本机管理（给人用；Agent 先征得同意）

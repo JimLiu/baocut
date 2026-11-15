@@ -157,8 +157,11 @@ Electron Main
               +-- Agent 进程：按会话
               +-- Render / Media Workers：按任务池
               +-- Model Workers：每个常驻模型包一个进程，按需启动（§6.5）
+              +-- Recording Worker：Rust，一次录制一个进程，停止后退出；列来源时临时起一个
               +-- Browser / Remotion Workers：按代码包与隔离域复用
 ```
+
+Recording Worker（`crates/recording-worker`，[屏幕录制设计 §7](../design/screen-recording/README.md#7-进程与职责)）只采集与写文件：macOS 上 ScreenCaptureKit 录屏幕与系统声音、AVFoundation 录摄像头与麦克风，别的平台回答不支持。控制走 stdio 的 JSON 行（`worker-protocol.ts`），可执行文件经 `findBundledBinary` 找，`BAOCUT_RECORDING_WORKER` 可覆盖。它只写录制目录里的媒体分段、指针与键盘的事件文件、光标图片与只追加的 `journal.jsonl`；不碰视频，导入由 Runtime 读日志之后经 Engine Host 的 `edits.apply` 提交，所以 Worker 崩溃与正常停止走同一条收尾路径。它是 Runtime 的子进程，系统的录屏、摄像头、麦克风与输入监控权限按拉起它的应用算。
 
 一个 Runtime Home 对应一个 Supervisor。多个窗口复用同一个 Runtime。不同的 Home 打开同一个视频时，仍然必须竞争视频级的操作系统锁，不能因为 Home 不同而绕过单写。只读打开可以单独协商；含有未知必需能力的视频不得以可写方式打开。
 
@@ -3306,6 +3309,7 @@ crates/
   model-worker/     Worker 进程：Model Worker（§6.5）
   credential-helper/ 凭据助手：经 stdin / stdout 读写系统的安全存储（§6.8）；macOS 以外只答 unsupported
   face-detect/      人脸检测进程：YuNet 经纯 Rust 的 tract 推理，stdio JSON 行，给 `videos_frames` 的帧标人脸框（§3.5）
+  recording-worker/ Worker 进程：Recording Worker（录屏的采集与写文件，stdio JSON 行；macOS 用 ScreenCaptureKit 与 AVFoundation，别的平台回答不支持，§2.1）
 bindings/           WASM / Engine IPC / Worker 合同：`preview-wasm`（编辑器预览：帧计划与帧光栅，与导出同一份）、`editor-wasm`（界面与 Node 共用的编辑语义：句子与原文指纹、舞台的框、取值区间、样式目录）
 tools/              构建与代码生成脚本
 fixtures/           时间、编辑、语言、渲染、安全、恢复
