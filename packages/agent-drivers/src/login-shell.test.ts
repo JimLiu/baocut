@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { mergeLoginEnv, parseEnv0, resolveLoginShellEnv, stripHostSessionEnv } from './login-shell.ts';
+import {
+  createLoginShellEnvResolver,
+  mergeLoginEnv,
+  parseEnv0,
+  resolveLoginShellEnv,
+  stripHostSessionEnv,
+  toolSearchPath,
+  type LoginShellFailure,
+} from './login-shell.ts';
 
 describe('stripHostSessionEnv', () => {
   it('按前缀去掉宿主 Claude Code 会话的变量，保留用户自己配的与无关的', () => {
@@ -94,5 +102,108 @@ describe('登录 shell 的环境', () => {
     expect(env?.HOME).toBeTruthy();
     expect(env?.PATH).toBeTruthy();
     expect(env).not.toHaveProperty('BAOCUT_LOGIN_SHELL_PROBE');
+  });
+});
+
+describe('登录 shell 探测的失败与重试（issue 139）', () => {
+  const GUI_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
+  const BREW_PATH = `/opt/homebrew/bin:${GUI_PATH}`;
+  const ok = { stdout: `banner__BAOCUT_ENV__PATH=${BREW_PATH}\0HOME=/Users/me\0__BAOCUT_ENV__` };
+
+  function setup(results: Array<() => Promise<{ stdout: string }>>) {
+    let clock = 1_000;
+    let calls = 0;
+    const failures: LoginShellFailure[] = [];
+    const resolve = createLoginShellEnvResolver({
+      platform: 'darwin',
+      env: () => ({ SHELL: '/bin/zsh', PATH: GUI_PATH }),
+      now: () => clock,
+      retryMs: 30_000,
+      run: async () => results[Math.min(calls++, results.length - 1)]!(),
+      onFailure: (failure) => failures.push(failure),
+    });
+    return { resolve, failures, calls: () => calls, advance: (ms: number) => (clock += ms) };
+  }
+
+  it('第一次失败不缓存：冷却期内不重探，过了冷却期再探就拿到 Homebrew 的 PATH', async () => {
+    const t = setup([() => Promise.reject(Object.assign(new Error('boom'), { code: 'ENOENT' })), async () => ok]);
+    expect(await t.resolve()).toBeNull();
+    expect(await t.resolve()).toBeNull();
+    expect(t.calls()).toBe(1);
+    t.advance(30_000);
+    expect((await t.resolve())?.PATH).toBe(BREW_PATH);
+    expect(t.calls()).toBe(2);
+    // 成功后一直用，不再探测。
+    t.advance(60_000);
+    expect((await t.resolve())?.HOME).toBe('/Users/me');
+    expect(t.calls()).toBe(2);
+    expect(t.failures).toEqual([{ kind: 'spawn', shell: '/bin/zsh', retryAt: 31_000 }]);
+  });
+
+  it('并发的调用共用同一次探测', async () => {
+    const t = setup([async () => ok]);
+    const [a, b] = await Promise.all([t.resolve(), t.resolve()]);
+    expect(a).toBe(b);
+    expect(t.calls()).toBe(1);
+  });
+
+  it('失败按类别报告：超时、非零退出、标记缺失、输出超限', async () => {
+    const t = setup([
+      () => Promise.reject(Object.assign(new Error('timeout'), { killed: true, signal: 'SIGTERM', code: null })),
+      () => Promise.reject(Object.assign(new Error('exit'), { code: 2 })),
+      async () => ({ stdout: 'no markers here' }),
+      () => Promise.reject(Object.assign(new Error('big'), { code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })),
+    ]);
+    for (let i = 0; i < 4; i++) {
+      expect(await t.resolve()).toBeNull();
+      t.advance(30_000);
+    }
+    expect(t.failures.map((f) => [f.kind, f.exitCode])).toEqual([
+      ['timeout', undefined],
+      ['exit', 2],
+      ['output', undefined],
+      ['output', undefined],
+    ]);
+    // 报告里没有环境内容。
+    expect(JSON.stringify(t.failures)).not.toContain('PATH');
+  });
+
+  it('Windows 不探测，结果是 null 且不报失败', async () => {
+    let calls = 0;
+    const failures: LoginShellFailure[] = [];
+    const resolve = createLoginShellEnvResolver({
+      platform: 'win32',
+      run: async () => {
+        calls++;
+        return ok;
+      },
+      onFailure: (failure) => failures.push(failure),
+    });
+    expect(await resolve()).toBeNull();
+    expect(await resolve()).toBeNull();
+    expect(calls).toBe(0);
+    expect(failures).toEqual([]);
+  });
+});
+
+describe('toolSearchPath', () => {
+  const GUI_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
+  it('探测失败、只有 GUI 的精简 PATH 时，补上存在的标准目录（排在最后）', () => {
+    expect(toolSearchPath(null, GUI_PATH, 'darwin', ['/opt/homebrew/bin', '/usr/local/bin'])).toBe(
+      `${GUI_PATH}:/opt/homebrew/bin:/usr/local/bin`,
+    );
+  });
+
+  it('登录 shell 的 PATH（含自定义 Homebrew 前缀）在前，标准目录不重复', () => {
+    const login = { PATH: '/Users/me/homebrew/bin:/opt/homebrew/bin:/usr/bin' };
+    expect(toolSearchPath(login, GUI_PATH, 'darwin', ['/opt/homebrew/bin'])).toBe('/Users/me/homebrew/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin');
+  });
+
+  it('标准目录都不存在时（确实没装）只用原来的 PATH', () => {
+    expect(toolSearchPath(null, GUI_PATH, 'darwin', [])).toBe(GUI_PATH);
+  });
+
+  it('Windows 不补目录', () => {
+    expect(toolSearchPath(null, 'C:\\Windows', 'win32', ['/opt/homebrew/bin'])).toBe('C:\\Windows');
   });
 });

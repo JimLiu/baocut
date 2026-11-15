@@ -42,7 +42,7 @@ import { remedyOf, taskFailure } from '../localized.ts';
 /**
  * 受管外部工具的状态与动作（架构设计 §12.9）：探测、同意、指定路径、下载与删除受管副本。
  *
- * - 解析顺序：环境变量（ffmpeg 的 `BAOCUT_FFMPEG`）→ 用户指定的路径 → 受管副本 → 系统 PATH（Runtime 的工具环境，即登录 shell 的 PATH；测试注入一个空目录）。用户指定的路径不能运行时
+ * - 解析顺序：环境变量（ffmpeg 的 `BAOCUT_FFMPEG`）→ 用户指定的路径 → 受管副本 → 系统 PATH（Runtime 的工具环境：登录 shell 的 PATH、进程 PATH 与标准安装目录，见 `resolveToolSearchPath`；测试注入一个空目录）。用户指定的路径不能运行时
  *   报告为不可用，不悄悄换成别的。
  * - 同意与用户路径、受管副本的登记存在 `<home>/store/external-tools.json`；受管副本在 `<home>/tools/<工具>/<版本>/`，
  *   下载中的文件在 `<home>/tools/.staging/`（取消时保留，下次续传）。

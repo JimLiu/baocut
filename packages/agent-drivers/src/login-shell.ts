@@ -8,39 +8,126 @@ import { promisify } from 'node:util';
  * Claude、Codex 与 ACP 的 Driver 共用。
  */
 
-const run = promisify(execFile);
+const defaultRun = promisify(execFile);
 const MARK = '__BAOCUT_ENV__';
-
-let loginShell: Promise<Record<string, string> | null> | null = null;
 
 /** 登录 shell 自己维护的状态，不是用户配的环境：不带过来。 */
 const SHELL_STATE_ENV = new Set(['PWD', 'OLDPWD', 'SHLVL', '_', 'BAOCUT_LOGIN_SHELL_PROBE']);
 
+/** 探测失败后隔多久再试：shell 一直起不来时，不让每次取环境都等满 5 秒。 */
+export const LOGIN_SHELL_RETRY_MS = 30_000;
+
+/** 探测失败的类别：超时、shell 起不来、非零退出、输出里没有完整的标记（或超出上限）。 */
+export type LoginShellFailureKind = 'timeout' | 'spawn' | 'exit' | 'output';
+
+/** 一次失败的探测。只有类别、shell 的路径与退出码，不带环境变量与输出内容。 */
+export interface LoginShellFailure {
+  kind: LoginShellFailureKind;
+  shell: string;
+  exitCode?: number;
+  /** 下次调用最早何时重新探测（`Date.now()` 的毫秒）。 */
+  retryAt: number;
+}
+
+type ProbeRun = (
+  file: string,
+  args: string[],
+  options: { timeout: number; maxBuffer: number; env: NodeJS.ProcessEnv },
+) => Promise<{ stdout: string }>;
+
+export interface LoginShellEnvResolverOptions {
+  run?: ProbeRun;
+  platform?: NodeJS.Platform;
+  env?: () => NodeJS.ProcessEnv;
+  now?: () => number;
+  retryMs?: number;
+  onFailure?: (failure: LoginShellFailure) => void;
+}
+
 /**
- * 登录 shell 的整份环境（`$SHELL -ilc` 里 `env -0` 的结果），失败或 Windows 上为 null。只取一次。
+ * 登录 shell 环境的解析器：成功的结果（以及 Windows 上的 null）只取一次、一直用；失败不缓存，过了 `retryMs`
+ * 再调用时重新探测（issue 139：一次瞬时失败曾让整个进程一直拿精简的 PATH）。并发的调用共用同一次探测。
+ */
+export function createLoginShellEnvResolver(options: LoginShellEnvResolverOptions = {}): () => Promise<Record<string, string> | null> {
+  const run = options.run ?? (defaultRun as unknown as ProbeRun);
+  const platform = options.platform ?? process.platform;
+  const currentEnv = options.env ?? (() => process.env);
+  const now = options.now ?? Date.now;
+  const retryMs = options.retryMs ?? LOGIN_SHELL_RETRY_MS;
+  let settled: { env: Record<string, string> | null } | null = null;
+  let pending: Promise<Record<string, string> | null> | null = null;
+  let retryAt = 0;
+
+  const probe = async (): Promise<Record<string, string> | null> => {
+    const env = currentEnv();
+    const shell = env.SHELL || '/bin/zsh';
+    const fail = (kind: LoginShellFailureKind, exitCode?: number) => {
+      retryAt = now() + retryMs;
+      options.onFailure?.({ kind, shell, ...(exitCode === undefined ? {} : { exitCode }), retryAt });
+      return null;
+    };
+    let stdout: string;
+    try {
+      ({ stdout } = await run(shell, ['-ilc', `printf '${MARK}'; /usr/bin/env -0; printf '${MARK}'`], {
+        timeout: 5000,
+        maxBuffer: 16 * 1024 * 1024,
+        env: { ...env, BAOCUT_LOGIN_SHELL_PROBE: '1' },
+      }));
+    } catch (error) {
+      const failure = classifyProbeError(error);
+      return fail(failure.kind, failure.exitCode);
+    }
+    const parts = stdout.split(MARK);
+    if (parts.length < 3) return fail('output');
+    const parsed = parseEnv0(parts[1]!);
+    settled = { env: parsed };
+    return parsed;
+  };
+
+  return () => {
+    if (settled) return Promise.resolve(settled.env);
+    if (platform === 'win32') {
+      settled = { env: null };
+      return Promise.resolve(null);
+    }
+    if (pending) return pending;
+    if (now() < retryAt) return Promise.resolve(null);
+    pending = probe().finally(() => {
+      pending = null;
+    });
+    return pending;
+  };
+}
+
+function classifyProbeError(error: unknown): { kind: LoginShellFailureKind; exitCode?: number } {
+  const e = error as { code?: unknown; killed?: boolean; signal?: unknown };
+  if (e.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return { kind: 'output' };
+  if (e.killed || (e.signal && e.code === null)) return { kind: 'timeout' };
+  if (typeof e.code === 'number') return { kind: 'exit', exitCode: e.code };
+  return { kind: 'spawn' };
+}
+
+const failureListeners = new Set<(failure: LoginShellFailure) => void>();
+
+/** 订阅本进程登录 shell 探测的失败（Runtime 用来记日志）；返回取消订阅的函数。 */
+export function onLoginShellProbeFailure(listener: (failure: LoginShellFailure) => void): () => void {
+  failureListeners.add(listener);
+  return () => failureListeners.delete(listener);
+}
+
+/**
+ * 登录 shell 的整份环境（`$SHELL -ilc` 里 `env -0` 的结果），失败或 Windows 上为 null。成功后不再探测；失败时
+ * 过 `LOGIN_SHELL_RETRY_MS` 再试（见 `createLoginShellEnvResolver`）。
  *
  * 从 Finder / Dock 启动的桌面应用拿不到 shell 配置里加的 PATH（例如 `~/.bun/bin`）与变量（`GEMINI_API_KEY`、
  * `XAI_API_KEY` 这类智能体自己读的密钥），在终端里开发时这个问题会被掩盖。做法参照 VS Code 的 shellEnv
  * （paseo 的 login-shell-env.ts 同样整份导入）；这里用 `env -0` 而不是再起一个 node，NUL 分隔，多行的值也不会切错。
  */
-export function resolveLoginShellEnv(): Promise<Record<string, string> | null> {
-  loginShell ??= (async () => {
-    if (process.platform === 'win32') return null;
-    const shell = process.env.SHELL || '/bin/zsh';
-    try {
-      const { stdout } = await run(shell, ['-ilc', `printf '${MARK}'; /usr/bin/env -0; printf '${MARK}'`], {
-        timeout: 5000,
-        maxBuffer: 16 * 1024 * 1024,
-        env: { ...process.env, BAOCUT_LOGIN_SHELL_PROBE: '1' },
-      });
-      const parts = stdout.split(MARK);
-      return parts.length >= 3 ? parseEnv0(parts[1]!) : null;
-    } catch {
-      return null;
-    }
-  })();
-  return loginShell;
-}
+export const resolveLoginShellEnv = createLoginShellEnvResolver({
+  onFailure: (failure) => {
+    for (const listener of failureListeners) listener(failure);
+  },
+});
 
 /** `env -0` 的输出 → 变量表，去掉 shell 自己的状态（`SHELL_STATE_ENV`）。 */
 export function parseEnv0(text: string): Record<string, string> {
@@ -65,10 +152,40 @@ export function mergeLoginEnv(login: Record<string, string> | null, current: Nod
   return merged;
 }
 
-/** 登录 shell 的 PATH 与当前进程的 PATH 合并（登录 shell 的在前）；取不到登录 shell 时只用当前 PATH。 */
-export async function resolveLoginShellPath(): Promise<string> {
+/**
+ * 外部工具（ffmpeg、ffprobe 等）的标准安装目录：macOS 与 Linux 上 Homebrew 的默认前缀与 `/usr/local/bin`。
+ * Windows 不加：GUI 进程启动时就拿到注册表里完整的 PATH。
+ */
+export const STANDARD_TOOL_DIRS: readonly string[] = ['/opt/homebrew/bin', '/usr/local/bin', '/home/linuxbrew/.linuxbrew/bin'];
+
+/**
+ * Runtime 找外部工具用的 PATH：登录 shell 的 PATH 在前，当前进程的其次，最后补上存在的标准安装目录
+ * （`STANDARD_TOOL_DIRS`）。登录 shell 探测失败、或探测出的 PATH 不全时，装在默认位置的工具也找得到；
+ * 自定义前缀仍靠登录 shell。`BAOCUT_FFMPEG` 这类显式覆盖不走 PATH，不受影响。
+ */
+export function toolSearchPath(
+  login: Record<string, string> | null,
+  currentPath: string,
+  platform: NodeJS.Platform,
+  existingDirs: readonly string[],
+): string {
+  return mergePath(login?.PATH ?? '', currentPath, platform === 'win32' ? '' : existingDirs.join(path.delimiter));
+}
+
+/** 本进程的工具 PATH（`toolSearchPath`，标准目录只取存在的）。 */
+export async function resolveToolSearchPath(): Promise<string> {
   const login = await resolveLoginShellEnv();
-  return mergePath(login?.PATH ?? '', process.env.PATH ?? '');
+  const existing =
+    process.platform === 'win32' ? [] : (await Promise.all(STANDARD_TOOL_DIRS.map(async (dir) => ((await isDirectory(dir)) ? dir : null)))).filter((d) => d !== null);
+  return toolSearchPath(login, process.env.PATH ?? '', process.platform, existing);
+}
+
+async function isDirectory(dir: string): Promise<boolean> {
+  try {
+    return (await fs.stat(dir)).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function mergePath(...lists: string[]): string {

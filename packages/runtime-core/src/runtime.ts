@@ -9,7 +9,8 @@ import {
   AntigravityDriver,
   acpDrivers,
   createCustomAcpDriver,
-  resolveLoginShellPath,
+  onLoginShellProbeFailure,
+  resolveToolSearchPath,
 } from '@baocut/agent-drivers';
 import { DriverRegistry, Harness, engineProtections, projectMissingError, type AgentDriver, type Logger, type UnfinishedWork } from '@baocut/harness';
 import {
@@ -393,6 +394,7 @@ const STOP_ORDER = [
   'harness',
   'attachments',
   'gateway',
+  'login-shell-log',
 ] as const;
 type StopStep = (typeof STOP_ORDER)[number];
 
@@ -482,12 +484,33 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       drivers.register(createCustomDriver(provider), { custom: customAgentProviderView(provider) });
     }
 
-    // 引擎要 ffprobe、媒体分析要 ffmpeg：桌面应用从访达启动时 PATH 里没有它们，用登录 shell 的 PATH。
-    const toolEnv = async () => ({ ...process.env, PATH: await resolveLoginShellPath() });
+    // 引擎要 ffprobe、媒体分析要 ffmpeg：桌面应用从访达启动时 PATH 里没有它们，用登录 shell 的 PATH，再补上标准安装目录。
+    // 登录 shell 探测失败时记下类别（不带环境内容），过一会儿再试。
+    const stopProbeLog = onLoginShellProbeFailure((failure) =>
+      log.warn('Login shell environment probe failed; using the process PATH plus standard tool directories', {
+        kind: failure.kind,
+        shell: failure.shell,
+        ...(failure.exitCode === undefined ? {} : { exitCode: failure.exitCode }),
+        retryInMs: Math.max(0, failure.retryAt - Date.now()),
+      }),
+    );
+    stops.add('login-shell-log', () => stopProbeLog(), null);
+    const toolEnv = async () => ({ ...process.env, PATH: await resolveToolSearchPath() });
+    // 引擎常驻，启动时的 PATH 一直用到它退出：启动时记下 ffprobe 与 ffmpeg 解析到哪里（或没找到）。
+    const engineEnv = async () => {
+      const env = await toolEnv();
+      const where = async (name: string, override: string | undefined) =>
+        override ? `${override} (env override)` : ((await findOnPath(name, env.PATH ?? '')) ?? 'not found on PATH');
+      log.info('Video engine tools', {
+        ffprobe: await where('ffprobe', process.env.BAOCUT_FFPROBE),
+        ffmpeg: await where('ffmpeg', process.env.BAOCUT_FFMPEG),
+      });
+      return env;
+    };
     const videos = new VideoService({
       log,
       resolveCommand: () => (options.engineHost !== undefined ? options.engineHost : resolveEngineHostCommand()),
-      env: toolEnv,
+      env: engineEnv,
       graceMs: options.videoGraceMs,
       snapshotDelayMs: options.videoSnapshotDelayMs,
       fontCacheDir: path.join(home.root, 'fonts', 'files'),
