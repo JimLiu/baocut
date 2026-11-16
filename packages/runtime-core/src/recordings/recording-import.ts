@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { refOf, RpcError, type Actor, type EditOperation, type Id, type RecordingResult, type SequenceItem, type TransactionReceipt } from '@baocut/protocol';
+import { itemRangeSeconds, refOf, RpcError, type Actor, type EditOperation, type Id, type RecordingResult, type SequenceItem, type TransactionReceipt } from '@baocut/protocol';
 import { RcRecordings } from '@baocut/protocol/messages/runtime-core';
 import type { VideoService } from '../videos/video-service.ts';
 import { defaultScreenView, manifestBody, TIMESCALE, type PackageStream, type RecordingPackage, type VersionRef } from './recording-package.ts';
@@ -166,17 +166,24 @@ export async function importRecording(videos: VideoService, request: ImportRecor
       if (!item) throw new Error(`No timeline item for the ${s.role} stream of segment ${s.segmentId}`);
       itemOf.set(s, item);
     }
-    // 每一路都修：素材时长按帧取整后可能比有内容的区间多出一帧，压到下一段开头。
+    // 每一路都修：素材时长按帧取整后可能比有内容的区间多出一帧，压到下一段开头。终点向下取到帧，且不超过实例实际的起点加
+    // 文件长度：真实录制的长度不在帧上，取最近的帧会越过素材的结尾（SOURCE_TIME_OUT_OF_RANGE），起点取整也会吃掉一点。
+    const fps = snapshot().sequences[sequenceId]?.fps;
     const trims = streams
       .map(
-        (s): EditOperation => ({
-          type: 'trimItem',
-          sequenceId,
-          itemId: itemOf.get(s)!.id,
-          edge: 'end',
-          at: { unit: 'seconds', value: seconds(s.coverage.t1) },
-          alignment: 'nearest-frame',
-        }),
+        (s): EditOperation => {
+          const item = itemOf.get(s)!;
+          const placed = fps ? itemRangeSeconds(item, fps).start : request.at + s.start / TIMESCALE;
+          const end = Math.min(request.at + s.coverage.t1 / TIMESCALE, placed + s.length / TIMESCALE);
+          return {
+            type: 'trimItem',
+            sequenceId,
+            itemId: item.id,
+            edge: 'end',
+            at: { unit: 'seconds', value: (Math.floor(end * 1e6) / 1e6).toFixed(6) },
+            alignment: 'floor-frame',
+          };
+        },
       );
     if (trims.length) await apply(`trim-${n + 1}`, trims, RcRecordings.importLabel());
   }

@@ -24,7 +24,12 @@ function fakeVideos() {
       return `rev_${revision}`;
     },
     assets: {} as Record<string, { currentRevision: string; revisions: Record<string, unknown> }>,
-    sequences: { seq_root: { items: [] as Array<{ id: string; assetRef: { id: string } }> } },
+    sequences: {
+      seq_root: {
+        fps: { num: 30, den: 1 },
+        items: [] as Array<{ id: string; type: 'video'; assetRef: { id: string }; span: { fromFrame: number; durationFrames: number } }>,
+      },
+    },
   };
   const service = {
     mirror: () => ({ video }),
@@ -36,7 +41,9 @@ function fakeVideos() {
         const id = `id_${next++}`;
         if (op.type === 'importAsset') video.assets[id] = { currentRevision: 'r1', revisions: { r1: {} } };
         if (op.type === 'addItem') {
-          video.sequences.seq_root.items.push({ id, assetRef: { id: (op.asset as { assetId: string }).assetId } });
+          // Like the engine: the start goes to the nearest frame of the 30 fps sequence.
+          const fromFrame = Math.round(Number((op.at as { value: string }).value) * 30);
+          video.sequences.seq_root.items.push({ id, type: 'video', assetRef: { id: (op.asset as { assetId: string }).assetId }, span: { fromFrame, durationFrames: 1 } });
           createdIds.push(id);
         }
         if (typeof op.ref === 'string') refs[op.ref] = id;
@@ -77,12 +84,12 @@ function twoSegments(cursor: RecordingPackage['cursor']): RecordingPackage {
   };
 }
 
-async function run(options: { autoZoom: boolean; cursor: RecordingPackage['cursor'] }) {
+async function run(options: { autoZoom: boolean; cursor: RecordingPackage['cursor'] }, pkg = twoSegments(options.cursor)) {
   const { sent, videos } = fakeVideos();
   const result = await importRecording(videos, {
     videoId: 'vid_1',
     recordingId: 'rec_1',
-    pkg: twoSegments(options.cursor),
+    pkg,
     at: 0,
     actor: { kind: 'user', id: 'user_local' },
     steps: {},
@@ -118,6 +125,26 @@ describe('importRecording 的事务次序', () => {
     expect(new Set(trimmed)).toEqual(new Set(linked));
     expect(result.itemIds).toEqual(linked);
     expect(result).toMatchObject({ recordingId: 'rec_1', autoZoomPending: false });
+  });
+
+  it('修尾向下取到帧，不越过素材的结尾（真实录制的长度不在帧上）', async () => {
+    const pkg = twoSegments('separate');
+    // A real screen file: 2.788333 s, the segment ends at 2.788022 s (nearest frame at 30 fps is 2.8 s, past the file).
+    pkg.segments = [
+      { id: 's1', t0: 0, t1: 2_788_022 },
+      { id: 's2', t0: 2_788_022, t1: 4_788_022 },
+    ];
+    // s2 starts 15 ms into its segment (rounds down to the frame at 2.8 s → 2.8 s) and its file ends before the segment.
+    pkg.streams = [
+      { id: 's1-screen', role: 'screen', segmentId: 's1', file: '/rec/s1-screen.mp4', start: 0, coverage: { t0: 0, t1: 2_788_022 }, length: 2_788_333 },
+      { id: 's2-screen', role: 'screen', segmentId: 's2', file: '/rec/s2-screen.mp4', start: 2_803_022, coverage: { t0: 2_803_022, t1: 4_788_022 }, length: 1_985_000 },
+    ];
+    const { sent } = await run({ autoZoom: false, cursor: 'separate' }, pkg);
+    const trims = sent.filter((x) => x.commandId.includes('trim-')).flatMap((x) => x.operations) as Array<{ at: { value: string }; alignment: string }>;
+    expect(trims.map((t) => t.alignment)).toEqual(['floor-frame', 'floor-frame']);
+    expect(Number(trims[0]!.at.value)).toBeLessThanOrEqual(2.788022);
+    // Placed at frame 84 (2.8 s): the end may not pass 2.8 + 1.985 even though the coverage says 4.788022.
+    expect(Number(trims[1]!.at.value)).toBeLessThanOrEqual(2.8 + 1.985);
   });
 
   it('不要自动缩放或不录鼠标时不调 regenerateAutoZooms', async () => {
