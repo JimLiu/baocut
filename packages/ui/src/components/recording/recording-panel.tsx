@@ -20,6 +20,7 @@ import {
   choiceFromOptions,
   choiceOptions,
   COUNTDOWNS,
+  lowDisk,
   permissionBlocked,
   resolveChoice,
   sourceBlocks,
@@ -27,13 +28,15 @@ import {
   type OptionBlock,
   type RecordingChoice,
   type RecordingNotice,
+  unavailableCode,
 } from '../../model/recording.ts';
+import { formatBytes } from '../../model/space.ts';
 import { meterLevel } from '../../model/voice-capture.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useRecordingPrefs, useRecordings, type RecordingPanelRequest } from '../../state/recordings-store.ts';
 import { RC } from './recording-copy.ts';
-import { loadSources } from './recording-host.tsx';
+import { loadSources, unsupportedText } from './recording-host.tsx';
 
 /*
  * 录制面板（屏幕录制设计 §11）：Home、Space「新建」、编辑器素材面板与智能体的 `record` 打开同一个面板。
@@ -41,6 +44,7 @@ import { loadSources } from './recording-host.tsx';
  * - 每一路旁边是系统权限的状态；被拒的给「打开系统设置」，BaoCut 不替用户改。屏幕被拒时开始不可用；可选的一路被拒时去掉它才能开始。
  * - 整屏与区域有「把 BaoCut 也录进去」（`includeSelf`，缺省关）；录单个窗口时不显示（选的就是那个窗口）。
  * - 记住上次的选择（这台电脑的 localStorage）；设备不在时退回「不用」并提示。
+ * - `sources` 给了剩余空间、不够录十分钟时提醒（只提醒，照样能开始）；录不了时按原因码说明。
  * - 智能体发起的（`recordingId`）预先填好它给的选项；关掉面板就是 `recordings.cancel`。
  * - 摄像头预览与电平条只在系统已经允许时才取设备（按名字对上 Worker 报的设备），不会因为打开面板弹出授权窗口。
  */
@@ -140,6 +144,7 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
   };
 
   const block = choice && sources ? startBlock(choice, sources) : null;
+  const disk = choice && sources && sources.available ? lowDisk(choice, sources) : null;
   const ready = !!choice && !!sources && block?.kind === 'ok';
 
   return (
@@ -163,7 +168,7 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
                 <span>{RC.loading}</span>
               </div>
             ) : null}
-            {sources && !sources.available ? <p className={problem}>{sources.reason || RC.blockUnsupported}</p> : null}
+            {sources && !sources.available ? <p className={problem}>{unavailableLine(sources)}</p> : null}
             {notices.map((n) => (
               <p key={n.kind} className={warn}>
                 {noticeText(n)}
@@ -174,6 +179,7 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
               <p className={problem}>{block.required ? RC.needScreen : RC.needOptional(block.missing.map(permName).join(', '))}</p>
             ) : null}
             {block && block.kind === 'unavailable' ? <p className={problem}>{RC.unavailable}</p> : null}
+            {disk ? <p className={warn}>{RC.diskLow(formatBytes(disk.freeBytes), disk.minutes)}</p> : null}
             {failure ? <p className={problem}>{failure}</p> : null}
           </div>
         </Content>
@@ -370,6 +376,12 @@ export function RecordingFields({ sources, choice, onChange }: { sources: Record
       </div>
     </>
   );
+}
+
+/** 录不了的原因：认得的原因码用自己的文字，否则用 Runtime 给的原因。 */
+function unavailableLine(sources: RecordingSources): string {
+  const code = unavailableCode(sources);
+  return unsupportedText(code, code === sources.reason ? null : sources.reason);
 }
 
 function permName(p: keyof RecordingPermissions): string {

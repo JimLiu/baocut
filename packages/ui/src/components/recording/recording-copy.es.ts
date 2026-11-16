@@ -78,6 +78,9 @@ export const es: RecordingMessages = {
   needScreen: 'Se necesita el permiso de «Grabación de pantalla» para grabar.',
   needOptional: (names) => `Para empezar, activa «${names}» en Ajustes del Sistema o deja de usarlo.`,
   unavailable: 'La grabación no está disponible en este momento.',
+  unavailableNoWorker: 'A esta copia de BaoCut le falta el grabador de pantalla. Vuelve a instalar BaoCut para grabar.',
+  unavailableNoWindow: 'Abre la app BaoCut en este ordenador para grabar.',
+  diskLow: (free: string, minutes: number) => `Solo quedan ${free} libres donde se guardan las grabaciones, para unos ${minutes} min. Puedes empezar igualmente.`,
 
   cameraGone: (name) => (name ? `«${name}» no está conectada, así que la cámara está desactivada.` : 'La cámara que usaste la última vez no está conectada, así que la cámara está desactivada.'),
   microphoneGone: (name) => (name ? `«${name}» no está conectado, así que el micrófono está desactivado.` : 'El micrófono que usaste la última vez no está conectado, así que el micrófono está desactivado.'),

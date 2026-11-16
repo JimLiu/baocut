@@ -97,6 +97,9 @@ const en = {
   needScreen: 'Screen Recording permission is required to record.',
   needOptional: (names: string) => `Turn on ${names} in System Settings, or stop using it, to start.`,
   unavailable: 'Recording isn’t available right now.',
+  unavailableNoWorker: 'The screen recorder is missing from this copy of BaoCut. Reinstall BaoCut to record.',
+  unavailableNoWindow: 'Open the BaoCut app on this computer to record.',
+  diskLow: (free: string, minutes: number) => `Only ${free} free where recordings are saved, enough for about ${minutes} min. You can still start.`,
 
   // 设备不在了
   cameraGone: (name: string | null) => (name ? `“${name}” isn’t connected, so the camera is off.` : 'The camera you used last time isn’t connected, so the camera is off.'),

@@ -78,6 +78,9 @@ export const fr: RecordingMessages = {
   needScreen: 'L’autorisation « Enregistrement de l’écran » est nécessaire pour enregistrer.',
   needOptional: (names) => `Pour démarrer, activez « ${names} » dans Réglages Système, ou cessez de l’utiliser.`,
   unavailable: 'L’enregistrement n’est pas disponible pour le moment.',
+  unavailableNoWorker: 'L’enregistreur d’écran manque dans cette copie de BaoCut. Réinstallez BaoCut pour enregistrer.',
+  unavailableNoWindow: 'Ouvrez l’app BaoCut sur cet ordinateur pour enregistrer.',
+  diskLow: (free: string, minutes: number) => `Il ne reste que ${free} là où les enregistrements sont stockés, soit environ ${minutes} min. Vous pouvez quand même commencer.`,
 
   cameraGone: (name) => (name ? `« ${name} » n’est pas connectée, la caméra est donc désactivée.` : 'La caméra utilisée la dernière fois n’est pas connectée, la caméra est donc désactivée.'),
   microphoneGone: (name) => (name ? `« ${name} » n’est pas connecté, le micro est donc désactivé.` : 'Le micro utilisé la dernière fois n’est pas connecté, le micro est donc désactivé.'),

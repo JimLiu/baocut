@@ -78,6 +78,9 @@ export const ko: RecordingMessages = {
   needScreen: '녹화하려면 “화면 기록” 권한이 필요합니다.',
   needOptional: (names) => `시작하려면 시스템 설정에서 “${names}” 권한을 켜거나 사용하지 않도록 설정하세요.`,
   unavailable: '지금은 녹화할 수 없습니다.',
+  unavailableNoWorker: '이 BaoCut에는 화면 녹화 구성 요소가 없습니다. 녹화하려면 BaoCut을 다시 설치하세요.',
+  unavailableNoWindow: '녹화하려면 이 컴퓨터에서 BaoCut 앱을 여세요.',
+  diskLow: (free: string, minutes: number) => `녹화가 저장되는 디스크에 ${free}만 남아 약 ${minutes}분 녹화할 수 있습니다. 그래도 시작할 수 있습니다.`,
 
   cameraGone: (name) => (name ? `“${name}”이(가) 연결되어 있지 않아 카메라를 사용하지 않도록 설정했습니다.` : '지난번에 사용한 카메라가 연결되어 있지 않아 카메라를 사용하지 않도록 설정했습니다.'),
   microphoneGone: (name) => (name ? `“${name}”이(가) 연결되어 있지 않아 마이크를 사용하지 않도록 설정했습니다.` : '지난번에 사용한 마이크가 연결되어 있지 않아 마이크를 사용하지 않도록 설정했습니다.'),

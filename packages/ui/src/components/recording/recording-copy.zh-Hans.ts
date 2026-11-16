@@ -78,6 +78,9 @@ export const zhHans: RecordingMessages = {
   needScreen: '要先允许「屏幕录制」才能录。',
   needOptional: (names) => `在系统设置里打开「${names}」，或者不用它，才能开始。`,
   unavailable: '现在不能录制。',
+  unavailableNoWorker: '这份 BaoCut 缺少录屏组件，重新安装 BaoCut 后才能录制。',
+  unavailableNoWindow: '在这台电脑上打开 BaoCut 应用后才能录制。',
+  diskLow: (free: string, minutes: number) => `录制保存的磁盘只剩 ${free}，大约够录 ${minutes} 分钟。仍然可以开始。`,
 
   cameraGone: (name) => (name ? `「${name}」没有连接，摄像头改为不用。` : '上次用的摄像头没有连接，摄像头改为不用。'),
   microphoneGone: (name) => (name ? `「${name}」没有连接，麦克风改为不用。` : '上次用的麦克风没有连接，麦克风改为不用。'),

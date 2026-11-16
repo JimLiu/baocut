@@ -78,6 +78,9 @@ export const pl: RecordingMessages = {
   needScreen: 'Do nagrywania wymagane jest uprawnienie „Nagrywanie ekranu”.',
   needOptional: (names) => `Aby zacząć, włącz „${names}” w Ustawieniach systemowych lub zrezygnuj z tej opcji.`,
   unavailable: 'Nagrywanie jest teraz niedostępne.',
+  unavailableNoWorker: 'W tej kopii BaoCut brakuje modułu nagrywania ekranu. Zainstaluj BaoCut ponownie, aby nagrywać.',
+  unavailableNoWindow: 'Otwórz aplikację BaoCut na tym komputerze, aby nagrywać.',
+  diskLow: (free: string, minutes: number) => `Tam, gdzie zapisywane są nagrania, zostało tylko ${free} — wystarczy na około ${minutes} min. Nadal możesz zacząć.`,
 
   cameraGone: (name) => (name ? `Kamera „${name}” nie jest podłączona, więc kamera jest wyłączona.` : 'Kamera użyta ostatnio nie jest podłączona, więc kamera jest wyłączona.'),
   microphoneGone: (name) => (name ? `Mikrofon „${name}” nie jest podłączony, więc mikrofon jest wyłączony.` : 'Mikrofon użyty ostatnio nie jest podłączony, więc mikrofon jest wyłączony.'),

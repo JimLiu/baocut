@@ -78,6 +78,9 @@ export const ptBR: RecordingMessages = {
   needScreen: 'A permissão de “Gravação de Tela” é necessária para gravar.',
   needOptional: (names) => `Para começar, ative “${names}” nos Ajustes do Sistema ou deixe de usá-lo.`,
   unavailable: 'A gravação não está disponível no momento.',
+  unavailableNoWorker: 'Esta cópia do BaoCut está sem o gravador de tela. Reinstale o BaoCut para gravar.',
+  unavailableNoWindow: 'Abra o app BaoCut neste computador para gravar.',
+  diskLow: (free: string, minutes: number) => `Só restam ${free} livres onde as gravações são salvas, o suficiente para cerca de ${minutes} min. Você ainda pode começar.`,
 
   cameraGone: (name) => (name ? `“${name}” não está conectada, então a câmera foi desativada.` : 'A câmera usada da última vez não está conectada, então a câmera foi desativada.'),
   microphoneGone: (name) => (name ? `“${name}” não está conectado, então o microfone foi desativado.` : 'O microfone usado da última vez não está conectado, então o microfone foi desativado.'),

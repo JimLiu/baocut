@@ -63,7 +63,16 @@ export function useRecordingEntry(): { entry: RecordingEntry; open(request: Reco
 export function blockText(block: RecordingBlock): string {
   if (block.kind === 'remote') return RC.blockRemote;
   if (block.kind === 'busy') return RC.blockBusy;
-  return block.text || RC.blockUnsupported;
+  return unsupportedText(block.code, block.text);
+}
+
+/** 录不了的说明：认得的原因码用自己的文字，认不出时用 Runtime 给的原因，都没有时用通用的一句。 */
+export function unsupportedText(code: string | null, text: string | null): string {
+  if (code === 'remote') return RC.blockRemote;
+  if (code === 'no-worker') return RC.unavailableNoWorker;
+  if (code === 'no-window') return RC.unavailableNoWindow;
+  if (code === 'unsupported' || code === 'unsupported-platform') return RC.blockUnsupported;
+  return text || RC.blockUnsupported;
 }
 
 export function RecordingHost() {

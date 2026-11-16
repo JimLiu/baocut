@@ -78,6 +78,9 @@ export const zhHant: RecordingMessages = {
   needScreen: '必須先允許「螢幕錄製」才能錄製。',
   needOptional: (names) => `請在系統設定中開啟「${names}」，或選擇不使用，才能開始。`,
   unavailable: '目前無法錄製。',
+  unavailableNoWorker: '這份 BaoCut 缺少錄影元件，重新安裝 BaoCut 後才能錄製。',
+  unavailableNoWindow: '在這部電腦上打開 BaoCut App 後才能錄製。',
+  diskLow: (free: string, minutes: number) => `錄製儲存的磁碟只剩 ${free}，大約夠錄 ${minutes} 分鐘。仍然可以開始。`,
 
   cameraGone: (name) => (name ? `「${name}」未連接，相機已改為不使用。` : '上次使用的相機未連接，相機已改為不使用。'),
   microphoneGone: (name) => (name ? `「${name}」未連接，麥克風已改為不使用。` : '上次使用的麥克風未連接，麥克風已改為不使用。'),

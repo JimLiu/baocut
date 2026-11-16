@@ -78,6 +78,9 @@ export const vi: RecordingMessages = {
   needScreen: 'Cần quyền “Ghi màn hình” để ghi.',
   needOptional: (names) => `Để bắt đầu, hãy bật “${names}” trong Cài đặt hệ thống hoặc ngừng dùng nó.`,
   unavailable: 'Hiện chưa thể ghi.',
+  unavailableNoWorker: 'Bản BaoCut này thiếu thành phần quay màn hình. Hãy cài lại BaoCut để quay.',
+  unavailableNoWindow: 'Hãy mở ứng dụng BaoCut trên máy tính này để quay.',
+  diskLow: (free: string, minutes: number) => `Nơi lưu bản ghi chỉ còn trống ${free}, đủ quay khoảng ${minutes} phút. Bạn vẫn có thể bắt đầu.`,
 
   cameraGone: (name) => (name ? `“${name}” chưa được kết nối nên camera đã tắt.` : 'Camera bạn dùng lần trước chưa được kết nối nên camera đã tắt.'),
   microphoneGone: (name) => (name ? `“${name}” chưa được kết nối nên micrô đã tắt.` : 'Micrô bạn dùng lần trước chưa được kết nối nên micrô đã tắt.'),

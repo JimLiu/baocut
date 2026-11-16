@@ -78,6 +78,9 @@ export const de: RecordingMessages = {
   needScreen: 'Zum Aufnehmen ist die Berechtigung „Bildschirmaufnahme“ erforderlich.',
   needOptional: (names) => `Aktiviere zum Starten „${names}“ in den Systemeinstellungen oder verzichte darauf.`,
   unavailable: 'Die Aufnahme ist derzeit nicht verfügbar.',
+  unavailableNoWorker: 'In dieser BaoCut-Installation fehlt die Bildschirmaufnahme. Installiere BaoCut neu, um aufzunehmen.',
+  unavailableNoWindow: 'Öffne die BaoCut-App auf diesem Computer, um aufzunehmen.',
+  diskLow: (free: string, minutes: number) => `Am Speicherort der Aufnahmen sind nur noch ${free} frei, genug für etwa ${minutes} Min. Du kannst trotzdem starten.`,
 
   cameraGone: (name) => (name ? `„${name}“ ist nicht verbunden, daher ist die Kamera ausgeschaltet.` : 'Die zuletzt verwendete Kamera ist nicht verbunden, daher ist die Kamera ausgeschaltet.'),
   microphoneGone: (name) => (name ? `„${name}“ ist nicht verbunden, daher ist das Mikrofon ausgeschaltet.` : 'Das zuletzt verwendete Mikrofon ist nicht verbunden, daher ist das Mikrofon ausgeschaltet.'),

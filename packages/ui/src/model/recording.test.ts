@@ -6,11 +6,15 @@ import {
   choiceOptions,
   DEFAULT_CHOICE,
   formatElapsed,
+  LOW_DISK_MINUTES,
+  lowDisk,
+  recordingBytesPerSecond,
   recordingEntry,
   resolveChoice,
   shouldOpenAfter,
   sourceBlocks,
   startBlock,
+  unavailableCode,
   unfinishedRecordings,
   type SourcesState,
 } from './recording.ts';
@@ -60,8 +64,27 @@ describe('recordingEntry', () => {
     const win = ready(sources({ platform: 'win32', available: false, reason: 'Windows capture is not implemented yet.' }));
     expect(recordingEntry({ platform: 'win32', hostCapable: true, sources: win, recordings: [] })).toEqual({
       kind: 'disabled',
-      block: { kind: 'unsupported', text: 'Windows capture is not implemented yet.' },
+      block: { kind: 'unsupported', code: null, text: 'Windows capture is not implemented yet.' },
     });
+  });
+
+  it('录不了的原因码：先看 unavailable.code，再看 reason 本身是不是码；remote 当成远程', () => {
+    const coded = sources({ available: false, reason: 'Recorder missing.', unavailable: { code: 'no-worker' } } as Partial<RecordingSources>);
+    expect(unavailableCode(coded)).toBe('no-worker');
+    expect(recordingEntry({ platform: 'darwin', hostCapable: true, sources: ready(coded), recordings: [] })).toEqual({
+      kind: 'disabled',
+      block: { kind: 'unsupported', code: 'no-worker', text: 'Recorder missing.' },
+    });
+    expect(unavailableCode(sources({ available: false, reason: 'no-window' }))).toBe('no-window');
+    expect(recordingEntry({ platform: 'darwin', hostCapable: true, sources: ready(sources({ available: false, reason: 'no-window' })), recordings: [] })).toEqual({
+      kind: 'disabled',
+      block: { kind: 'unsupported', code: 'no-window', text: null },
+    });
+    expect(recordingEntry({ platform: 'darwin', hostCapable: true, sources: ready(sources({ available: false, reason: 'remote' })), recordings: [] })).toEqual({
+      kind: 'disabled',
+      block: { kind: 'remote' },
+    });
+    expect(unavailableCode(sources({ available: false, reason: 'Some text.' }))).toBeNull();
   });
 
   it('已有一次在录时置灰；还没问到来源时照常可点', () => {
@@ -126,6 +149,29 @@ describe('选项能不能选与开始', () => {
   it('智能体填好的选项落到面板的选择上', () => {
     const choice = choiceFromOptions({ ...RECORDING_DEFAULTS, source: { kind: 'window', windowId: 'w1' }, camera: 'cam1', keys: 'shortcuts', countdown: 0 }, DEFAULT_CHOICE);
     expect(choice).toMatchObject({ source: 'window', windowId: 'w1', camera: 'cam1', keys: 'shortcuts', countdown: 0 });
+  });
+});
+
+describe('磁盘剩余空间', () => {
+  const withDisk = (freeBytes: number, over: Partial<RecordingSources> = {}) => sources({ ...over, disk: { freeBytes } } as Partial<RecordingSources>);
+
+  it('码率按物理像素、帧率估，摄像头与每路声音另加', () => {
+    const screenOnly = { ...DEFAULT_CHOICE, microphone: null };
+    const base = recordingBytesPerSecond(screenOnly, sources());
+    expect(base).toBeCloseTo((1512 * 982 * 4 * 30 * 0.15) / 8);
+    expect(recordingBytesPerSecond(screenOnly, sources(), 60)).toBeCloseTo(base * 2);
+    expect(recordingBytesPerSecond({ ...screenOnly, microphone: 'default', systemAudio: true }, sources())).toBeCloseTo(base + 32_000);
+    expect(recordingBytesPerSecond({ ...screenOnly, camera: 'cam1' }, sources())).toBeGreaterThan(base);
+    expect(recordingBytesPerSecond({ ...screenOnly, source: 'window', windowId: 'w1' }, sources())).toBeCloseTo((800 * 600 * 4 * 30 * 0.15) / 8);
+  });
+
+  it('不够录十分钟时提醒并给出大约还能录几分钟；够了或 Runtime 没给剩余空间时不提醒', () => {
+    const rate = recordingBytesPerSecond(DEFAULT_CHOICE, sources());
+    expect(lowDisk(DEFAULT_CHOICE, sources())).toBeNull();
+    expect(lowDisk(DEFAULT_CHOICE, withDisk(rate * 60 * LOW_DISK_MINUTES + 1))).toBeNull();
+    expect(lowDisk(DEFAULT_CHOICE, withDisk(rate * 60 * 4.5))).toEqual({ freeBytes: rate * 60 * 4.5, minutes: 4 });
+    expect(lowDisk(DEFAULT_CHOICE, withDisk(rate * 10))?.minutes).toBe(1);
+    expect(lowDisk(DEFAULT_CHOICE, withDisk(Number.NaN))).toBeNull();
   });
 });
 

@@ -78,6 +78,9 @@ export const ja: RecordingMessages = {
   needScreen: '収録するには「画面収録」の許可が必要です。',
   needOptional: (names) => `開始するには、システム設定で「${names}」をオンにするか、使用しない設定にしてください。`,
   unavailable: '現在は収録できません。',
+  unavailableNoWorker: 'この BaoCut には画面収録コンポーネントがありません。収録するには BaoCut を再インストールしてください。',
+  unavailableNoWindow: '収録するには、このコンピュータで BaoCut App を開いてください。',
+  diskLow: (free: string, minutes: number) => `収録の保存先の空き容量は ${free} で、約 ${minutes} 分ぶんです。このまま開始することもできます。`,
 
   cameraGone: (name) => (name ? `「${name}」が接続されていないため、カメラは使用しない設定になりました。` : '前回使ったカメラが接続されていないため、カメラは使用しない設定になりました。'),
   microphoneGone: (name) => (name ? `「${name}」が接続されていないため、マイクは使用しない設定になりました。` : '前回使ったマイクが接続されていないため、マイクは使用しない設定になりました。'),

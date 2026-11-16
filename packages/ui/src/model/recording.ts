@@ -24,8 +24,28 @@ export type SourcesState =
   | { status: 'ready'; sources: RecordingSources }
   | { status: 'error'; code: string | null; reason: string | null; message: string };
 
-/** 入口为什么不能用：`remote` 连着别的电脑上的 Runtime；`unsupported` 这台电脑录不了（`text` 是 Runtime 的原因）；`busy` 已有一次在录。 */
-export type RecordingBlock = { kind: 'remote' } | { kind: 'unsupported'; text: string | null } | { kind: 'busy' };
+/**
+ * 入口为什么不能用：`remote` 连着别的电脑上的 Runtime；`unsupported` 这台电脑录不了（`code` 是 Runtime 的原因码，
+ * 界面按它取自己的文字；认不出的码用 `text`，即 Runtime 给的原因）；`busy` 已有一次在录。
+ */
+export type RecordingBlock = { kind: 'remote' } | { kind: 'unsupported'; code: string | null; text: string | null } | { kind: 'busy' };
+
+/**
+ * `recordings.sources` 将来多给的两项（协议里还没有，都是可选的；Runtime 不给时界面照旧）：
+ * - `disk.freeBytes`：录制落点所在磁盘的剩余字节，面板据此提示够不够录十分钟；
+ * - `unavailable.code`：录不了时的英文原因码（`reason` 目前是 Runtime 本地化好的文字）。
+ */
+export type SourcesExtras = { disk?: { freeBytes: number }; unavailable?: { code: string } };
+
+/** 界面认得、会换成自己文字的原因码（与 Runtime 的 `RECORDING_UNAVAILABLE` 的 `details.reason` 同一套）。 */
+const UNAVAILABLE_CODES: ReadonlySet<string> = new Set(['remote', 'unsupported', 'unsupported-platform', 'no-worker', 'no-window']);
+
+/** 录不了的原因码：先看 `unavailable.code`，再看 `reason` 本身是不是码（协议约定它是码）。都没有时 null。 */
+export function unavailableCode(sources: RecordingSources): string | null {
+  const extra = (sources as RecordingSources & SourcesExtras).unavailable?.code;
+  if (typeof extra === 'string' && extra) return extra;
+  return sources.reason && UNAVAILABLE_CODES.has(sources.reason) ? sources.reason : null;
+}
 
 export type RecordingEntry = { kind: 'hidden' } | { kind: 'disabled'; block: RecordingBlock } | { kind: 'ready' };
 
@@ -54,9 +74,12 @@ export function recordingEntry(input: {
   if (input.platform === 'web' || !input.hostCapable) return { kind: 'hidden' };
   const s = input.sources;
   if (s.status === 'error' && s.code === 'RECORDING_UNAVAILABLE') {
-    return { kind: 'disabled', block: s.reason === 'remote' ? { kind: 'remote' } : { kind: 'unsupported', text: s.message || null } };
+    return { kind: 'disabled', block: s.reason === 'remote' ? { kind: 'remote' } : { kind: 'unsupported', code: s.reason, text: s.message || null } };
   }
-  if (s.status === 'ready' && !s.sources.available) return { kind: 'disabled', block: { kind: 'unsupported', text: s.sources.reason } };
+  if (s.status === 'ready' && !s.sources.available) {
+    const code = unavailableCode(s.sources);
+    return { kind: 'disabled', block: code === 'remote' ? { kind: 'remote' } : { kind: 'unsupported', code, text: code === s.sources.reason ? null : s.sources.reason } };
+  }
   if (input.recordings.some((r) => isLiveRecording(r.state))) return { kind: 'disabled', block: { kind: 'busy' } };
   return { kind: 'ready' };
 }
@@ -196,6 +219,47 @@ export function choiceOptions(choice: RecordingChoice): Partial<RecordingOptions
     // 不要光标时没有指针可跟，自动缩放也就没有了（§11 第 5 项）。
     autoZoom: choice.cursor !== 'none',
   };
+}
+
+/** 剩余空间不够录这么多分钟时提醒（§11「开始之前检查落点所在磁盘的剩余空间」）；只提醒，照样能开始。 */
+export const LOW_DISK_MINUTES = 10;
+
+/** 估码率用的每像素每帧比特数：H.264 硬件编码录屏的偏高估计，宁可早提醒。 */
+const BITS_PER_PIXEL = 0.15;
+const CAMERA_PIXELS = 1280 * 720;
+const CAMERA_FPS = 30;
+const AUDIO_BYTES_PER_SECOND = 128_000 / 8;
+
+/**
+ * 这次选择大约每秒写多少字节：屏幕按物理像素（逻辑尺寸乘缩放）与帧率估，加上摄像头（按 720p）与每一路声音。
+ * 窗口与区域用所在屏幕的缩放；不知道在哪块屏幕时用主屏。
+ */
+export function recordingBytesPerSecond(choice: RecordingChoice, sources: RecordingSources, fps: number = RECORDING_DEFAULTS.fps): number {
+  const primary = sources.displays.find((d) => d.primary) ?? sources.displays[0];
+  const display = sources.displays.find((d) => d.id === choice.displayId) ?? primary;
+  const scale = display?.scale ?? 1;
+  let points = display ? display.width * display.height : 1920 * 1080;
+  if (choice.source === 'window') {
+    const w = sources.windows.find((x) => x.id === choice.windowId);
+    if (w) points = w.width * w.height;
+  }
+  const screen = (points * scale * scale * fps * BITS_PER_PIXEL) / 8;
+  const camera = choice.camera ? (CAMERA_PIXELS * CAMERA_FPS * BITS_PER_PIXEL) / 8 : 0;
+  const audio = (choice.microphone ? AUDIO_BYTES_PER_SECOND : 0) + (choice.systemAudio ? AUDIO_BYTES_PER_SECOND : 0);
+  return screen + camera + audio;
+}
+
+/**
+ * 剩余空间提醒：`sources` 给了剩余字节、而且不够录 `LOW_DISK_MINUTES` 分钟时，给出剩余字节与大约还能录几分钟（至少 1）。
+ * Runtime 不给剩余空间时 null（不猜）。
+ */
+export function lowDisk(choice: RecordingChoice, sources: RecordingSources, fps?: number): { freeBytes: number; minutes: number } | null {
+  const free = (sources as RecordingSources & SourcesExtras).disk?.freeBytes;
+  if (typeof free !== 'number' || !Number.isFinite(free) || free < 0) return null;
+  const rate = recordingBytesPerSecond(choice, sources, fps);
+  const seconds = free / rate;
+  if (seconds >= LOW_DISK_MINUTES * 60) return null;
+  return { freeBytes: free, minutes: Math.max(1, Math.floor(seconds / 60)) };
 }
 
 /** 智能体在 `waiting` 里填好的选项换成面板的选择（缺的项用记下的）。 */

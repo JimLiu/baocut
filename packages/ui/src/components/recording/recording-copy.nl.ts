@@ -78,6 +78,9 @@ export const nl: RecordingMessages = {
   needScreen: 'Voor het opnemen is de machtiging “Schermopname” nodig.',
   needOptional: (names) => `Schakel “${names}” in via Systeeminstellingen, of gebruik het niet meer, om te beginnen.`,
   unavailable: 'Opnemen is op dit moment niet beschikbaar.',
+  unavailableNoWorker: 'De schermrecorder ontbreekt in deze BaoCut-installatie. Installeer BaoCut opnieuw om op te nemen.',
+  unavailableNoWindow: 'Open de BaoCut-app op deze computer om op te nemen.',
+  diskLow: (free: string, minutes: number) => `Er is nog maar ${free} vrij waar opnamen worden bewaard, genoeg voor ongeveer ${minutes} min. Je kunt toch starten.`,
 
   cameraGone: (name) => (name ? `“${name}” is niet verbonden, dus de camera is uit.` : 'De camera die je de vorige keer gebruikte is niet verbonden, dus de camera is uit.'),
   microphoneGone: (name) => (name ? `“${name}” is niet verbonden, dus de microfoon is uit.` : 'De microfoon die je de vorige keer gebruikte is niet verbonden, dus de microfoon is uit.'),

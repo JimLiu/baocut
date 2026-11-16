@@ -78,6 +78,9 @@ export const it: RecordingMessages = {
   needScreen: 'Per registrare serve l’autorizzazione “Registrazione Schermo”.',
   needOptional: (names) => `Per iniziare, attiva “${names}” in Impostazioni di Sistema oppure smetti di usarlo.`,
   unavailable: 'La registrazione non è disponibile al momento.',
+  unavailableNoWorker: 'In questa copia di BaoCut manca il registratore dello schermo. Reinstalla BaoCut per registrare.',
+  unavailableNoWindow: 'Apri l’app BaoCut su questo computer per registrare.',
+  diskLow: (free: string, minutes: number) => `Restano solo ${free} liberi dove vengono salvate le registrazioni, circa ${minutes} min. Puoi comunque iniziare.`,
 
   cameraGone: (name) => (name ? `“${name}” non è collegata, quindi la fotocamera è disattivata.` : 'La fotocamera usata l’ultima volta non è collegata, quindi la fotocamera è disattivata.'),
   microphoneGone: (name) => (name ? `“${name}” non è collegato, quindi il microfono è disattivato.` : 'Il microfono usato l’ultima volta non è collegato, quindi il microfono è disattivato.'),

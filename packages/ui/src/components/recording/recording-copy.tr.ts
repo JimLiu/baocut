@@ -78,6 +78,9 @@ export const tr: RecordingMessages = {
   needScreen: 'Kaydetmek için “Ekran Kaydı” izni gerekir.',
   needOptional: (names) => `Başlamak için Sistem Ayarları’nda “${names}” iznini açın veya kullanmaktan vazgeçin.`,
   unavailable: 'Kayıt şu anda kullanılamıyor.',
+  unavailableNoWorker: 'Bu BaoCut kopyasında ekran kaydedici eksik. Kayıt yapmak için BaoCut’u yeniden yükleyin.',
+  unavailableNoWindow: 'Kayıt yapmak için bu bilgisayarda BaoCut uygulamasını açın.',
+  diskLow: (free: string, minutes: number) => `Kayıtların saklandığı yerde yalnızca ${free} boş alan var, yaklaşık ${minutes} dk yeter. Yine de başlatabilirsiniz.`,
 
   cameraGone: (name) => (name ? `“${name}” bağlı değil, bu yüzden kamera kapalı.` : 'Geçen sefer kullandığınız kamera bağlı değil, bu yüzden kamera kapalı.'),
   microphoneGone: (name) => (name ? `“${name}” bağlı değil, bu yüzden mikrofon kapalı.` : 'Geçen sefer kullandığınız mikrofon bağlı değil, bu yüzden mikrofon kapalı.'),
