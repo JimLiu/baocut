@@ -82,11 +82,20 @@ export interface RecordingService {
   /** 这个窗口是不是录制的小窗（`showWindow` 之类找应用窗口时跳过它）。 */
   isSurfaceWindow(win: BrowserWindow): boolean;
   /**
-   * 应用退出之前（屏幕录制设计 §11「退出」）：采集中的停止并保存，准备与倒计时里的丢掉。`wait` 时再等它收尾、导入完（最多
-   * `timeoutMs`），Runtime 随后停下也不必下次恢复。从不抛。
+   * 按下退出那一刻正在进行的那次（问退出之前记下，交回 `stopForQuit`）。
    */
-  stopForQuit(options: { wait: boolean; timeoutMs?: number }): Promise<void>;
+  quitSnapshot(): QuitSnapshot | null;
+  /**
+   * 应用退出之前（屏幕录制设计 §11「退出」）：采集中的停止并保存，准备与倒计时里的丢掉；`asked` 是按下退出时记下的，那时还在
+   * 倒数的，对话框开着时开始录了也丢掉。`wait` 时再等它收尾、导入完（最多 `timeoutMs`），Runtime 随后停下也不必下次恢复。从不抛。
+   */
+  stopForQuit(options: { wait: boolean; timeoutMs?: number; asked?: QuitSnapshot | null }): Promise<void>;
   dispose(): void;
+}
+
+export interface QuitSnapshot {
+  recordingId: string;
+  state: RecordingState;
 }
 
 interface Session {
@@ -923,9 +932,14 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     return { ok: true };
   });
 
-  const stopForQuit = async ({ wait, timeoutMs = QUIT_WAIT_MS }: { wait: boolean; timeoutMs?: number }) => {
+  const quitSnapshot = (): QuitSnapshot | null => {
     const r = current();
-    const step = r ? quitStep(r.state) : null;
+    return r ? { recordingId: r.recordingId, state: r.state } : null;
+  };
+
+  const stopForQuit = async ({ wait, timeoutMs = QUIT_WAIT_MS, asked }: { wait: boolean; timeoutMs?: number; asked?: QuitSnapshot | null }) => {
+    const r = current();
+    const step = r ? quitStep(r.state, asked?.recordingId === r.recordingId ? asked.state : r.state) : null;
     if (!r || !step) return;
     if (step === 'discard') return void (await quietly('recordings.discard', { recordingId: r.recordingId }));
     await quietly('recordings.stop', { recordingId: r.recordingId });
@@ -943,6 +957,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
 
   return {
     isSurfaceWindow: (win) => [...surfaces.values()].some((s) => s.win === win),
+    quitSnapshot,
     stopForQuit,
     dispose() {
       stopTopic();

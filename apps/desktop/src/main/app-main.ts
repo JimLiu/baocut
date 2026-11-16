@@ -467,6 +467,8 @@ export function startDesktopApp(): void {
     event.preventDefault();
     if (quitState === 'asking') return;
     quitState = 'asking';
+    // 按下退出那一刻的录制：对话框开着时倒计时会走完，按下时还在倒数的照样丢掉（屏幕录制设计 §11「退出」）。
+    const recordingAsked = recording?.quitSnapshot() ?? null;
     void (async () => {
       // 对话框出了错也要能退出，不卡在 asking。
       const choice = quitWithoutAsking ? 'stop' : await confirmQuit().catch((): AppQuitChoice => 'stop');
@@ -486,7 +488,7 @@ export function startDesktopApp(): void {
       bot?.dispose();
       // 录制中退出（屏幕录制设计 §11「退出」）：先停止并保存，停下 Runtime 时就不是「没收完」。选了停止时等它导入完（有上限）；
       // 留在后台时 Runtime 自己导完。等不得的退出不在这里停，Runtime 停下时把它留成可以恢复的。
-      if (!quitInHurry) await recording?.stopForQuit({ wait: choice === 'stop' });
+      if (!quitInHurry) await recording?.stopForQuit({ wait: choice === 'stop', asked: recordingAsked });
       recording?.dispose();
       if (choice === 'background') await supervisor.detach();
       await supervisor.stop().catch(() => {});

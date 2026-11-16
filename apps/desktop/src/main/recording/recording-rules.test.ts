@@ -186,6 +186,15 @@ describe('quitting, sleeping and restarting', () => {
     expect(quitStep('finalizing')).toBeNull();
   });
 
+  it('a countdown that ran out while the quit dialog was open is still dropped', () => {
+    expect(quitStep('recording', 'countdown')).toBe('discard');
+    expect(quitStep('paused', 'preparing')).toBe('discard');
+    expect(quitStep('countdown', 'countdown')).toBe('discard');
+    expect(quitStep('recording', 'recording')).toBe('stop');
+    expect(quitStep('finalizing', 'countdown')).toBeNull();
+    expect(quitStep('failed', 'countdown')).toBeNull();
+  });
+
   it('a stopped recording is still finishing until it is imported or settles with an error', () => {
     expect(stillFinishing(rec({ state: 'stopping' }))).toBe(true);
     expect(stillFinishing(rec({ state: 'finalizing' }))).toBe(true);

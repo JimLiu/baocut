@@ -62,8 +62,12 @@ export function canRestart(state: RecordingState): boolean {
   return CAPTURE.has(state);
 }
 
-/** 退出之前对正在进行的那次做什么（屏幕录制设计 §11「退出」）：采集中停止并保存；准备与倒计时里什么都还没录，丢掉。 */
-export function quitStep(state: RecordingState): 'stop' | 'discard' | null {
+/**
+ * 退出之前对正在进行的那次做什么（屏幕录制设计 §11「退出」）：采集中停止并保存；准备与倒计时里什么都还没录，丢掉。`asked` 是按下
+ * 退出那一刻的状态：退出对话框开着时倒计时照样走完、开始录了，按下退出时还在倒数的照样丢掉。
+ */
+export function quitStep(state: RecordingState, asked: RecordingState = state): 'stop' | 'discard' | null {
+  if ((asked === 'preparing' || asked === 'countdown') && CAPTURE.has(state)) return 'discard';
   if (state === 'recording' || state === 'paused') return 'stop';
   if (state === 'preparing' || state === 'countdown') return 'discard';
   return null;
