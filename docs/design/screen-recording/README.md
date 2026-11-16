@@ -138,6 +138,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
     - 选的窗口此刻没有画面（被隐藏、最小化、不在当前桌面上，或者屏幕锁着）：Worker 报 `SOURCE_NOT_CAPTURABLE`，Runtime 换成 `RECORDING_SOURCE_NOT_CAPTURABLE`，请用户把窗口放回屏幕上。
     - 整屏与区域等不到画面：`CAPTURE_UNAVAILABLE`。
     - `sources` 只列出在当前屏幕上的窗口，但窗口可能在列出与开始之间被收起，所以开始时还要再挡一次。
+  - **窗口的位置与次序**：`sources` 的窗口表按从前到后排好，每个窗口可选地带 `order`（0 在最前）与 `bounds`（`displayId` 与 `displays[].id` 同一套，`x`、`y`、`width`、`height` 是逻辑点、相对那块屏幕的左上角），供界面按窗口边界画高亮。跨屏的窗口归到相交面积最大的屏幕，坐标可以为负或越界；与哪块屏幕都不相交（Windows 上最小化）时没有 `bounds`，问不出次序时没有 `order`。macOS 取 `SCWindow.frame` 减去 `CGDisplayBounds` 的原点（都是左上原点、主屏为基准的全局点，与 Electron `screen` 的坐标一致），次序取 `CGWindowListCreate`；Windows 取 `DWMWA_EXTENDED_FRAME_BOUNDS` 减去显示器左上角再除以缩放比例，次序取 `EnumWindows` 的 Z 序。两项都是后加的可选字段，旧的 Worker 不给。
   - 输出文件的容器与编码：
     - 画面（屏幕、摄像头）是 MPEG-4 里的 H.264：8 位 4:2:0，宽高取偶数，不重排帧（没有 B 帧），关键帧至少两秒一个。
     - 测试用的假 Worker 合成的画面同样用 H.264：浏览器不认 MPEG-4 Part 2，那样的文件在编辑器里报「源文件无法播放」。
@@ -320,7 +321,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 | 命令 | 效果 | 做什么 |
 | --- | --- | --- |
 | `baocut record` | job | 开始一次录制。缺省 `--wait`：阻塞到「已进时间线」或失败，结果里是 `videoId`、`recordingId`（录制会话，开始时就有，`recordings` 各命令用它）、`manifestDocumentId`（清单的文档，导入时才写）、`screenViewDocumentId`（取景文档，自动缩放已经在里面）、`groupId`（联动组）、`itemIds`、`duration`（有效录制长度，秒）。结果里另有一个弃用的 `autoZoomPending`，恒为 `false`，只为早先的读取方留着。`--no-wait` 时这些字段在任务完成后的 `jobs inspect` 的 `recording.result` 里 |
-| `baocut recordings sources` | query | 列出能录的屏幕、窗口、摄像头、麦克风，各带 ID、名字、尺寸；另列每项系统权限的状态（`screen`、`camera`、`microphone`、`inputMonitoring`）、录制落点所在磁盘的剩余空间（`disk.freeBytes`），与这台电脑能不能录、不能时的原因（给人看的 `reason` 与机器可读的 `unavailable.code`） |
+| `baocut recordings sources` | query | 列出能录的屏幕、窗口、摄像头、麦克风，各带 ID、名字、尺寸（窗口另带所在屏幕上的位置 `bounds` 与前后次序 `order`，[§7](#7-进程与职责)）；另列每项系统权限的状态（`screen`、`camera`、`microphone`、`inputMonitoring`）、录制落点所在磁盘的剩余空间（`disk.freeBytes`），与这台电脑能不能录、不能时的原因（给人看的 `reason` 与机器可读的 `unavailable.code`） |
 | `baocut recordings status [id]` | query | 一次录制的状态（[§7](#7-进程与职责)）、已录时长、各路流是否在录、落点；不给 ID 是当前这一次。开始之前就失败的也查得到（[§7](#7-进程与职责)「失败的录制」） |
 | `baocut recordings list` | query | 当前的、没有收完的与开始之前就失败的录制 |
 | `baocut recordings pause [id]`、`resume [id]` | mutation | 暂停与继续 |

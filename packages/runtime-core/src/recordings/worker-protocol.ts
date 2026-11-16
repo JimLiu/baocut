@@ -37,7 +37,18 @@ export const sourcesResult = z.object({
   displays: z.array(
     z.object({ id: z.string(), name: z.string(), width: z.number(), height: z.number(), scale: z.number(), primary: z.boolean() }),
   ),
-  windows: z.array(z.object({ id: z.string(), title: z.string(), app: z.string(), width: z.number(), height: z.number() })),
+  windows: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      app: z.string(),
+      width: z.number(),
+      height: z.number(),
+      // Added later; older Workers leave them out.
+      bounds: z.object({ displayId: z.string(), x: z.number(), y: z.number(), width: z.number(), height: z.number() }).optional(),
+      order: z.number().int().min(0).optional(),
+    }),
+  ),
   cameras: z.array(z.object({ id: z.string(), name: z.string(), default: z.boolean().optional() })),
   microphones: z.array(z.object({ id: z.string(), name: z.string(), default: z.boolean().optional() })),
 });

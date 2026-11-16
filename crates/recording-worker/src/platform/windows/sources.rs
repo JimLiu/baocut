@@ -5,7 +5,8 @@
 //!   的第一个显示器的 `DeviceString`，取不到时用设备名。ID 是设备名（这次登录里不变）。宽高报逻辑单位（÷ 缩放比例）。
 //! - 窗口：`EnumWindows`，留可见、没被 DWM 隐藏（`DWMWA_CLOAKED`，例如别的虚拟桌面上的窗口）、不是工具窗口、没有
 //!   所有者、有标题、不太小、不属于自己的顶层窗口；大小取 `DWMWA_EXTENDED_FRAME_BOUNDS`（不含阴影）。ID 是窗口句柄的
-//!   十进制值，应用名是进程映像文件名去掉 `.exe`。
+//!   十进制值，应用名是进程映像文件名去掉 `.exe`。`EnumWindows` 按 Z 序从前到后给出窗口，`order` 就是表里的名次；
+//!   `bounds` 是那个范围换到相交最多的显示器上（最小化的窗口不给）。
 //! - 摄像头见 [`super::camera`]，麦克风见 [`super::audio`]。
 //! - 权限：
 //!   - 屏幕：Windows 没有桌面应用的录屏权限；`GraphicsCaptureSession::IsSupported` 为真时报 `granted`，否则 `restricted`。
@@ -27,11 +28,11 @@ use windows::Win32::System::Threading::{OpenProcess, PROCESS_NAME_WIN32, PROCESS
 use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GW_OWNER, GWL_EXSTYLE, GetWindow, GetWindowLongW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
-    IsWindowVisible, MONITORINFOF_PRIMARY, WS_EX_TOOLWINDOW,
+    IsIconic, IsWindowVisible, MONITORINFOF_PRIMARY, WS_EX_TOOLWINDOW,
 };
 use windows_core::{BOOL, HSTRING, PCWSTR, PWSTR};
 
-use crate::protocol::{Access, Display, Permissions, Sources, Window};
+use crate::protocol::{Access, Display, Permissions, Rect, Sources, Window, WindowBounds};
 
 use super::com::{from_wide, wide};
 
@@ -161,6 +162,21 @@ pub fn windows() -> Vec<Window> {
     let mut handles: Vec<HWND> = Vec::new();
     let _ = unsafe { EnumWindows(Some(collect), LPARAM(&mut handles as *mut _ as isize)) };
     let own = std::process::id();
+    // Coordinates: the process is per-monitor DPI aware (v2), so window frames and monitor rects are physical pixels on
+    // the virtual desktop. A window's position relative to its monitor, in logical units (what Electron's `screen`
+    // calls DIP), is `(frame.origin - monitor.rect.origin) / monitor.scale`; its size is `frame.size / monitor.scale`.
+    let screens: Vec<(String, Rect, f64)> = monitors()
+        .into_iter()
+        .map(|monitor| {
+            let rect = Rect {
+                x: f64::from(monitor.rect.left),
+                y: f64::from(monitor.rect.top),
+                width: f64::from(monitor.width()),
+                height: f64::from(monitor.height()),
+            };
+            (monitor.id, rect, monitor.scale)
+        })
+        .collect();
     let mut out = Vec::new();
     for window in handles {
         if !unsafe { IsWindowVisible(window) }.as_bool() || is_cloaked(window) {
@@ -189,7 +205,19 @@ pub fn windows() -> Vec<Window> {
         if width < 40.0 || height < 40.0 {
             continue;
         }
-        out.push(Window { id: (window.0 as usize).to_string(), title, app: process_name(pid), width, height });
+        let bounds = if unsafe { IsIconic(window) }.as_bool() {
+            None
+        } else {
+            let frame = Rect {
+                x: f64::from(frame.left),
+                y: f64::from(frame.top),
+                width: f64::from(frame.right - frame.left),
+                height: f64::from(frame.bottom - frame.top),
+            };
+            WindowBounds::locate(frame, screens.iter().map(|(id, rect, scale)| (id.as_str(), *rect, *scale)))
+        };
+        let order = Some(out.len() as u32);
+        out.push(Window { id: (window.0 as usize).to_string(), title, app: process_name(pid), width, height, bounds, order });
     }
     out
 }

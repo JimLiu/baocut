@@ -423,6 +423,14 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     const ok = await client.request('recordings.sources', {});
     expect(ok).toMatchObject({ available: true, reason: null, disk: { freeBytes: 100 * 1024 ** 3 } });
     expect(ok.unavailable).toBeUndefined();
+    // 窗口的位置与前后次序原样透传：按从前到后排，bounds 指向 displays 里的屏幕。
+    expect(ok.windows.map((w) => [w.id, w.order])).toEqual([
+      ['window-7', 0],
+      ['window-8', 1],
+      ['window-9', 2],
+    ]);
+    expect(ok.windows[0]!.bounds).toEqual({ displayId: 'display-1', x: 40, y: 30, width: 200, height: 100 });
+    expect(ok.windows.every((w) => ok.displays.some((d) => d.id === w.bounds?.displayId))).toBe(true);
     await shutdown();
 
     await boot({ supported: false });

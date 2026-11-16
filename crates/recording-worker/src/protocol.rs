@@ -110,6 +110,112 @@ pub struct Window {
     pub app: String,
     pub width: f64,
     pub height: f64,
+    /// 窗口此刻在屏幕上的位置（逻辑点，相对所在屏幕的左上角）与所在屏幕；问不出时没有。后加的可选字段。
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub bounds: Option<WindowBounds>,
+    /// 窗口从前到后的次序（0 在最前）；问不出时没有。`sources` 的窗口表按它排好。
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub order: Option<u32>,
+}
+
+/// 窗口所在的屏幕（[`Display::id`]）与相对那块屏幕左上角的位置（逻辑点）；跨屏时是相交面积最大的那块，坐标可以为负或越界。
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowBounds {
+    pub display_id: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl WindowBounds {
+    /// 在一组屏幕里给窗口定位。`frame` 与每块屏幕的 `rect` 在同一个全局坐标系里（macOS 是全局的点，Windows 是虚拟桌面的
+    /// 物理像素），`scale` 是那块屏幕的全局单位到逻辑点的比例（macOS 传 1）。取相交面积最大的屏幕；与哪块都不相交时 None。
+    pub fn locate<'a>(frame: Rect, displays: impl IntoIterator<Item = (&'a str, Rect, f64)>) -> Option<WindowBounds> {
+        let area = |display: &Rect| {
+            let width = (frame.x + frame.width).min(display.x + display.width) - frame.x.max(display.x);
+            let height = (frame.y + frame.height).min(display.y + display.height) - frame.y.max(display.y);
+            if width > 0.0 && height > 0.0 { width * height } else { 0.0 }
+        };
+        let mut best: Option<(&str, Rect, f64, f64)> = None;
+        for (id, rect, scale) in displays {
+            let overlap = area(&rect);
+            if overlap > 0.0 && best.is_none_or(|(_, _, _, top)| overlap > top) {
+                best = Some((id, rect, scale, overlap));
+            }
+        }
+        let (id, rect, scale, _) = best?;
+        let scale = if scale > 0.0 { scale } else { 1.0 };
+        Some(WindowBounds {
+            display_id: id.to_owned(),
+            x: (frame.x - rect.x) / scale,
+            y: (frame.y - rect.y) / scale,
+            width: frame.width / scale,
+            height: frame.height / scale,
+        })
+    }
+}
+
+/// 按 `order` 从前到后排；没有次序的排在最后，彼此保持原来的先后。
+pub fn sort_windows_front_to_back(windows: &mut [Window]) {
+    windows.sort_by_key(|window| window.order.unwrap_or(u32::MAX));
+}
+
+#[cfg(test)]
+mod window_bounds_tests {
+    use super::*;
+
+    fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
+        Rect { x, y, width, height }
+    }
+
+    #[test]
+    fn picks_the_display_with_the_largest_overlap() {
+        // 主屏 1512×982 在 (0,0)，副屏 1920×1080 在右边 (1512,-200)。窗口大半在副屏上。
+        let displays = [("1", rect(0.0, 0.0, 1512.0, 982.0), 1.0), ("2", rect(1512.0, -200.0, 1920.0, 1080.0), 1.0)];
+        let bounds = WindowBounds::locate(rect(1400.0, 100.0, 800.0, 600.0), displays).unwrap();
+        assert_eq!(bounds, WindowBounds { display_id: "2".into(), x: -112.0, y: 300.0, width: 800.0, height: 600.0 });
+    }
+
+    #[test]
+    fn negative_and_overflowing_coordinates_stay_relative() {
+        let displays = [("1", rect(0.0, 0.0, 1000.0, 800.0), 1.0)];
+        let bounds = WindowBounds::locate(rect(-50.0, -20.0, 1200.0, 300.0), displays).unwrap();
+        assert_eq!(bounds, WindowBounds { display_id: "1".into(), x: -50.0, y: -20.0, width: 1200.0, height: 300.0 });
+    }
+
+    #[test]
+    fn scale_turns_physical_pixels_into_logical_points() {
+        // Windows：副屏在虚拟桌面 (2560,0)，缩放 1.5。
+        let displays = [("\\\\.\\DISPLAY1", rect(0.0, 0.0, 2560.0, 1440.0), 1.0), ("\\\\.\\DISPLAY2", rect(2560.0, 0.0, 1920.0, 1080.0), 1.5)];
+        let bounds = WindowBounds::locate(rect(2710.0, 300.0, 900.0, 600.0), displays).unwrap();
+        assert_eq!(bounds, WindowBounds { display_id: "\\\\.\\DISPLAY2".into(), x: 100.0, y: 200.0, width: 600.0, height: 400.0 });
+    }
+
+    #[test]
+    fn no_overlap_has_no_bounds() {
+        let displays = [("1", rect(0.0, 0.0, 1000.0, 800.0), 1.0)];
+        assert_eq!(WindowBounds::locate(rect(-32000.0, -32000.0, 160.0, 28.0), displays), None);
+        assert_eq!(WindowBounds::locate(rect(10.0, 10.0, 100.0, 100.0), []), None);
+    }
+
+    #[test]
+    fn sorts_front_to_back_with_unknown_last() {
+        let window = |id: &str, order: Option<u32>| Window {
+            id: id.into(),
+            title: id.into(),
+            app: String::new(),
+            width: 100.0,
+            height: 100.0,
+            bounds: None,
+            order,
+        };
+        let mut windows = vec![window("a", None), window("b", Some(1)), window("c", Some(0)), window("d", None)];
+        sort_windows_front_to_back(&mut windows);
+        let ids: Vec<&str> = windows.iter().map(|w| w.id.as_str()).collect();
+        assert_eq!(ids, ["c", "b", "a", "d"]);
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

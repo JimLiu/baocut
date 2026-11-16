@@ -10,7 +10,11 @@
     {
       "permissions": { "screen": "granted", "camera": "not-determined", "microphone": "denied", "inputMonitoring": "unknown" },
       "displays": [{ "id": "1", "name": "Built-in Display", "width": 1512, "height": 982, "scale": 2, "primary": true }],
-      "windows": [{ "id": "4242", "title": "Untitled", "app": "TextEdit", "width": 800, "height": 600 }],
+      "windows": [
+        { "id": "4242", "title": "Untitled", "app": "TextEdit", "width": 800, "height": 600, "bounds": { "displayId": "1", "x": 120, "y": 80, "width": 800, "height": 600 }, "order": 0 },
+        { "id": "4243", "title": "Notes", "app": "Notes", "width": 640, "height": 480, "bounds": { "displayId": "1", "x": -40, "y": 600, "width": 640, "height": 480 }, "order": 1 },
+        { "id": "4244", "title": "Old Worker", "app": "Preview", "width": 400, "height": 300 }
+      ],
       "cameras": [{ "id": "cam-1", "name": "Camera", "default": true }],
       "microphones": [{ "id": "mic-1", "name": "Microphone" }]
     },

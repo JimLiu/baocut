@@ -188,7 +188,35 @@ function handle(method: string, params: Record<string, unknown>): unknown {
       return {
         permissions: { screen: 'granted', camera: 'granted', microphone: 'granted', inputMonitoring: 'not-determined', ...scenario.permissions },
         displays: [{ id: 'display-1', name: 'Fake Display', width: 320, height: 180, scale: 1, primary: true }],
-        windows: [{ id: 'window-7', title: 'Fake Window', app: 'Fake App', width: 200, height: 100 }],
+        windows: [
+          {
+            id: 'window-7',
+            title: 'Fake Window',
+            app: 'Fake App',
+            width: 200,
+            height: 100,
+            bounds: { displayId: 'display-1', x: 40, y: 30, width: 200, height: 100 },
+            order: 0,
+          },
+          {
+            id: 'window-8',
+            title: 'Fake Editor',
+            app: 'Fake App',
+            width: 160,
+            height: 120,
+            bounds: { displayId: 'display-1', x: 200, y: 90, width: 160, height: 120 },
+            order: 1,
+          },
+          {
+            id: 'window-9',
+            title: 'Fake Notes',
+            app: 'Fake Notes',
+            width: 120,
+            height: 80,
+            bounds: { displayId: 'display-1', x: -20, y: 10, width: 120, height: 80 },
+            order: 2,
+          },
+        ],
         cameras: [{ id: 'cam-1', name: 'Fake Camera', default: true }],
         microphones: [{ id: 'mic-1', name: 'Fake Microphone', default: true }],
       };

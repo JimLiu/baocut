@@ -186,6 +186,10 @@ export interface RecordingWindow {
   app: string;
   width: number;
   height: number;
+  /** 窗口此刻在屏幕上的位置（逻辑点，相对所在屏幕的左上角）与所在屏幕；问不出时没有这一项。后加的可选字段。 */
+  bounds?: { displayId: string; x: number; y: number; width: number; height: number };
+  /** 窗口从前到后的次序（0 在最前）；问不出时没有。 */
+  order?: number;
 }
 
 export interface RecordingDevice {
@@ -224,6 +228,10 @@ export interface RecordingSources {
   disk?: { freeBytes: number };
   permissions: RecordingPermissions;
   displays: RecordingDisplay[];
+  /**
+   * 按从前到后排好（有 `order` 的在前）。`bounds.displayId` 与 `displays[].id` 同一套；跨屏的窗口归到与它相交面积最大的
+   * 屏幕，坐标仍相对那块屏幕的左上角，可以为负或越界。
+   */
   windows: RecordingWindow[];
   cameras: RecordingDevice[];
   microphones: RecordingDevice[];
