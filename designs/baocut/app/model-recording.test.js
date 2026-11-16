@@ -29,7 +29,7 @@ test('录制卡：等待开始时能打开面板，放进视频后能打开视�
   assert.equal(REC.cardLine('recording', {elapsed: 75}).text, '正在录制 · 1:15');
   const done = REC.cardLine('done', {title: '第 5 讲', elapsed: 96});
   assert.equal(done.action, 'video');
-  assert.equal(done.text, '已放进视频 · 第 5 讲（1:36）');
+  assert.equal(done.text, '已放进视频 · 1:36');
   assert.equal(REC.cardLine('cancelled').text, '已取消录制。');
 });
 
@@ -37,7 +37,7 @@ test('恢复提示只讲最新的一次', () => {
   assert.equal(REC.recoveryText([]), null);
   const r = REC.recoveryText([{id: 'a', date: '昨天 16:20', duration: 312, ago: 1400}, {id: 'b', date: '今天 09:05', duration: 74, ago: 30}]);
   assert.equal(r.id, 'b');
-  assert.equal(r.body, '今天 09:05 的录制（1:14）在放进视频之前中断了。可以恢复，或者删掉录下的文件。');
+  assert.equal(r.body, '今天 09:05的录制（1:14）在放进视频之前中断了。可以恢复，或者删掉录下的文件。');
   assert.equal(r.more, '还有 1 次没有收完的录制');
 });
 

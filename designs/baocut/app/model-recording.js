@@ -42,9 +42,9 @@
       case 'recording': return {text: '正在录制 · ' + clock(x.elapsed || 0), live: true};
       case 'paused': return {text: '已暂停 · ' + clock(x.elapsed || 0)};
       case 'finishing': return {text: '正在收尾…'};
-      case 'done': return {text: `已放进视频 · ${x.title || '录制'}（${clock(x.elapsed || 0)}）`, action: 'video', actionLabel: '打开视频', tone: 'positive'};
+      case 'done': return {text: `已放进视频 · ${clock(x.elapsed || 0)}`, action: 'video', actionLabel: '打开视频', tone: 'positive'};
       case 'cancelled': return {text: '已取消录制。', tone: 'neutral'};
-      case 'discarded': return {text: '录制已丢弃。', tone: 'neutral'};
+      case 'discarded': return {text: '录制已丢弃', tone: 'neutral'};
       case 'failed': return {text: x.error || '录制没有完成。', tone: 'negative'};
       default: return {text: ''};
     }
@@ -61,7 +61,7 @@
     return {
       id: r.id,
       title: '有一次没有收完的录制',
-      body: `${r.date} 的录制（${clock(r.duration)}）在放进视频之前中断了。可以恢复，或者删掉录下的文件。`,
+      body: `${r.date}的录制（${clock(r.duration)}）在放进视频之前中断了。可以恢复，或者删掉录下的文件。`,
       more: items.length > 1 ? `还有 ${items.length - 1} 次没有收完的录制` : '',
     };
   }
