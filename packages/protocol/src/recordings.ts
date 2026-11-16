@@ -143,6 +143,8 @@ export interface RecordingSummary {
   elapsed: number;
   /** 倒计时剩下的秒数（只在 `countdown` 时有）。 */
   countdownLeft?: number;
+  /** 采集中落点磁盘的剩余空间（字节，约每 5 秒更新）；还没量过时没有。 */
+  freeBytes?: number;
   streams: RecordingStreamStatus[];
   /** 新建或录进的视频；新建的还没建出来时 null。 */
   videoId: Id | null;

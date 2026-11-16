@@ -73,9 +73,12 @@ const KEPT_EARLY_FAILURES = 10;
 /** 打包的桌面端的 bundle id（`apps/desktop` 的 App ID）：整屏录制缺省排除它的窗口。 */
 export const DESKTOP_BUNDLE_ID = 'com.baocut.app';
 
-/** 开始采集之前就失败了：什么都没录，没有目录，只剩状态与错误。 */
+/**
+ * 什么都没留下的失败：开始采集之前就失败了，或者停下时一帧也没录成（`RECORDING_EMPTY`）。目录已经删掉，只剩状态与错误，
+ * 不能恢复。
+ */
 function neverCaptured(session: { summary: RecordingSummary }): boolean {
-  return session.summary.state === 'failed' && session.summary.startedAt === null;
+  return session.summary.state === 'failed' && (session.summary.startedAt === null || session.summary.error?.code === 'RECORDING_EMPTY');
 }
 
 const PERMISSION_LABELS: Record<keyof RecordingPermissions, () => Localized> = {
@@ -163,6 +166,8 @@ interface Session extends StoredSession {
   finishing: Promise<void> | null;
   /** 用户或 Runtime 正在停这个 Worker：退出不算崩溃。 */
   expectingExit: boolean;
+  /** 正在走的暂停或继续（Worker 还没回复）：同一时刻只走一个，停止不等它。 */
+  switching: Promise<unknown> | null;
 }
 
 export interface RecordingRequest {
@@ -186,7 +191,7 @@ export class RecordingService {
     this.topic = new TopicLog(() => ({ recordings: this.list() }), '0');
   }
 
-  /** 读入上次留下的录制：没收完的记成可以恢复的，开始之前就停了的（什么都没录）删掉。 */
+  /** 读入上次留下的录制：没收完的记成可以恢复的，开始之前就停了的与一帧也没录成的（什么都没留下）删掉。 */
   async init(): Promise<void> {
     let names: string[];
     try {
@@ -203,7 +208,8 @@ export class RecordingService {
         continue;
       }
       const { summary } = stored;
-      if (summary.state === 'in-timeline' || summary.state === 'discarded' || BEFORE_CAPTURE.has(summary.state)) {
+      // 一帧也没录成的（旧版本留下了目录）同样删掉：没有可恢复的东西。
+      if (summary.state === 'in-timeline' || summary.state === 'discarded' || BEFORE_CAPTURE.has(summary.state) || neverCaptured(stored)) {
         await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
         continue;
       }
@@ -388,10 +394,18 @@ export class RecordingService {
     return this.#view(session);
   }
 
+  /**
+   * 暂停与继续：上一次还没等到 Worker 回复时先等它，再按那时的状态判断（连按两下暂停，第二下报不在录制中）。等回复的时候
+   * 停止、丢弃或 Worker 退出了，以那一边为准：不再改回暂停或录制中，也不再计时。
+   */
   async pause(recordingId?: Id): Promise<RecordingSummary> {
     const session = this.#capturing(recordingId);
+    while (session.switching) await session.switching.catch(() => {});
+    // 从这里到 `#switch` 占住之间不能再有 await：同时到的两次请求要在这里分出先后。
+    this.#capturing(session.summary.recordingId);
     if (session.summary.state !== 'recording') throw notState('RECORDING_NOT_RECORDING', RcRecordings.notRecording(), session);
-    await session.worker!.request('pause', {}, { timeoutMs: 30_000 });
+    await this.#switch(session, 'pause', 'recording');
+    if (session.summary.state !== 'recording') return this.#view(session);
     this.#closeSegment(session);
     session.summary.state = 'paused';
     session.summary.streams = session.summary.streams.map((s) => ({ ...s, active: false }));
@@ -401,12 +415,28 @@ export class RecordingService {
 
   async resume(recordingId?: Id): Promise<RecordingSummary> {
     const session = this.#capturing(recordingId);
+    while (session.switching) await session.switching.catch(() => {});
+    this.#capturing(session.summary.recordingId);
     if (session.summary.state !== 'paused') throw notState('RECORDING_NOT_PAUSED', RcRecordings.notPaused(), session);
-    await session.worker!.request('resume', {}, { timeoutMs: 30_000 });
+    await this.#switch(session, 'resume', 'paused');
+    if (session.summary.state !== 'paused') return this.#view(session);
     session.activeSince = Date.now();
     session.summary.state = 'recording';
     await this.#changed(session);
     return this.#view(session);
+  }
+
+  /** 发暂停或继续。Worker 回复失败而会话已经不在 `from`（停止、丢弃抢先了）时不算错，由调用方按新状态返回。 */
+  async #switch(session: Session, method: 'pause' | 'resume', from: RecordingState): Promise<void> {
+    const pending = session.worker!.request(method, {}, { timeoutMs: 30_000 });
+    session.switching = pending;
+    try {
+      await pending;
+    } catch (error) {
+      if (session.summary.state === from) throw error;
+    } finally {
+      if (session.switching === pending) session.switching = null;
+    }
   }
 
   /** 停止并保留：返回只表示收到了（`stopping`），收尾与导入在任务里走完。倒计时中停止等于取消（什么都没录）。 */
@@ -492,7 +522,7 @@ export class RecordingService {
   // ---- 内部 ----
 
   #session(stored: StoredSession): Session {
-    return { ...stored, job: null, worker: null, activeSince: null, accumulated: stored.summary.elapsed, timers: new Set(), finishing: null, expectingExit: false };
+    return { ...stored, job: null, worker: null, activeSince: null, accumulated: stored.summary.elapsed, timers: new Set(), finishing: null, expectingExit: false, switching: null };
   }
 
   #get(recordingId: Id): Session {
@@ -530,8 +560,8 @@ export class RecordingService {
   }
 
   async #persist(session: Session): Promise<void> {
-    // 已进时间线或已丢弃的录制目录已经删掉，不再写回去。
-    if (session.summary.state === 'discarded' || session.summary.state === 'in-timeline') return;
+    // 已进时间线、已丢弃或什么都没留下的录制目录已经删掉，不再写回去。
+    if (session.summary.state === 'discarded' || session.summary.state === 'in-timeline' || neverCaptured(session)) return;
     const stored: StoredSession = {
       summary: { ...session.summary, elapsed: this.#elapsed(session) },
       place: session.place,
@@ -728,9 +758,18 @@ export class RecordingService {
     });
   }
 
+  /**
+   * 采集中每 [`DISK_POLL_MS`] 看一次剩余空间：记进 `freeBytes`（控制条按它估还能录多久），低于开始门槛的一半时停下并保留。
+   * Worker 的 `disk-low` 只是提醒，不停。
+   */
   async #checkDisk(session: Session): Promise<void> {
     if (!CAPTURING.has(session.summary.state)) return;
     const free = await this.#freeBytes().catch(() => Number.POSITIVE_INFINITY);
+    if (!CAPTURING.has(session.summary.state)) return;
+    if (Number.isFinite(free) && free !== session.summary.freeBytes) {
+      session.summary.freeBytes = free;
+      await this.#changed(session, { persist: false });
+    }
     if (free < MIN_FREE_BYTES / 2) {
       this.#o.log.warn('Disk almost full, stopping the recording', { recordingId: session.summary.recordingId, free });
       session.job?.update({ warnings: [{ code: 'RECORDING_DISK_LOW', detail: RcRecordings.diskLowStopped().text, detailRef: refOf(RcRecordings.diskLowStopped()) }] }, { persist: true });
@@ -754,7 +793,10 @@ export class RecordingService {
       session.job?.update({ warnings: [...(session.job.record().warnings ?? []), { code: 'RECORDING_DEVICE_LOST', detail: event.params.role }] }, { persist: true });
       await this.#changed(session);
     } else if (event.event === 'disk-low') {
-      await this.#finish(session, { import: true });
+      // 只是提醒（Worker 的线比 Runtime 停录的线高）：记下剩余空间，控制条显示还能录多久；真正停在 `#checkDisk`。
+      if (!CAPTURING.has(session.summary.state)) return;
+      session.summary.freeBytes = event.params.freeBytes;
+      await this.#changed(session, { persist: false });
     } else if (event.event === 'failed') {
       this.#o.log.warn('The recording worker reported a failure', { ...event.params });
       session.summary.error = this.#jobError('RECORDING_WORKER_FAILED', RcRecordings.workerFailed({ reason: event.params.message }));
@@ -804,9 +846,13 @@ export class RecordingService {
       this.#clearTimers(session);
       if (CAPTURING.has(session.summary.state)) {
         session.summary.state = 'stopping';
-        this.#closeSegment(session);
         session.summary.streams = session.summary.streams.map((s) => ({ ...s, active: false }));
         await this.#changed(session);
+        // 刚开始（或刚继续）就停：这一段至少录满一秒再停，太短的段落在录制包里会被丢掉，整次录制可能什么都不剩。
+        const segment = session.activeSince === null ? Infinity : Date.now() - session.activeSince;
+        const least = this.#o.secondMs ?? 1000;
+        if (segment < least && session.worker) await new Promise((resolve) => setTimeout(resolve, least - segment));
+        this.#closeSegment(session);
         await this.#stopWorker(session, 'stop');
       }
       if (!how.import) {
@@ -869,7 +915,18 @@ export class RecordingService {
     } catch (error) {
       this.#o.log.warn('Finishing the recording failed', { recordingId, error: String(error) });
       const jobError = this.#errorOf(error);
-      session.summary.state = jobError.code === 'RECORDING_EMPTY' ? 'failed' : 'importable';
+      if (jobError.code === 'RECORDING_EMPTY') {
+        // 一帧也没录成：没有可恢复的东西，目录删掉，像开始之前就失败的一样只留状态与错误。
+        await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+        session.summary.state = 'failed';
+        session.summary.unfinished = false;
+        session.summary.error = jobError;
+        await session.job?.finish('failed', { error: jobError });
+        await this.#changed(session);
+        this.#pruneEarlyFailures();
+        return;
+      }
+      session.summary.state = 'importable';
       session.summary.unfinished = true;
       session.summary.error = jobError;
       await session.job?.finish('failed', { error: jobError });

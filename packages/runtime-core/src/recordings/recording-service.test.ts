@@ -485,4 +485,82 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     expect(failed.error).toMatchObject({ code: 'RECORDING_SOURCE_NOT_CAPTURABLE', details: { workerCode: 'SOURCE_NOT_CAPTURABLE' } });
     expect(failed.result).toBeNull();
   }, 60_000);
+
+  it('stopping while a pause is still waiting for the worker: the stop wins, the recording is not set back to paused, the video is imported', async () => {
+    await boot({ replyDelayMs: { pause: 300, stop: 900 } });
+    const started = await startRecording();
+    await until(started.recordingId, (r) => r.state === 'recording');
+    await sleep(300);
+    const pausing = client.request('recordings.pause', {});
+    await sleep(100);
+    await client.request('recordings.stop', {});
+    // The pause reply arrives while the worker is still stopping: the recording stays stopping, so discarding is refused
+    // instead of killing the worker in the middle of finishing.
+    const paused = await pausing;
+    expect(paused.recording.state).toBe('stopping');
+    const busy = await rejection(client.request('recordings.discard', { recordingId: started.recordingId }));
+    expect((busy.details as { code?: string }).code).toBe('RECORDING_BUSY');
+    const done = await until(started.recordingId, settled);
+    expect(done.state).toBe('in-timeline');
+    expect(done.error).toBeNull();
+  }, 60_000);
+
+  it('two pauses at once: the second waits for the first and then reports that the recording is no longer recording', async () => {
+    await boot({ replyDelayMs: { pause: 200 } });
+    const started = await startRecording();
+    await until(started.recordingId, (r) => r.state === 'recording');
+    await sleep(200);
+    const [first, second] = await Promise.allSettled([client.request('recordings.pause', {}), client.request('recordings.pause', {})]);
+    expect(first.status === 'fulfilled' ? first.value.recording.state : null).toBe('paused');
+    expect(second.status).toBe('rejected');
+    expect(((second as PromiseRejectedResult).reason.details as { code?: string }).code).toBe('RECORDING_NOT_RECORDING');
+    expect((await client.request('recordings.resume', {})).recording.state).toBe('recording');
+    await client.request('recordings.stop', {});
+    expect((await until(started.recordingId, settled)).state).toBe('in-timeline');
+  }, 60_000);
+
+  it('stopping right after the start still records at least one second, so the recording is not empty', async () => {
+    await boot({}, { recordings: { hasWindow: () => true, secondMs: 400, freeBytes: async () => 100 * 1024 ** 3 } });
+    const started = await startRecording();
+    await until(started.recordingId, (r) => r.state === 'recording');
+    await client.request('recordings.stop', {});
+    const done = await until(started.recordingId, settled);
+    expect(done.state).toBe('in-timeline');
+    expect(done.result!.duration).toBeGreaterThanOrEqual(0.3);
+  }, 60_000);
+
+  it('nothing recorded: the recording fails with RECORDING_EMPTY, its folder is removed, it cannot be recovered and is gone after a restart', async () => {
+    await boot({ zeroLength: true });
+    const started = await startRecording();
+    await until(started.recordingId, (r) => r.state === 'recording');
+    await sleep(200);
+    await client.request('recordings.stop', {});
+    const failed = await until(started.recordingId, settled);
+    expect(failed.state).toBe('failed');
+    expect(failed.unfinished).toBe(false);
+    expect(failed.error?.code).toBe('RECORDING_EMPTY');
+    await expect(fs.stat(failed.dir)).rejects.toThrow();
+    const refused = await rejection(client.request('recordings.recover', { recordingId: started.recordingId }));
+    expect((refused.details as { code?: string }).code).toBe('RECORDING_NOT_RECOVERABLE');
+    // An older version kept the folder of such a recording: the next start removes it.
+    await fs.mkdir(failed.dir, { recursive: true });
+    await fs.writeFile(path.join(failed.dir, 'session.json'), JSON.stringify({ summary: { ...failed, unfinished: true }, place: null, submitter: started.options }));
+    await shutdown();
+    await boot({ zeroLength: true });
+    expect((await client.request('recordings.list', {})).recordings).toEqual([]);
+    await expect(fs.stat(failed.dir)).rejects.toThrow();
+  }, 60_000);
+
+  it('the worker reporting low disk space only warns: the recording goes on and reports the free space', async () => {
+    await boot({ diskLowAfterMs: 200 });
+    const started = await startRecording();
+    await until(started.recordingId, (r) => r.state === 'recording');
+    const warned = await until(started.recordingId, (r) => r.freeBytes !== undefined);
+    expect(warned.state).toBe('recording');
+    expect(warned.freeBytes).toBe(900 * 1024 * 1024);
+    await sleep(200);
+    expect((await client.request('recordings.status', { recordingId: started.recordingId })).recording!.state).toBe('recording');
+    await client.request('recordings.stop', {});
+    expect((await until(started.recordingId, settled)).state).toBe('in-timeline');
+  }, 60_000);
 });

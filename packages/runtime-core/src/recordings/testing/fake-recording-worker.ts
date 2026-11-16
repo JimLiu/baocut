@@ -11,7 +11,11 @@
  * - `loseCameraAfterMs`: the camera disconnects this long into the first segment;
  * - `crashAfterMs`: the worker writes the media of the open segment and exits with code 1 this long after `start`,
  *   leaving the journal without its end lines (like a crash with fragmented MP4 files on disk);
- * - `startError`: `start` answers with this error (`{code, message}`), like the system refusing a permission at start.
+ * - `startError`: `start` answers with this error (`{code, message}`), like the system refusing a permission at start;
+ * - `replyDelayMs`: per method (`pause`, `stop`), the request takes effect at once but its reply is sent this much later (requests that
+ *   arrive meanwhile are answered first), like a real worker that is slow to finish its writers;
+ * - `diskLowAfterMs`: the worker reports `disk-low` this long after `start`;
+ * - `zeroLength`: every segment ends where it started, so the package has nothing in it (`RECORDING_EMPTY`).
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -27,6 +31,9 @@ interface Scenario {
   loseCameraAfterMs?: number;
   crashAfterMs?: number;
   startError?: { code: string; message: string };
+  replyDelayMs?: Partial<Record<'pause' | 'stop', number>>;
+  diskLowAfterMs?: number;
+  zeroLength?: boolean;
   /** Write the params of every `start` call to this file (JSON), so tests can check what the Runtime sent. */
   startParamsFile?: string;
 }
@@ -162,7 +169,7 @@ function openSegment(): Segment {
 }
 
 function closeSegment(seg: Segment, writeEnds: boolean): bigint {
-  const at = now();
+  const at = scenario.zeroLength ? seg.startNs : now();
   for (const stream of seg.streams) {
     if (stream.endNs !== null) continue;
     stream.endNs = at;
@@ -245,6 +252,9 @@ function handle(method: string, params: Record<string, unknown>): unknown {
         journal({ type: 'cursor', id: 'arrow', file, hotspot: { x: 0.1, y: 0.1 }, scale: 1, shape: 'arrow' });
       }
       segment = openSegment();
+      if (scenario.diskLowAfterMs !== undefined) {
+        timers.push(setTimeout(() => send({ event: 'disk-low', params: { freeBytes: 900 * 1024 * 1024 } }), scenario.diskLowAfterMs));
+      }
       if (scenario.crashAfterMs !== undefined) {
         timers.push(
           setTimeout(() => {
@@ -288,7 +298,10 @@ lines.on('line', (line) => {
     return;
   }
   try {
-    send({ id: request.id, result: handle(request.method, request.params ?? {}) });
+    const result = handle(request.method, request.params ?? {});
+    const delay = scenario.replyDelayMs?.[request.method as 'pause' | 'stop'];
+    if (delay) setTimeout(() => send({ id: request.id, result }), delay);
+    else send({ id: request.id, result });
   } catch (error) {
     const body = error && typeof error === 'object' && 'code' in error ? error : { code: 'INTERNAL', message: String(error) };
     send({ id: request.id, error: body });
