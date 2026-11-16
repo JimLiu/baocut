@@ -196,7 +196,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 
 阶段 1 提前到联动组与取景之前，是因为没有 Cap 导入器之后，真实的录制只能从自己的 Worker 来；它先做到最小，够后面两个阶段拿真数据验证就行。
 
-**现状（2026-11-15，界面更新于 2026-11-16）。** 阶段 1 与阶段 4 里不涉及界面的部分已经实现：
+**现状（2026-11-15）。** 阶段 1 与阶段 4 里不涉及界面的部分已经实现：
 
 - **Recording Worker**（`crates/recording-worker`，Rust，与 `engine-host` 一样由 `npm run build:engine` 构建、随桌面包放进 `bin/`）。macOS 上屏幕、窗口、区域与系统声音走 ScreenCaptureKit，摄像头与麦克风走 AVFoundation，写文件用 `AVAssetWriter`（H.264 由 VideoToolbox 硬件编码，AAC）；各路时间戳换到同一个主机时钟上（`CMSyncConvertTime`）。鼠标、光标图片与键盘、暂停与恢复（每次恢复是新的一段）、设备断开、磁盘检查与崩溃后可读的分段文件都已实现。Windows 的采集已经写好（Windows.Graphics.Capture、WASAPI 与回环、Media Foundation 的摄像头与编码、Win32 的指针、光标图片与键盘钩子，[§7](#7-进程与职责)），**只通过了交叉编译检查**（`cargo check` / `clippy -p recording-worker --all-targets --target x86_64-pc-windows-msvc`，在 macOS 上），从来没有在 Windows 上运行过；与系统无关的部分（键码表、时刻与声音时间线、BGRA 到 NV12、区域取偶、光标位图的透明度、PNG 编码）有单元测试，在任何平台上跑。所以缺省仍回答不支持，开发态开关 `BAOCUT_RECORDING_WINDOWS_EXPERIMENTAL=1` 打开才启用。别的平台 `hello` 回答不支持、`start` 拒绝，不假装能录。
 - **协议**：stdio 上的 JSON 行（`packages/runtime-core/src/recordings/worker-protocol.ts`），两边共用的样例在 `crates/recording-worker/tests/fixtures/protocol.json`。Runtime 收尾时只读 Worker 写的 `journal.jsonl`，正常停止与崩溃之后的恢复是同一条路径。
@@ -206,7 +206,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 - **`recordings.sources`** 另给落点所在磁盘的剩余空间（`disk.freeBytes`），不能录时给机器可读的原因 `unavailable.code`：`platform-unsupported`、`no-desktop`（没开着桌面端，来源照样列出）、`worker-missing`；`remote-runtime` 只出现在 `RECORDING_UNAVAILABLE` 错误的 `details.unavailable` 里。
 - **Runtime**：录制会话的状态、倒计时、Worker 的启停与恢复、导入（清单、指针轨、键盘轨、取景文档与自动缩放、实例与联动组，经 `edits.apply`）；整屏录制排除自己的窗口（[§7](#7-进程与职责)）；`record` 与 `recordings` 整组命令、`baocut doctor` 的「录制」一项。
 - **导入的次序**：素材与轨道；清单与取景文档；自动缩放；每一段先放实例再修到有内容的区间结尾（终点向下取到帧，且不超过实例的起点加文件长度：真实录制的长度不在帧上，取最近的帧会越过素材结尾）；最后一笔登记联动组、挂取景、摆摄像头。成组之前每个实例都已经放好、修好，联动组的规则（成员同进退）不会挡住导入自己的修剪。
-- **界面（2026-11-16）**：
+- **界面（2026-11-15）**：
   - 入口：Home 快速开始的「录制」、Space「新建」的「录制新视频」、编辑器素材面板的「录制」；桌面端连着远程 Runtime 时置灰，Web 不显示。
   - 录制面板（Home、Space、编辑器与智能体的 `record` 共用）与智能体的录制卡片。面板里有：
     - 「一个区域」：桌面端在所选屏幕上盖一层透明选框，拖出区域（逻辑点，Esc 取消），面板记住它；区域不在那块屏幕里了要重新框。Web 没有选框，这一项置灰。
@@ -223,7 +223,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
     - 检查器的「屏幕取景」：缩放列表与编辑、跟随、光标（`baked` 与 `none` 时整组置灰）、「重新生成」。
     - 「演示样式」与摄像头布局预设。
   - Web 有编辑器的全部编辑，没有录制入口。
-  - 用假 Worker 驱动隔离的 Runtime 与 Electron 验证过面板、控制条、恢复、附属行的拖动与新建、解组、重新生成和演示样式；2026-11-16 又验证过舞台取景框、成组修剪的预览、区域框选（拖出、Esc 取消、开始录制带上区域）、「把 BaoCut 也录进去」开关与设置里的录制一组（开始录制的快捷键在不录时注册、录制中让出，按下后打开面板；帧率与倒计时随开始送给 Runtime）。真的按下全局快捷键、多块屏幕与真实 Worker 的屏幕 ID 对应没有在实机上试过。
+  - 用假 Worker 驱动隔离的 Runtime 与 Electron 验证过面板、控制条、恢复、附属行的拖动与新建、解组、重新生成和演示样式；后来又验证过舞台取景框、成组修剪的预览、区域框选（拖出、Esc 取消、开始录制带上区域）、「把 BaoCut 也录进去」开关的显示与设置里的录制一组（开始录制的快捷键在不录时注册、录制中让出，收到按下的消息后打开面板；帧率与倒计时随开始送给 Runtime）。没有试过的：真的按下全局快捷键（主进程带回窗口的那一步）、快捷键注册不上的提示、多块屏幕与真实 Worker 的屏幕 ID 对应；打开开关时录制中不收起窗口只有单测；磁盘提醒没有在页面上出现过（Runtime 不给剩余空间），只有单测。
   - 摄像头布局预设与五种布局的编辑操作经 Runtime 接受（没有相机素材，没有看画面）。
 - **还没有**：
   - 界面里的摄像头预览（后端不需要改，规则见 [§7](#7-进程与职责)「摄像头预览」）。
