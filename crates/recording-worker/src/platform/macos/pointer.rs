@@ -94,7 +94,8 @@ impl Monitor {
             dir: dir.clone(),
             sink: Arc::clone(&sink),
             rect,
-            capture_scale: capture_scale.max(1.0),
+            // 1 倍的宽屏缩到每边 4096 以内时每点不到一个像素（screen.rs 的 `fit_scale`），不能夹到 1。
+            capture_scale: if capture_scale > 0.0 { capture_scale } else { 1.0 },
             pointer,
             cursor_images,
             devices: Devices(devices),
@@ -296,5 +297,7 @@ mod tests {
         assert_eq!(cursor_scale(32.0, 16.0, 1.0), 2.0);
         // 2 倍屏上只拿到 1 倍图片：图片一个像素对两个画面像素。
         assert_eq!(cursor_scale(16.0, 16.0, 2.0), 0.5);
+        // 1 倍的 5120 宽屏缩成 4096 宽（每点 0.8 个像素）：16 点的 1 倍光标在画面里是 12.8 像素。
+        assert!((cursor_scale(16.0, 16.0, 0.8) - 1.25).abs() < 1e-9);
     }
 }
