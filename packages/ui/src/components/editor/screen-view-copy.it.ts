@@ -41,7 +41,7 @@ export const it: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Collegato alle altre tracce di questa registrazione: spostare, dividere e rifilare agiscono insieme",
   ungroup: "Separa",
-  ungroupTip: "Montare separatamente schermo, videocamera e audio di questa registrazione",
+  ungroupTip: "Montare schermo, videocamera e audio a parte",
   cameraLayout: "Layout videocamera",
   layoutCornerCircle: "Cerchio nell’angolo",
   layoutCornerRounded: "Arrotondato nell’angolo",

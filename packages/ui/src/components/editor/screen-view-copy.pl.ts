@@ -41,7 +41,7 @@ export const pl: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Połączone z innymi ścieżkami tego nagrania: przesuwanie, dzielenie i przycinanie działają razem",
   ungroup: "Rozgrupuj",
-  ungroupTip: "Edytuj osobno ekran, kamerę i dźwięk tego nagrania",
+  ungroupTip: "Edytuj osobno ekran, kamerę i dźwięk",
   cameraLayout: "Układ kamery",
   layoutCornerCircle: "Koło w rogu",
   layoutCornerRounded: "Zaokrąglony w rogu",

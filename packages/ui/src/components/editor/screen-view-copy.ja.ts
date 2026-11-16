@@ -41,7 +41,7 @@ export const ja: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "この録画の他のトラックと連動：移動・分割・トリムは一緒に行われます",
   ungroup: "グループ解除",
-  ungroupTip: "この録画の画面・カメラ・音声を別々に編集します",
+  ungroupTip: "画面・カメラ・音声を別々に編集",
   cameraLayout: "カメラの配置",
   layoutCornerCircle: "円・右下",
   layoutCornerRounded: "角丸・左下",

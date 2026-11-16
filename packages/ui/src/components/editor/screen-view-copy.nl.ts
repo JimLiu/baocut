@@ -41,7 +41,7 @@ export const nl: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Gekoppeld aan de andere sporen van deze opname: verplaatsen, splitsen en inkorten gebeuren samen",
   ungroup: "Groep opheffen",
-  ungroupTip: "Scherm, camera en geluid van deze opname apart bewerken",
+  ungroupTip: "Scherm, camera en geluid apart bewerken",
   cameraLayout: "Camera-indeling",
   layoutCornerCircle: "Cirkel in de hoek",
   layoutCornerRounded: "Afgerond in de hoek",

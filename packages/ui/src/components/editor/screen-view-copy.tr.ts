@@ -41,7 +41,7 @@ export const tr: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Bu kaydın diğer parçalarıyla bağlı: taşıma, bölme ve kırpma birlikte yapılır",
   ungroup: "Grubu çöz",
-  ungroupTip: "Bu kaydın ekranını, kamerasını ve sesini ayrı ayrı düzenleyin",
+  ungroupTip: "Ekranı, kamerayı ve sesi ayrı düzenleyin",
   cameraLayout: "Kamera yerleşimi",
   layoutCornerCircle: "Köşede daire",
   layoutCornerRounded: "Köşede yuvarlak",

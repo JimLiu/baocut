@@ -109,20 +109,27 @@ export function ScreenViewRows(props: RowProps) {
     return items.map((item) => contentClock(item, props.sequence, offset)).filter((clock): clock is ContentClock => clock !== null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- items 由 sequence 与 documentId 决定
   }, [view, recording, props.sequence, props.documentId]);
-  if (!view || !first) return null;
+  if (!first) return null;
+  // 取景文档还没取到时先占两行，行高与时间线的累加一致，取到后不跳。
+  if (!view)
+    return (
+      <>
+        <div className={props.rowClass} style={{ height: SCREEN_VIEW_ROW_HEIGHT }} />
+        <div className={props.rowClass} style={{ height: SCREEN_VIEW_ROW_HEIGHT }} />
+      </>
+    );
   const pointer = recording?.streams.find((stream) => stream.role === 'pointer');
   return (
     <>
       <ZoomRow {...props} state={state} clocks={clocks} />
-      {pointer && recording && recording.pointer?.mode !== 'none' ? (
-        <MouseRow
-          {...props}
-          clocks={clocks}
-          asset={pointer.assetRef}
-          start={ticksToSeconds(pointer.start, recording.timescale)}
-          screenItemId={first.id}
-        />
-      ) : null}
+      {/* 鼠标行总在：时间线的行高按每份取景两行算。 */}
+      <MouseRow
+        {...props}
+        clocks={clocks}
+        asset={pointer && recording?.pointer?.mode !== 'none' ? pointer.assetRef : null}
+        start={pointer && recording ? ticksToSeconds(pointer.start, recording.timescale) : 0}
+        screenItemId={first.id}
+      />
     </>
   );
 }
@@ -345,15 +352,7 @@ function MouseRow({
   asset,
   start,
   screenItemId,
-}: RowProps & { clocks: ContentClock[]; asset: VersionRef; start: number; screenItemId: Id }) {
-  const clicks = usePointerClicks(asset);
-  // 指针轨的源时间 `s` 对应录制时间 `start + s`，再经各个屏幕实例投到序列上。
-  const marks = clocks.flatMap((clock) =>
-    clicks.flatMap((t) => {
-      const time = clock.toSequence(start + t);
-      return time >= clock.start && time < clock.end ? [{ key: `${clock.item.id}:${t}`, time }] : [];
-    }),
-  );
+}: RowProps & { clocks: ContentClock[]; asset: VersionRef | null; start: number; screenItemId: Id }) {
   const open = (event: ReactPointerEvent) => {
     event.stopPropagation();
     if (event.button === 0) useEditor.getState().select([screenItemId]);
@@ -370,10 +369,27 @@ function MouseRow({
         {clocks.map((clock) => (
           <span key={clock.item.id} className={span} style={{ left: xOf(clock.start), width: Math.max(0, xOf(clock.end) - xOf(clock.start)) }} />
         ))}
-        {marks.map((mark) => (
-          <span key={mark.key} className={clickMark} style={{ left: xOf(mark.time) - 1 }} aria-label={SV.click} role="img" />
-        ))}
+        {asset ? <ClickMarks asset={asset} start={start} clocks={clocks} xOf={xOf} /> : null}
       </div>
     </div>
+  );
+}
+
+/** 指针轨里按下的时刻；没有指针轨（不录指针）时鼠标行只留空行，行高不变。 */
+function ClickMarks({ asset, start, clocks, xOf }: { asset: VersionRef; start: number; clocks: ContentClock[]; xOf(seconds: number): number }) {
+  const clicks = usePointerClicks(asset);
+  // 指针轨的源时间 `s` 对应录制时间 `start + s`，再经各个屏幕实例投到序列上。
+  const marks = clocks.flatMap((clock) =>
+    clicks.flatMap((t) => {
+      const time = clock.toSequence(start + t);
+      return time >= clock.start && time < clock.end ? [{ key: `${clock.item.id}:${t}`, time }] : [];
+    }),
+  );
+  return (
+    <>
+      {marks.map((mark) => (
+        <span key={mark.key} className={clickMark} style={{ left: xOf(mark.time) - 1 }} aria-label={SV.click} role="img" />
+      ))}
+    </>
   );
 }

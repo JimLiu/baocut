@@ -41,7 +41,7 @@ export const es: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Vinculado con las demás pistas de esta grabación: mover, dividir y recortar las afecta a la vez",
   ungroup: "Desagrupar",
-  ungroupTip: "Editar por separado la pantalla, la cámara y el sonido de esta grabación",
+  ungroupTip: "Editar pantalla, cámara y sonido por separado",
   cameraLayout: "Diseño de cámara",
   layoutCornerCircle: "Círculo en la esquina",
   layoutCornerRounded: "Redondeado en la esquina",

@@ -56,7 +56,7 @@ const en = {
   /** 片段上的联动标记的提示 */
   linked: "Linked with the other tracks of this recording: moving, splitting and trimming affect them together",
   ungroup: "Ungroup",
-  ungroupTip: "Edit the screen, camera and sound of this recording separately",
+  ungroupTip: "Edit screen, camera and sound separately",
   cameraLayout: "Camera layout",
   layoutCornerCircle: "Circle, corner",
   layoutCornerRounded: "Rounded, corner",

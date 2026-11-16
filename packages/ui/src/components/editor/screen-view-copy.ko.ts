@@ -41,7 +41,7 @@ export const ko: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "이 녹화의 다른 트랙과 연동: 이동·분할·자르기가 함께 적용됩니다",
   ungroup: "그룹 해제",
-  ungroupTip: "이 녹화의 화면·카메라·소리를 따로 편집합니다",
+  ungroupTip: "화면·카메라·소리를 따로 편집",
   cameraLayout: "카메라 배치",
   layoutCornerCircle: "원형 · 오른쪽 아래",
   layoutCornerRounded: "둥근 사각형 · 왼쪽 아래",

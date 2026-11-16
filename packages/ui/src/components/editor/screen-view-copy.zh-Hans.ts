@@ -41,7 +41,7 @@ export const zhHans: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "与这次录制的其他轨道联动：移动、拆分、修剪一起进行",
   ungroup: "解组",
-  ungroupTip: "把这次录制的屏幕、摄像头与声音拆开各剪各的",
+  ungroupTip: "屏幕、摄像头与声音各剪各的",
   cameraLayout: "摄像头布局",
   layoutCornerCircle: "圆形 · 右下角",
   layoutCornerRounded: "圆角矩形 · 左下角",

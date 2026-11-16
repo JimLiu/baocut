@@ -41,7 +41,7 @@ export const ptBR: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Vinculado às outras faixas desta gravação: mover, dividir e aparar afetam todas juntas",
   ungroup: "Desagrupar",
-  ungroupTip: "Editar separadamente a tela, a câmera e o som desta gravação",
+  ungroupTip: "Editar tela, câmera e som separadamente",
   cameraLayout: "Layout da câmera",
   layoutCornerCircle: "Círculo no canto",
   layoutCornerRounded: "Arredondado no canto",

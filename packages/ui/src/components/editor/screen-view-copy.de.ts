@@ -41,7 +41,7 @@ export const de: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Mit den anderen Spuren dieser Aufnahme verknüpft: Verschieben, Teilen und Trimmen wirken gemeinsam",
   ungroup: "Gruppierung aufheben",
-  ungroupTip: "Bildschirm, Kamera und Ton dieser Aufnahme getrennt bearbeiten",
+  ungroupTip: "Bildschirm, Kamera und Ton getrennt bearbeiten",
   cameraLayout: "Kamera-Layout",
   layoutCornerCircle: "Kreis in der Ecke",
   layoutCornerRounded: "Abgerundet in der Ecke",

@@ -41,7 +41,7 @@ export const vi: ScreenViewMessages = {
   /** 片段上的联动标记的提示 */
   linked: "Liên kết với các track khác của bản ghi: di chuyển, tách và cắt cùng lúc",
   ungroup: "Rã nhóm",
-  ungroupTip: "Sửa riêng màn hình, camera và âm thanh của bản ghi",
+  ungroupTip: "Sửa riêng màn hình, camera và âm thanh",
   cameraLayout: "Bố cục camera",
   layoutCornerCircle: "Tròn ở góc",
   layoutCornerRounded: "Bo góc ở góc",
