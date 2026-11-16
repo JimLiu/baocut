@@ -70,7 +70,7 @@ describe('recordingEntry', () => {
   });
 
   it('录不了的原因码：先看 unavailable.code，再看 reason 本身是不是码；remote 当成远程', () => {
-    const coded = sources({ available: false, reason: 'Recorder missing.', unavailable: { code: 'no-worker' } } as Partial<RecordingSources>);
+    const coded = sources({ available: false, reason: 'Recorder missing.', unavailable: { code: 'worker-missing', message: 'Recorder missing.' } });
     expect(unavailableCode(coded)).toBe('no-worker');
     expect(recordingEntry({ platform: 'darwin', hostCapable: true, sources: ready(coded), recordings: [] })).toEqual({
       kind: 'disabled',

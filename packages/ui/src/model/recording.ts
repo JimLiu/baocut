@@ -30,20 +30,21 @@ export type SourcesState =
  */
 export type RecordingBlock = { kind: 'remote' } | { kind: 'unsupported'; code: string | null; text: string | null } | { kind: 'busy' };
 
-/**
- * `recordings.sources` 将来多给的两项（协议里还没有，都是可选的；Runtime 不给时界面照旧）：
- * - `disk.freeBytes`：录制落点所在磁盘的剩余字节，面板据此提示够不够录十分钟；
- * - `unavailable.code`：录不了时的英文原因码（`reason` 目前是 Runtime 本地化好的文字）。
- */
-export type SourcesExtras = { disk?: { freeBytes: number }; unavailable?: { code: string } };
-
 /** 界面认得、会换成自己文字的原因码（与 Runtime 的 `RECORDING_UNAVAILABLE` 的 `details.reason` 同一套）。 */
 const UNAVAILABLE_CODES: ReadonlySet<string> = new Set(['remote', 'unsupported', 'unsupported-platform', 'no-worker', 'no-window']);
 
+/** 协议的 `RecordingUnavailableCode` 换成界面自己的码。 */
+const PROTOCOL_CODES: Readonly<Record<string, string>> = {
+  'remote-runtime': 'remote',
+  'platform-unsupported': 'unsupported-platform',
+  'worker-missing': 'no-worker',
+  'no-desktop': 'no-window',
+};
+
 /** 录不了的原因码：先看 `unavailable.code`，再看 `reason` 本身是不是码（协议约定它是码）。都没有时 null。 */
 export function unavailableCode(sources: RecordingSources): string | null {
-  const extra = (sources as RecordingSources & SourcesExtras).unavailable?.code;
-  if (typeof extra === 'string' && extra) return extra;
+  const extra: string | undefined = sources.unavailable?.code;
+  if (extra) return PROTOCOL_CODES[extra] ?? extra;
   return sources.reason && UNAVAILABLE_CODES.has(sources.reason) ? sources.reason : null;
 }
 
@@ -308,7 +309,7 @@ export function recordingBytesPerSecond(choice: RecordingChoice, sources: Record
  * Runtime 不给剩余空间时 null（不猜）。
  */
 export function lowDisk(choice: RecordingChoice, sources: RecordingSources, fps?: number): { freeBytes: number; minutes: number } | null {
-  const free = (sources as RecordingSources & SourcesExtras).disk?.freeBytes;
+  const free = sources.disk?.freeBytes;
   if (typeof free !== 'number' || !Number.isFinite(free) || free < 0) return null;
   const rate = recordingBytesPerSecond(choice, sources, fps);
   const seconds = free / rate;
