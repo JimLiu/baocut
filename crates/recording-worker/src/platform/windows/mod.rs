@@ -181,6 +181,10 @@ impl WinCapturer {
                     capturer.tracks.push(track);
                     capturer.audio.push(capture);
                 }
+                // 麦克风不在（拔掉了，或者这台电脑没有）不算失败：照常录，只是没有这一路声音。
+                Err(error) if error.code == "SOURCE_NOT_FOUND" => {
+                    eprintln!("recording-worker: {}; recording without a microphone", error.message);
+                }
                 Err(error) => {
                     capturer.close();
                     return Err(error);

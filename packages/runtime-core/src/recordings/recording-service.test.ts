@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
-import { RpcError, type Project, type RecordingSummary, type VideoSnapshot } from '@baocut/protocol';
+import { RECORDING_DEFAULTS, RpcError, type Project, type RecordingSources, type RecordingSummary, type VideoSnapshot } from '@baocut/protocol';
+import { withoutMissingMicrophone } from './recording-service.ts';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
 import { startRuntime, type RunningRuntime, type StartRuntimeOptions } from '../runtime.ts';
@@ -317,6 +318,26 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     await until(next.recordingId, (r) => r.state === 'recording');
     await client.request('recordings.discard', { recordingId: next.recordingId });
   }, 60_000);
+
+  it('a microphone that is not on this computer does not fail the recording: it records without that stream', async () => {
+    await boot();
+    const started = await startRecording({ countdown: 0, microphone: 'mic-unplugged' });
+    expect(started.options.microphone).toBeNull();
+    const recording = await until(started.recordingId, (r) => r.state === 'recording');
+    expect(recording.error).toBeNull();
+    await client.request('recordings.discard', { recordingId: started.recordingId });
+  }, 60_000);
+
+  it('withoutMissingMicrophone drops only a microphone that cannot be found', () => {
+    const sources = (microphones: Array<{ id: string; name: string }>) => ({ microphones }) as unknown as RecordingSources;
+    const options = (microphone: string | null) => ({ ...RECORDING_DEFAULTS, microphone });
+    const one = sources([{ id: 'mic-1', name: 'Mic' }]);
+    expect(withoutMissingMicrophone(options('default'), sources([])).microphone).toBeNull();
+    expect(withoutMissingMicrophone(options('default'), one).microphone).toBe('default');
+    expect(withoutMissingMicrophone(options('mic-1'), one).microphone).toBe('mic-1');
+    expect(withoutMissingMicrophone(options('mic-2'), one).microphone).toBeNull();
+    expect(withoutMissingMicrophone(options(null), one).microphone).toBeNull();
+  });
 
   it('自动缩放：有点击的录制导入后取景里有 origin: auto 的区间；关掉自动缩放或不录鼠标时没有', async () => {
     const zoomsOf = async (options: Record<string, unknown>) => {

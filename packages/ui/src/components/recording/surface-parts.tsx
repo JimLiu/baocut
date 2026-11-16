@@ -21,7 +21,9 @@ export function deviceView(kind: 'camera' | 'microphone', choice: RecordingChoic
   const gone = notices.find((n) => n.kind === (kind === 'camera' ? 'camera-gone' : 'microphone-gone')) as { name: string | null } | undefined;
   const name = deviceName(sources, kind, id);
   const permission = sources ? (kind === 'camera' ? sources.permissions.camera : sources.permissions.microphone) : null;
-  const pill = devicePill({ permission, on: !!id || !!gone, connected: !gone || !!id });
+  // 选着系统缺省而这台电脑一个麦克风都没有：照样能录（Runtime 不录这一路），药丸说明没连上。
+  const none = kind === 'microphone' && id === 'default' && !!sources?.available && sources.microphones.length === 0;
+  const pill = devicePill({ permission, on: !!id || !!gone, connected: !none && (!gone || !!id) });
   const label = id
     ? name === 'default'
       ? RC.systemDefault

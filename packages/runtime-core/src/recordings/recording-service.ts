@@ -282,11 +282,12 @@ export class RecordingService {
 
   /**
    * 预检（`record --dry-run` 与开始之前）：Worker 在、平台能录、开着桌面端、必需的权限没有被拒、磁盘够。不对时抛
-   * `RECORDING_UNAVAILABLE` / 权限错误 / `RECORDING_DISK_FULL`；返回解析过的选项与将要用的设备。
+   * `RECORDING_UNAVAILABLE` / 权限错误 / `RECORDING_DISK_FULL`；返回解析过的选项与将要用的设备。要的麦克风不在时不算错：
+   * 返回的选项里麦克风是 null，这次录制没有麦克风这一路。
    */
   async precheck(partial: Partial<RecordingOptions> = {}): Promise<{ options: RecordingOptions; sources: RecordingSources; freeBytes: number }> {
-    const options = { ...RECORDING_DEFAULTS, ...partial };
     const sources = await this.#reachable();
+    const options = withoutMissingMicrophone({ ...RECORDING_DEFAULTS, ...partial }, sources);
     this.#checkPermissions(options, sources.permissions);
     this.#checkSource(options, sources);
     await fs.mkdir(this.#o.root, { recursive: true });
@@ -324,11 +325,11 @@ export class RecordingService {
     if ('create' in target && !target.create.projectId && !target.create.conversationId) {
       throw new RpcError('invalid-request', RcRecordings.targetNeeded(), { code: 'RECORDING_TARGET_NEEDED' });
     }
-    const options = { ...RECORDING_DEFAULTS, ...request.options };
+    let options = { ...RECORDING_DEFAULTS, ...request.options };
     const waiting = Boolean(request.requestedBy);
     // 等待开始的只核对能不能录（缺权限在面板上显示，用户按开始时再查）；直接开始的走完整的预检。
     if (waiting) await this.#reachable();
-    else await this.precheck(options);
+    else options = (await this.precheck(options)).options;
     const recordingId = newId('rec');
     const dir = path.join(this.#o.root, recordingId);
     await fs.mkdir(path.join(dir, 'capture'), { recursive: true });
@@ -369,9 +370,8 @@ export class RecordingService {
     if (!params.recordingId) return this.request({ options: params.options, target: params.target, submitter });
     const session = this.#get(params.recordingId);
     if (session.summary.state !== 'waiting') throw notState('RECORDING_NOT_WAITING', RcRecordings.notWaiting(), session);
-    const options = { ...session.summary.options, ...params.options };
     // 预检不过时会话留在等待开始：面板上改一改还可以再按开始。
-    await this.precheck(options);
+    const { options } = await this.precheck({ ...session.summary.options, ...params.options });
     session.summary.options = options;
     if (params.target) session.summary.target = params.target;
     session.summary.state = 'preparing';
@@ -944,8 +944,7 @@ export class RecordingService {
     const missing =
       (source.kind === 'window' && !sources.windows.some((w) => w.id === source.windowId)) ||
       (source.kind !== 'window' && source.displayId !== undefined && !sources.displays.some((d) => d.id === source.displayId)) ||
-      (options.camera !== null && options.camera !== 'default' && !sources.cameras.some((c) => c.id === options.camera)) ||
-      (options.microphone !== null && options.microphone !== 'default' && !sources.microphones.some((m) => m.id === options.microphone));
+      (options.camera !== null && options.camera !== 'default' && !sources.cameras.some((c) => c.id === options.camera));
     if (missing) throw new RpcError('not-found', RcRecordings.sourceNotFound(), { code: 'RECORDING_SOURCE_NOT_FOUND' });
   }
 
@@ -954,6 +953,14 @@ export class RecordingService {
     const stats = await fs.statfs(this.#o.root);
     return stats.bavail * stats.bsize;
   }
+}
+
+/** 要的麦克风不在这台电脑上（指定的设备不在了，或者要系统缺省而一个麦克风都没有）时不录麦克风：录制照常，只是没有这一路声音。 */
+export function withoutMissingMicrophone(options: RecordingOptions, sources: RecordingSources): RecordingOptions {
+  const id = options.microphone;
+  if (id === null) return options;
+  const found = id === 'default' ? sources.microphones.length > 0 : sources.microphones.some((m) => m.id === id);
+  return found ? options : { ...options, microphone: null };
 }
 
 /** 磁盘不到十分钟的录制时（`record --dry-run` 与面板的警告）。 */

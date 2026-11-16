@@ -100,7 +100,15 @@ impl MacCapturer {
         // 设备先开：系统的授权窗口（还没问过时）在屏幕开始采集之前出现。
         for (video, id, role) in [(true, params.camera.as_deref(), Role::Camera), (false, params.microphone.as_deref(), Role::Microphone)] {
             let Some(id) = id else { continue };
-            let (device, reference) = av_capture::find(video, id)?;
+            let (device, reference) = match av_capture::find(video, id) {
+                Ok(found) => found,
+                // 麦克风不在（拔掉了，或者这台电脑没有）不算失败：照常录，只是没有这一路声音。
+                Err(error) if !video && error.code == "SOURCE_NOT_FOUND" => {
+                    eprintln!("recording-worker: {}; recording without a microphone", error.message);
+                    continue;
+                }
+                Err(error) => return Err(error),
+            };
             let track = Track::new(role, dir.clone(), Arc::clone(&sink), Some(reference));
             match DeviceCapture::start(video, device, Arc::clone(&track)) {
                 Ok(device) => {
