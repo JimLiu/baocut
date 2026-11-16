@@ -114,6 +114,15 @@ describe('选项能不能选与开始', () => {
     expect(choiceOptions({ ...DEFAULT_CHOICE, displayId: '2' }).source).toEqual({ kind: 'display', displayId: '2' });
   });
 
+  it('「把 BaoCut 也录进去」缺省关；整屏送 includeSelf，单个窗口不送', () => {
+    expect(DEFAULT_CHOICE.includeSelf).toBe(false);
+    expect(choiceOptions(DEFAULT_CHOICE).includeSelf).toBe(false);
+    expect(choiceOptions({ ...DEFAULT_CHOICE, includeSelf: true }).includeSelf).toBe(true);
+    expect(choiceOptions({ ...DEFAULT_CHOICE, source: 'window', windowId: 'w1', includeSelf: true })).not.toHaveProperty('includeSelf');
+    expect(choiceFromOptions({ ...RECORDING_DEFAULTS, includeSelf: true }, DEFAULT_CHOICE).includeSelf).toBe(true);
+    expect(choiceFromOptions(RECORDING_DEFAULTS, { ...DEFAULT_CHOICE, includeSelf: true }).includeSelf).toBe(false);
+  });
+
   it('智能体填好的选项落到面板的选择上', () => {
     const choice = choiceFromOptions({ ...RECORDING_DEFAULTS, source: { kind: 'window', windowId: 'w1' }, camera: 'cam1', keys: 'shortcuts', countdown: 0 }, DEFAULT_CHOICE);
     expect(choice).toMatchObject({ source: 'window', windowId: 'w1', camera: 'cam1', keys: 'shortcuts', countdown: 0 });

@@ -74,6 +74,8 @@ export interface RecordingChoice {
   cursor: RecordingCursorMode;
   keys: RecordingKeysMode;
   countdown: number;
+  /** 整屏与区域也录进 BaoCut 自己的窗口（`recordings.start` 的 `includeSelf`）；录单个窗口时不起作用。 */
+  includeSelf: boolean;
 }
 
 export const DEFAULT_CHOICE: RecordingChoice = {
@@ -88,6 +90,7 @@ export const DEFAULT_CHOICE: RecordingChoice = {
   cursor: RECORDING_DEFAULTS.cursor,
   keys: RECORDING_DEFAULTS.keys,
   countdown: RECORDING_DEFAULTS.countdown,
+  includeSelf: false,
 };
 
 export const COUNTDOWNS = [3, 5, 0] as const;
@@ -188,6 +191,8 @@ export function choiceOptions(choice: RecordingChoice): Partial<RecordingOptions
     cursor: choice.cursor,
     keys: choice.keys,
     countdown: choice.countdown,
+    // 选单个窗口时选的就是那个窗口，排除名单不起作用，不送。
+    ...(source.kind === 'window' ? {} : { includeSelf: choice.includeSelf }),
     // 不要光标时没有指针可跟，自动缩放也就没有了（§11 第 5 项）。
     autoZoom: choice.cursor !== 'none',
   };
@@ -209,6 +214,7 @@ export function choiceFromOptions(options: RecordingOptions, base: RecordingChoi
     cursor: options.cursor,
     keys: options.keys,
     countdown: options.countdown,
+    includeSelf: options.includeSelf ?? false,
   };
 }
 

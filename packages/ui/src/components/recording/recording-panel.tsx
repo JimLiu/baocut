@@ -39,6 +39,7 @@ import { loadSources } from './recording-host.tsx';
  * 录制面板（屏幕录制设计 §11）：Home、Space「新建」、编辑器素材面板与智能体的 `record` 打开同一个面板。
  * 八项：录什么、摄像头（带预览）、麦克风（带电平）、系统声音、鼠标、键盘、倒计时、开始。
  * - 每一路旁边是系统权限的状态；被拒的给「打开系统设置」，BaoCut 不替用户改。屏幕被拒时开始不可用；可选的一路被拒时去掉它才能开始。
+ * - 整屏与区域有「把 BaoCut 也录进去」（`includeSelf`，缺省关）；录单个窗口时不显示（选的就是那个窗口）。
  * - 记住上次的选择（这台电脑的 localStorage）；设备不在时退回「不用」并提示。
  * - 智能体发起的（`recordingId`）预先填好它给的选项；关掉面板就是 `recordings.cancel`。
  * - 摄像头预览与电平条只在系统已经允许时才取设备（按名字对上 Worker 报的设备），不会因为打开面板弹出授权窗口。
@@ -261,7 +262,14 @@ export function RecordingFields({ sources, choice, onChange }: { sources: Record
             {(w) => <PickerItem id={w.id}>{w.name}</PickerItem>}
           </Picker>
         ) : null}
-        <p className={note}>{RC.ownWindowNote}</p>
+        {choice.source !== 'window' ? (
+          <>
+            <Switch isDisabled={unavailable} isSelected={choice.includeSelf} onChange={(includeSelf) => set({ includeSelf })}>
+              {RC.includeSelf}
+            </Switch>
+            <p className={note}>{RC.includeSelfHint}</p>
+          </>
+        ) : null}
         <PermissionLine permission="screen" state={permissions.screen} />
       </div>
 
