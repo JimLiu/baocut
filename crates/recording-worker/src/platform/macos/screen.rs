@@ -138,9 +138,19 @@ fn clamp(rect: &Rect, size: CGSize) -> Option<CGRect> {
     (x1 - x0 >= 2.0 && y1 - y0 >= 2.0).then(|| CGRect::new(CGPoint::new(x0, y0), CGSize::new(x1 - x0, y1 - y0)))
 }
 
+/// 硬件 H.264 编码器每边最多这么多像素。Apple 芯片上实测（M4，macOS 27）：4096 × 2304、2304 × 4096 建得起硬件编码会话，
+/// 宽 4098 就建不起（-12903）；AVAssetWriter 这时退到软件编码，5120 × 2880 跟不上，丢掉一两成的帧。
+const MAX_SIDE: f64 = 4096.0;
+
+/// 输出画面每点几个像素：屏幕自己的比例，长边超过 [`MAX_SIDE`] 时等比缩小（5K 屏录出来是 4096 × 2304）。
+fn fit_scale(native: f64, width: f64, height: f64) -> f64 {
+    let longest = width.max(height) * native;
+    if longest > MAX_SIDE { native * MAX_SIDE / longest } else { native }
+}
+
 fn geometry(filter: Retained<SCContentFilter>, kind: CaptureKind, rect: CGRect, source_rect: Option<CGRect>) -> Resolved {
-    let scale = f64::from(unsafe { filter.pointPixelScale() }).max(1.0);
     let size = source_rect.map_or_else(|| unsafe { filter.contentRect() }.size, |inside| inside.size);
+    let scale = fit_scale(f64::from(unsafe { filter.pointPixelScale() }).max(1.0), size.width, size.height);
     // H.264 要偶数尺寸。
     let even = |points: f64| ((points * scale).round() as u32 / 2 * 2).max(2);
     Resolved { filter, kind, rect, source_rect, scale, width: even(size.width), height: even(size.height) }
@@ -416,5 +426,23 @@ fn wait_for_error(call: impl FnOnce(&block2::DynBlock<dyn Fn(*mut NSError)>)) ->
         Ok(None) => Ok(()),
         Ok(Some(failure)) => Err(failure),
         Err(_) => Err(("timed out".to_owned(), false)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fit_scale;
+
+    #[test]
+    fn output_stays_within_the_hardware_encoder() {
+        // 2 倍的 4K 屏（1920 × 1080 点）照原样。
+        assert_eq!(fit_scale(2.0, 1920.0, 1080.0), 2.0);
+        // 2 倍的 5K 屏（2560 × 1440 点）缩到 4096 × 2304。
+        let scale = fit_scale(2.0, 2560.0, 1440.0);
+        assert!((2560.0 * scale - 4096.0).abs() < 1e-9 && (1440.0 * scale - 2304.0).abs() < 1e-9);
+        // 竖着的屏按长边算。
+        assert!((fit_scale(2.0, 1440.0, 2560.0) * 2560.0 - 4096.0).abs() < 1e-9);
+        // 1 倍屏上的小区域不放大。
+        assert_eq!(fit_scale(1.0, 300.0, 200.0), 1.0);
     }
 }
