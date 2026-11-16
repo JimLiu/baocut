@@ -13,6 +13,8 @@ export const de: ToolsMessages = {
     foot: "Weitere Werkzeuge folgen: Formatkonvertierung, Audioextraktion, Zuschneiden, Stapeluntertitel und mehr.",
     loading: "Modellstatus wird geladen…",
     open: (name: string) => `Öffnen: ${name}`,
+    recordName: 'Bildschirmaufnahme',
+    recordResult: 'Ergebnis: ein neues Video im aktuellen Projekt',
   },
 
   page: {

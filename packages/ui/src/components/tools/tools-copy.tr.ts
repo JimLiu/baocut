@@ -11,6 +11,8 @@ export const tr: ToolsMessages = {
     foot: "Biçim dönüştürme, ses çıkarma, kırpma, toplu altyazı ve başka araçlar yakında gelecek.",
     loading: "Model durumu yükleniyor…",
     open: (name) => `${name} adlı aracı aç`,
+    recordName: 'Ekran kaydı',
+    recordResult: 'Sonuç: geçerli projede yeni bir video',
   },
   page: {
     hotkey: '⌘↵',

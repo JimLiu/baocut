@@ -11,6 +11,8 @@ export const vi: ToolsMessages = {
     foot: "Sắp có thêm công cụ: đổi định dạng, trích âm thanh, cắt đoạn, phụ đề hàng loạt và hơn nữa.",
     loading: "Đang tải trạng thái mô hình…",
     open: (name) => `Mở ${name}`,
+    recordName: 'Ghi màn hình',
+    recordResult: 'Kết quả: một video mới trong dự án hiện tại',
   },
   page: {
     hotkey: '⌘↵',

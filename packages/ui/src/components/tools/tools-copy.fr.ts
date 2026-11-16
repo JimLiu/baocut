@@ -13,6 +13,8 @@ export const fr: ToolsMessages = {
     foot: "Autres outils à venir : conversion, extraction audio, découpage, sous-titres par lots, etc.",
     loading: "Chargement de l’état des modèles…",
     open: (name: string) => `Ouvrir ${name}`,
+    recordName: 'Enregistrement de l’écran',
+    recordResult: 'Résultat : une nouvelle vidéo dans le projet actuel',
   },
 
   page: {

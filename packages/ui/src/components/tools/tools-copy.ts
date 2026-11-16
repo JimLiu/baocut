@@ -33,6 +33,9 @@ const en = {
     foot: 'More tools are on the way: format conversion, audio extraction, clipping, batch subtitles and more.',
     loading: 'Loading model status…',
     open: (name: string) => `Open ${name}`,
+    /** 「视频文件」组最前面的录制入口（屏幕录制设计 §11）：不是工具，点了打开录制面板。说明用录制文案的 `recordTip`。 */
+    recordName: 'Screen recording',
+    recordResult: 'Result: a new video in the current project',
   },
 
   page: {

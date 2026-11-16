@@ -1,8 +1,9 @@
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentProps, ComponentType, ReactNode } from 'react';
 import { live } from '@baocut/protocol';
 import { ProgressCircle, SideNav, SideNavHeader, SideNavItem, SideNavItemContent, SideNavItemLink, SideNavSection, Text } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import CheckmarkCircle from '@react-spectrum/s2/icons/CheckmarkCircle';
+import DeviceDesktop from '@react-spectrum/s2/icons/DeviceDesktop';
 import Clock from '@react-spectrum/s2/icons/Clock';
 import ClockPending from '@react-spectrum/s2/icons/ClockPending';
 import Pause from '@react-spectrum/s2/icons/Pause';
@@ -24,6 +25,14 @@ import { useTaskSections } from './tasks/use-task-sections.ts';
 import { TOOL_ICON } from './tools/tool-icon.tsx';
 import { useNow } from './use-now.ts';
 import { GALLERY_COPY } from './tools/tools-copy.ts';
+import { RECORD_ENTRY_GROUP, useRecordEntry } from './tools/use-record-entry.ts';
+
+/**
+ * 没有 href 的一行：SideNavItem 与 SideNavItemLink 都把属性原样交给 react-aria（类型去掉了 onAction / onPress）。
+ * 鼠标按在内层链接上只触发 onPress，焦点在行上按回车只触发行的 onAction，两处都接上才都能打开。
+ */
+const ActionItem = SideNavItem as ComponentType<ComponentProps<typeof SideNavItem> & { onAction?: () => void }>;
+const PressLink = SideNavItemLink as ComponentType<{ children?: ReactNode; onPress?: () => void; 'aria-label'?: string }>;
 
 export type UtilityKind = 'tasks' | 'tools' | 'services';
 
@@ -68,6 +77,7 @@ export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
   const { active, history } = useTaskSections(now);
   const schedules = useTasks((s) => s.schedules);
   const serviceStates = useServiceStates();
+  const record = useRecordEntry();
   const groups = [active, history];
 
   const item = (id: string, text: string, target: Route, Icon: ComponentType, tail?: ReactNode, detail?: string) => {
@@ -86,6 +96,25 @@ export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
           </SideNavItemLink>
         </SideNavItemContent>
       </SideNavItem>
+    );
+  };
+  // 屏幕录制（屏幕录制设计 §11）：「视频文件」组第一行；不是工具、没有页面与 href，按下打开录制面板，不能录时置灰、悬停写原因。
+  const recordItem = () => {
+    if (!record) return null;
+    const detail = record.disabled ? `${record.name} · ${record.disabled}` : record.name;
+    return (
+      <ActionItem key="record" id="record" textValue={record.name} isDisabled={record.disabled !== null} onAction={record.onPress} data-bc-row="">
+        <SideNavItemContent>
+          <PressLink onPress={record.onPress} aria-label={detail}>
+            <DeviceDesktop />
+            <Text styles={fit}>
+              <span className={row} title={detail}>
+                <span className={label}>{record.name}</span>
+              </span>
+            </Text>
+          </PressLink>
+        </SideNavItemContent>
+      </ActionItem>
     );
   };
   const light = (tone: ServiceTone) => <span className={dot({ tone })} aria-hidden="true" />;
@@ -161,6 +190,7 @@ export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
             ? TOOL_GROUPS.map((group) => (
                 <SideNavSection key={group.key} id={`group:${group.key}`}>
                   <SideNavHeader>{group.label}</SideNavHeader>
+                  {group.key === RECORD_ENTRY_GROUP ? recordItem() : null}
                   {group.tools.map((tool) =>
                     item(
                       tool.id,

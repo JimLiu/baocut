@@ -1,7 +1,8 @@
 import { Badge } from '@react-spectrum/s2';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
+import DeviceDesktop from '@react-spectrum/s2/icons/DeviceDesktop';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { Link } from 'react-aria-components';
+import { Button, Link } from 'react-aria-components';
 import { resultLine, TOOL_GROUPS, type ToolInfo } from '../../model/tool-catalog.ts';
 import { plannedReason, toolBlock, toolCardStatus, type ToolCardStatus } from '../../model/tools-gallery.ts';
 import { footageCardStatus, isFootageTool } from '../../model/tools-footage.ts';
@@ -10,6 +11,7 @@ import { hrefFor } from '../../state/shell-store.ts';
 import { UtilityPage } from '../utility-page.tsx';
 import { TOOL_ICON } from './tool-icon.tsx';
 import { GALLERY_COPY, TOOLS_HOME_COPY } from './tools-copy.ts';
+import { RECORD_ENTRY_GROUP, useRecordEntry, type RecordEntry } from './use-record-entry.ts';
 import { useToolStatus } from './use-tool-status.ts';
 
 /* 设计稿 page-tools.jsx `ToolsGallery` 与 tools.css `.tools__*` / `.toolcard*`（2026-10-03：两组各带说明，每张卡多一行「结果」）。 */
@@ -117,12 +119,39 @@ function ToolCard({ tool, state }: { tool: ToolInfo; state: ToolCardStatus | nul
 }
 
 /**
+ * 「视频文件」组最前面的屏幕录制（设计稿 page-tools.jsx `RecordCard`）：样子同工具卡，但不是链接、不进工具页，按下打开录制面板。
+ * 不能录时置灰、不能按，现状行写原因。
+ */
+function RecordCard({ entry }: { entry: RecordEntry }) {
+  const off = entry.disabled !== null;
+  return (
+    <Button className={(rp) => card({ ...rp, isPlanned: off })} isDisabled={off} onPress={entry.onPress} aria-label={off ? `${entry.name}. ${entry.disabled}` : entry.name}>
+      <span className={icon({ isPlanned: off })} data-bc-icons="primary" aria-hidden>
+        <DeviceDesktop />
+      </span>
+      <span className={text}>
+        <span className={name}>{entry.name}</span>
+        <span className={desc({ isPlanned: off })}>{entry.desc}</span>
+        <span className={result}>{entry.result}</span>
+        {off ? (
+          <span className={status}>
+            <span className={dot({ isOn: false })} aria-hidden />
+            {entry.disabled}
+          </span>
+        ) : null}
+      </span>
+    </Button>
+  );
+}
+
+/**
  * 工具总览（设计稿 page-tools.jsx `ToolsGallery`）：视频工具、文件工具两组，各一句说明；一张卡一句能做什么、一行结果、
  * 一行现状。能不能用以 `tools.list` 为准（不可用时写它给的原因），能用时再按模型能力视图说几家已连接。
  */
 export function ToolsGallery() {
   const view = useModels((s) => s.capabilities);
   const status = useToolStatus();
+  const record = useRecordEntry();
   const cardStatus = (id: ToolInfo['id']) => {
     const block = status.ready ? toolBlock(status.byId.get(id), status.pipelines) : undefined;
     return isFootageTool(id) ? footageCardStatus(id, status.byId.get(id), view, block) : toolCardStatus(id, view, block);
@@ -142,6 +171,7 @@ export function ToolsGallery() {
           </h2>
           <p className={groupDesc}>{g.desc}</p>
           <div className={grid}>
+            {record && g.key === RECORD_ENTRY_GROUP ? <RecordCard entry={record} /> : null}
             {g.tools.map((t) => (
               <ToolCard key={t.id} tool={t} state={cardStatus(t.id)} />
             ))}

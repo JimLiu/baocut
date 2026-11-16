@@ -13,6 +13,8 @@ export const ptBR: ToolsMessages = {
     foot: "Mais ferramentas virão: conversão, extração de áudio, cortes e legendas em lote.",
     loading: "Carregando estado dos modelos…",
     open: (name: string) => `Abrir ${name}`,
+    recordName: 'Gravação de tela',
+    recordResult: 'Resultado: um novo vídeo no projeto atual',
   },
 
   page: {

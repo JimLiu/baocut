@@ -89,6 +89,19 @@
         </R.SideNavItemLink></R.SideNavItemContent>
       </R.SideNavItem>;
     };
+    /* 屏幕录制（BC_TOOLS.RECORD_ENTRY，屏幕录制设计 §11）：「视频文件」组第一行，不是链接、没有工具页，点了打开录制面板；正在录时置灰。
+       鼠标按在内层链接上只走 onPress，焦点在行上按回车只走行的 onAction，两处都接上 */
+    const record = kind === 'tools' && window.useRecordEntry ? window.useRecordEntry() : null;
+    const recordRow = () => {
+      const e = window.BC_TOOLS.RECORD_ENTRY;
+      const Icon = R.Icons[e.icon];
+      const detail = record.busy ? `${e.name} · 已经有一次录制在进行。` : e.name;
+      return <R.SideNavItem key="tools:record" id="tools:record" textValue={e.name} isDisabled={record.busy} onAction={record.open} data-utility-row="">
+        <R.SideNavItemContent><R.SideNavItemLink onPress={record.open} aria-label={detail}>
+          <Icon /><R.Text><span className="utility-nav__row" title={detail}><span className="utility-nav__label">{e.name}</span></span></R.Text>
+        </R.SideNavItemLink></R.SideNavItemContent>
+      </R.SideNavItem>;
+    };
     /* 「历史」与任务页的「已完成」列同一批：最近 20 条、30 天内、没清空的（product-design §6.1） */
     const [active, history] = IA.taskGroups(app.tasks);
     const groups = [active, {...history, items: IA.historyView(history.items, {cleared: app.prefs.tasksCleared, more: app.tasksMore}).items}];
@@ -99,6 +112,7 @@
           {row('overview', kind === 'tasks' ? '全部任务' : kind === 'tools' ? '全部工具' : '服务总览', root, 'ViewGrid')}
           {kind === 'tools' && window.BC_TOOLS.GROUPS.map(g => <R.SideNavSection key={g.k} id={`group:${g.k}`}>
             <R.SideNavHeader>{g.label}</R.SideNavHeader>
+            {record && g.k === window.BC_TOOLS.RECORD_ENTRY.group ? recordRow() : null}
             {g.tools.filter(t => !t.planned).map(t => row(t.id, t.name, {r: 'tools', id: t.id}, t.navIcon))}
           </R.SideNavSection>)}
           {kind === 'services' && <R.SideNavSection id="local"><R.SideNavHeader>本机服务</R.SideNavHeader>

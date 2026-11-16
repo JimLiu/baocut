@@ -11,6 +11,8 @@ export const ja: ToolsMessages = {
     foot: 'ほかのツールも順次追加予定です：形式の変換、音声の抽出、切り出し、字幕の一括作成など。',
     loading: 'モデルの状態を読み込み中…',
     open: (name: string) => `「${name}」を開く`,
+    recordName: '画面収録',
+    recordResult: '結果：現在のプロジェクトの新しい動画',
   },
   page: {
     hotkey: '⌘↵',

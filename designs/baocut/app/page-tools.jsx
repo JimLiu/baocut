@@ -9,6 +9,7 @@
 (function () {
   const D = window.BC_DATA;
   const T = window.BC_TOOLS;
+  const {useState, useEffect} = React;
 
   function ToolCard({t, status}) {
     const app = useApp();
@@ -36,7 +37,38 @@
     );
   }
 
+  /** 录制入口跟着录制宿主的状态（new-recording.jsx 的 BC_RECORDER）：正在录时置灰。只在 App 有。 */
+  function useRecordEntry() {
+    const [, tick] = useState(0);
+    const rec = window.BC_SURFACE.record ? window.BC_RECORDER : null;
+    useEffect(() => (rec ? rec.subscribe(() => tick((n) => n + 1)) : undefined), [rec]);
+    return rec ? {busy: rec.busy(), open: () => rec.open({mode: 'new'})} : null;
+  }
+
+  /** 「视频文件」组第一张：屏幕录制（BC_TOOLS.RECORD_ENTRY）。不进工具页，点了直接打开录制面板。 */
+  function RecordCard({entry}) {
+    const e = T.RECORD_ENTRY;
+    const Icon = window.RSP.Icons[e.icon];
+    return (
+      <BCAction type="button" className={cx('toolcard', entry.busy && 'is-planned')} disabled={entry.busy} onClick={entry.open}>
+        <span className="toolcard__ic"><Icon aria-hidden="true" /></span>
+        <span className="toolcard__txt">
+          <span className="toolcard__nm"><b>{e.name}</b></span>
+          <span className="toolcard__desc">{e.desc}</span>
+          <span className="toolcard__res">{e.result}</span>
+          {entry.busy ? (
+            <span className="toolcard__st">
+              <span className="sidedot" style={{background: 'var(--gray-400)'}} />
+              已经有一次录制在进行。
+            </span>
+          ) : null}
+        </span>
+      </BCAction>
+    );
+  }
+
   function ToolsGallery() {
+    const record = useRecordEntry();
     const app = useApp();
     const v = window.useVideoStore();
     const ffmpeg = T.videoStatus(v.env);
@@ -63,6 +95,7 @@
             <div className="t-section">{g.label}</div>
             <div className="t-detail tools__grpdesc">{g.desc}</div>
             <div className="tools__grid">
+              {record && g.k === T.RECORD_ENTRY.group ? <RecordCard entry={record} /> : null}
               {g.tools.map((t) => <ToolCard key={t.id} t={t} status={status[t.id]} />)}
             </div>
           </section>
@@ -91,5 +124,5 @@
     return <ToolsGallery />;
   }
 
-  Object.assign(window, {ToolsPage});
+  Object.assign(window, {ToolsPage, useRecordEntry});
 })();

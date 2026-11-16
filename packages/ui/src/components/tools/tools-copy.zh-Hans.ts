@@ -11,6 +11,8 @@ export const zhHans: ToolsMessages = {
     foot: '更多工具会陆续加进来：转换格式、抽取音轨、截取片段、批量加字幕等。',
     loading: '正在读取模型状态…',
     open: (name: string) => `打开${name}`,
+    recordName: '屏幕录制',
+    recordResult: '结果：当前项目里的一个新视频',
   },
   page: {
     hotkey: '⌘↵',

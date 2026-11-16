@@ -108,6 +108,11 @@
     ]},
   ];
   const TOOLS =GROUPS.reduce((all, g) => all.concat(g.tools.map((t) => Object.assign({group: g.k}, t))), []);
+  /* 屏幕录制的入口（屏幕录制设计 §11「入口」）：总览「视频文件」组的第一张卡、侧栏同组第一行。它不是工具：不在 GROUPS / TOOLS 里、
+     没有工具 id 与工作台页（toolById / openable 都找不到它），点了打开录制面板，录成当前项目里的一个新视频（与 Home 的「录制」相同）；
+     只在 App 有（BC_SURFACE.record），正在录时置灰。 */
+  const RECORD_ENTRY = {group: 'video-file', name: '屏幕录制', icon: 'DeviceLaptop',
+    desc: '不经过智能体，把屏幕录成一个新视频', result: '结果：当前项目里的一个新视频'};
   const toolById = (id) => TOOLS.find((t) => t.id === id) || null;
   /** 路由里的工具 id → 能打开的工具；未知或未推出的回到目录（null） */
   function openable(id) {
@@ -498,7 +503,7 @@
   }
 
   window.BC_TOOLS = {
-    INPUTS, OUTPUTS, ARTIFACTS, MEDIA_ACCEPT, VIDEO_ACCEPT, GROUPS, TOOLS, toolById, openable, inputOptions, sourceOptions, targetOptions, outputOf,
+    INPUTS, OUTPUTS, ARTIFACTS, MEDIA_ACCEPT, VIDEO_ACCEPT, GROUPS, TOOLS, RECORD_ENTRY, toolById, openable, inputOptions, sourceOptions, targetOptions, outputOf,
     artifactText, resultLine, imageStatus, musicStatus,
     langName, RATES, MAX_CHARS, isCloud, allEngines, voiceModes, modelOf, modelsOf, langsShort, engineCard, langOptions,
     VIBES, vibeOf, pickVibe, rollVibe, rollPreset, preferredForm, installedAlternative,

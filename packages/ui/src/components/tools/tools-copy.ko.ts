@@ -11,6 +11,8 @@ export const ko: ToolsMessages = {
     foot: '형식 변환, 오디오 추출, 구간 잘라내기, 일괄 자막 등 더 많은 도구가 추가될 예정입니다.',
     loading: '모델 상태를 불러오는 중…',
     open: (name: string) => `${name} 열기`,
+    recordName: '화면 녹화',
+    recordResult: '결과: 현재 프로젝트의 새 영상',
   },
   page: {
     hotkey: '⌘↵',

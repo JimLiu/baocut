@@ -11,6 +11,8 @@ export const zhHant: ToolsMessages = {
     foot: '更多工具陸續推出：格式轉換、擷取音訊、截取片段、批次加字幕等。',
     loading: '正在載入模型狀態…',
     open: (name: string) => `開啟${name}`,
+    recordName: '螢幕錄製',
+    recordResult: '結果：目前專案裡的一支新影片',
   },
   page: {
     hotkey: '⌘↵',

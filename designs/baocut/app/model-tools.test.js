@@ -16,6 +16,14 @@ test('本地默认模型覆盖内置推荐，未安装的默认模型不会预�
   assert.equal(T.modelOf(T.preferredForm(mid => mid === fallback, id)), fallback);
 });
 
+test('屏幕录制在「视频文件」组里有入口，但不是工具：不在目录里、没有工具 id 与工作台（屏幕录制设计 §11）', () => {
+  assert.ok(T.GROUPS.some((g) => g.k === T.RECORD_ENTRY.group));
+  assert.equal(T.RECORD_ENTRY.group, 'video-file');
+  assert.ok(!T.TOOLS.some((t) => t.name === T.RECORD_ENTRY.name));
+  assert.equal(T.toolById('record'), null);
+  assert.equal(T.openable('record'), null);
+});
+
 test('工具目录按处理的对象分五组：语音与字幕、文字与图片、音乐、视频文件（product-design §2.7）与素材处理', () => {
   assert.deepEqual(T.GROUPS.map((g) => [g.k, g.label]), [['speech', '语音与字幕'], ['text-image', '文字与图片'], ['music', '音乐'], ['video-file', '视频文件'], ['footage', '素材处理']]);
   assert.deepEqual(T.GROUPS[0].tools.map((t) => t.id), ['transcribe', 'translate', 'dub', 'tts']);
