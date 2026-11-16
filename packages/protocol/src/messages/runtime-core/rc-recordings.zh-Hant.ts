@@ -16,6 +16,7 @@ export const zhHant: RcRecordingsMessages = {
   busy: "已經有一次錄製在進行。請先停止或捨棄它。",
   diskFull: (p: { free: string }) => `磁碟剩餘空間不足以錄製（還剩 ${p.free}）。`,
   sourceNotFound: "要錄製的螢幕或視窗已經不在了。",
+  sourceNotCapturable: "這個視窗現在錄不了：它被隱藏、縮到最小，或者在別的桌面上。把它放回螢幕上再試。",
   notFound: (p: { id: string }) => `找不到這次錄製：${p.id}`,
   notWaiting: "這次錄製已經開始或已經結束。",
   notRecording: "目前沒有在錄製。",

@@ -16,6 +16,7 @@ export const it: RcRecordingsMessages = {
   busy: "È già in corso un’altra registrazione. Interrompila o scartala prima.",
   diskFull: (p: { free: string }) => `Spazio libero su disco insufficiente per registrare (restano ${p.free}).`,
   sourceNotFound: "Lo schermo o la finestra da registrare non è più disponibile.",
+  sourceNotCapturable: "Al momento non è possibile registrare la finestra: è nascosta, ridotta a icona o su un'altra scrivania. Portala sullo schermo e riprova.",
   notFound: (p: { id: string }) => `Registrazione non trovata: ${p.id}`,
   notWaiting: "Questa registrazione è già iniziata o già terminata.",
   notRecording: "Al momento non si sta registrando nulla.",

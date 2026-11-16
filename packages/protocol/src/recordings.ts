@@ -194,12 +194,33 @@ export interface RecordingDevice {
   default?: boolean;
 }
 
+/**
+ * 这台电脑不能录的机器可读原因（`RecordingSources.unavailable.code`，以及 `RECORDING_UNAVAILABLE` 错误的 `details.unavailable.code`）：
+ * - `platform-unsupported`：这个系统还不能录（Worker 回答不支持，或 Runtime 没有录制服务）。
+ * - `remote-runtime`：请求来自远程或对外的连接（Web、对外服务）；`recordings.*` 以 `RECORDING_UNAVAILABLE` 拒绝，只出现在错误里。
+ * - `no-desktop`：这台电脑上没开着 BaoCut 桌面端（命令行自己拉起的 Runtime，屏幕录制设计 §14）。
+ * - `worker-missing`：找不到 Recording Worker。
+ * 以后可能加新的代码：不认识的按「不能录」处理，显示 `message`。
+ */
+export type RecordingUnavailableCode = 'platform-unsupported' | 'remote-runtime' | 'no-desktop' | 'worker-missing';
+
+export interface RecordingUnavailable {
+  code: RecordingUnavailableCode;
+  /** 给人看的说明，Runtime 按自己的语言写好（与 `reason` 同一段文字）。 */
+  message: string;
+}
+
 /** `recordings_sources` 的结果（§12）。窗口的名字可能带出隐私：只在本机用，不进对外服务。 */
 export interface RecordingSources {
   platform: string;
-  /** 这台电脑此刻能不能录；不能时 `reason` 是英文的原因码（`unsupported-platform`、`no-worker`、`no-window`、`remote`……）。 */
+  /** 这台电脑此刻能不能录。不能时 `unavailable` 给出原因；能列出的来源（`no-desktop` 时）照样列出。 */
   available: boolean;
+  /** 不能录时给人看的原因（Runtime 的语言）；能录时 null。机器可读的原因在 `unavailable.code`。 */
   reason: string | null;
+  /** 不能录时的原因；能录时没有这一项。 */
+  unavailable?: RecordingUnavailable;
+  /** 录制落点（Runtime Home 的 `recordings/`）所在磁盘的剩余空间；读不出时没有这一项。 */
+  disk?: { freeBytes: number };
   permissions: RecordingPermissions;
   displays: RecordingDisplay[];
   windows: RecordingWindow[];

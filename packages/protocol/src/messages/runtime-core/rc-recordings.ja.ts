@@ -16,6 +16,7 @@ export const ja: RcRecordingsMessages = {
   busy: "別の収録が進行中です。先に停止するか破棄してください。",
   diskFull: (p: { free: string }) => `収録に必要なディスクの空き容量が足りません（残り ${p.free}）。`,
   sourceNotFound: "収録する画面またはウインドウがもうありません。",
+  sourceNotCapturable: "このウインドウは今は収録できません。非表示か最小化されているか、別のデスクトップにあります。画面に表示してからもう一度お試しください。",
   notFound: (p: { id: string }) => `収録が見つかりません: ${p.id}`,
   notWaiting: "この収録はすでに開始または終了しています。",
   notRecording: "現在は収録していません。",

@@ -16,6 +16,7 @@ export const es: RcRecordingsMessages = {
   busy: "Ya hay otra grabación en curso. Detenla o descártala primero.",
   diskFull: (p: { free: string }) => `No hay espacio libre suficiente para grabar (quedan ${p.free}).`,
   sourceNotFound: "La pantalla o ventana que se iba a grabar ya no está disponible.",
+  sourceNotCapturable: "Ahora no se puede grabar la ventana: está oculta, minimizada o en otro escritorio. Tráela a la pantalla y vuelve a intentarlo.",
   notFound: (p: { id: string }) => `No se encontró la grabación: ${p.id}`,
   notWaiting: "Esta grabación ya empezó o ya terminó.",
   notRecording: "No se está grabando nada ahora.",

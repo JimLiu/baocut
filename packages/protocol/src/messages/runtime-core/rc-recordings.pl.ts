@@ -16,6 +16,7 @@ export const pl: RcRecordingsMessages = {
   busy: "Trwa już inne nagranie. Najpierw je zatrzymaj lub odrzuć.",
   diskFull: (p: { free: string }) => `Za mało wolnego miejsca na dysku do nagrywania (zostało ${p.free}).`,
   sourceNotFound: "Ekran lub okno do nagrania nie jest już dostępne.",
+  sourceNotCapturable: "Nie można teraz nagrać okna: jest ukryte, zminimalizowane lub na innym biurku. Wyświetl je na ekranie i spróbuj ponownie.",
   notFound: (p: { id: string }) => `Nie znaleziono nagrania: ${p.id}`,
   notWaiting: "To nagranie już się zaczęło albo zakończyło.",
   notRecording: "Teraz nic nie jest nagrywane.",

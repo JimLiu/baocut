@@ -16,6 +16,7 @@ export const de: RcRecordingsMessages = {
   busy: "Es läuft bereits eine andere Aufnahme. Beende oder verwirf sie zuerst.",
   diskFull: (p: { free: string }) => `Nicht genug freier Speicher für die Aufnahme (${p.free} frei).`,
   sourceNotFound: "Der Bildschirm oder das Fenster für die Aufnahme ist nicht mehr verfügbar.",
+  sourceNotCapturable: "Das Fenster kann gerade nicht aufgenommen werden: Es ist ausgeblendet, minimiert oder auf einem anderen Schreibtisch. Hole es auf den Bildschirm und versuche es erneut.",
   notFound: (p: { id: string }) => `Aufnahme nicht gefunden: ${p.id}`,
   notWaiting: "Diese Aufnahme hat bereits begonnen oder ist beendet.",
   notRecording: "Gerade wird nichts aufgenommen.",

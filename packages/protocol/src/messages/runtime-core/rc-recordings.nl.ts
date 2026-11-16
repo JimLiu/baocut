@@ -16,6 +16,7 @@ export const nl: RcRecordingsMessages = {
   busy: "Er loopt al een andere opname. Stop of verwijder die eerst.",
   diskFull: (p: { free: string }) => `Niet genoeg vrije schijfruimte om op te nemen (${p.free} over).`,
   sourceNotFound: "Het scherm of venster om op te nemen is niet meer beschikbaar.",
+  sourceNotCapturable: "Het venster kan nu niet worden opgenomen: het is verborgen, geminimaliseerd of staat op een ander bureaublad. Zet het op het scherm en probeer het opnieuw.",
   notFound: (p: { id: string }) => `Opname niet gevonden: ${p.id}`,
   notWaiting: "Deze opname is al begonnen of al afgelopen.",
   notRecording: "Er wordt nu niets opgenomen.",

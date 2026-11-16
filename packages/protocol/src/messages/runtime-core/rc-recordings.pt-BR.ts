@@ -16,6 +16,7 @@ export const ptBR: RcRecordingsMessages = {
   busy: "Já há outra gravação em andamento. Pare ou descarte-a primeiro.",
   diskFull: (p: { free: string }) => `Não há espaço livre suficiente no disco para gravar (restam ${p.free}).`,
   sourceNotFound: "A tela ou janela a gravar não está mais disponível.",
+  sourceNotCapturable: "Não é possível gravar a janela agora: ela está oculta, minimizada ou em outra mesa. Traga-a para a tela e tente de novo.",
   notFound: (p: { id: string }) => `Gravação não encontrada: ${p.id}`,
   notWaiting: "Esta gravação já começou ou já terminou.",
   notRecording: "Nada está sendo gravado agora.",

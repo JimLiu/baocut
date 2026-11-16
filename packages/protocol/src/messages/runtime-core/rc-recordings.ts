@@ -39,6 +39,7 @@ const en = {
   busy: 'Another recording is in progress. Stop or discard it first.',
   diskFull: (p: { free: string }) => `Not enough free disk space to record (${p.free} left).`,
   sourceNotFound: 'The screen or window to record is no longer available.',
+  sourceNotCapturable: "The window can't be recorded right now: it is hidden, minimized or on another desktop. Bring it onto the screen and try again.",
 
   // ---- 状态 ----
   notFound: (p: { id: string }) => `Recording not found: ${p.id}`,

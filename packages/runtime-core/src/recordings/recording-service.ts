@@ -23,6 +23,7 @@ import {
   type RecordingStreamStatus,
   type RecordingSummary,
   type RecordingTarget,
+  type RecordingUnavailableCode,
   type RecordingsEvent,
   type RecordingsSnapshot,
   type SystemAccessNeed,
@@ -235,8 +236,12 @@ export class RecordingService {
     return current ? this.#view(current) : null;
   }
 
-  /** 能录什么、各项权限的状态。只问状态，不触发系统的授权窗口。 */
+  /**
+   * 能录什么、各项权限的状态、落点所在磁盘的剩余空间。只问状态，不触发系统的授权窗口。不能录时 `available` 是 false，
+   * `unavailable` 给出原因；没开桌面端（`no-desktop`）时 Worker 照样问，来源照样列出。
+   */
   async sources(): Promise<RecordingSources> {
+    const disk = await this.#disk();
     const empty: RecordingSources = {
       platform: this.#platform,
       available: false,
@@ -246,18 +251,32 @@ export class RecordingService {
       windows: [],
       cameras: [],
       microphones: [],
+      ...(disk ? { disk } : {}),
     };
     const command = this.#o.worker();
-    if (!command) return { ...empty, reason: RcRecordings.noWorker().text };
+    if (!command) return { ...empty, ...notAvailable('no-worker', RcRecordings.noWorker()) };
     const current = this.#current();
     const worker = current?.worker ?? (await JsonLineWorker.start(command));
     try {
       const hello = helloResult.parse(await worker.request('hello', {}, { timeoutMs: 15_000 }));
-      if (!hello.capture.supported) return { ...empty, platform: hello.platform, reason: RcRecordings.unsupportedPlatform().text };
+      if (!hello.capture.supported) return { ...empty, platform: hello.platform, ...notAvailable('unsupported', RcRecordings.unsupportedPlatform()) };
       const sources = sourcesResult.parse(await worker.request('sources', {}, { timeoutMs: 30_000 }));
-      return { platform: hello.platform, available: true, reason: null, ...sources };
+      const listed = { ...empty, platform: hello.platform, ...sources };
+      if (!this.#o.hasWindow()) return { ...listed, ...notAvailable('no-window', RcRecordings.noWindow()) };
+      return { ...listed, available: true, reason: null };
     } finally {
       if (worker !== current?.worker) await worker.close().catch(() => {});
+    }
+  }
+
+  /** 落点所在磁盘的剩余空间；目录还没有时先建好，读不出时 null。 */
+  async #disk(): Promise<{ freeBytes: number } | null> {
+    try {
+      await fs.mkdir(this.#o.root, { recursive: true });
+      const freeBytes = await this.#freeBytes();
+      return Number.isFinite(freeBytes) && freeBytes >= 0 ? { freeBytes } : null;
+    } catch {
+      return null;
     }
   }
 
@@ -283,8 +302,8 @@ export class RecordingService {
     if (!this.#o.hasWindow()) throw unavailable('no-window', RcRecordings.noWindow());
     const sources = await this.sources();
     if (!sources.available) {
-      const command = this.#o.worker();
-      throw unavailable(command ? 'unsupported' : 'no-worker', command ? RcRecordings.unsupportedPlatform() : RcRecordings.noWorker());
+      const reason = REASON_OF[sources.unavailable?.code ?? 'platform-unsupported'];
+      throw unavailable(reason, MESSAGE_OF[reason]());
     }
     return sources;
   }
@@ -896,6 +915,10 @@ export class RecordingService {
           workerCode: error.code,
         });
       }
+      // 窗口此刻没有画面（隐藏、最小化、在别的桌面上）：Worker 在开始时等不到第一帧就拒绝，不只录声音。
+      if (error.code === 'SOURCE_NOT_CAPTURABLE') {
+        return this.#jobError('RECORDING_SOURCE_NOT_CAPTURABLE', RcRecordings.sourceNotCapturable(), { workerCode: error.code });
+      }
       return this.#jobError('RECORDING_WORKER_FAILED', RcRecordings.workerFailed({ reason: error.message }), { workerCode: error.code });
     }
     const reason = error instanceof Error ? error.message : String(error);
@@ -938,8 +961,30 @@ export function lowDiskWarning(freeBytes: number): boolean {
   return freeBytes < WARN_FREE_BYTES;
 }
 
-function unavailable(reason: 'no-worker' | 'unsupported' | 'no-window' | 'remote', message: Localized): RpcError {
-  return new RpcError('unsupported', message, { code: 'RECORDING_UNAVAILABLE', reason });
+/** `RECORDING_UNAVAILABLE` 的 `details.reason`（早先的写法，界面按它分支）与协议里的 `unavailable.code` 一一对应。 */
+type UnavailableReason = 'no-worker' | 'unsupported' | 'no-window' | 'remote';
+const CODE_OF: Record<UnavailableReason, RecordingUnavailableCode> = {
+  'no-worker': 'worker-missing',
+  unsupported: 'platform-unsupported',
+  'no-window': 'no-desktop',
+  remote: 'remote-runtime',
+};
+const REASON_OF = Object.fromEntries(Object.entries(CODE_OF).map(([reason, code]) => [code, reason])) as Record<RecordingUnavailableCode, UnavailableReason>;
+const MESSAGE_OF: Record<UnavailableReason, () => Localized> = {
+  'no-worker': RcRecordings.noWorker,
+  unsupported: RcRecordings.unsupportedPlatform,
+  'no-window': RcRecordings.noWindow,
+  remote: RcRecordings.remote,
+};
+
+/** `sources` 里不能录的那几项：`reason` 是给人看的文字，`unavailable` 带上机器可读的代码。 */
+function notAvailable(reason: UnavailableReason, message: Localized): Pick<RecordingSources, 'available' | 'reason' | 'unavailable'> {
+  return { available: false, reason: message.text, unavailable: { code: CODE_OF[reason], message: message.text } };
+}
+
+/** 不能录的错误：`details.reason` 是早先的原因码，`details.unavailable` 是协议里的代码与说明。 */
+export function unavailable(reason: UnavailableReason, message: Localized): RpcError {
+  return new RpcError('unsupported', message, { code: 'RECORDING_UNAVAILABLE', reason, unavailable: { code: CODE_OF[reason], message: message.text } });
 }
 
 function notState(code: string, message: Localized, session: Session): RpcError {

@@ -16,6 +16,7 @@ export const ko: RcRecordingsMessages = {
   busy: "다른 녹화가 진행 중입니다. 먼저 중지하거나 삭제하세요.",
   diskFull: (p: { free: string }) => `녹화할 디스크 공간이 부족합니다(${p.free} 남음).`,
   sourceNotFound: "녹화할 화면이나 창이 더 이상 없습니다.",
+  sourceNotCapturable: "지금은 이 창을 녹화할 수 없습니다. 창이 가려져 있거나 최소화되었거나 다른 데스크탑에 있습니다. 화면에 띄운 뒤 다시 시도하세요.",
   notFound: (p: { id: string }) => `녹화를 찾을 수 없습니다: ${p.id}`,
   notWaiting: "이 녹화는 이미 시작되었거나 끝났습니다.",
   notRecording: "지금은 녹화 중이 아닙니다.",

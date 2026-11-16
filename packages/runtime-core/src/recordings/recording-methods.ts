@@ -1,8 +1,7 @@
-import { RpcError } from '@baocut/protocol';
 import { RcRecordings } from '@baocut/protocol/messages/runtime-core';
 import type { TrustedPrincipal } from '../gateway.ts';
 import type { RpcHandlers } from '../handlers.ts';
-import type { RecordingService } from './recording-service.ts';
+import { unavailable, type RecordingService } from './recording-service.ts';
 
 type RecordingMethod =
   | 'recordings.sources'
@@ -23,10 +22,10 @@ type RecordingMethod =
 export function recordingMethods(recordings: () => RecordingService | null): Pick<RpcHandlers['methods'], RecordingMethod> {
   const own = (principal: TrustedPrincipal): RecordingService => {
     if (principal.kind === 'web' || principal.kind === 'service') {
-      throw new RpcError('unsupported', RcRecordings.remote(), { code: 'RECORDING_UNAVAILABLE', reason: 'remote' });
+      throw unavailable('remote', RcRecordings.remote());
     }
     const service = recordings();
-    if (!service) throw new RpcError('unsupported', RcRecordings.unsupportedPlatform(), { code: 'RECORDING_UNAVAILABLE', reason: 'unsupported' });
+    if (!service) throw unavailable('unsupported', RcRecordings.unsupportedPlatform());
     return service;
   };
   const submitter = (principal: TrustedPrincipal) => ({ kind: 'connection' as const, id: principal.connectionId });

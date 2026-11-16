@@ -16,6 +16,7 @@ export const vi: RcRecordingsMessages = {
   busy: "Đang có một bản quay khác. Hãy dừng hoặc bỏ nó trước.",
   diskFull: (p: { free: string }) => `Không đủ dung lượng trống để quay (còn ${p.free}).`,
   sourceNotFound: "Màn hình hoặc cửa sổ cần quay không còn nữa.",
+  sourceNotCapturable: "Hiện không quay được cửa sổ này: cửa sổ đang ẩn, thu nhỏ hoặc ở màn hình nền khác. Hãy đưa nó lên màn hình rồi thử lại.",
   notFound: (p: { id: string }) => `Không tìm thấy bản quay: ${p.id}`,
   notWaiting: "Bản quay này đã bắt đầu hoặc đã kết thúc.",
   notRecording: "Hiện không có gì đang được quay.",

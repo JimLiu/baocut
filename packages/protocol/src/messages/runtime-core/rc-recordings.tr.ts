@@ -16,6 +16,7 @@ export const tr: RcRecordingsMessages = {
   busy: "Başka bir kayıt sürüyor. Önce onu durdurun veya silin.",
   diskFull: (p: { free: string }) => `Kayıt için yeterli boş disk alanı yok (${p.free} kaldı).`,
   sourceNotFound: "Kaydedilecek ekran veya pencere artık kullanılamıyor.",
+  sourceNotCapturable: "Pencere şu anda kaydedilemiyor: gizli, küçültülmüş veya başka bir masaüstünde. Pencereyi ekrana getirip yeniden deneyin.",
   notFound: (p: { id: string }) => `Kayıt bulunamadı: ${p.id}`,
   notWaiting: "Bu kayıt zaten başladı veya bitti.",
   notRecording: "Şu anda hiçbir şey kaydedilmiyor.",

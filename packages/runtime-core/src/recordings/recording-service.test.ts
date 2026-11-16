@@ -405,13 +405,51 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     expect(list).toMatchObject({ ok: true });
   }, 60_000);
 
-  it('没有开着桌面端：开始录制拒绝（RECORDING_UNAVAILABLE）；sources 照常回答', async () => {
-    await boot({}, { recordings: { hasWindow: () => false } });
+  it('没有开着桌面端：开始录制拒绝（RECORDING_UNAVAILABLE）；sources 说明 no-desktop，来源照样列出', async () => {
+    await boot({}, { recordings: { hasWindow: () => false, freeBytes: async () => 42 * 1024 ** 3 } });
     ({ project } = await client.request('projects.create', { name: 'No window' }));
     const refused = await rejection(client.request('recordings.start', { target: { create: { projectId: project.id } } }));
-    expect(refused.details).toMatchObject({ code: 'RECORDING_UNAVAILABLE', reason: 'no-window' });
+    expect(refused.details).toMatchObject({ code: 'RECORDING_UNAVAILABLE', reason: 'no-window', unavailable: { code: 'no-desktop' } });
     const sources = await client.request('recordings.sources', {});
-    expect(sources.available).toBe(true);
+    expect(sources.available).toBe(false);
+    expect(sources.unavailable).toMatchObject({ code: 'no-desktop' });
+    expect(sources.unavailable!.message).toBe(sources.reason);
+    expect(sources.disk).toEqual({ freeBytes: 42 * 1024 ** 3 });
     expect(sources.displays[0]).toMatchObject({ id: 'display-1' });
+  }, 60_000);
+
+  it('sources：能录时给出落点磁盘的剩余空间、没有 unavailable；Worker 不支持或找不到时给出代码', async () => {
+    await boot();
+    const ok = await client.request('recordings.sources', {});
+    expect(ok).toMatchObject({ available: true, reason: null, disk: { freeBytes: 100 * 1024 ** 3 } });
+    expect(ok.unavailable).toBeUndefined();
+    await shutdown();
+
+    await boot({ supported: false });
+    const unsupported = await client.request('recordings.sources', {});
+    expect(unsupported).toMatchObject({ available: false, unavailable: { code: 'platform-unsupported' }, disk: { freeBytes: 100 * 1024 ** 3 } });
+    ({ project } = await client.request('projects.create', { name: 'Unsupported' }));
+    const refused = await rejection(client.request('recordings.start', { target: { create: { projectId: project.id } } }));
+    expect(refused.details).toMatchObject({ code: 'RECORDING_UNAVAILABLE', reason: 'unsupported', unavailable: { code: 'platform-unsupported' } });
+    await shutdown();
+
+    await boot({}, { recordingWorker: null });
+    const missing = await client.request('recordings.sources', {});
+    expect(missing).toMatchObject({ available: false, unavailable: { code: 'worker-missing' }, displays: [] });
+    // 不给 freeBytes 时读真的磁盘：落点目录先建好，读得出来就是非负整数。
+    await shutdown();
+    await boot({}, { recordings: { hasWindow: () => true, secondMs: 20 } });
+    const real = await client.request('recordings.sources', {});
+    expect(Number.isSafeInteger(real.disk?.freeBytes)).toBe(true);
+    expect(real.disk!.freeBytes).toBeGreaterThanOrEqual(0);
+  }, 60_000);
+
+  it('窗口开始时没有画面：Worker 的 SOURCE_NOT_CAPTURABLE 换成 RECORDING_SOURCE_NOT_CAPTURABLE，不只录声音', async () => {
+    await boot({ startError: { code: 'SOURCE_NOT_CAPTURABLE', message: 'ScreenCaptureKit delivers no picture for this window' } });
+    const started = await startRecording({ source: { kind: 'window', windowId: 'window-7' }, countdown: 0 });
+    const failed = await until(started.recordingId, settled);
+    expect(failed.state).toBe('failed');
+    expect(failed.error).toMatchObject({ code: 'RECORDING_SOURCE_NOT_CAPTURABLE', details: { workerCode: 'SOURCE_NOT_CAPTURABLE' } });
+    expect(failed.result).toBeNull();
   }, 60_000);
 });

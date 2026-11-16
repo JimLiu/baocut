@@ -16,6 +16,7 @@ export const fr: RcRecordingsMessages = {
   busy: "Un autre enregistrement est en cours. Arrêtez-le ou supprimez-le d’abord.",
   diskFull: (p: { free: string }) => `Pas assez d’espace disque pour enregistrer (il reste ${p.free}).`,
   sourceNotFound: "L’écran ou la fenêtre à enregistrer n’est plus disponible.",
+  sourceNotCapturable: "Impossible d’enregistrer la fenêtre pour l’instant : elle est masquée, réduite ou sur un autre bureau. Affichez-la à l’écran et réessayez.",
   notFound: (p: { id: string }) => `Enregistrement introuvable : ${p.id}`,
   notWaiting: "Cet enregistrement a déjà commencé ou est déjà terminé.",
   notRecording: "Rien n’est en cours d’enregistrement.",
