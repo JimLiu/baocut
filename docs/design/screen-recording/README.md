@@ -131,14 +131,19 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 
 ## 7. 进程与职责
 
-- **Recording Worker**（新进程，与 `engine-host` 并列，自己实现）：枚举屏幕、窗口、摄像头与声音设备，处理系统权限，倒计时、开始、暂停、恢复、停止，采集与编码各路流，记鼠标与键盘事件，收尾与恢复，产出一个可以导入的录制包。控制消息沿用 Worker 的 JSON 行协议；摄像头预览走单独的低分辨率通道。
+- **Recording Worker**（新进程，与 `engine-host` 并列，自己实现）：枚举屏幕、窗口、摄像头与声音设备，处理系统权限，倒计时、开始、暂停、恢复、停止，采集与编码各路流，记鼠标与键盘事件，收尾与恢复，产出一个可以导入的录制包。控制消息沿用 Worker 的 JSON 行协议。摄像头的预览不经 Worker，见下面「摄像头预览」。
   - 采集直接用系统接口：macOS 是 ScreenCaptureKit（屏幕、窗口、系统音频）与 AVFoundation（摄像头、麦克风），Windows 是 Windows.Graphics.Capture、WASAPI（含回环）与 Media Foundation。编码沿用 BaoCut 已有的硬件编码路径。平台专属代码条件化（开发流程 §4）。
-  - 各路流打同一个单调时钟的时间戳，清单的 `start` 与 `coverage` 由它算出；不为了凑齐丢帧或补帧。
+  - 各路流打同一个单调时钟的时间戳，清单的 `start` 与 `coverage` 由它算出；不为了与别的流对齐而丢帧或补帧。唯一的补帧是下面「画面静止时」的重复帧，它不改变哪一段有内容。
+  - **开始时要有画面**：`start` 等到屏幕那一路第一帧完整的画面才回答（最多三秒），没有画面就失败，不会只录到声音。
+    - 选的窗口此刻没有画面（被隐藏、最小化、不在当前桌面上，或者屏幕锁着）：Worker 报 `SOURCE_NOT_CAPTURABLE`，Runtime 换成 `RECORDING_SOURCE_NOT_CAPTURABLE`，请用户把窗口放回屏幕上。
+    - 整屏与区域等不到画面：`CAPTURE_UNAVAILABLE`。
+    - `sources` 只列出在当前屏幕上的窗口，但窗口可能在列出与开始之间被收起，所以开始时还要再挡一次。
   - 输出文件的容器与编码：
     - 画面（屏幕、摄像头）是 MPEG-4 里的 H.264：8 位 4:2:0，宽高取偶数，不重排帧（没有 B 帧），关键帧至少两秒一个。
     - 测试用的假 Worker 合成的画面同样用 H.264：浏览器不认 MPEG-4 Part 2，那样的文件在编辑器里报「源文件无法播放」。
     - 声音（麦克风、系统声音）是 M4A 里的 AAC。
-    - 采集中每秒写一个分片，崩溃后已经写下的分片读得出来。正常收尾后是普通的 MP4：一个 `mdat`，`moov` 在文件末尾。
+    - 采集中每秒写一个分片（第一个分片半秒），崩溃后已经写下的分片读得出来。正常收尾后是普通的 MP4：一个 `mdat`，`moov` 在文件末尾。
+    - **画面静止时**：写入端至少每半秒写一帧，把上一帧完整的画面换到当前时刻重写一次。系统在画面不变时不送新画面，只写真帧的话，静止期间被强杀会丢掉最后一个分片之后的全部画面，开头就静止的文件读不出来。补了帧之后，崩溃最多丢最近一秒多。窗口被收起时系统什么都不送，由定时器一秒补一帧。
     - 这几种文件编辑器的 `<video>` / `<audio>` 直接播放，不做兼容副本（`media.playback` 只处理 WebM 与 QuickTime）。
     - 收尾时读不出时长的流不进录制包：丢掉这一路并记一条警告，没有可读画面的段整段丢掉。所以写坏的文件进不了时间线。
   - 鼠标：缺省让系统不把光标画进画面（两个平台的采集接口都有这个开关），另记位置、按键与光标图片，清单的 `pointer.mode` 是 `separate`；拿不到不带光标的画面时是 `baked`。
@@ -157,6 +162,13 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 - **Runtime**：持有录制会话与状态，管 Worker 的启动、停止与恢复，核对录制产物，经现有的 `edits.apply` 提交导入。停止的确认只表示命令收到了，素材可以编辑之前都不算成功：录制中、停止中、收尾中、可导入、导入中、已进时间线是六个不同的状态。开始之前另有三个：等待开始（面板开着，还没有采集）、准备中（启动设备、核对权限）、倒计时；录制中可以进出「已暂停」。任何一步失败进「失败」，用户主动丢弃进「已丢弃」，两者都把已经写下的临时文件留到用户确认删除或恢复之后（[§11](#11-入口与录制过程)「收尾与恢复」）。
 - **失败的录制**：开始采集之前就失败的（Worker 起不来、系统拒绝权限、找不到来源），会话以「失败」留在 Runtime 里，`recordings status <id>` 与 `recordings list` 照样查得到状态与错误（`--no-wait` 之后才知道为什么没录成）；什么都没录，临时目录随即删掉，所以不能恢复（`RECORDING_NOT_RECOVERABLE`）。它留到用户丢弃（`recordings discard`）或 Runtime 重启为止，最多留最近的 10 次。主动取消（关掉面板、倒计时中停止）与丢弃的会话随即去掉，之后查不到（`RECORDING_NOT_FOUND`）。开始采集之后的失败按上一条：可导入的留着目录，等恢复或丢弃。
 - **自己的窗口**：整屏与区域录制缺省不录进 BaoCut 自己的窗口。Runtime 在 `start` 里给 Worker 一份排除名单（`exclude`：bundle id 与进程 ID），macOS 上 Worker 用 `SCContentFilter initWithDisplay:excludingApplications:exceptingWindows:` 把这些应用的窗口挖掉，桌面与程序坞照常录。名单是打包的桌面端（`com.baocut.app`），加上桌面端拉起 Runtime 时的父进程（开发态的桌面端 bundle id 不同，按进程认）。录制选项 `includeSelf: true`（命令行 `--include-self`）不排除；录单个窗口时不排除（选的就是那个窗口）。
+- **摄像头预览**：录制面板里的小预览由界面自己用浏览器的 `getUserMedia` 取，Worker 不提供预览通道。
+  - 选它而不是 Worker 的低分辨率预览帧：预览只在面板开着、还没开始录时要，`getUserMedia` 在 Electron 里现成可用，不必给 Worker 加一条传图片的通道，也不必让 Worker 在开始之前就占着摄像头。代价是浏览器的设备 ID 与 Worker 的不同。
+  - 规则：界面在调 `recordings.start` 之前停掉预览的每一条轨道，释放摄像头，再由 Worker 打开同一个设备。
+  - 对设备按名字配：浏览器的 `deviceId` 是按来源加了盐的散列，不是 `recordings.sources` 里的设备 ID；两边的名字都来自系统的设备名。
+  - 授权：`getUserMedia` 与 Worker 的摄像头权限都记在桌面端的应用上，系统的授权窗口最多弹一次。用途说明（Info.plist）属于桌面端的打包。
+  - Web 没有录制入口，所以没有预览。
+  - 未验证：预览释放之后 Worker 打开同一个摄像头没有冲突。验证用的电脑上没有摄像头，摄像头也没有授权过。
 - **VideoEngine**：仍是唯一的写入端。登记素材与文档、放实例、登记联动组、执行成组的编辑、维护撤销与导出冻结。
 - **录的是哪台机器的桌面**要明确：桌面端提供录制入口；Web 端继续编辑已经导入的录制，远程的 Web 会话不能把服务器的桌面当成用户的桌面。首版只做 macOS 与 Windows。
 
@@ -188,6 +200,10 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 
 - **Recording Worker**（`crates/recording-worker`，Rust，与 `engine-host` 一样由 `npm run build:engine` 构建、随桌面包放进 `bin/`）。macOS 上屏幕、窗口、区域与系统声音走 ScreenCaptureKit，摄像头与麦克风走 AVFoundation，写文件用 `AVAssetWriter`（H.264 由 VideoToolbox 硬件编码，AAC）；各路时间戳换到同一个主机时钟上（`CMSyncConvertTime`）。鼠标、光标图片与键盘、暂停与恢复（每次恢复是新的一段）、设备断开、磁盘检查与崩溃后可读的分段文件都已实现。Windows 的采集已经写好（Windows.Graphics.Capture、WASAPI 与回环、Media Foundation 的摄像头与编码、Win32 的指针、光标图片与键盘钩子，[§7](#7-进程与职责)），**只通过了交叉编译检查**（`cargo check` / `clippy -p recording-worker --all-targets --target x86_64-pc-windows-msvc`，在 macOS 上），从来没有在 Windows 上运行过；与系统无关的部分（键码表、时刻与声音时间线、BGRA 到 NV12、区域取偶、光标位图的透明度、PNG 编码）有单元测试，在任何平台上跑。所以缺省仍回答不支持，开发态开关 `BAOCUT_RECORDING_WINDOWS_EXPERIMENTAL=1` 打开才启用。别的平台 `hello` 回答不支持、`start` 拒绝，不假装能录。
 - **协议**：stdio 上的 JSON 行（`packages/runtime-core/src/recordings/worker-protocol.ts`），两边共用的样例在 `crates/recording-worker/tests/fixtures/protocol.json`。Runtime 收尾时只读 Worker 写的 `journal.jsonl`，正常停止与崩溃之后的恢复是同一条路径。
+- **单个窗口没有画面、静止画面崩溃后读不出**：两处都在实机上复现过，按 [§7](#7-进程与职责)「开始时要有画面」「画面静止时」改了。
+  - 窗口被隐藏、最小化或屏幕锁着时，ScreenCaptureKit 只送一个 `suspended` 样本，之后不再送；早先的 Worker 不检查，就只录到声音。早先两次实录 Code 与 Finder 的窗口失败，是不是这个原因没有确认。
+  - 静止的区域录 5 秒后强杀，屏幕文件有一次读不出来（约 2 KB），另一次只有 2 帧。
+- **`recordings.sources`** 另给落点所在磁盘的剩余空间（`disk.freeBytes`），不能录时给机器可读的原因 `unavailable.code`：`platform-unsupported`、`no-desktop`（没开着桌面端，来源照样列出）、`worker-missing`；`remote-runtime` 只出现在 `RECORDING_UNAVAILABLE` 错误的 `details.unavailable` 里。
 - **Runtime**：录制会话的状态、倒计时、Worker 的启停与恢复、导入（清单、指针轨、键盘轨、取景文档与自动缩放、实例与联动组，经 `edits.apply`）；整屏录制排除自己的窗口（[§7](#7-进程与职责)）；`record` 与 `recordings` 整组命令、`baocut doctor` 的「录制」一项。
 - **导入的次序**：素材与轨道；清单与取景文档；自动缩放；每一段先放实例再修到有内容的区间结尾（终点向下取到帧，且不超过实例的起点加文件长度：真实录制的长度不在帧上，取最近的帧会越过素材结尾）；最后一笔登记联动组、挂取景、摆摄像头。成组之前每个实例都已经放好、修好，联动组的规则（成员同进退）不会挡住导入自己的修剪。
 - **界面（2026-11-15）**：
@@ -206,14 +222,13 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 - **还没有**：
   - 舞台上拖「固定看一点」的取景框（检查器里只能切到固定一点）。
   - 修剪与拆分的拖动预览只画被抓住的成员（提交后引擎按组处理）。
-  - 摄像头的预览通道；区域框选；面板里磁盘剩余空间的检查（`sources` 没有给出剩余空间）。
+  - 界面里的摄像头预览（后端不需要改，规则见 [§7](#7-进程与职责)「摄像头预览」）；区域框选；面板里磁盘剩余空间的警告（`sources` 已经给出 `disk.freeBytes`，界面还没有用）。
   - 控制条窗口与 BaoCut 自己的窗口确实没被录进画面，还没有在实机上确认。
   - Windows 采集的实机验证（[§14](#14-待评审事项)「系统接口：Windows」），以及在 Windows 上实际构建、打包（`build:engine` 会构建 Worker，但没有在 Windows 上跑过）。
-  - 两次实录单个窗口都没有写出画面，只有声音。录的是 Code 与 Finder 的窗口，可能不在当前屏幕上。还没有查明原因。
-  - 帧很稀疏（画面静止）时，写入端被强杀后屏幕文件可能是 0 字节，崩溃恢复只能找回声音。这一点是用同样参数的对照构造得到的，Worker 实录还没有确认。
+  - 上面两处修复还没有在实机上验证（改完时屏幕锁着，ScreenCaptureKit 列不出显示器）：正常在屏幕上的窗口、整屏与区域照常开始；收起的窗口开始时报 `SOURCE_NOT_CAPTURABLE`；静止画面强杀之后读得出、长度接近录的时长。`cargo test -p recording-worker` 里的真实采集测试（`BAOCUT_RECORDING_REAL_CAPTURE=1`）验证最后一项，还没有在解锁的屏幕上跑过。
   - 原型已同步录制入口与编辑界面：Space「新建」与素材面板的「录制」、Home 的恢复提示、智能体录制卡与预填面板、编辑器的联动标记与解组、「缩放」「鼠标」附属行、检查器的「屏幕取景」、演示样式与摄像头布局预设，以及设置里的「屏幕录制」一组；录制入口只在 App，编辑在 App 与 Web 都有。原型比实现多走了几步，文案待与实现对齐：面板里的「把 BaoCut 也录进去」、磁盘空间提醒，设置里的「开始录制」快捷键、缺省帧率与缺省倒计时，舞台上「固定看一点」的取景框。
 
-实机验证到哪里：在 macOS 27 上直接经 stdio 驱动 Worker，`sources` 不弹授权窗口；整屏加系统声音、另画光标、只录快捷键，录 3 秒、暂停 1 秒、再录 2 秒，两段 H.264 与 AAC 都可读，时长与日志一致，Runtime 的录制包构建读得懂；录制中强杀 Worker，已经写下的分段文件仍可读。单个窗口（加系统声音与快捷键）和一块区域也各录过两秒：画面尺寸与窗口、区域一致（区域的宽高取成偶数）。整屏录制的应用排除实机录过：排除一个在屏幕上的应用（按 bundle id）时它的窗口不在画面里，排除一个没有运行的 bundle id 时画面照常。录窗口时 Worker 一度因 CoreGraphics 没有初始化被系统结束，现在启动时先连上窗口服务器。显示器睡着时 ScreenCaptureKit 列不出显示器，`start` 以 `CAPTURE_UNAVAILABLE` 失败。没有实机验证的：摄像头与麦克风（那台电脑上这两项还没有授权过，没有去触发授权窗口）、指针移动与点击、真的按键、录制中移动窗口、设备中途断开，见 [§14](#14-待评审事项)。开始时被系统拒绝屏幕、摄像头或麦克风权限，Worker 按 SDK 头文件里的错误码报出是哪一项，Runtime 换成 `RECORDING_PERMISSION_DENIED` 并带上系统设置的位置；实机上没有触发过这几种拒绝，Runtime 这一半由假 Worker 的测试覆盖。
+实机验证到哪里：在 macOS 27 上直接经 stdio 驱动 Worker，`sources` 不弹授权窗口；整屏加系统声音、另画光标、只录快捷键，录 3 秒、暂停 1 秒、再录 2 秒，两段 H.264 与 AAC 都可读，时长与日志一致，Runtime 的录制包构建读得懂；录制中强杀 Worker，已经写下的分段文件仍可读。单个窗口（加系统声音与快捷键）和一块区域也各录过两秒：画面尺寸与窗口、区域一致（区域的宽高取成偶数）。整屏录制的应用排除实机录过：排除一个在屏幕上的应用（按 bundle id）时它的窗口不在画面里，排除一个没有运行的 bundle id 时画面照常。录窗口时 Worker 一度因 CoreGraphics 没有初始化被系统结束，现在启动时先连上窗口服务器。显示器睡着时 ScreenCaptureKit 列不出显示器，`start` 以 `CAPTURE_UNAVAILABLE` 失败。没有实机验证的：摄像头与麦克风（那台电脑上这两项还没有授权过，没有去触发授权窗口）、指针移动与点击、真的按键、录制中移动窗口、设备中途断开，见 [§14](#14-待评审事项)。开始时被系统拒绝屏幕、摄像头或麦克风权限，Worker 按 SDK 头文件里的错误码报出是哪一项，Runtime 换成 `RECORDING_PERMISSION_DENIED` 并带上系统设置的位置；实机上没有触发过这几种拒绝，Runtime 这一半由假 Worker 的测试覆盖。经隔离的 Runtime 做的整屏端到端录制（系统声音、另画光标、暂停与继续）没有录成：屏幕锁着，`start` 以 `CAPTURE_UNAVAILABLE`（ScreenCaptureKit 列不出显示器）失败，CoreGraphics 那边 `sources` 仍然列出显示器。同一条路径换成假 Worker 走通了：任务完成，视频里有清单、取景文档、4 个实例与联动组，命令行 `export` 出的 MP4 用 ffprobe 读得出，长度 6.07 秒，与录的 6.04 秒一致。
 
 必须覆盖的用例：摄像头晚于屏幕启动；暂停后恢复；摄像头中途断开；删掉中间一段；只拆分（画面逐帧相同）；两倍速；同一次录制用两次（效果互不影响）；Retina 与 Windows 的不同缩放比例下光标对得上点击处；窗口移动与区域录制；随机拖动播放头；改导出帧率；导入中进程退出（没有悬空引用、没有重复插入）；撤销、重做与重新打开；便携包换一台机器仍能编辑。
 
@@ -247,7 +262,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 **录制面板。** 各处入口打开同一个面板（不是新页面）：
 
 1. **录什么**：整块屏幕（多块屏幕时选一块）、一个窗口、一个区域。BaoCut 自己的窗口缺省不录进去（[§14](#14-待评审事项)）。
-2. **摄像头**：不用，或选一个设备；有小预览。
+2. **摄像头**：不用，或选一个设备；有小预览（界面自己取，按开始之前释放摄像头，[§7](#7-进程与职责)「摄像头预览」）。
 3. **麦克风**：不用，或选一个设备；有电平条。
 4. **系统声音**：开或关。
 5. **鼠标**：另画光标（缺省，之后可以改大小、隐藏）、录进画面、不要光标。选「不要光标」时说明自动缩放也就没有了。
@@ -295,7 +310,7 @@ BaoCut 不用 Cap 的代码，也不把导入 Cap 工程当成一个阶段（[§
 | 命令 | 效果 | 做什么 |
 | --- | --- | --- |
 | `baocut record` | job | 开始一次录制。缺省 `--wait`：阻塞到「已进时间线」或失败，结果里是 `videoId`、`recordingId`（录制会话，开始时就有，`recordings` 各命令用它）、`manifestDocumentId`（清单的文档，导入时才写）、`screenViewDocumentId`（取景文档，自动缩放已经在里面）、`groupId`（联动组）、`itemIds`、`duration`（有效录制长度，秒）。结果里另有一个弃用的 `autoZoomPending`，恒为 `false`，只为早先的读取方留着。`--no-wait` 时这些字段在任务完成后的 `jobs inspect` 的 `recording.result` 里 |
-| `baocut recordings sources` | query | 列出能录的屏幕、窗口、摄像头、麦克风，各带 ID、名字、尺寸；另列每项系统权限的状态（`screen`、`camera`、`microphone`、`inputMonitoring`）与这台电脑能不能录、不能时的原因 |
+| `baocut recordings sources` | query | 列出能录的屏幕、窗口、摄像头、麦克风，各带 ID、名字、尺寸；另列每项系统权限的状态（`screen`、`camera`、`microphone`、`inputMonitoring`）、录制落点所在磁盘的剩余空间（`disk.freeBytes`），与这台电脑能不能录、不能时的原因（给人看的 `reason` 与机器可读的 `unavailable.code`） |
 | `baocut recordings status [id]` | query | 一次录制的状态（[§7](#7-进程与职责)）、已录时长、各路流是否在录、落点；不给 ID 是当前这一次。开始之前就失败的也查得到（[§7](#7-进程与职责)「失败的录制」） |
 | `baocut recordings list` | query | 当前的、没有收完的与开始之前就失败的录制 |
 | `baocut recordings pause [id]`、`resume [id]` | mutation | 暂停与继续 |
@@ -388,7 +403,8 @@ baocut record --no-wait && baocut recordings stop --wait
   - 时钟：SCStream 与每个 AVCaptureSession 的 `synchronizationClock`，经 `CMSyncConvertTime`（CoreMedia `CMSync.h`）换到主机时钟。实机上只用过 SCStream 的；AVCaptureSession 还没有开过。
   - 崩溃后可读：`AVAssetWriter.movieFragmentInterval`（AVFoundation `AVAssetWriter.h`）设成 1 秒，录制中强杀之后已写下的片段可读（实机验证）。打开分段时 H.264 不能用 B 帧（实机上会以 `-16341` 失败），所以关掉了帧重排。
   - 录单个窗口：`SCContentFilter initWithDesktopIndependentWindow:`（ScreenCaptureKit 文档「SCContentFilter」），画面尺寸取窗口的大小（实机录过）。
-- **系统接口：按文档实现、还没实机验证的。** 窗口移动时指针坐标跟着窗口走（位置从每帧的 `SCStreamFrameInfoScreenRect` 读，录的时候窗口没有动过）；指针移动与点击、真的按键（录过的几段里没有动鼠标、没有按键，事件文件里只有起始那一行或是空的）；设备中途断开；摄像头与麦克风的采集。「安全输入（密码框）期间拿不到按键」只按文档的说法记，没有实机试过；「控制条不被录进画面」要等控制条做出来：它属于桌面端，按同一份排除名单排除，若改由别的进程画，要把那个进程加进名单。BaoCut 自己的窗口实机上没有专门对着桌面端录过（那次桌面端的窗口被别的窗口挡着），排除的机制是用别的应用验证的。
+  - 每个画面样本的状态：`SCStreamFrameInfoStatus`（ScreenCaptureKit 文档「SCFrameStatus」；`complete` 0、`idle` 1、`blank` 2、`suspended` 3、`started` 4、`stopped` 5）。文档说 `idle` 是「画面没变，系统没有生成新帧」。实机上（macOS 27）：静止的整屏或区域每秒约 28 个 `idle`，五秒里只有 2 个 `complete`；静止的窗口照样约每秒 10 个 `complete`；窗口在开始前被隐藏或最小化，或者录制中被最小化，只来一个 `suspended`，之后什么都不送；屏幕锁着时录窗口也是这样，录整屏则列不出显示器。被别的窗口挡住的窗口照常录。
+- **系统接口：按文档实现、还没实机验证的。** 第一个分片提前到半秒：`AVAssetWriter.initialMovieFragmentInterval`（AVFoundation `AVAssetWriter.h`）；静止时补写的重复帧与开始时等第一帧（[§7](#7-进程与职责)）。窗口移动时指针坐标跟着窗口走（位置从每帧的 `SCStreamFrameInfoScreenRect` 读，录的时候窗口没有动过）；指针移动与点击、真的按键（录过的几段里没有动鼠标、没有按键，事件文件里只有起始那一行或是空的）；设备中途断开；摄像头与麦克风的采集。「安全输入（密码框）期间拿不到按键」只按文档的说法记，没有实机试过；「控制条不被录进画面」要等控制条做出来：它属于桌面端，按同一份排除名单排除，若改由别的进程画，要把那个进程加进名单。BaoCut 自己的窗口实机上没有专门对着桌面端录过（那次桌面端的窗口被别的窗口挡着），排除的机制是用别的应用验证的。Windows 一侧都还没有核实。
 - **系统接口：Windows（只写了代码、只过了编译检查）。** 对着微软的接口文档写，在 macOS 上交叉编译通过，**没有一项在 Windows 上运行过**。打开开发态开关之前要在实机上逐条核实：
   - 系统版本：Windows.Graphics.Capture 的 `CreateForMonitor` / `CreateForWindow` 要 Windows 10 1903；`IsCursorCaptureEnabled` 要 2004；`IsBorderRequired` 与 `GraphicsCaptureAccess` 要 Windows 11；`MinUpdateInterval` 要 Windows 11 24H2；`ToUnicodeEx` 的「不改键盘状态」标志要 1607。缺了的属性按 `ApiInformation.IsPropertyPresent` 跳过，这条判断本身要在老版本上试。
   - 光标开关：`IsCursorCaptureEnabled = false` 时画面里确实没有光标；`baked` 时有。
