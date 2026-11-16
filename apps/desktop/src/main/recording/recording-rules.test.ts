@@ -1,6 +1,6 @@
 import { RECORDING_DEFAULTS, type RecordingSummary } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
-import { barView, clock, currentRecording, parseHostSettings, privacyUrl, shortcutsWanted, toggleMethod, windowPlan } from './recording-rules.ts';
+import { barView, clock, currentRecording, hideForRecording, parseHostSettings, privacyUrl, shortcutsWanted, toggleMethod, windowPlan } from './recording-rules.ts';
 
 const rec = (over: Partial<RecordingSummary> = {}): RecordingSummary => ({
   recordingId: 'rec_1',
@@ -55,6 +55,15 @@ describe('应用窗口', () => {
     expect(windowPlan('paused', 'discarded', true)).toBe('restore');
     expect(windowPlan(undefined, 'recording', false)).toBeNull();
     expect(windowPlan('stopping', 'in-timeline', true)).toBeNull();
+  });
+
+  it('这次要把 BaoCut 录进去（整屏、区域）时不收起；录单个窗口时照设置', () => {
+    expect(hideForRecording(rec(), true)).toBe(true);
+    expect(hideForRecording(rec(), false)).toBe(false);
+    expect(hideForRecording(rec({ options: { ...RECORDING_DEFAULTS, includeSelf: true } }), true)).toBe(false);
+    const area = { kind: 'area' as const, rect: { x: 0, y: 0, width: 100, height: 100 } };
+    expect(hideForRecording(rec({ options: { ...RECORDING_DEFAULTS, includeSelf: true, source: area } }), true)).toBe(false);
+    expect(hideForRecording(rec({ options: { ...RECORDING_DEFAULTS, includeSelf: true, source: { kind: 'window', windowId: 'w1' } } }), true)).toBe(true);
   });
 });
 

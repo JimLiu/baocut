@@ -60,6 +60,14 @@ export function windowPlan(before: RecordingState | undefined, next: RecordingSt
   return null;
 }
 
+/**
+ * 这次录制要不要收起应用窗口：设置里开着收起，而且这次没要求把 BaoCut 录进去（`includeSelf`，整屏与区域才起作用）——
+ * 要录 BaoCut 自己时收起窗口就什么也录不到。
+ */
+export function hideForRecording(r: RecordingSummary, hideWindow: boolean): boolean {
+  return hideWindow && !(r.options.includeSelf && r.options.source.kind !== 'window');
+}
+
 /** 全局快捷键只在采集时注册（录完就还给别的应用）。 */
 export function shortcutsWanted(r: RecordingSummary | null): boolean {
   return !!r && (r.state === 'recording' || r.state === 'paused' || r.state === 'countdown');

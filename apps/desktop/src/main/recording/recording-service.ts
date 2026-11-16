@@ -9,6 +9,7 @@ import {
   clock,
   currentRecording,
   DEFAULT_HOST_SETTINGS,
+  hideForRecording,
   parseHostSettings,
   privacyUrl,
   shortcutsWanted,
@@ -20,7 +21,7 @@ import {
 
 /*
  * 录制中主进程的部分（屏幕录制设计 §11「录制中」）：自己连 Runtime、订阅 `recordings` 主题，管四样东西——
- * - 应用窗口：开始采集时收起（设置里可以关掉），采集结束时放回来；断线时也放回来。
+ * - 应用窗口：开始采集时收起（设置里可以关掉；这次要把 BaoCut 录进去时不收），采集结束时放回来；断线时也放回来。
  * - 控制条：一个总在最前的小窗口（已录时长、暂停与继续、停止、丢弃；丢弃要在条上再确认一次）。开了内容保护
  *   （`setContentProtection`）：Windows 上不被截进画面；macOS 上它设的是 `NSWindowSharingNone`，Electron 文档说明用
  *   ScreenCaptureKit 的应用仍然截得到，Recording Worker 正是用它采集，所以 macOS 上还要 Worker 把这个窗口排除在外。
@@ -278,7 +279,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
   };
 
   const onRecording = (r: RecordingSummary) => {
-    const plan = windowPlan(seen.get(r.recordingId), r.state, settings.hideWindow);
+    const plan = windowPlan(seen.get(r.recordingId), r.state, hideForRecording(r, settings.hideWindow));
     seen.set(r.recordingId, r.state);
     recordings.set(r.recordingId, r);
     if (plan === 'hide') hideApp();
