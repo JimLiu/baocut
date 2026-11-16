@@ -88,6 +88,7 @@ export const nl: RecordingSurfaceMessages = {
   keep: 'Blijf opnemen',
   diskAlert: (minutes) => `Schijf bijna vol: nog ongeveer ${minutes} min. Als die vol is, stopt de opname en wordt ze bewaard.`,
   lostAlert: (names) => `${names} losgekoppeld. De rest wordt gewoon opgenomen.`,
+  sleptAlert: 'De opname is gepauzeerd terwijl de computer sliep. Druk op Hervat om verder op te nemen.',
   dismiss: 'Begrepen',
   roleScreen: 'Scherm',
   roleCamera: 'Camera',

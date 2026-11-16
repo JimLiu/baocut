@@ -88,6 +88,7 @@ export const de: RecordingSurfaceMessages = {
   keep: 'Weiter aufnehmen',
   diskAlert: (minutes) => `Speicher fast voll: noch etwa ${minutes} Min. Ist er voll, wird die Aufnahme beendet und gesichert.`,
   lostAlert: (names) => `${names} getrennt. Der Rest wird weiter aufgenommen.`,
+  sleptAlert: 'Die Aufnahme wurde pausiert, während der Computer im Ruhezustand war. Mit „Fortsetzen“ geht es weiter.',
   dismiss: 'OK',
   roleScreen: 'Bildschirm',
   roleCamera: 'Kamera',

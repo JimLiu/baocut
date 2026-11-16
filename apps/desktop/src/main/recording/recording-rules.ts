@@ -57,6 +57,32 @@ export function toggleMethod(r: RecordingSummary | null): 'recordings.pause' | '
   return null;
 }
 
+/** 重新开始（控制条与快捷键）：准备、倒计时、录制中、暂停时都可以；倒计时里是重新倒数。 */
+export function canRestart(state: RecordingState): boolean {
+  return CAPTURE.has(state);
+}
+
+/** 退出之前对正在进行的那次做什么（屏幕录制设计 §11「退出」）：采集中停止并保存；准备与倒计时里什么都还没录，丢掉。 */
+export function quitStep(state: RecordingState): 'stop' | 'discard' | null {
+  if (state === 'recording' || state === 'paused') return 'stop';
+  if (state === 'preparing' || state === 'countdown') return 'discard';
+  return null;
+}
+
+/** 停下之后还没收完：停止、收尾、导入中，以及收尾与导入之间那一下没有错误的 `importable`。 */
+export function stillFinishing(r: RecordingSummary | undefined): boolean {
+  if (!r) return false;
+  if (r.state === 'stopping' || r.state === 'finalizing' || r.state === 'importing') return true;
+  return r.state === 'importable' && r.error === null && !r.unfinished;
+}
+
+/** 电脑要睡眠时：录制中暂停；准备与倒计时里丢掉（醒来时不该自己开始录）；已暂停与收尾中不动。 */
+export function sleepStep(state: RecordingState): 'pause' | 'discard' | null {
+  if (state === 'recording') return 'pause';
+  if (state === 'preparing' || state === 'countdown') return 'discard';
+  return null;
+}
+
 /** 七个全局快捷键：前四个在不录时占着，后三个只在采集时占着。 */
 export const SHORTCUT_KEYS = ['launcher', 'display', 'window', 'area', 'stop', 'pause', 'restart'] as const;
 export type ShortcutKey = (typeof SHORTCUT_KEYS)[number];

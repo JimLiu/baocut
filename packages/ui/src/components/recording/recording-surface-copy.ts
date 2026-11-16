@@ -107,6 +107,7 @@ const en = {
   keep: 'Keep recording',
   diskAlert: (minutes: number) => `Disk almost full: about ${minutes} min left. Recording stops and saves when it runs out.`,
   lostAlert: (names: string) => `${names} disconnected. The rest keeps recording.`,
+  sleptAlert: 'Paused while the computer was asleep. Press Resume to keep recording.',
   dismiss: 'Got it',
   roleScreen: 'Screen',
   roleCamera: 'Camera',

@@ -39,8 +39,10 @@
     const cam = D.cameras.find((c) => c.id === st.choice.camera);
     const disk = REC.diskLine(D.freeBytes, REC.bytesPerMinute(display.w, display.h, Number(st.settings.fps), !!cam));
     /* 磁盘快满：录制开始后出一次警示卡，可以关掉 */
-    const alert = disk.low && !alertGone && (s.phase === 'recording' || s.phase === 'paused')
-      ? `磁盘快满了：大约还能录 ${REC.minutesLeft(D.freeBytes, REC.bytesPerMinute(display.w, display.h, Number(st.settings.fps), !!cam))} 分钟，用完时会自动停止并保存。` : '';
+    /* 电脑睡眠时自动暂停：继续之前提示一次；磁盘快满：录制开始后出一次，可以关掉 */
+    const alert = s.phase === 'paused' && s.slept && !alertGone ? '电脑睡眠时录制已暂停，按「继续」接着录。'
+      : disk.low && !alertGone && (s.phase === 'recording' || s.phase === 'paused')
+        ? `磁盘快满了：大约还能录 ${REC.minutesLeft(D.freeBytes, REC.bytesPerMinute(display.w, display.h, Number(st.settings.fps), !!cam))} 分钟，用完时会自动停止并保存。` : '';
     const hgt = alert ? A.BAR.hAlert : A.BAR.h;
     const auto = A.barPlacement(kind, win, vp, hgt);
     const pos = st.barPos ? {x: Math.max(0, Math.min(vp.w - A.BAR.w, st.barPos.x)), y: Math.max(0, Math.min(vp.h - hgt, st.barPos.y - (hgt - A.BAR.h)))} : auto;

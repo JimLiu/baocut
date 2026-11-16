@@ -4,6 +4,7 @@ import {
   BAR,
   barPlacement,
   cameraPlacement,
+  canRestart,
   captureShortcutsWanted,
   clock,
   currentRecording,
@@ -13,6 +14,9 @@ import {
   parseHostSettings,
   parseSessionRequest,
   privacyUrl,
+  quitStep,
+  sleepStep,
+  stillFinishing,
   toggleMethod,
   windowPlan,
   workerDisplayFor,
@@ -163,5 +167,42 @@ describe('控制条与摄像头浮窗的缺省位置', () => {
   it('浮窗缺省在右下角离边 100；记下的位置截回屏幕', () => {
     expect(cameraPlacement(null, { width: 230, height: 230 }, screen)).toEqual({ x: 1110, y: 570 });
     expect(cameraPlacement({ x: 2000, y: -50 }, { width: 230, height: 230 }, screen)).toEqual({ x: 1210, y: 0 });
+  });
+});
+
+describe('quitting, sleeping and restarting', () => {
+  it('restart works from preparing to paused, as the bar shows it', () => {
+    expect(['preparing', 'countdown', 'recording', 'paused'].every((st) => canRestart(st as RecordingSummary['state']))).toBe(true);
+    expect(canRestart('stopping')).toBe(false);
+    expect(canRestart('waiting')).toBe(false);
+  });
+
+  it('quitting stops and saves a capture, drops one that has not started, leaves the rest alone', () => {
+    expect(quitStep('recording')).toBe('stop');
+    expect(quitStep('paused')).toBe('stop');
+    expect(quitStep('countdown')).toBe('discard');
+    expect(quitStep('preparing')).toBe('discard');
+    expect(quitStep('waiting')).toBeNull();
+    expect(quitStep('finalizing')).toBeNull();
+  });
+
+  it('a stopped recording is still finishing until it is imported or settles with an error', () => {
+    expect(stillFinishing(rec({ state: 'stopping' }))).toBe(true);
+    expect(stillFinishing(rec({ state: 'finalizing' }))).toBe(true);
+    expect(stillFinishing(rec({ state: 'importable' }))).toBe(true);
+    expect(stillFinishing(rec({ state: 'importing' }))).toBe(true);
+    expect(stillFinishing(rec({ state: 'importable', unfinished: true }))).toBe(false);
+    expect(stillFinishing(rec({ state: 'importable', error: { code: 'RECORDING_IMPORT_FAILED', message: 'x' } }))).toBe(false);
+    expect(stillFinishing(rec({ state: 'in-timeline' }))).toBe(false);
+    expect(stillFinishing(rec({ state: 'failed' }))).toBe(false);
+    expect(stillFinishing(undefined)).toBe(false);
+  });
+
+  it('going to sleep pauses a recording and drops a countdown', () => {
+    expect(sleepStep('recording')).toBe('pause');
+    expect(sleepStep('countdown')).toBe('discard');
+    expect(sleepStep('preparing')).toBe('discard');
+    expect(sleepStep('paused')).toBeNull();
+    expect(sleepStep('stopping')).toBeNull();
   });
 });

@@ -7,7 +7,7 @@
      · 原型不真的录：停止时按启动器的选择从示例录制裁出一段（BC_REC.takeFrom），收尾后回到编辑器。
      · Home 顶上的「没有收完的录制」：恢复，或删掉录下的文件（要确认，不能撤销）。
      · 设置 › 通用 ›「屏幕录制」：倒计时、没有麦克风先确认、开始时主窗口、丢弃之后、缺省帧率、菜单栏图标、全局快捷键。
-   演示用的屏幕、窗口与设备在 BC_REC.DEMO，名字都是虚构的。地址栏带 `?recperm=none` 时演示没有任何录制权限，带 `?recdisk=low` 时演示磁盘快满（启动器底部提示、控制条上的警告卡）。 */
+   演示用的屏幕、窗口与设备在 BC_REC.DEMO，名字都是虚构的。地址栏带 `?recperm=none` 时演示没有任何录制权限，带 `?recdisk=low` 时演示磁盘快满（启动器底部提示、控制条上的警告卡），带 `?recsleep=on` 时演示录到第 5 秒电脑睡眠（自动暂停，控制条上提示）。 */
 (function () {
   const {useState, useEffect} = React;
   const R = window.RSP;
@@ -32,6 +32,8 @@
   const noPerm = demoFlag('recperm', 'none');
   /* 磁盘快满：剩 1.5 GB，按缺省设置只够录几分钟 */
   if (demoFlag('recdisk', 'low')) REC.DEMO.freeBytes = 1.5e9;
+  /* 电脑睡眠：每次录制只演示一次 */
+  const sleepDemo = demoFlag('recsleep', 'on');
   const store = {
     session: null, requests: {}, takes: 0, subs: new Set(),
     settings: loadSettings(),
@@ -177,7 +179,11 @@
     /* 倒计时与计时：每秒一跳；「正在开始」与「正在收尾…」各停一会儿 */
     useEffect(() => {
       if (phase === 'countdown' || phase === 'recording') {
-        const id = setInterval(() => dispatch('tick'), 1000);
+        const id = setInterval(() => {
+          dispatch('tick');
+          const now = store.session;
+          if (sleepDemo && now && now.phase === 'recording' && now.elapsed === 5 && !now.sleptOnce) { update({sleptOnce: true}); dispatch('sleep'); }
+        }, 1000);
         return () => clearInterval(id);
       }
       if (phase === 'starting') {

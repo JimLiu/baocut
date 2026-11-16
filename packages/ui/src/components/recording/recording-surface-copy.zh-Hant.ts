@@ -88,6 +88,7 @@ export const zhHant: RecordingSurfaceMessages = {
   keep: '繼續錄製',
   diskAlert: (minutes) => `磁碟快滿了：大約還能錄 ${minutes} 分鐘，用完時會自動停止並儲存。`,
   lostAlert: (names) => `${names}已中斷連接，其餘照常錄製。`,
+  sleptAlert: '電腦睡眠時錄製已暫停，按「繼續」接著錄。',
   dismiss: '知道了',
   roleScreen: '螢幕',
   roleCamera: '相機',

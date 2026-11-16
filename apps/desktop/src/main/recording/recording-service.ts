@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen, shell, type Display, type MenuItemConstructorOptions, type NativeImage } from 'electron';
+import { BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, powerMonitor, powerSaveBlocker, screen, shell, type Display, type MenuItemConstructorOptions, type NativeImage } from 'electron';
 import { BaoCutClient } from '@baocut/client';
 import { newId, onLocaleChange, type Id, type RecordingOptions, type RecordingSources, type RecordingState, type RecordingSummary, type RecordingTarget } from '@baocut/protocol';
 import type { RecordingChoice, RecordingNotice, RecordingSurfaceAction, RecordingSurfaceInit, RecordingSurfaceKind, RecordingSurfaceState } from '@baocut/ui';
@@ -9,6 +9,7 @@ import {
   barPlacement,
   CAPTURE_SHORTCUTS,
   cameraPlacement,
+  canRestart,
   captureShortcutsWanted,
   clock,
   currentRecording,
@@ -20,7 +21,10 @@ import {
   parseHostSettings,
   parseSessionRequest,
   privacyUrl,
+  quitStep,
   SHORTCUT_KEYS,
+  sleepStep,
+  stillFinishing,
   toggleMethod,
   windowPlan,
   workerDisplayFor,
@@ -43,6 +47,8 @@ import {
  *   关掉了图标时也有。
  * - 全局快捷键：七个，缺省都不设。打开启动器与直接选屏幕、窗口、区域的四个在不录时占着；停止、暂停与继续、重新开始只在采集时占着。
  *   改了某个之后注册不上（被别的应用占了）时告诉界面。
+ * - 电源：采集中不让显示器睡眠；电脑要睡眠时暂停录制（倒计时里取消），醒来时控制条提示一次。退出之前先停止并保存（`stopForQuit`）。
+ * - 来源：启动器或覆盖层开着时每 5 秒静默再问一次（窗口开关、设备插拔），不闪「正在载入」，问不到时留着上一次的。
  * 规则在 recording-rules.ts 并有单测；这里是 Electron 调用。录完之后打开编辑器由应用窗口的界面做（它看着状态走到「已进时间线」）。
  */
 
@@ -75,6 +81,11 @@ export interface RecordingServiceOptions {
 export interface RecordingService {
   /** 这个窗口是不是录制的小窗（`showWindow` 之类找应用窗口时跳过它）。 */
   isSurfaceWindow(win: BrowserWindow): boolean;
+  /**
+   * 应用退出之前（屏幕录制设计 §11「退出」）：采集中的停止并保存，准备与倒计时里的丢掉。`wait` 时再等它收尾、导入完（最多
+   * `timeoutMs`），Runtime 随后停下也不必下次恢复。从不抛。
+   */
+  stopForQuit(options: { wait: boolean; timeoutMs?: number }): Promise<void>;
   dispose(): void;
 }
 
@@ -101,6 +112,10 @@ const LAUNCHER = { width: 330, height: 400 } as const;
 const HANDOFF_MS = 5000;
 /** 开始之后小窗先藏起来，过一会儿再关：页面要在 `start` 的结果回来后记下这次的选择。 */
 const CLOSE_DELAY_MS = 400;
+/** 启动器或覆盖层开着时多久再问一次来源。每次问都要拉起一个 Worker 进程，所以不更勤。 */
+const SOURCES_REFRESH_MS = 5000;
+/** 退出时等收尾与导入的上限；Runtime 被停下时没导完的下次可以恢复。 */
+const QUIT_WAIT_MS = 30_000;
 
 export function installRecordingService(options: RecordingServiceOptions): RecordingService {
   const client = new BaoCutClient({
@@ -131,6 +146,10 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
   };
   let barHeight: number = BAR.height;
   let hidden: BrowserWindow[] = [];
+  /** 电脑睡眠时自动暂停的那一次（用户继续之前控制条提示）。 */
+  let sleptId: Id | null = null;
+  let awakeBlocker: number | null = null;
+  let sourcesTimer: NodeJS.Timeout | null = null;
 
   const surfaces = new Map<number, Surface>();
   const ready = new Set<number>();
@@ -151,14 +170,19 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     call(method, params).catch((error: unknown) => console.error(`[recording] ${method} failed`, error));
 
   // ---- 来源 ----
-  const loadSources = () => {
-    sources = { status: 'loading', sources: sources.sources, message: null };
-    push();
+  /** `quiet`（定时的再问）：不先推「正在载入」，问不到时留着上一次的列表；上一次还没问完时不再问。 */
+  const loadSources = (quiet = false) => {
+    if (quiet && sourcesLoad) return sourcesLoad;
+    if (!quiet) {
+      sources = { status: 'loading', sources: sources.sources, message: null };
+      push();
+    }
     const load = (client.request('recordings.sources', {}) as Promise<RecordingSources>).then(
       (s) => {
         sources = { status: 'ready', sources: s, message: null };
       },
       (error: unknown) => {
+        if (quiet && sources.sources) return;
         sources = { status: 'error', sources: null, message: error instanceof Error ? error.message : String(error) };
       },
     );
@@ -203,6 +227,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     recording: current(),
     sources,
     afterDiscard: settings.afterDiscard,
+    pausedBySleep: !!sleptId && current()?.recordingId === sleptId && current()?.state === 'paused',
   });
   function push() {
     const state = view();
@@ -348,6 +373,10 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
       error: null,
     };
     void loadSources();
+    if (sourcesTimer) clearInterval(sourcesTimer);
+    sourcesTimer = setInterval(() => {
+      if (session && !session.starting) void loadSources(true);
+    }, SOURCES_REFRESH_MS);
     if (session.phase === 'launcher') showLauncher();
     else showPickers();
     emit({ type: 'opened' });
@@ -374,6 +403,8 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     const s = session;
     if (!s) return;
     session = null;
+    if (sourcesTimer) clearInterval(sourcesTimer);
+    sourcesTimer = null;
     const later = outcome === 'started';
     (later ? retire : destroy)(launcher);
     launcher = null;
@@ -496,7 +527,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     if (action === 'stop') await stopOrCancel(r);
     else if (action === 'pause' && r.state === 'recording') await quietly('recordings.pause', { recordingId: r.recordingId });
     else if (action === 'resume' && r.state === 'paused') await quietly('recordings.resume', { recordingId: r.recordingId });
-    else if (action === 'restart' && (r.state === 'recording' || r.state === 'paused')) await restart(r);
+    else if (action === 'restart' && canRestart(r.state)) await restart(r);
     else if (action === 'discard' && isCapturing(r.state)) {
       if (settings.afterDiscard === 'launcher') reopenAfter = lastRequest ?? settings.home;
       await quietly('recordings.discard', { recordingId: r.recordingId });
@@ -625,7 +656,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
       const method = toggleMethod(r);
       if (r && method) void quietly(method, { recordingId: r.recordingId });
     } else if (key === 'restart') {
-      if (r && (r.state === 'recording' || r.state === 'paused')) void restart(r);
+      if (r && canRestart(r.state)) void restart(r);
     } else {
       openHome(key === 'launcher' ? undefined : key);
     }
@@ -677,9 +708,44 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     registered.clear();
   };
 
+  // ---- 电源 ----
+  /** 采集中（准备到暂停）不让显示器睡眠；结束、失败、断线时放开。 */
+  const syncAwake = () => {
+    const r = current();
+    const want = !!r && isCapturing(r.state);
+    if (want && awakeBlocker === null) awakeBlocker = powerSaveBlocker.start('prevent-display-sleep');
+    if (!want && awakeBlocker !== null) {
+      if (powerSaveBlocker.isStarted(awakeBlocker)) powerSaveBlocker.stop(awakeBlocker);
+      awakeBlocker = null;
+    }
+  };
+  /** 电脑要睡眠：录制中暂停，倒计时里取消。系统不等应用，暂停可能来不及落下，醒来时再补一次。 */
+  const onSuspend = () => {
+    const r = current();
+    const step = r ? sleepStep(r.state) : null;
+    if (!r || !step) return;
+    if (step === 'pause') {
+      sleptId = r.recordingId;
+      void quietly('recordings.pause', { recordingId: r.recordingId });
+    } else {
+      void quietly('recordings.discard', { recordingId: r.recordingId });
+    }
+  };
+  const onWake = () => {
+    const r = current();
+    if (!r || r.recordingId !== sleptId) return;
+    if (r.state === 'recording') void quietly('recordings.pause', { recordingId: r.recordingId });
+    push();
+  };
+  powerMonitor.on('suspend', onSuspend);
+  powerMonitor.on('resume', onWake);
+
   // ---- 状态变化 ----
   const sync = () => {
     const r = current();
+    // 睡眠暂停的那一次：用户继续了或者录制结束了，提示就不再要。
+    if (sleptId && r?.recordingId !== sleptId) sleptId = null;
+    syncAwake();
     if (!r && reopenAfter && !session) {
       const next = reopenAfter;
       reopenAfter = null;
@@ -696,6 +762,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     const before = seen.get(r.recordingId);
     seen.set(r.recordingId, r.state);
     recordings.set(r.recordingId, r);
+    if (r.recordingId === sleptId && before === 'paused' && r.state === 'recording') sleptId = null;
     if (isCapturing(r.state) && handoffTimer) {
       clearTimeout(handoffTimer);
       handoffTimer = null;
@@ -856,13 +923,38 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     return { ok: true };
   });
 
+  const stopForQuit = async ({ wait, timeoutMs = QUIT_WAIT_MS }: { wait: boolean; timeoutMs?: number }) => {
+    const r = current();
+    const step = r ? quitStep(r.state) : null;
+    if (!r || !step) return;
+    if (step === 'discard') return void (await quietly('recordings.discard', { recordingId: r.recordingId }));
+    await quietly('recordings.stop', { recordingId: r.recordingId });
+    if (!wait) return;
+    const deadline = Date.now() + timeoutMs;
+    // 停止的回复先到，主题上的状态后到：还看着录制中的也要等。
+    const busy = () => {
+      const now = recordings.get(r.recordingId);
+      return !!now && (now.state === 'recording' || now.state === 'paused' || stillFinishing(now));
+    };
+    while (connected && busy() && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  };
+
   return {
     isSurfaceWindow: (win) => [...surfaces.values()].some((s) => s.win === win),
+    stopForQuit,
     dispose() {
       stopTopic();
       stopState();
       stopLocale();
       unregisterAll();
+      powerMonitor.off('suspend', onSuspend);
+      powerMonitor.off('resume', onWake);
+      if (awakeBlocker !== null && powerSaveBlocker.isStarted(awakeBlocker)) powerSaveBlocker.stop(awakeBlocker);
+      awakeBlocker = null;
+      if (sourcesTimer) clearInterval(sourcesTimer);
+      sourcesTimer = null;
       if (handoffTimer) clearTimeout(handoffTimer);
       for (const s of [...surfaces.values()]) destroy(s.win);
       surfaces.clear();

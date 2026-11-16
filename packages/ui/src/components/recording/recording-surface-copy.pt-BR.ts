@@ -88,6 +88,7 @@ export const ptBR: RecordingSurfaceMessages = {
   keep: 'Continuar gravando',
   diskAlert: (minutes) => `Disco quase cheio: restam cerca de ${minutes} min. Quando acabar, a gravação para e é salva.`,
   lostAlert: (names) => `${names} desconectado. O resto continua sendo gravado.`,
+  sleptAlert: 'A gravação foi pausada enquanto o computador estava em repouso. Toque em Retomar para continuar gravando.',
   dismiss: 'Entendi',
   roleScreen: 'Tela',
   roleCamera: 'Câmera',

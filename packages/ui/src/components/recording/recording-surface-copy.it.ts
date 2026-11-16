@@ -88,6 +88,7 @@ export const it: RecordingSurfaceMessages = {
   keep: 'Continua a registrare',
   diskAlert: (minutes) => `Disco quasi pieno: restano circa ${minutes} min. Quando finisce lo spazio, la registrazione si interrompe e viene salvata.`,
   lostAlert: (names) => `${names} scollegato. Il resto continua a essere registrato.`,
+  sleptAlert: 'La registrazione è stata messa in pausa mentre il computer era in stop. Premi Riprendi per continuare.',
   dismiss: 'Ho capito',
   roleScreen: 'Schermo',
   roleCamera: 'Fotocamera',

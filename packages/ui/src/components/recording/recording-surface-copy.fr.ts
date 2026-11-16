@@ -88,6 +88,7 @@ export const fr: RecordingSurfaceMessages = {
   keep: 'Continuer l’enregistrement',
   diskAlert: (minutes) => `Disque presque plein : environ ${minutes} min restantes. L’enregistrement s’arrêtera et sera sauvegardé lorsqu’il sera plein.`,
   lostAlert: (names) => `${names} déconnecté. Le reste continue d’être enregistré.`,
+  sleptAlert: 'L’enregistrement a été mis en pause pendant la veille de l’ordinateur. Appuyez sur Reprendre pour continuer.',
   dismiss: 'OK',
   roleScreen: 'Écran',
   roleCamera: 'Caméra',

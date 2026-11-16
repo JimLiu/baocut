@@ -160,6 +160,8 @@ export interface RecordingSurfaceState {
   sources: { status: 'loading' | 'ready' | 'error'; sources: RecordingSources | null; message: string | null };
   /** 控制条要的设置。 */
   afterDiscard: 'none' | 'launcher';
+  /** 正在录的那一次是电脑睡眠时自动暂停的，用户还没有继续（控制条提示一次）。 */
+  pausedBySleep: boolean;
 }
 
 export interface RecordingSessionView {

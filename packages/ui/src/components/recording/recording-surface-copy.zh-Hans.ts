@@ -88,6 +88,7 @@ export const zhHans: RecordingSurfaceMessages = {
   keep: '继续录',
   diskAlert: (minutes) => `磁盘快满了：大约还能录 ${minutes} 分钟，用完时会自动停止并保存。`,
   lostAlert: (names) => `${names}断开了，其余照常在录。`,
+  sleptAlert: '电脑睡眠时录制已暂停，按「继续」接着录。',
   dismiss: '知道了',
   roleScreen: '屏幕',
   roleCamera: '摄像头',

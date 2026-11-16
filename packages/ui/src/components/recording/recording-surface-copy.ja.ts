@@ -88,6 +88,7 @@ export const ja: RecordingSurfaceMessages = {
   keep: '収録を続ける',
   diskAlert: (minutes) => `ディスクの空きがわずかです：残り約 ${minutes} 分。足りなくなると収録を停止して保存します。`,
   lostAlert: (names) => `${names}の接続が切れました。ほかは収録を続けています。`,
+  sleptAlert: 'コンピュータのスリープ中は収録を一時停止しました。続けるには「再開」を押してください。',
   dismiss: 'OK',
   roleScreen: '画面',
   roleCamera: 'カメラ',

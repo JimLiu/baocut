@@ -389,12 +389,14 @@ export function startDesktopApp(): void {
       // 换包程序已经起了、在等应用退出：这次退出不能取消，不问手上的活。
       quit: () => {
         quitWithoutAsking = true;
+        quitInHurry = true;
         app.quit();
       },
     });
     // 系统关机、重启或注销（macOS、Linux）：退出对话框会挡住系统，不问，照常停。Windows 上这时不发 `before-quit`，用不着。
     powerMonitor.on('shutdown', () => {
       quitWithoutAsking = true;
+      quitInHurry = true;
     });
     // macOS 的 Dock 图标不认 BrowserWindow 的 icon，开发态单独设。
     if (devIcon && process.platform === 'darwin') app.dock?.setIcon(devIcon);
@@ -456,6 +458,8 @@ export function startDesktopApp(): void {
   let quitState: 'idle' | 'asking' | 'stopping' = 'idle';
   /** 这次退出不问手上的活：换包程序已在等应用退出，或系统在关机。 */
   let quitWithoutAsking = false;
+  /** 这次退出等不得（换包程序在等、系统在关机）：录制不等收尾，停成下次可以恢复的。 */
+  let quitInHurry = false;
   /** 这次退出是为了重新启动（授权生效）：不把待装的更新交给换包程序，换包程序不会重新打开应用。 */
   let relaunching = false;
   app.on('before-quit', (event) => {
@@ -480,6 +484,9 @@ export function startDesktopApp(): void {
       }
       quitState = 'stopping';
       bot?.dispose();
+      // 录制中退出（屏幕录制设计 §11「退出」）：先停止并保存，停下 Runtime 时就不是「没收完」。选了停止时等它导入完（有上限）；
+      // 留在后台时 Runtime 自己导完。等不得的退出不在这里停，Runtime 停下时把它留成可以恢复的。
+      if (!quitInHurry) await recording?.stopForQuit({ wait: choice === 'stop' });
       recording?.dispose();
       if (choice === 'background') await supervisor.detach();
       await supervisor.stop().catch(() => {});

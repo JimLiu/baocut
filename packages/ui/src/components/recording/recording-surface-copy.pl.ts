@@ -88,6 +88,7 @@ export const pl: RecordingSurfaceMessages = {
   keep: 'Nagrywaj dalej',
   diskAlert: (minutes) => `Dysk jest prawie pełny: zostało około ${minutes} min. Gdy miejsce się skończy, nagrywanie zatrzyma się i zostanie zapisane.`,
   lostAlert: (names) => `Odłączono: ${names}. Reszta jest nagrywana dalej.`,
+  sleptAlert: 'Nagrywanie zostało wstrzymane, gdy komputer był uśpiony. Naciśnij Wznów, aby nagrywać dalej.',
   dismiss: 'Rozumiem',
   roleScreen: 'Ekran',
   roleCamera: 'Kamera',

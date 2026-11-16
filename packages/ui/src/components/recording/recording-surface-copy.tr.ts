@@ -88,6 +88,7 @@ export const tr: RecordingSurfaceMessages = {
   keep: 'Kayda devam et',
   diskAlert: (minutes) => `Disk neredeyse dolu: yaklaşık ${minutes} dk kaldı. Yer bitince kayıt durur ve kaydedilir.`,
   lostAlert: (names) => `Bağlantı kesildi: ${names}. Geri kalanı kaydedilmeye devam ediyor.`,
+  sleptAlert: 'Bilgisayar uykudayken kayıt duraklatıldı. Kayda devam etmek için Sürdür’e basın.',
   dismiss: 'Anladım',
   roleScreen: 'Ekran',
   roleCamera: 'Kamera',

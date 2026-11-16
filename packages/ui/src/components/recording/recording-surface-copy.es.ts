@@ -88,6 +88,7 @@ export const es: RecordingSurfaceMessages = {
   keep: 'Seguir grabando',
   diskAlert: (minutes) => `El disco está casi lleno: quedan unos ${minutes} min. Cuando se agote, la grabación se detendrá y se guardará.`,
   lostAlert: (names) => `Se ha desconectado: ${names}. Lo demás se sigue grabando.`,
+  sleptAlert: 'La grabación se pausó mientras el ordenador estaba en reposo. Pulsa Reanudar para seguir grabando.',
   dismiss: 'Entendido',
   roleScreen: 'Pantalla',
   roleCamera: 'Cámara',

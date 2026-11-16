@@ -17,7 +17,8 @@ import { DragDots } from './surface-parts.tsx';
 
 /*
  * 控制条（屏幕录制设计 §11「控制条」）：透明、置顶、不抢焦点、不被录进去的小窗，宽 320。条高 40：停止 + 计时（倒计时的数字也在这里）、
- * 麦克风电平、暂停 / 继续、重新开始、丢弃、拖动把手。条上方是警示卡（磁盘快满、设备断开）与重新开始、丢弃的确认；它们出现时小窗变高，底边不动。
+ * 麦克风电平、暂停 / 继续、重新开始、丢弃、拖动把手。条上方是警示卡（磁盘快满、设备断开、睡眠时自动暂停）与重新开始、丢弃的确认；它们出现时小窗变高，
+ * 底边不动。
  */
 
 const ROLE_NAME: Record<RecordingStreamStatus['role'], () => string> = {
@@ -44,9 +45,12 @@ export function SurfaceBar() {
   const micOn = !!r.options.microphone && canPreview(sources?.permissions.microphone);
   const level = useMicLevel(micOn && live ? micName : null, sources);
 
-  const disk = live && sources ? lowDisk(choiceFromOptions(r.options, DEFAULT_CHOICE), sources, r.options.fps) : null;
+  // 剩余空间读 Runtime 录制中量到的（约每 5 秒一次）；还没量过时用打开启动器时的。
+  const diskNow = sources && r.freeBytes !== undefined ? { ...sources, disk: { freeBytes: r.freeBytes } } : sources;
+  const disk = live && diskNow ? lowDisk(choiceFromOptions(r.options, DEFAULT_CHOICE), diskNow, r.options.fps) : null;
   const lost = r.streams.filter((x) => x.lost).map((x) => ROLE_NAME[x.role]());
   const alerts: Array<{ key: string; text: string }> = [];
+  if (paused && s.state.pausedBySleep) alerts.push({ key: 'slept', text: RS.sleptAlert });
   if (disk) alerts.push({ key: 'disk', text: RS.diskAlert(disk.minutes) });
   if (lost.length) alerts.push({ key: `lost:${lost.join(',')}`, text: RS.lostAlert(lost.join(', ')) });
   const shown = alerts.filter((a) => !gone.includes(a.key));

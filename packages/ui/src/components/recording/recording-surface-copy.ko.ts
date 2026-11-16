@@ -88,6 +88,7 @@ export const ko: RecordingSurfaceMessages = {
   keep: '계속 녹화',
   diskAlert: (minutes) => `디스크가 거의 가득 찼습니다: 약 ${minutes}분 남았습니다. 공간이 없으면 녹화를 중지하고 저장합니다.`,
   lostAlert: (names) => `${names} 연결이 끊어졌습니다. 나머지는 계속 녹화됩니다.`,
+  sleptAlert: '컴퓨터가 잠자기 상태인 동안 녹화를 일시 정지했습니다. 계속하려면 [재개]를 누르세요.',
   dismiss: '확인',
   roleScreen: '화면',
   roleCamera: '카메라',

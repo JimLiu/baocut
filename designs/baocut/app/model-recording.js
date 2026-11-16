@@ -90,7 +90,8 @@
    *  · escape / close-card：覆盖层回到启动器。close-launcher：关掉启动器（这次录制作废）。
    *  · start：有倒计时进 countdown（left = 倒计时秒数），没有就直接 starting。tick 每秒减一，到 0 进 starting。
    *  · started：starting → recording。pause / resume 互换。stop → finishing；finished → closed。
-   *  · discard：丢弃；afterDiscard 为 `launcher` 时回到启动器，否则 closed。restart：丢弃后用同样的选择再开始。
+   *  · discard：丢弃；afterDiscard 为 `launcher` 时回到启动器，否则 closed。restart：丢弃后用同样的选择再开始（倒计时里也行，重新倒数）。
+   *  · sleep：电脑要睡眠。录制中自动暂停并记下 `slept`（控制条提示一次，继续后去掉）；倒计时或正在开始时取消，醒来不自己开始。
    */
   function step(s, ev) {
     const e = typeof ev === 'string' ? {type: ev} : ev;
@@ -113,7 +114,10 @@
         return s;
       case 'started': return s.phase === 'starting' ? to({phase: 'recording'}) : s;
       case 'pause': return s.phase === 'recording' ? to({phase: 'paused'}) : s;
-      case 'resume': return s.phase === 'paused' ? to({phase: 'recording'}) : s;
+      case 'resume': return s.phase === 'paused' ? to({phase: 'recording', slept: false}) : s;
+      case 'sleep':
+        if (s.phase === 'recording') return to({phase: 'paused', slept: true});
+        return s.phase === 'countdown' || s.phase === 'starting' ? to({phase: 'closed', outcome: 'cancelled'}) : s;
       case 'stop':
         if (s.phase === 'recording' || s.phase === 'paused') return to({phase: 'finishing'});
         /* 倒计时里点停止：还没录下东西，等于取消 */

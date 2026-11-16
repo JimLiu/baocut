@@ -104,6 +104,17 @@ test('状态机：没有倒计时直接开始；倒计时里停止等于取消�
   assert.equal(REC.step({phase: 'launcher'}, 'escape').phase, 'launcher');
 });
 
+test('状态机：电脑睡眠时录制中自动暂停并记下，继续后去掉；倒计时与正在开始时取消', () => {
+  const rec = {phase: 'recording', elapsed: 12};
+  const slept = REC.step(rec, 'sleep');
+  assert.deepEqual([slept.phase, slept.slept, slept.elapsed], ['paused', true, 12]);
+  assert.equal(REC.step(slept, 'sleep'), slept, '已暂停时不变');
+  assert.deepEqual([REC.step(slept, 'resume').phase, REC.step(slept, 'resume').slept], ['recording', false]);
+  assert.deepEqual(REC.step({phase: 'countdown', left: 2}, 'sleep').outcome, 'cancelled');
+  assert.deepEqual(REC.step({phase: 'starting'}, 'sleep').phase, 'closed');
+  assert.equal(REC.step({phase: 'finishing'}, 'sleep').phase, 'finishing');
+});
+
 test('控制条第一格：倒数数字、状态字与计时', () => {
   assert.deepEqual(REC.barStatus({phase: 'countdown', left: 3}), {text: '3', kind: 'countdown'});
   assert.equal(REC.barStatus({phase: 'starting'}).text, '正在开始');

@@ -88,6 +88,7 @@ export const vi: RecordingSurfaceMessages = {
   keep: 'Tiếp tục ghi',
   diskAlert: (minutes) => `Ổ đĩa sắp đầy: còn khoảng ${minutes} phút. Khi hết chỗ, việc ghi sẽ dừng và được lưu.`,
   lostAlert: (names) => `${names} đã ngắt kết nối. Phần còn lại vẫn đang được ghi.`,
+  sleptAlert: 'Việc ghi đã tạm dừng khi máy tính ở chế độ ngủ. Nhấn Tiếp tục để ghi tiếp.',
   dismiss: 'Đã hiểu',
   roleScreen: 'Màn hình',
   roleCamera: 'Camera',
