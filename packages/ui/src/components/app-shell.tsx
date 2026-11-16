@@ -190,7 +190,7 @@ export function AppShell({ platform }: { platform: string }) {
         {botEnabled ? <BotDialogs /> : null}
         {/* 启动时的旧版项目导入询问：Runtime 发现还没导入的旧版项目、又没有记下决定时问一次（Web 不问）。 */}
         <LegacyImportHost />
-        {/* 屏幕录制：`recordings` 主题的唯一订阅者、录制面板与智能体发起的录制（Web 不挂：宿主没有录制能力）。 */}
+        {/* 屏幕录制：`recordings` 主题的唯一订阅者、录制启动器的会话事件与智能体发起的录制（Web 不挂：宿主没有录制能力）。 */}
         <RecordingHost />
         {/* 首次启动引导：旧版导入的询问答完再弹（挂在它后面）；引导里勾上的 Agent 在这里排队安装（Web 不弹）。 */}
         <OnboardingHost />

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
-import type { AppUpdateNotice, AppUpdateSnapshot, HostBridge, UpdatesHost } from '@baocut/ui';
+import type { AppUpdateNotice, AppUpdateSnapshot, HostBridge, RecordingSessionEvent, RecordingShortcutKey, UpdatesHost } from '@baocut/ui';
 import { BOT_ROUTE_CHANNEL, BOT_TAKE_ROUTE_CHANNEL, botRoute, type BotRoute } from '../main/bot/bot-route.ts';
 
 type WebHost = NonNullable<HostBridge['web']>;
@@ -72,26 +72,26 @@ const notifications: NonNullable<HostBridge['notifications']> = {
 };
 
 /**
- * 录制（屏幕录制设计 §11）：控制条、菜单栏图标与全局快捷键在主进程里；界面只把设置交过去、打开系统设置的隐私页。
- * 录制目前只有 macOS 上的 Worker（Windows 上 Runtime 报不支持，入口置灰写原因）；两边都给这一项，可不可用由 Runtime 说。
+ * 录制（屏幕录制设计 §11）：启动器、选取覆盖层、控制条、摄像头浮窗、菜单栏图标与全局快捷键都在主进程开的小窗里；界面只打开启动器、
+ * 把设置交过去、打开系统设置的隐私页（参数在主进程里重新校验）。可不可用由 Runtime 说。
  */
 const recording: NonNullable<HostBridge['recording']> = {
   openSystemSettings: (permission) => ipcRenderer.invoke('baocut:recording-open-settings', permission),
-  configure: (settings) =>
-    ipcRenderer.send('baocut:recording-configure', {
-      shortcuts: { start: settings.shortcuts.start, stop: settings.shortcuts.stop, pause: settings.shortcuts.pause },
-      hideWindow: settings.hideWindow,
-    }),
-  // 区域选框：主进程在那块屏幕上盖一个透明窗口，交回相对屏幕的逻辑点；取消时 null（参数在主进程里重新校验）。
-  pickArea: (displayId) => ipcRenderer.invoke('baocut:recording-pick-area', displayId),
-  // 开始录制的全局快捷键按下了（主进程已把这个窗口带到前台）：界面打开录制面板。
-  onStartShortcut: (listener) => {
+  configure: (settings) => ipcRenderer.send('baocut:recording-configure', settings),
+  open: (request) => ipcRenderer.send('baocut:recording-open', request),
+  onSession: (listener) => {
+    const handler = (_event: IpcRendererEvent, event: RecordingSessionEvent) => listener(event);
+    ipcRenderer.on('baocut:recording-session', handler);
+    return () => void ipcRenderer.removeListener('baocut:recording-session', handler);
+  },
+  // 启动器的齿轮（主进程已把这个窗口带到前台）：界面打开设置 › 通用 › 屏幕录制。
+  onOpenSettings: (listener) => {
     const handler = () => listener();
-    ipcRenderer.on('baocut:recording-start-shortcut', handler);
-    return () => void ipcRenderer.removeListener('baocut:recording-start-shortcut', handler);
+    ipcRenderer.on('baocut:recording-open-app-settings', handler);
+    return () => void ipcRenderer.removeListener('baocut:recording-open-app-settings', handler);
   },
   onShortcutFailed: (listener) => {
-    const handler = (_event: IpcRendererEvent, failed: Array<'start' | 'stop' | 'pause'>) => listener(failed);
+    const handler = (_event: IpcRendererEvent, failed: RecordingShortcutKey[]) => listener(failed);
     ipcRenderer.on('baocut:recording-shortcut-failed', handler);
     return () => void ipcRenderer.removeListener('baocut:recording-shortcut-failed', handler);
   },

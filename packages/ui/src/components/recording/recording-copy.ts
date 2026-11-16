@@ -14,7 +14,7 @@ import { pl } from './recording-copy.pl.ts';
 import { tr } from './recording-copy.tr.ts';
 import { vi } from './recording-copy.vi.ts';
 
-/** 屏幕录制的界面文案（屏幕录制设计 §11）：入口、录制面板、会话卡片、恢复提示（英文是键与类型的来源）。 */
+/** 屏幕录制的界面文案（屏幕录制设计 §11）：入口、启动器的落点行、会话卡片、恢复提示、设置（英文是键与类型的来源）。 */
 const en = {
   // 入口
   record: 'Record',
@@ -27,33 +27,13 @@ const en = {
   blockBusy: 'A recording is already in progress.',
   defaultProject: 'Recordings',
 
-  // 面板
-  title: 'Record screen',
-  titleAgent: 'Record for this conversation',
-  agentLead: 'The agent asked for a recording. Check the options, then start when you’re ready.',
+  // 启动器与录制卡（录制的小窗与入口共用）
   loading: 'Checking screens and devices…',
   loadFailed: (message: string) => `Couldn’t check screens and devices: ${message}`,
   retry: 'Try again',
-  source: 'Record',
-  sourceDisplay: 'Entire screen',
-  sourceWindow: 'Window',
-  sourceArea: 'Area',
-  display: 'Screen',
-  displayName: (name: string, width: number, height: number) => `${name} (${width} × ${height})`,
-  displayMain: (name: string) => `${name} · Main`,
-  window: 'Window',
   windowName: (app: string, title: string) => (title ? `${app} — ${title}` : app),
-  areaSelect: 'Select area…',
-  areaReselect: 'Select again…',
-  areaSummary: (width: number, height: number, screen: string) => (screen ? `${width} × ${height} on ${screen}` : `${width} × ${height}`),
   includeSelf: 'Include BaoCut in the recording',
-  includeSelfHint: 'When off, BaoCut’s windows and your conversations stay out of the video.',
-  camera: 'Camera',
-  microphone: 'Microphone',
-  none: 'Don’t use',
   systemDefault: 'System default',
-  systemAudio: 'System audio',
-  systemAudioHint: 'Sound played by apps on this computer',
   cursor: 'Mouse',
   cursorSeparate: 'Draw cursor separately',
   cursorBaked: 'Record cursor into the video',
@@ -67,40 +47,12 @@ const en = {
   keysAllNote: 'All keys includes the text you type.',
   countdown: 'Countdown',
   countdownSeconds: (n: number) => `${n} seconds`,
-  countdownNone: 'No countdown',
-  start: 'Start recording',
   cancel: 'Cancel',
-  starting: 'Starting…',
   startFailed: (message: string) => `Couldn’t start recording: ${message}`,
   cancelled: 'Recording cancelled.',
-  previewLabel: 'Camera preview',
-  previewUnavailable: 'The preview appears once camera access is allowed.',
-  previewFailed: 'Couldn’t show the camera preview.',
-  levelLabel: 'Microphone level',
-  levelUnavailable: 'The level appears once microphone access is allowed.',
 
-  // 不可选的原因
-  noDisplay: 'No screen found.',
-  noWindow: 'No windows to record.',
-  noAreaPicker: 'Drawing an area on screen isn’t available yet.',
-  noCamera: 'No camera found.',
-  noMicrophone: 'No microphone found.',
-
-  // 权限
-  permScreen: 'Screen Recording',
-  permCamera: 'Camera',
-  permMicrophone: 'Microphone',
-  permInput: 'Input Monitoring',
-  permStatus: (name: string, status: string) => `${name}: ${status}`,
-  permGranted: 'Allowed',
-  permAsk: 'macOS will ask when recording starts.',
-  permDenied: (name: string) => `BaoCut isn’t allowed to use ${name}. Turn it on in System Settings.`,
-  permUnknown: 'Permission status unknown.',
+  // 不能录的原因
   openSettings: 'Open System Settings',
-  needScreen: 'Screen Recording permission is required to record.',
-  needOptional: (names: string) => `Turn on ${names} in System Settings, or stop using it, to start.`,
-  unavailable: 'Recording isn’t available right now.',
-  areaNeeded: 'Select an area on screen to start.',
   unavailableNoWorker: 'The screen recorder is missing from this copy of BaoCut. Reinstall BaoCut to record.',
   unavailableNoWindow: 'Open the BaoCut app on this computer to record.',
   diskLow: (free: string, minutes: number) => `Only ${free} free where recordings are saved, enough for about ${minutes} min. You can still start.`,
@@ -142,23 +94,47 @@ const en = {
 
   // 设置 › 通用 › 录制（桌面端）
   settingsGroup: 'Screen recording',
-  shortcutStart: 'Start recording',
-  shortcutStartHint: 'Opens the recording panel from any app. While it’s set, other apps can’t use these keys.',
   shortcutStop: 'Stop recording',
   shortcutPause: 'Pause or resume',
-  shortcutHint: 'Stop and pause work everywhere while recording, even when BaoCut is hidden.',
   shortcutPress: 'Press keys…',
   shortcutNone: 'None',
-  shortcutChange: 'Change',
-  shortcutClear: 'Clear',
-  shortcutReset: 'Reset',
   shortcutFailed: (names: string) => `Couldn’t set the shortcut for ${names}. Another app may be using it.`,
-  hideWindow: 'Hide BaoCut while recording',
-  hideWindowHint: 'Only the small control bar stays on screen. It isn’t recorded.',
   defaultFps: 'Frame rate',
-  defaultFpsHint: 'For recordings you start yourself. 60 fps is smoother but makes larger files.',
   fpsValue: (fps: number) => `${fps} fps`,
-  defaultCountdownHint: 'The recording panel starts with this. Changing it in the panel changes it here too.',
+
+  // 启动器的落点行
+  landingNew: (project: string) => (project ? `New video · ${project}` : 'New video'),
+  landingInto: 'Add to this video',
+  landingAgent: 'The agent asked for a recording',
+
+  // 设置 › 通用 › 屏幕录制（桌面端）
+  countdownHint: 'After you press start, the countdown runs in the control bar’s timer. The gear on the recording card changes this too.',
+  countdownOff: 'Off',
+  confirmNoMic: 'Ask before recording without a microphone',
+  confirmNoMicHint: 'So you don’t find out afterwards that the recording has no sound.',
+  mainWindow: 'Main window when recording starts',
+  mainWindowHint: 'Only the control bar stays on screen, and it isn’t recorded. When you stop, BaoCut comes back and opens the editor.',
+  mainWindowBackground: 'Hide',
+  mainWindowMinimize: 'Minimize',
+  afterDiscard: 'After discarding a recording',
+  afterDiscardNone: 'Do nothing',
+  afterDiscardLauncher: 'Reopen the recorder',
+  defaultFpsHint: '60 fps files are about twice as large. Recordings the agent starts use the frame rate it asks for.',
+  trayIcon: 'Menu bar icon',
+  trayIconHint: 'Record a screen, window or area right from the menu bar. While recording, click it to stop.',
+  shortcutsGroup: 'Recording shortcuts',
+  shortcutHint: 'None are set by default: while a shortcut is set, other apps can’t use those keys. They work even when BaoCut is hidden.',
+  shortcutLauncher: 'Open recorder',
+  shortcutDisplay: 'Record screen',
+  shortcutDisplayHint: 'Opens the screen picker directly.',
+  shortcutWindow: 'Record window',
+  shortcutArea: 'Record area',
+  shortcutRestart: 'Restart recording',
+  shortcutFor: (name: string) => `Shortcut for ${name}`,
+  shortcutClearFor: (name: string) => `Clear the shortcut for ${name}`,
+  shortcutNeedsModifierMac: 'Include ⌘, ⌥ or ⌃',
+  shortcutNeedsModifierPc: 'Include Ctrl, Alt or Win',
+  shortcutTaken: 'Another recording shortcut already uses these keys.',
 };
 
 export type RecordingMessages = typeof en;

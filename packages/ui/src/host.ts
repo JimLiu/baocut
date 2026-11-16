@@ -1,4 +1,5 @@
-import type { Locale, WebBuildNote } from '@baocut/protocol';
+import type { Id, Locale, RecordingOptions, RecordingSources, RecordingSummary, RecordingTarget, WebBuildNote } from '@baocut/protocol';
+import type { RecordingChoice, RecordingNotice } from './model/recording.ts';
 
 /** 宿主（Electron 预加载脚本）提供的原生能力。界面包不直接依赖 Electron。 */
 export interface HostBridge {
@@ -72,7 +73,7 @@ export interface HostBridge {
   captureFrame?(rect: CaptureRect): Promise<Uint8Array | null>;
   /**
    * 屏幕录制（屏幕录制设计 §11）：只有桌面端、Runtime 就在这台电脑上时才有；没有它的宿主（Web）不显示录制入口。
-   * 录制中的控制条、菜单栏图标与全局快捷键在主进程里，自己订阅 `recordings` 主题；界面只把设置交过去。
+   * 启动器、选取覆盖层、控制条、摄像头浮窗、菜单栏图标与全局快捷键都在主进程开的小窗里；主界面只打开启动器、交设置。
    */
   recording?: RecordingHost;
   /** 应用自动更新（架构设计 §2.6，桌面端才有）。没有它的宿主里，更新相关的界面一概不出现。 */
@@ -91,21 +92,117 @@ export interface HostBridge {
 /** 录制在宿主一侧的部分（apps/desktop 的 `recording/`）。 */
 export interface RecordingHost {
   /** 打开系统设置里对应的隐私页（屏幕录制、摄像头、麦克风、输入监控）；BaoCut 不替用户改。 */
-  openSystemSettings(permission: 'screen' | 'camera' | 'microphone' | 'inputMonitoring'): Promise<void>;
-  /**
-   * 设置 › 通用 › 屏幕录制的几项：全局快捷键（Electron accelerator，空串不用；开始录制在不录时占着，停止与暂停在采集时占着）
-   * 与录制时是否收起窗口。启动时与每次改动时调用。
-   */
-  configure(settings: { shortcuts: { start: string; stop: string; pause: string }; hideWindow: boolean }): void;
-  /**
-   * 在那块屏幕（Worker 报的屏幕 ID；null 是主屏）上框一个区域：交回实际用的屏幕 ID 与相对它左上角的逻辑点，取消时 null。
-   * 桌面端才有（主进程的透明选框窗口）；没有它时面板里「一个区域」置灰。
-   */
-  pickArea?(displayId: string | null): Promise<{ displayId: string; rect: { x: number; y: number; width: number; height: number } } | null>;
-  /** 开始录制的全局快捷键按下了：宿主已把窗口带到前台，界面打开录制面板。 */
-  onStartShortcut?(listener: () => void): () => void;
-  /** 快捷键注册不上（被别的应用占了）时通知界面：给出没注册上的那几个（开始录制只在改了它时才报）。 */
-  onShortcutFailed?(listener: (failed: Array<'start' | 'stop' | 'pause'>) => void): () => void;
+  openSystemSettings(permission: RecordingPermissionPane): Promise<void>;
+  /** 设置 › 通用 › 屏幕录制里交给主进程的几项，与菜单栏、快捷键打开启动器时用的落点。启动时与每次改动时调用。 */
+  configure(settings: RecordingHostConfig): void;
+  /** 打开录制启动器（`direct` 时直接进那种选取覆盖层）。启动器或覆盖层已经开着、或正在录时只把它带到前面。 */
+  open(request: RecordingSessionRequest): void;
+  /** 启动器开着、关了（取消、开始了、智能体那次被别处处理了）。 */
+  onSession?(listener: (event: RecordingSessionEvent) => void): () => void;
+  /** 启动器的齿轮：主窗口已带到前台，界面打开设置 › 通用 › 屏幕录制。 */
+  onOpenSettings?(listener: () => void): () => void;
+  /** 快捷键注册不上（被别的应用占了）时通知界面：给出没注册上的那几个（只在改了它们时才报）。 */
+  onShortcutFailed?(listener: (failed: RecordingShortcutKey[]) => void): () => void;
+}
+
+export type RecordingPermissionPane = 'screen' | 'camera' | 'microphone' | 'inputMonitoring';
+
+/** 七个全局快捷键（设计 §11「全局快捷键」）：缺省都不设。 */
+export type RecordingShortcutKey = 'launcher' | 'display' | 'window' | 'area' | 'stop' | 'pause' | 'restart';
+export type RecordingShortcuts = Record<RecordingShortcutKey, string>;
+
+export interface RecordingHostConfig {
+  /** Electron accelerator；空串不用。 */
+  shortcuts: RecordingShortcuts;
+  /** 开始录制时主窗口：收到后台，或最小化（这次要把 BaoCut 录进去时都不动）。 */
+  mainWindow: 'background' | 'minimize';
+  /** 丢弃一次录制之后：什么也不做，或重新打开启动器（同一个落点）。 */
+  afterDiscard: 'none' | 'launcher';
+  /** 菜单栏（托盘）图标；关掉时录制中仍有停止图标。 */
+  trayIcon: boolean;
+  /** 菜单栏与快捷键打开时用的落点：此刻 Home 用的项目里的一个新视频。还不能录（远程、不支持）时 null。 */
+  home: RecordingSessionRequest | null;
+}
+
+/** 启动器从哪里打开：落点、落点那一行的字，智能体发起的那次（预先填好它的选项）。 */
+export interface RecordingSessionRequest {
+  /** `home`：Home 的项目（null 时开始时新建一个，名字是 `name`）。 */
+  target: RecordingTarget | { home: { projectId: Id | null; name: string } };
+  recordingId?: Id;
+  /** 落点行：「新视频 · 项目名」、「加进 视频名」或「智能体请求录制」。 */
+  landing: { text: string; note?: string; kind: 'new' | 'into' | 'agent' };
+  /** 跳过启动器、直接进这种覆盖层（菜单栏与快捷键）。 */
+  direct?: RecordingPickerKind;
+}
+
+export type RecordingPickerKind = 'display' | 'window' | 'area';
+
+export type RecordingSessionEvent =
+  | { type: 'opened' }
+  | { type: 'closed'; outcome: 'cancelled' | 'started' | 'gone'; recordingId: Id | null };
+
+// ---- 录制的小窗（apps/desktop 的 preload `recording-surface.ts` 交给页面的 `window.recordingSurface`） ----
+
+export type RecordingSurfaceKind = 'launcher' | 'picker' | 'bar' | 'camera';
+
+/** 小窗打开时从主进程拿到的：哪一种、覆盖层盖着哪块屏幕（Electron 的全局坐标与对上的 Worker 屏幕 ID）。 */
+export interface RecordingSurfaceInit {
+  kind: RecordingSurfaceKind;
+  platform: string;
+  display: { bounds: { x: number; y: number; width: number; height: number }; workerDisplayId: string | null } | null;
+}
+
+/** 主进程推给每个小窗的同一份状态。 */
+export interface RecordingSurfaceState {
+  session: RecordingSessionView | null;
+  /** 正在录的那一次（准备、倒计时、录制中、收尾）。 */
+  recording: RecordingSummary | null;
+  sources: { status: 'loading' | 'ready' | 'error'; sources: RecordingSources | null; message: string | null };
+  /** 控制条要的设置。 */
+  afterDiscard: 'none' | 'launcher';
+}
+
+export interface RecordingSessionView {
+  /** 每次打开加一：小窗据此重置自己的局部状态。 */
+  id: number;
+  phase: 'launcher' | 'picker';
+  picker: RecordingPickerKind;
+  landing: RecordingSessionRequest['landing'];
+  /** 智能体在 `waiting` 里填好的选项。 */
+  agent: { recordingId: Id; options: RecordingOptions } | null;
+  /** 还没落到这台电脑的设备上时 null（第一个拿到来源的小窗落一次，`resolve`）。 */
+  choice: RecordingChoice | null;
+  notices: RecordingNotice[];
+  starting: boolean;
+  error: string | null;
+}
+
+export type RecordingBarAction = 'pause' | 'resume' | 'stop' | 'restart' | 'discard';
+
+export type RecordingSurfaceAction =
+  | { type: 'resolve'; choice: RecordingChoice; notices: RecordingNotice[] }
+  | { type: 'choose'; choice: RecordingChoice }
+  /** 启动器里点一格或在列表里选定：打开那种覆盖层；覆盖层开着时再点同一格回到启动器。 */
+  | { type: 'pick'; kind: RecordingPickerKind }
+  /** 覆盖层：Esc 或录制卡的关闭，回到启动器。 */
+  | { type: 'escape' }
+  /** 关掉启动器（智能体发起的就是 `recordings.cancel`）。 */
+  | { type: 'close' }
+  | { type: 'start'; options: Partial<RecordingOptions> }
+  | { type: 'permission'; permission: RecordingPermissionPane }
+  | { type: 'settings' }
+  | { type: 'refresh' }
+  | { type: 'bar'; action: RecordingBarAction }
+  /** 控制条小窗要的高度（警示卡、确认卡出现时变高，底边不动）。 */
+  | { type: 'bar-height'; height: number }
+  /** 摄像头浮窗：画面的大小与位置（屏幕全局坐标；null 是缺省位置），`pad` 是画面外留给工具条与把手的边。 */
+  | { type: 'camera-bounds'; box: { width: number; height: number }; pos: { x: number; y: number } | null; pad: { side: number; top: number } }
+  | { type: 'camera-close' };
+
+export interface RecordingSurfaceBridge {
+  init(): Promise<RecordingSurfaceInit>;
+  onState(listener: (state: RecordingSurfaceState) => void): () => void;
+  act(action: RecordingSurfaceAction): Promise<{ ok: true } | { ok: false; message: string }>;
 }
 
 /**

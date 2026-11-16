@@ -119,7 +119,7 @@ function ToolCard({ tool, state }: { tool: ToolInfo; state: ToolCardStatus | nul
 }
 
 /**
- * 「视频文件」组最前面的屏幕录制（设计稿 page-tools.jsx `RecordCard`）：样子同工具卡，但不是链接、不进工具页，按下打开录制面板。
+ * 「视频文件」组最前面的屏幕录制（设计稿 page-tools.jsx `RecordCard`）：样子同工具卡，但不是链接、不进工具页，按下打开录制启动器。
  * 不能录时置灰、不能按，现状行写原因。
  */
 function RecordCard({ entry }: { entry: RecordEntry }) {

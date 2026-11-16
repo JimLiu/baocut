@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { localizeText, type Id, type RecordingState, type RecordingSummary } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
-import { autoOpenWaiting, recordingEntry, shouldOpenAfter, startFromShortcut, type RecordingBlock, type RecordingEntry, type SourcesState } from '../../model/recording.ts';
+import type { RecordingSessionRequest, RecordingShortcutKey } from '../../host.ts';
+import { autoOpenWaiting, recordingEntry, shouldOpenAfter, type RecordingBlock, type RecordingEntry, type SourcesState } from '../../model/recording.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useConnection } from '../../state/connection-store.ts';
-import { useRecordingPrefs, useRecordings, type RecordingPanelRequest } from '../../state/recordings-store.ts';
+import { useDirectory } from '../../state/directory-store.ts';
+import { useRecordingPrefs, useRecordings } from '../../state/recordings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { useHomeProjectId } from '../start/use-home-project.ts';
 import { RC } from './recording-copy.ts';
-import { RecordingPanel } from './recording-panel.tsx';
 
 /*
- * 屏幕录制在界面里的根（屏幕录制设计 §11）：挂在外壳上，是 `recordings` 主题唯一的订阅者。
- * - 连上之后问一次能录什么（`recordings.sources`），入口据此显示或置灰；面板打开时再问一次。
- * - 智能体在这条会话里发起的录制停在 `waiting`：正看着这条会话时自动弹出预先填好的面板（关掉就是 `recordings.cancel`）。
+ * 屏幕录制在应用窗口里的根（屏幕录制设计 §11）：挂在外壳上，是应用窗口里 `recordings` 主题唯一的订阅者。
+ * - 连上之后问一次能录什么（`recordings.sources`），入口据此显示或置灰。
+ * - 入口（Home、Space「新建」、编辑器素材面板、工具总览）打开主进程的录制启动器，带上落点与落点那一行的字。
+ * - 智能体在这条会话里发起的录制停在 `waiting`：正看着这条会话时自动打开预先填好的启动器（关掉就是 `recordings.cancel`）。
  * - 看着一次录制走到「已进时间线」、选项要求打开时，打开编辑器到那个视频（录进当前视频的，编辑器本来就开着）。
- * - 把设置 › 通用 › 屏幕录制的几项交给宿主（主进程的控制条、菜单栏图标与全局快捷键）；按下开始录制的快捷键时打开面板。
+ * - 把设置 › 通用 › 屏幕录制的几项与 Home 此刻的落点交给宿主（菜单栏、全局快捷键打开启动器时用）。
  * Web 没有这些：主题与方法都不对 Web 开放，宿主也没有录制能力。
  */
 
@@ -48,14 +51,39 @@ function sourcesError(error: unknown): SourcesState {
   };
 }
 
-/** 入口此刻的样子（Home、Space「新建」、编辑器素材面板共用）。 */
-export function useRecordingEntry(): { entry: RecordingEntry; open(request: RecordingPanelRequest): void } {
+/** 入口要打开的落点：Home 的项目（null 时开始时新建）、某个项目里的新视频、加进某个视频，或智能体发起的那次。 */
+export interface RecordingOpen {
+  target: { home: { projectId: Id | null } } | { create: { projectId?: Id; conversationId?: Id } } | { videoId: Id; at?: number };
+  recordingId?: Id;
+}
+
+/** 启动器要的请求：落点那一行的字按此刻的项目名写好（启动器在另一扇窗里，看不到目录）。 */
+export function sessionRequest(open: RecordingOpen): RecordingSessionRequest {
+  const projects = useDirectory.getState().projects;
+  const projectName = (id: Id | null | undefined) => (id ? (projects.find((p) => p.id === id)?.name ?? '') : '');
+  const t = open.target;
+  if (open.recordingId) {
+    const r = useRecordings.getState().recordings.find((x) => x.recordingId === open.recordingId);
+    const conversation = r?.requestedBy ? useDirectory.getState().conversations.find((c) => c.id === r.requestedBy!.conversationId) : undefined;
+    const target = 'home' in t ? { create: t.home.projectId ? { projectId: t.home.projectId } : {} } : t;
+    return { target, recordingId: open.recordingId, landing: conversation?.title ? { kind: 'agent', text: RC.landingAgent, note: conversation.title } : { kind: 'agent', text: RC.landingAgent } };
+  }
+  if ('videoId' in t) return { target: t, landing: { kind: 'into', text: RC.landingInto } };
+  if ('home' in t) {
+    const name = projectName(t.home.projectId);
+    return { target: { home: { projectId: t.home.projectId, name: RC.defaultProject } }, landing: { kind: 'new', text: RC.landingNew(name || RC.defaultProject) } };
+  }
+  return { target: t, landing: { kind: 'new', text: RC.landingNew(projectName(t.create.projectId)) } };
+}
+
+/** 入口此刻的样子（Home、Space「新建」、编辑器素材面板、工具总览共用）。 */
+export function useRecordingEntry(): { entry: RecordingEntry; open(request: RecordingOpen): void } {
   const runtime = useRuntime();
   const hostCapable = useRecordingCapable();
   const sources = useRecordings((s) => s.sources);
   const recordings = useRecordings((s) => s.recordings);
   const entry = recordingEntry({ platform: runtime.host.platform, hostCapable, sources, recordings });
-  const open = useCallback((request: RecordingPanelRequest) => useRecordings.getState().openPanel(request), []);
+  const open = useCallback((request: RecordingOpen) => runtime.host.recording?.open(sessionRequest(request)), [runtime]);
   return { entry, open };
 }
 
@@ -75,6 +103,16 @@ export function unsupportedText(code: string | null, text: string | null): strin
   return text || RC.blockUnsupported;
 }
 
+const SHORTCUT_NAME: Record<RecordingShortcutKey, () => string> = {
+  launcher: () => RC.shortcutLauncher,
+  display: () => RC.shortcutDisplay,
+  window: () => RC.shortcutWindow,
+  area: () => RC.shortcutArea,
+  stop: () => RC.shortcutStop,
+  pause: () => RC.shortcutPause,
+  restart: () => RC.shortcutRestart,
+};
+
 export function RecordingHost() {
   const runtime = useRuntime();
   const capable = useRecordingCapable();
@@ -82,10 +120,15 @@ export function RecordingHost() {
   const route = useShell((s) => s.route);
   const conversationId = route.tab === 'home' ? route.conversationId : null;
   const recordings = useRecordings((s) => s.recordings);
-  const panel = useRecordings((s) => s.panel);
+  const sessionOpen = useRecordings((s) => s.sessionOpen);
   const dismissed = useRecordings((s) => s.dismissed);
   const shortcuts = useRecordingPrefs((s) => s.shortcuts);
-  const hideWindow = useRecordingPrefs((s) => s.hideWindow);
+  const mainWindow = useRecordingPrefs((s) => s.mainWindow);
+  const afterDiscard = useRecordingPrefs((s) => s.afterDiscard);
+  const trayIcon = useRecordingPrefs((s) => s.trayIcon);
+  const { entry } = useRecordingEntry();
+  const homeProjectId = useHomeProjectId(route.tab === 'home' || route.tab === 'space' ? (route.projectId ?? null) : null);
+  const homeName = useDirectory((s) => (homeProjectId ? (s.projects.find((p) => p.id === homeProjectId)?.name ?? '') : ''));
   const onUpdate = useOpenAfter(runtime);
 
   useEffect(() => {
@@ -105,40 +148,49 @@ export function RecordingHost() {
     return stop;
   }, [runtime, capable, connected, onUpdate]);
 
+  // 菜单栏与快捷键打开启动器时的落点：Home 此刻用的项目；入口置灰（远程、不支持、正在录）时交 null。
+  const homeReady = entry.kind === 'ready';
   useEffect(() => {
-    if (capable) runtime.host.recording?.configure({ shortcuts, hideWindow });
-  }, [runtime, capable, shortcuts, hideWindow]);
+    if (!capable) return;
+    const home = homeReady ? sessionRequest({ target: { home: { projectId: homeProjectId } } }) : null;
+    runtime.host.recording?.configure({ shortcuts, mainWindow, afterDiscard, trayIcon, home });
+  }, [runtime, capable, shortcuts, mainWindow, afterDiscard, trayIcon, homeReady, homeProjectId, homeName]);
 
   useEffect(() => {
     if (!capable || !runtime.host.recording?.onShortcutFailed) return;
     return runtime.host.recording.onShortcutFailed((failed) => {
-      const names = failed.map((w) => (w === 'start' ? RC.shortcutStart : w === 'stop' ? RC.shortcutStop : RC.shortcutPause)).join(', ');
+      const names = failed.map((key) => SHORTCUT_NAME[key]()).join(', ');
       ToastQueue.negative(RC.shortcutFailed(names), { timeout: 6000 });
     });
   }, [runtime, capable]);
 
-  // 开始录制的全局快捷键：主进程已把窗口带到前台；按此刻的状态决定（监听只装一次，读 store 里最新的）。
+  // 启动器开着、关了：智能体那次被关掉就是取消了，这次启动里不再自动打开它。
   useEffect(() => {
-    if (!capable || !runtime.host.recording?.onStartShortcut) return;
-    return runtime.host.recording.onStartShortcut(() => {
-      const rec = useRecordings.getState();
-      const route = useShell.getState().route;
-      const projectId = route.tab === 'home' || route.tab === 'space' ? route.projectId : null;
-      const entry = recordingEntry({ platform: runtime.host.platform, hostCapable: true, sources: rec.sources, recordings: rec.recordings });
-      const next = startFromShortcut({ entry, panelOpen: !!rec.panel, projectId });
-      if (next?.kind === 'open') rec.openPanel({ target: { home: { projectId: next.projectId } } });
-      else if (next?.kind === 'blocked') ToastQueue.neutral(blockText(next.block), { timeout: 5000 });
+    if (!capable || !runtime.host.recording?.onSession) return;
+    return runtime.host.recording.onSession((event) => {
+      const store = useRecordings.getState();
+      if (event.type === 'opened') return void store.setSessionOpen(true);
+      store.setSessionOpen(false);
+      if (event.recordingId && event.outcome !== 'started') store.dismiss(event.recordingId);
+      if (event.recordingId && event.outcome === 'cancelled') ToastQueue.neutral(RC.cancelled, { timeout: 4000 });
     });
   }, [runtime, capable]);
 
-  // 智能体发起、正等着这条会话的：自动弹出预先填好的面板。
-  const waiting = capable ? autoOpenWaiting({ recordings, conversationId, dismissed, panelOpen: !!panel }) : null;
+  // 启动器的齿轮：主进程已把窗口带到前台。
   useEffect(() => {
-    if (waiting) useRecordings.getState().openPanel({ target: waiting.target, recordingId: waiting.recordingId });
-  }, [waiting]);
+    if (!capable || !runtime.host.recording?.onOpenSettings) return;
+    return runtime.host.recording.onOpenSettings(() => useShell.getState().go({ tab: 'settings', section: 'general' }));
+  }, [runtime, capable]);
 
-  if (!capable || !connected) return null;
-  return panel ? <RecordingPanel key={panel.recordingId ?? 'new'} request={panel} /> : null;
+  // 智能体发起、正等着这条会话的：自动打开预先填好的启动器。
+  const waiting = capable ? autoOpenWaiting({ recordings, conversationId, dismissed, sessionOpen }) : null;
+  useEffect(() => {
+    if (!waiting) return;
+    // 已经开着时主进程只把它带到前面。
+    runtime.host.recording?.open(sessionRequest({ target: waiting.target, recordingId: waiting.recordingId }));
+  }, [runtime, waiting]);
+
+  return null;
 }
 
 /**

@@ -9,10 +9,11 @@ import { useRecordings } from '../../state/recordings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { cardVars } from '../thread/video-card-rows.tsx';
 import { RC } from './recording-copy.ts';
+import { sessionRequest } from './recording-host.tsx';
 
 /*
  * 会话里智能体发起的录制（屏幕录制设计 §13）：挂在发起它的那一轮后面，外观同下载卡（`bc-dlcard`）。
- * 等待开始时给「打开录制面板」（面板关掉过、或者被别的面板挡住时再打开）；放进视频之后给「打开视频」。
+ * 等待开始时给「打开启动器」（关掉过、或者被别的窗口挡住时再打开）；放进视频之后给「打开视频」。
  * 状态读 `recordings` 主题（RecordingHost 写），主题里已经没有这次录制时不显示。
  */
 export function RecordingCard({ recordingId, conversationId }: { recordingId: Id; conversationId: Id }) {
@@ -32,7 +33,7 @@ export function RecordingCard({ recordingId, conversationId }: { recordingId: Id
   };
   const reopen = () => {
     useRecordings.setState((s) => ({ dismissed: s.dismissed.filter((id) => id !== recordingId) }));
-    useRecordings.getState().openPanel({ target: recording.target, recordingId });
+    runtime.host.recording?.open(sessionRequest({ target: recording.target, recordingId }));
   };
   return (
     <section className={`bc-dlcard is-${failed ? 'failed' : live ? 'running' : 'done'} ${cardVars}`} aria-label={RC.cardTitle} data-recording={recording.state}>

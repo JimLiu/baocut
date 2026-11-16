@@ -98,7 +98,7 @@ export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
       </SideNavItem>
     );
   };
-  // 屏幕录制（屏幕录制设计 §11）：「视频文件」组第一行；不是工具、没有页面与 href，按下打开录制面板，不能录时置灰、悬停写原因。
+  // 屏幕录制（屏幕录制设计 §11）：「视频文件」组第一行；不是工具、没有页面与 href，按下打开录制启动器，不能录时置灰、悬停写原因。
   const recordItem = () => {
     if (!record) return null;
     const detail = record.disabled ? `${record.name} · ${record.disabled}` : record.name;

@@ -11,10 +11,11 @@ import type {
   SystemAccessState,
 } from '@baocut/protocol';
 import { RECORDING_DEFAULTS } from '@baocut/protocol';
+import type { RatioId } from './recording-area.ts';
 
 /*
- * 屏幕录制的界面规则（屏幕录制设计 §11）：入口能不能用、面板各项能不能选、上次的选择怎样落到这台电脑现在的设备上。
- * 都是纯函数，面板、入口与测试共用；文字在组件里按 `RecordingBlock` / `RecordingNotice` 的种类取。
+ * 屏幕录制的界面规则（屏幕录制设计 §11）：入口能不能用、启动器与录制卡各项能不能选、上次的选择怎样落到这台电脑现在的设备上、
+ * 控制条上写什么。都是纯函数，启动器、覆盖层、控制条、入口与测试共用；文字在组件里按种类取。
  */
 
 /** 问 `recordings.sources` 的结果：还在问、问到了、被拒绝（`code` 与 `details.reason` 是 Runtime 给的）。 */
@@ -85,21 +86,7 @@ export function recordingEntry(input: {
   return { kind: 'ready' };
 }
 
-/**
- * 按下开始录制的全局快捷键时做什么：面板已经开着就不动（窗口已经带到前台）；入口置灰时说明为什么；否则打开面板，
- * 录成眼下这一页的项目里的一个新视频（与 Home 的「录制」相同）。入口不显示（Web、宿主不能录）时什么都不做。
- */
-export function startFromShortcut(input: {
-  entry: RecordingEntry;
-  panelOpen: boolean;
-  projectId: Id | null;
-}): { kind: 'open'; projectId: Id | null } | { kind: 'blocked'; block: RecordingBlock } | null {
-  if (input.panelOpen || input.entry.kind === 'hidden') return null;
-  if (input.entry.kind === 'disabled') return { kind: 'blocked', block: input.entry.block };
-  return { kind: 'open', projectId: input.projectId };
-}
-
-/** 面板记住的选择（按这台电脑记，localStorage）。设备按 ID 记，名字留着在设备不在时提示。 */
+/** 启动器记住的选择（按这台电脑记，localStorage）。设备按 ID 记，名字留着在设备不在时提示。 */
 export interface RecordingChoice {
   source: 'display' | 'window' | 'area';
   displayId: string | null;
@@ -112,8 +99,12 @@ export interface RecordingChoice {
   cursor: RecordingCursorMode;
   keys: RecordingKeysMode;
   countdown: number;
-  /** 「一个区域」框好的那块：所在屏幕（Worker 的屏幕 ID，null 是主屏）与相对它左上角的逻辑点。没框过时 null。 */
+  /** 「一个区域」框好的那块：所在屏幕（Worker 的屏幕 ID，null 是主屏）与相对它左上角的逻辑点。没框过时 null；锁定时下次沿用。 */
   area: RecordingArea | null;
+  /** 区域锁定：下次沿用这块区域，覆盖层里不能拖动。 */
+  areaLocked: boolean;
+  /** 区域覆盖层工具条上的比例。 */
+  ratio: RatioId;
   /** 整屏与区域也录进 BaoCut 自己的窗口（`recordings.start` 的 `includeSelf`）；录单个窗口时不起作用。 */
   includeSelf: boolean;
 }
@@ -136,10 +127,13 @@ export const DEFAULT_CHOICE: RecordingChoice = {
   keys: RECORDING_DEFAULTS.keys,
   countdown: RECORDING_DEFAULTS.countdown,
   area: null,
+  areaLocked: false,
+  ratio: 'free',
   includeSelf: false,
 };
 
-export const COUNTDOWNS = [3, 5, 0] as const;
+/** 倒计时的几档（秒，0 是不倒计时）：设置与录制卡的齿轮菜单共用。 */
+export const COUNTDOWNS = [0, 3, 5, 10] as const;
 
 /** 设置里能选的屏幕帧率，第一个是缺省（与 `RECORDING_DEFAULTS.fps` 一致）。 */
 export const RECORDING_FPS = [30, 60] as const;
@@ -167,14 +161,9 @@ function areaFits(area: RecordingArea, sources: RecordingSources): boolean {
 
 /**
  * 把记下的选择落到这台电脑现在的设备上：摄像头、麦克风不在了退回「不用」，屏幕不在了退回主屏，窗口不在了退回整块屏幕，各给一条提示。
- * 记下的区域所在屏幕不在了、或框已经出了那块屏幕（换了分辨率），丢掉它并提示；宿主没有选框（`areaPicker` 为假）时
- * 「一个区域」退回整块屏幕（不提示，入口本来就不可选）；选着区域却没有框时也退回整块屏幕。
+ * 记下的区域所在屏幕不在了、或框已经出了那块屏幕（换了分辨率），丢掉它（解除锁定）并提示。没锁定的区域不沿用：覆盖层每次重新画。
  */
-export function resolveChoice(
-  choice: RecordingChoice,
-  sources: RecordingSources,
-  host: { areaPicker: boolean } = { areaPicker: false },
-): { choice: RecordingChoice; notices: RecordingNotice[] } {
+export function resolveChoice(choice: RecordingChoice, sources: RecordingSources): { choice: RecordingChoice; notices: RecordingNotice[] } {
   const next = { ...choice };
   const notices: RecordingNotice[] = [];
   if (next.camera !== null && next.camera !== 'default' && !sources.cameras.some((c) => c.id === next.camera)) {
@@ -191,26 +180,21 @@ export function resolveChoice(
     if (next.source === 'display') notices.push({ kind: 'display-gone' });
     next.displayId = null;
   }
-  if (next.source === 'window' && !sources.windows.some((w) => w.id === next.windowId)) {
-    if (next.windowId !== null) notices.push({ kind: 'window-gone' });
-    next.source = 'display';
+  if (next.windowId !== null && !sources.windows.some((w) => w.id === next.windowId)) {
+    if (next.source === 'window') notices.push({ kind: 'window-gone' });
     next.windowId = null;
   }
+  if (next.area && !next.areaLocked) next.area = null;
   if (next.area && !areaFits(next.area, sources)) {
     if (next.source === 'area') notices.push({ kind: 'area-gone' });
     next.area = null;
+    next.areaLocked = false;
   }
-  if (next.source === 'area' && (!host.areaPicker || !next.area)) next.source = 'display';
   return { choice: next, notices };
 }
 
-/** 一项为什么不能选：没有这种设备、没有选框、权限被拒（`permission` 是要开的那一项）。 */
-export type OptionBlock =
-  | { kind: 'no-display' }
-  | { kind: 'no-window' }
-  | { kind: 'no-area-picker' }
-  | { kind: 'no-camera' }
-  | { kind: 'no-microphone' };
+/** 一项为什么不能选：没有这种设备。 */
+export type OptionBlock = { kind: 'no-display' } | { kind: 'no-window' } | { kind: 'no-camera' } | { kind: 'no-microphone' };
 
 /** 被系统拒绝或受限：要去系统设置里开。还没问过的不算，开始时系统自己会问。 */
 export function permissionBlocked(state: SystemAccessState): boolean {
@@ -226,17 +210,14 @@ export function neededPermissions(choice: RecordingChoice): Array<keyof Recordin
   return wanted;
 }
 
-/** 各个来源能不能选。区域要在屏幕上画一个框：宿主有选框（桌面端主进程的透明窗口，`areaPicker`）才能选。 */
-export function sourceBlocks(sources: RecordingSources, host: { areaPicker: boolean } = { areaPicker: false }): Record<RecordingChoice['source'], OptionBlock | null> {
-  return {
-    display: sources.displays.length ? null : { kind: 'no-display' },
-    window: sources.windows.length ? null : { kind: 'no-window' },
-    area: !host.areaPicker ? { kind: 'no-area-picker' } : sources.displays.length ? null : { kind: 'no-display' },
-  };
+/** 各个来源能不能选：没有屏幕时三格都不能选，没有窗口时「窗口」不能选。 */
+export function sourceBlocks(sources: RecordingSources): Record<RecordingChoice['source'], OptionBlock | null> {
+  const noDisplay = sources.displays.length ? null : ({ kind: 'no-display' } as const);
+  return { display: noDisplay, window: sources.windows.length ? null : { kind: 'no-window' }, area: noDisplay };
 }
 
 /**
- * 开始按钮挡在哪：录不了；选了区域还没框；屏幕权限被拒（必需的一路）；选了的可选一路权限被拒（去掉它就能继续）。
+ * 录制卡的开始挡在哪：录不了；选了区域还没框；屏幕权限被拒（必需的一路）；选了的可选一路权限被拒（去掉它就能继续）。
  * `missing` 是被拒的权限，按 `neededPermissions` 的顺序。
  */
 export function startBlock(
@@ -268,7 +249,7 @@ export function choiceOptions(choice: RecordingChoice): Partial<RecordingOptions
     countdown: choice.countdown,
     // 选单个窗口时选的就是那个窗口，排除名单不起作用，不送。
     ...(source.kind === 'window' ? {} : { includeSelf: choice.includeSelf }),
-    // 不要光标时没有指针可跟，自动缩放也就没有了（§11 第 5 项）。
+    // 不要光标时没有指针可跟，自动缩放也就没有了（§11「启动器」）。
     autoZoom: choice.cursor !== 'none',
   };
 }
@@ -317,7 +298,7 @@ export function lowDisk(choice: RecordingChoice, sources: RecordingSources, fps?
   return { freeBytes: free, minutes: Math.max(1, Math.floor(seconds / 60)) };
 }
 
-/** 智能体在 `waiting` 里填好的选项换成面板的选择（缺的项用记下的）。 */
+/** 智能体在 `waiting` 里填好的选项换成启动器的选择（缺的项用记下的）。 */
 export function choiceFromOptions(options: RecordingOptions, base: RecordingChoice): RecordingChoice {
   const source = options.source;
   return {
@@ -326,6 +307,7 @@ export function choiceFromOptions(options: RecordingOptions, base: RecordingChoi
     displayId: source.kind === 'display' ? (source.displayId ?? null) : base.displayId,
     windowId: source.kind === 'window' ? source.windowId : base.windowId,
     area: source.kind === 'area' ? { displayId: source.displayId ?? null, rect: { ...source.rect } } : base.area,
+    areaLocked: source.kind === 'area' ? true : base.areaLocked,
     camera: options.camera,
     cameraName: options.camera === base.camera ? base.cameraName : null,
     microphone: options.microphone,
@@ -368,16 +350,83 @@ export function shouldOpenAfter(seen: RecordingState | undefined, next: Recordin
 }
 
 /**
- * 要不要自动弹出智能体发起的那次（§13）：正看着发起它的会话、还在等开始、这次启动里没关掉过、没有别的面板开着。
- * 返回要打开的那次，不弹时 null。
+ * 要不要自动打开智能体发起的那次（§13）：正看着发起它的会话、还在等开始、这次启动里没关掉过、启动器没有开着。
+ * 返回要打开的那次，不打开时 null。
  */
 export function autoOpenWaiting(input: {
   recordings: readonly RecordingSummary[];
   conversationId: Id | null;
   dismissed: readonly Id[];
-  panelOpen: boolean;
+  sessionOpen: boolean;
 }): RecordingSummary | null {
-  if (input.panelOpen) return null;
+  if (input.sessionOpen) return null;
   const waiting = waitingFor(input.recordings, input.conversationId);
   return waiting && !input.dismissed.includes(waiting.recordingId) ? waiting : null;
+}
+
+// ---- 启动器与录制卡 ----
+
+/** 「把 BaoCut 也录进去」只对整块屏幕与区域有意义：录一个窗口时本来就只录那个窗口。 */
+export function showsIncludeSelf(source: RecordingChoice['source']): boolean {
+  return source === 'display' || source === 'area';
+}
+
+/**
+ * 设备行右侧的药丸：权限被拒 →「允许」（点它打开系统设置）；没选 →「关」；选的设备不在了 →「未连接」；否则「开」。
+ * `action` 是点药丸做的事。系统声音没有设备与权限，只有开与关。
+ */
+export type DevicePill = { state: 'allow'; action: 'open-settings' } | { state: 'off'; action: 'open-list' } | { state: 'missing'; action: 'open-list' } | { state: 'on'; action: 'turn-off' };
+
+export function devicePill(input: { permission: SystemAccessState | null; on: boolean; connected?: boolean }): DevicePill {
+  if (input.permission !== null && permissionBlocked(input.permission)) return { state: 'allow', action: 'open-settings' };
+  if (!input.on) return { state: 'off', action: 'open-list' };
+  if (input.connected === false) return { state: 'missing', action: 'open-list' };
+  return { state: 'on', action: 'turn-off' };
+}
+
+/** 原地列表的搜索：不分大小写，按名字包含。 */
+export function filterList<T extends { label: string }>(items: readonly T[], query: string): T[] {
+  const k = query.trim().toLocaleLowerCase();
+  return k ? items.filter((x) => x.label.toLocaleLowerCase().includes(k)) : items.slice();
+}
+
+/** 没选麦克风、设置里开着「没有麦克风时先确认」时，按开始先问一句。 */
+export function needsMicConfirm(microphone: string | null, confirmNoMic: boolean): boolean {
+  return !microphone && confirmNoMic;
+}
+
+/** 这次能不能开 `getUserMedia`（摄像头预览、电平）：只在系统已经允许时开，免得这里替 Worker 弹出系统的授权窗口。 */
+export function canPreview(state: SystemAccessState | undefined): boolean {
+  return state === 'granted';
+}
+
+// ---- 控制条 ----
+
+/**
+ * 控制条第一格（停止 + 计时）里写什么：倒计时是剩下的秒数；准备中「正在开始」；暂停「已暂停」；停止之后「正在收尾…」；
+ * 录制中是已录时长。
+ */
+export type BarStatus = { kind: 'countdown'; seconds: number } | { kind: 'starting' } | { kind: 'paused' } | { kind: 'finishing' } | { kind: 'clock'; text: string };
+
+export function barStatus(r: Pick<RecordingSummary, 'state' | 'elapsed' | 'countdownLeft'>): BarStatus {
+  switch (r.state) {
+    case 'countdown':
+      return { kind: 'countdown', seconds: Math.max(1, r.countdownLeft ?? 1) };
+    case 'waiting':
+    case 'preparing':
+      return { kind: 'starting' };
+    case 'paused':
+      return { kind: 'paused' };
+    case 'recording':
+      return { kind: 'clock', text: formatElapsed(r.elapsed) };
+    default:
+      return { kind: 'finishing' };
+  }
+}
+
+/** 控制条上各个按钮能不能点：倒计时与准备中不能暂停（停止等于取消）；收尾时都不能点。 */
+export function barActions(state: RecordingState): { stop: boolean; pause: boolean; restart: boolean; discard: boolean } {
+  const rec = state === 'recording' || state === 'paused';
+  const pre = state === 'preparing' || state === 'countdown';
+  return { stop: rec || pre, pause: rec, restart: rec || pre, discard: rec || pre };
 }

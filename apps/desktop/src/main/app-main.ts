@@ -28,7 +28,7 @@ import { writeRecording } from './recording-file.ts';
 import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeRequest } from './runtime-origin.ts';
 import { installBotService, type BotService } from './bot/bot-service.ts';
 import { launchedHidden } from './bot/login-item.ts';
-import { barPageOf, installRecordingService, type RecordingService } from './recording/recording-service.ts';
+import { installRecordingService, type RecordingService } from './recording/recording-service.ts';
 
 /**
  * 桌面端主进程：找到或启动 Runtime、开窗口、提供少量原生能力（选目录、在文件夹中显示）。
@@ -86,7 +86,7 @@ export function startDesktopApp(): void {
   let updates: AppUpdateService | null = null;
   /** Bot 后台服务（技术方案 §15.2）：托盘、通知、常驻判断。就绪之前还没有。 */
   let bot: BotService | null = null;
-  /** 录制中的控制条、菜单栏图标与全局快捷键（屏幕录制设计 §11）。就绪之前还没有。 */
+  /** 录制的小窗、菜单栏图标与全局快捷键（屏幕录制设计 §11）。就绪之前还没有。 */
   let recording: RecordingService | null = null;
   const appContents = new Set<number>();
   let runtimeEndpoint: string | null = null;
@@ -426,17 +426,16 @@ export function startDesktopApp(): void {
     } else {
       createWindow();
     }
-    // 录制中（屏幕录制设计 §11）：主进程自己连 Runtime，管控制条、菜单栏图标、全局快捷键与收起、放回应用窗口。
+    // 录制（屏幕录制设计 §11）：主进程自己连 Runtime，开录制的小窗，管菜单栏图标、全局快捷键与收起、放回应用窗口。
     recording = installRecordingService({
       connection,
       version: app.getVersion(),
       platform: process.platform,
       appWindows,
       showWindow,
-      barPage: barPageOf(devServerUrl, __dirname),
-      barPreload: path.join(__dirname, '../preload/recording-bar.js'),
-      areaPage: barPageOf(devServerUrl, __dirname, 'recording-area.html'),
-      areaPreload: path.join(__dirname, '../preload/recording-area.js'),
+      page: devServerUrl ? { url: devServerUrl } : { file: path.join(__dirname, '../renderer/index.html') },
+      preload: path.join(__dirname, '../preload/recording-surface.js'),
+      quit: () => app.quit(),
     });
     app.on('activate', () => {
       if (appWindows().length === 0) createWindow();

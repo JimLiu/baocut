@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./preview-kernel": "./src/render/preview-wasm.ts",
-    "./diagnostics": "./src/diagnostics.ts"
+    "./diagnostics": "./src/diagnostics.ts",
+    "./recording-surface": "./src/components/recording/recording-surface.tsx"
   },
   "dependencies": {
     "@baocut/client": "*",

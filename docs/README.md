@@ -36,7 +36,7 @@ BaoCut 是一个源码可用（source-available）的、给 Agent 用的视频�
 | [`design/version-history/`](design/version-history/README.md) | **视频的版本记录（一期、二期已实现；三期方案待确认）**：不依赖 git，每部视频保存最新快照与最近 10 个版本的 diff，按版本回滚；版本边界与动作清单、保留与清理、重建与外部改动导入；有 git 时快照随时可提交 |
 | [`design/shorts-framing/`](design/shorts-framing/README.md) | **短视频的分屏同框（一期已实现；二期待做）**：横版多人访谈剪成竖版时，多人全景镜头每人一格上下排开：什么时候分屏、不频繁切换、两到四人的版式与取景换算、`VideoItem.panels`、派生的输入与警告、结果页版式条与编辑器的「版式」段 |
 | [`design/color-lut/`](design/color-lut/README.md) | **时间线上的 LUT 效果（方案稿）**：统一色调不再烧进新文件：LUT 存成素材、`fx.lut` 的引用与强度、整数四面体采样与一致性夹具、导出性能的实测与门槛、`match-color` 改写效果、版本号、分期与待裁决的问题 |
-| [`design/screen-recording/`](design/screen-recording/README.md) | **屏幕录制与可编辑的录制素材（方案稿；格式已定）**：屏幕、摄像头、麦克风、系统音频作为普通片段进时间线；录制清单与录制时间、指针轨、键盘轨、屏幕取景（鼠标跟随的缩放与另画的光标）、联动组；入口与录制面板、`record` 与 `recordings` 命令、智能体怎样唤起、录完怎样编辑；自己实现的 Recording Worker 的职责、与 Cap 数据的对照、分期与已定的裁决 |
+| [`design/screen-recording/`](design/screen-recording/README.md) | **屏幕录制与可编辑的录制素材（方案稿；格式已定）**：屏幕、摄像头、麦克风、系统音频作为普通片段进时间线；录制清单与录制时间、指针轨、键盘轨、屏幕取景（鼠标跟随的缩放与另画的光标）、联动组；入口与录制过程（启动器、选取覆盖层、控制条、摄像头预览）、`record` 与 `recordings` 命令、智能体怎样唤起、录完怎样编辑；自己实现的 Recording Worker 的职责、与 Cap 数据的对照、分期与已定的裁决 |
 | [`design/bot-mode/`](design/bot-mode/README.md) | **Bot 模式（方案稿）**：按主题建频道、每个频道一条持续对话；协调者分派、后台线程做活并回报；任务的产生、状态与流转、Make（建议任务与周期任务）、对话里的智能提示、后台常驻服务；需求与交互设计、技术方案各一份 |
 | [`glossary.md`](glossary.md) | **术语表**：同一概念只用一个词 |
 | [`repo-conventions.md`](repo-conventions.md) | **仓库约定**：顶层目录、代码放置与文件命名 |

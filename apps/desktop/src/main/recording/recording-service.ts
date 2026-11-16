@@ -1,87 +1,106 @@
-import path from 'node:path';
-import { BrowserWindow, Menu, Tray, dialog, globalShortcut, ipcMain, screen, shell, type MenuItemConstructorOptions } from 'electron';
+import { BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen, shell, type Display, type MenuItemConstructorOptions, type NativeImage } from 'electron';
 import { BaoCutClient } from '@baocut/client';
-import { onLocaleChange, type Id, type RecordingState, type RecordingStreamStatus, type RecordingSummary } from '@baocut/protocol';
+import { newId, onLocaleChange, type Id, type RecordingOptions, type RecordingSources, type RecordingState, type RecordingSummary, type RecordingTarget } from '@baocut/protocol';
+import type { RecordingChoice, RecordingNotice, RecordingSurfaceAction, RecordingSurfaceInit, RecordingSurfaceKind, RecordingSurfaceState } from '@baocut/ui';
 import { appTrayImage, macTrayImage } from '../bot/bot-service.ts';
-import { createAreaPicker, type AreaPick } from './area-picker.ts';
 import { RB } from './recording-bar-copy.ts';
 import {
-  barView,
+  BAR,
+  barPlacement,
+  CAPTURE_SHORTCUTS,
+  cameraPlacement,
+  captureShortcutsWanted,
   clock,
   currentRecording,
   DEFAULT_HOST_SETTINGS,
   hideForRecording,
+  isCapturing,
+  OPEN_SHORTCUTS,
+  openShortcutsWanted,
   parseHostSettings,
+  parseSessionRequest,
   privacyUrl,
-  shortcutsWanted,
-  startShortcutWanted,
+  SHORTCUT_KEYS,
   toggleMethod,
   windowPlan,
-  type BarView,
+  workerDisplayFor,
+  type Bounds,
+  type PickerKind,
   type RecordingHostSettings,
+  type SessionRequest,
+  type ShortcutKey,
 } from './recording-rules.ts';
 
 /*
- * 录制中主进程的部分（屏幕录制设计 §11「录制中」）：自己连 Runtime、订阅 `recordings` 主题，管四样东西——
- * - 应用窗口：开始采集时收起（设置里可以关掉；这次要把 BaoCut 录进去时不收），采集结束时放回来；断线时也放回来。
- * - 控制条：一个总在最前的小窗口（已录时长、暂停与继续、停止、丢弃；丢弃要在条上再确认一次）。开了内容保护
- *   （`setContentProtection`）：Windows 上不被截进画面；macOS 上它设的是 `NSWindowSharingNone`，Electron 文档说明用
- *   ScreenCaptureKit 的应用仍然截得到，Recording Worker 正是用它采集，所以 macOS 上还要 Worker 把这个窗口排除在外。
- * - 菜单栏（托盘）图标：同样的四个动作；macOS 的菜单栏上写已录时长。
- * - 全局快捷键：停止、暂停与继续，只在采集时注册；注册不上时告诉界面（被别的应用占了）。开始录制（缺省不用）反过来，
- *   连着 Runtime 又没有在录时占着：按下时把应用窗口带到前台，让界面打开录制面板。
- * - 区域选框（area-picker.ts）：面板选「一个区域」时盖在屏幕上；框选期间收起应用窗口（不然面板挡着要框的内容），完了放回来。
- * 规则在 recording-rules.ts 并有单测；这里是薄薄的 Electron 调用。录完之后打开编辑器由界面做（它看着状态走到「已进时间线」）。
+ * 录制在主进程的部分（屏幕录制设计 §11）：自己连 Runtime、订阅 `recordings` 主题，开着录制的四种小窗，管应用窗口、菜单栏图标与全局快捷键。
+ * - 一次「打开启动器」到「开始」之间的状态（落点、此刻的选择、在启动器还是在覆盖层）在这里，推给每扇小窗；开始之后的状态归 Runtime。
+ * - 小窗：启动器、选取覆盖层（每块屏幕一扇）、控制条、摄像头预览。都是透明、无边框、置顶的窗口，同一个页面
+ *   （`index.html?surface=<种类>`，界面在 @baocut/ui 的 `recording-surface`）。都开了内容保护（`setContentProtection`）：Windows 上
+ *   不被截进画面；macOS 上它设的是 `NSWindowSharingNone`，用 ScreenCaptureKit 的 Recording Worker 仍然截得到，所以还要 Worker 把
+ *   BaoCut 的窗口排除在外（`includeSelf` 为假时）。
+ * - 应用窗口：开始采集时收到后台或最小化（看设置；这次要把 BaoCut 录进去时不动），采集结束时放回来；断线时也放回来。
+ * - 菜单栏图标：不录时是菜单（打开 BaoCut、录制屏幕 / 窗口 / 区域、设置、退出；设置里能关掉）；录制中换成停止图标，点一下就停，
+ *   关掉了图标时也有。
+ * - 全局快捷键：七个，缺省都不设。打开启动器与直接选屏幕、窗口、区域的四个在不录时占着；停止、暂停与继续、重新开始只在采集时占着。
+ *   改了某个之后注册不上（被别的应用占了）时告诉界面。
+ * 规则在 recording-rules.ts 并有单测；这里是 Electron 调用。录完之后打开编辑器由应用窗口的界面做（它看着状态走到「已进时间线」）。
  */
 
 export const RECORDING_CONFIGURE_CHANNEL = 'baocut:recording-configure';
 export const RECORDING_SETTINGS_CHANNEL = 'baocut:recording-open-settings';
+export const RECORDING_OPEN_CHANNEL = 'baocut:recording-open';
+export const RECORDING_SESSION_CHANNEL = 'baocut:recording-session';
+export const RECORDING_APP_SETTINGS_CHANNEL = 'baocut:recording-open-app-settings';
 export const RECORDING_SHORTCUT_FAILED_CHANNEL = 'baocut:recording-shortcut-failed';
-export const RECORDING_START_SHORTCUT_CHANNEL = 'baocut:recording-start-shortcut';
-export const RECORDING_BAR_VIEW_CHANNEL = 'baocut:recording-bar-view';
-export const RECORDING_BAR_ACT_CHANNEL = 'baocut:recording-bar-act';
-export const RECORDING_BAR_READY_CHANNEL = 'baocut:recording-bar-ready';
-export const RECORDING_PICK_AREA_CHANNEL = 'baocut:recording-pick-area';
+export const SURFACE_INIT_CHANNEL = 'baocut:recording-surface-init';
+export const SURFACE_STATE_CHANNEL = 'baocut:recording-surface-state';
+export const SURFACE_READY_CHANNEL = 'baocut:recording-surface-ready';
+export const SURFACE_ACT_CHANNEL = 'baocut:recording-surface-act';
 
 export interface RecordingServiceOptions {
   connection(): Promise<{ endpoint: string; token: string }>;
   version: string;
   platform: NodeJS.Platform;
-  /** 应用自己的窗口（不含控制条与网页标签）。 */
+  /** 应用自己的窗口（不含录制小窗与网页标签）。 */
   appWindows(): BrowserWindow[];
   /** 打开（必要时新建）应用窗口并带到前台。 */
   showWindow(): BrowserWindow;
-  /** 控制条页面：开发时开发服务器的地址，打包后 `out/renderer` 下的文件。 */
-  barPage: { url: string } | { file: string };
-  barPreload: string;
-  /** 录制区域的选框页面与 preload（同控制条）。 */
-  areaPage: { url: string } | { file: string };
-  areaPreload: string;
+  /** 小窗的页面：开发时开发服务器的地址，打包后 `out/renderer/index.html`。 */
+  page: { url: string } | { file: string };
+  preload: string;
+  /** 菜单栏菜单的「退出」。 */
+  quit(): void;
 }
 
 export interface RecordingService {
-  /** 这个窗口是不是控制条或区域选框（`showWindow` 之类找应用窗口时跳过它）。 */
-  isBarWindow(win: BrowserWindow): boolean;
+  /** 这个窗口是不是录制的小窗（`showWindow` 之类找应用窗口时跳过它）。 */
+  isSurfaceWindow(win: BrowserWindow): boolean;
   dispose(): void;
 }
 
-/** 控制条收到的样子：文字由主进程按当前语言给，页面里不放文案目录。 */
-export interface BarPayload {
-  phase: BarView['phase'];
-  title: string;
-  time: string;
-  notice: string | null;
-  canPause: boolean;
-  canResume: boolean;
-  canStop: boolean;
-  canDiscard: boolean;
-  labels: { pause: string; resume: string; stop: string; discard: string; discardConfirm: string; discardYes: string; discardNo: string; bar: string };
+interface Session {
+  id: number;
+  phase: 'launcher' | 'picker';
+  picker: PickerKind;
+  request: SessionRequest;
+  agent: { recordingId: Id; options: RecordingOptions } | null;
+  choice: RecordingChoice | null;
+  notices: RecordingNotice[];
+  starting: boolean;
+  error: string | null;
 }
 
-type BarAction = 'pause' | 'resume' | 'stop' | 'discard';
+interface Surface {
+  win: BrowserWindow;
+  kind: RecordingSurfaceKind;
+  display: Display | null;
+}
 
-const BAR_WIDTH = 340;
-const BAR_HEIGHT = 48;
+const LAUNCHER = { width: 330, height: 400 } as const;
+/** 开始之后到 Runtime 报来第一条采集中的状态之前，摄像头预览不关（免得关了又开）。 */
+const HANDOFF_MS = 5000;
+/** 开始之后小窗先藏起来，过一会儿再关：页面要在 `start` 的结果回来后记下这次的选择。 */
+const CLOSE_DELAY_MS = 400;
 
 export function installRecordingService(options: RecordingServiceOptions): RecordingService {
   const client = new BaoCutClient({
@@ -89,246 +108,606 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     client: { kind: 'desktop', name: 'BaoCut recording controls', version: options.version },
   });
   let settings: RecordingHostSettings = DEFAULT_HOST_SETTINGS;
-  const recordings = new Map<Id, RecordingSummary>();
-  const seen = new Map<Id, RecordingState>();
-  const announcedLost = new Map<Id, Set<RecordingStreamStatus['role']>>();
-  let notice: string | null = null;
-  let hidden: BrowserWindow[] = [];
-  let bar: BrowserWindow | null = null;
-  let barReady = false;
-  let tray: Tray | null = null;
-  let trayPhase: string | null = null;
-  let registered: { stop: string; pause: string } | null = null;
-  /** 开始录制眼下占着的那组键（空串是没占）；界面第一次把设置交过来之前不占，连着 Runtime 时才占。 */
-  let startRegistered = '';
-  let startRefused = '';
   let configured = false;
   let connected = false;
+  const recordings = new Map<Id, RecordingSummary>();
+  const seen = new Map<Id, RecordingState>();
+  let sources: RecordingSurfaceState['sources'] = { status: 'loading', sources: null, message: null };
+  let sourcesLoad: Promise<void> | null = null;
+  let session: Session | null = null;
+  let sessionSeq = 0;
+  /** 上一次从启动器开始的落点：丢弃之后「重新打开启动器」用它。 */
+  let lastRequest: SessionRequest | null = null;
+  let reopenAfter: SessionRequest | null = null;
+  let restarting = false;
+  let handoffUntil = 0;
+  let handoffTimer: NodeJS.Timeout | null = null;
+  /** 录制中收起了预览的那几次。 */
+  const cameraHidden = new Set<Id>();
+  let camera: { box: { width: number; height: number }; pos: { x: number; y: number } | null; pad: { side: number; top: number } } = {
+    box: { width: 230, height: 230 },
+    pos: null,
+    pad: { side: 8, top: 56 },
+  };
+  let barHeight: number = BAR.height;
+  let hidden: BrowserWindow[] = [];
+
+  const surfaces = new Map<number, Surface>();
+  const ready = new Set<number>();
+  let launcher: BrowserWindow | null = null;
+  const pickers = new Map<number, BrowserWindow>();
+  let bar: BrowserWindow | null = null;
+  let cameraWin: BrowserWindow | null = null;
+
+  let tray: Tray | null = null;
+  let trayMode: 'idle' | 'stop' | null = null;
+  const registered = new Map<ShortcutKey, string>();
+  const refused = new Map<ShortcutKey, string>();
 
   const current = () => currentRecording([...recordings.values()]);
-  const picker = createAreaPicker({ page: options.areaPage, preload: options.areaPreload });
+  const call = (method: string, params: Record<string, unknown>) =>
+    (client.request as (m: string, p: Record<string, unknown>) => Promise<unknown>)(method, params);
+  const quietly = (method: string, params: Record<string, unknown>) =>
+    call(method, params).catch((error: unknown) => console.error(`[recording] ${method} failed`, error));
 
-  const request = (method: 'recordings.pause' | 'recordings.resume' | 'recordings.stop', recordingId: Id) =>
-    client.request(method, { recordingId }).catch((error: unknown) => console.error(`[recording] ${method} failed`, error));
-  const discard = (recordingId: Id) =>
-    client.request('recordings.discard', { recordingId }).catch((error: unknown) => console.error('[recording] discard failed', error));
-
-  // ---- 应用窗口 ----
-  const hideApp = () => {
-    hidden = options.appWindows().filter((w) => !w.isDestroyed() && w.isVisible());
-    for (const w of hidden) w.hide();
+  // ---- 来源 ----
+  const loadSources = () => {
+    sources = { status: 'loading', sources: sources.sources, message: null };
+    push();
+    const load = (client.request('recordings.sources', {}) as Promise<RecordingSources>).then(
+      (s) => {
+        sources = { status: 'ready', sources: s, message: null };
+      },
+      (error: unknown) => {
+        sources = { status: 'error', sources: null, message: error instanceof Error ? error.message : String(error) };
+      },
+    );
+    const done: Promise<void> = load.then(() => {
+      if (sourcesLoad === done) sourcesLoad = null;
+      push();
+      syncCamera();
+    });
+    sourcesLoad = done;
+    return done;
   };
-  const restoreApp = () => {
-    const windows = hidden.filter((w) => !w.isDestroyed());
-    hidden = [];
-    if (windows.length === 0) return void options.showWindow();
-    for (const w of windows) w.show();
-    windows[0]!.focus();
-  };
 
-  // ---- 控制条 ----
-  const payload = (view: BarView): BarPayload => ({
-    phase: view.phase,
-    title: view.phase === 'countdown' ? RB.countdown(Math.ceil(view.seconds)) : view.phase === 'paused' ? RB.paused : view.phase === 'finishing' ? RB.finishing : RB.recording,
-    time: view.phase === 'countdown' ? '' : clock(view.seconds),
-    notice,
-    canPause: view.canPause,
-    canResume: view.canResume,
-    canStop: view.canStop,
-    canDiscard: view.canDiscard,
-    labels: {
-      pause: RB.pause,
-      resume: RB.resume,
-      stop: RB.stop,
-      discard: RB.discard,
-      discardConfirm: RB.discardConfirm,
-      discardYes: RB.discardYes,
-      discardNo: RB.discardNo,
-      bar: RB.barTitle,
-    },
+  // ---- 屏幕 ----
+  const isPrimary = (d: Display) => d.id === screen.getPrimaryDisplay().id;
+  const workerIdOf = (d: Display) =>
+    sources.sources ? workerDisplayFor({ id: d.id, bounds: d.bounds, primary: isPrimary(d) }, sources.sources.displays) : null;
+  /** Worker 的屏幕 ID 对上 Electron 的哪块；对不上时主屏。 */
+  const displayOfWorker = (workerId: string | null | undefined): Display => {
+    if (workerId) {
+      const found = screen.getAllDisplays().find((d) => workerIdOf(d) === workerId);
+      if (found) return found;
+    }
+    return screen.getPrimaryDisplay();
+  };
+  const cursorDisplay = () => screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+
+  // ---- 小窗 ----
+  const view = (): RecordingSurfaceState => ({
+    session: session
+      ? {
+          id: session.id,
+          phase: session.phase,
+          picker: session.picker,
+          landing: session.request.landing,
+          agent: session.agent,
+          choice: session.choice,
+          notices: session.notices,
+          starting: session.starting,
+          error: session.error,
+        }
+      : null,
+    recording: current(),
+    sources,
+    afterDiscard: settings.afterDiscard,
   });
+  function push() {
+    const state = view();
+    for (const [id, s] of surfaces) if (ready.has(id) && !s.win.isDestroyed()) s.win.webContents.send(SURFACE_STATE_CHANNEL, state);
+  }
 
-  const openBar = () => {
-    if (bar && !bar.isDestroyed()) return bar;
-    const area = screen.getPrimaryDisplay().workArea;
+  const titleOf = (kind: RecordingSurfaceKind) =>
+    kind === 'launcher' ? RB.launcherTitle : kind === 'picker' ? RB.pickerTitle : kind === 'bar' ? RB.barTitle : RB.cameraTitle;
+
+  const createSurface = (kind: RecordingSurfaceKind, bounds: Bounds, display: Display | null): BrowserWindow => {
     const win = new BrowserWindow({
-      width: BAR_WIDTH,
-      height: BAR_HEIGHT,
-      x: Math.round(area.x + (area.width - BAR_WIDTH) / 2),
-      y: area.y + 12,
+      ...bounds,
       frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      hasShadow: kind === 'launcher' || kind === 'bar',
       resizable: false,
+      movable: kind !== 'picker',
       minimizable: false,
       maximizable: false,
       fullscreenable: false,
       skipTaskbar: true,
+      enableLargerThanScreen: kind === 'picker',
       show: false,
-      title: RB.barTitle,
-      hasShadow: true,
-      backgroundColor: '#1d1d1d',
-      roundedCorners: true,
-      webPreferences: { preload: options.barPreload, sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false },
+      title: titleOf(kind),
+      webPreferences: { preload: options.preload, sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false, backgroundThrottling: false },
     });
-    // 内容保护：Windows 上不被截进画面；macOS 上见文件头（ScreenCaptureKit 不认）。
+    // 内容保护：Windows 上不被截进画面；macOS 上见文件头。
     win.setContentProtection(true);
-    win.setAlwaysOnTop(true, 'screen-saver');
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    win.setAlwaysOnTop(true, kind === 'launcher' ? 'floating' : 'screen-saver');
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    if (kind === 'picker') win.setBounds(bounds);
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (event) => event.preventDefault());
-    win.once('ready-to-show', () => win.showInactive());
+    const id = win.webContents.id;
+    surfaces.set(id, { win, kind, display });
     win.on('closed', () => {
-      if (bar === win) {
-        bar = null;
-        barReady = false;
-      }
+      surfaces.delete(id);
+      ready.delete(id);
+      if (launcher === win) launcher = null;
+      if (bar === win) bar = null;
+      if (cameraWin === win) cameraWin = null;
+      for (const [k, w] of pickers) if (w === win) pickers.delete(k);
     });
-    if ('url' in options.barPage) void win.loadURL(options.barPage.url);
-    else void win.loadFile(options.barPage.file);
-    bar = win;
-    barReady = false;
+    if ('url' in options.page) {
+      const url = new URL(options.page.url);
+      url.searchParams.set('surface', kind);
+      void win.loadURL(url.href);
+    } else {
+      void win.loadFile(options.page.file, { query: { surface: kind } });
+    }
     return win;
   };
-  const closeBar = () => {
-    const win = bar;
-    bar = null;
-    barReady = false;
+  const destroy = (win: BrowserWindow | null) => {
     if (win && !win.isDestroyed()) win.destroy();
   };
-  const sendBar = (view: BarView) => {
-    const win = openBar();
-    if (barReady && !win.isDestroyed()) win.webContents.send(RECORDING_BAR_VIEW_CHANNEL, payload(view));
+  /** 先藏起来（不再挡着、不被录进去），稍后再关。 */
+  const retire = (win: BrowserWindow | null) => {
+    if (!win || win.isDestroyed()) return;
+    win.hide();
+    setTimeout(() => destroy(win), CLOSE_DELAY_MS);
   };
 
-  // ---- 菜单栏 ----
-  const trayMenu = (view: BarView, recordingId: Id): MenuItemConstructorOptions[] => [
-    ...(view.canPause ? [{ label: RB.pause, click: () => void request('recordings.pause', recordingId) }] : []),
-    ...(view.canResume ? [{ label: RB.resume, click: () => void request('recordings.resume', recordingId) }] : []),
-    ...(view.canStop ? [{ label: RB.stop, click: () => void request('recordings.stop', recordingId) }] : []),
-    ...(view.canDiscard ? [{ label: RB.discard, click: () => void confirmDiscard(recordingId) }] : []),
-    { type: 'separator' },
-    { label: RB.trayShow, click: () => void options.showWindow() },
-  ];
-  const confirmDiscard = async (recordingId: Id) => {
-    const { response } = await dialog.showMessageBox({
-      type: 'warning',
-      message: RB.discardConfirm,
-      buttons: [RB.discardYes, RB.discardNo],
-      defaultId: 1,
-      cancelId: 1,
-    });
-    if (response === 0) await discard(recordingId);
+  const showLauncher = () => {
+    if (!launcher || launcher.isDestroyed()) {
+      const area = cursorDisplay().workArea;
+      const bounds = {
+        x: Math.round(area.x + (area.width - LAUNCHER.width) / 2),
+        y: Math.round(area.y + (area.height - LAUNCHER.height) / 2),
+        ...LAUNCHER,
+      };
+      const win = createSurface('launcher', bounds, null);
+      win.once('ready-to-show', () => {
+        if (launcher === win && session?.phase === 'launcher') {
+          win.show();
+          win.focus();
+        }
+      });
+      launcher = win;
+      return;
+    }
+    launcher.show();
+    launcher.focus();
   };
-  const updateTray = (view: BarView | null, recordingId: Id | null) => {
-    if (!view || !recordingId) {
+  const showPickers = () => {
+    const displays = screen.getAllDisplays();
+    const under = cursorDisplay();
+    for (const d of displays) {
+      if (pickers.has(d.id)) continue;
+      const win = createSurface('picker', d.bounds, d);
+      pickers.set(d.id, win);
+      win.once('ready-to-show', () => {
+        if (pickers.get(d.id) !== win || session?.phase !== 'picker') return;
+        if (d.id === under.id) {
+          win.show();
+          win.focus();
+        } else {
+          win.showInactive();
+        }
+        cameraWin?.moveTop();
+      });
+    }
+    const front = pickers.get(under.id);
+    if (front?.isVisible()) front.focus();
+  };
+  const closePickers = (later = false) => {
+    for (const w of [...pickers.values()]) (later ? retire : destroy)(w);
+    pickers.clear();
+  };
+
+  // ---- 一次打开 ----
+  const emit = (event: { type: 'opened' } | { type: 'closed'; outcome: 'cancelled' | 'started' | 'gone'; recordingId: Id | null }) => {
+    for (const w of options.appWindows()) if (!w.isDestroyed()) w.webContents.send(RECORDING_SESSION_CHANNEL, event);
+  };
+
+  const open = (request: SessionRequest) => {
+    const r = current();
+    if (r) {
+      if (bar && !bar.isDestroyed()) bar.showInactive();
+      return;
+    }
+    if (session) {
+      if (request.direct) toPicker(request.direct);
+      else if (session.phase === 'launcher') showLauncher();
+      else pickers.get(cursorDisplay().id)?.focus();
+      return;
+    }
+    let agent: Session['agent'] = null;
+    if (request.recordingId) {
+      const waiting = recordings.get(request.recordingId);
+      if (!waiting || waiting.state !== 'waiting') return;
+      agent = { recordingId: waiting.recordingId, options: waiting.options };
+    }
+    session = {
+      id: ++sessionSeq,
+      phase: request.direct ? 'picker' : 'launcher',
+      picker: request.direct ?? 'display',
+      request,
+      agent,
+      choice: null,
+      notices: [],
+      starting: false,
+      error: null,
+    };
+    void loadSources();
+    if (session.phase === 'launcher') showLauncher();
+    else showPickers();
+    emit({ type: 'opened' });
+    push();
+  };
+
+  const toPicker = (kind: PickerKind) => {
+    if (!session) return;
+    session.phase = 'picker';
+    session.picker = kind;
+    if (session.choice) session.choice = { ...session.choice, source: kind };
+    if (launcher && !launcher.isDestroyed()) launcher.hide();
+    showPickers();
+    push();
+  };
+  const toLauncher = () => {
+    if (!session) return;
+    session.phase = 'launcher';
+    closePickers();
+    showLauncher();
+    push();
+  };
+  const endSession = (outcome: 'cancelled' | 'started' | 'gone') => {
+    const s = session;
+    if (!s) return;
+    session = null;
+    const later = outcome === 'started';
+    (later ? retire : destroy)(launcher);
+    launcher = null;
+    closePickers(later);
+    emit({ type: 'closed', outcome, recordingId: s.agent?.recordingId ?? null });
+    if (outcome === 'cancelled' && s.agent) void quietly('recordings.cancel', { recordingId: s.agent.recordingId });
+    push();
+    syncCamera();
+  };
+
+  const resolveTarget = async (target: SessionRequest['target']): Promise<RecordingTarget> => {
+    if (!('home' in target)) return target;
+    if (target.home.projectId) return { create: { projectId: target.home.projectId } };
+    const { project } = (await call('projects.create', { name: target.home.name.trim() || undefined, commandId: newId('cmd') })) as { project: { id: Id } };
+    return { create: { projectId: project.id } };
+  };
+
+  const start = async (startOptions: Partial<RecordingOptions>): Promise<{ ok: true } | { ok: false; message: string }> => {
+    const s = session;
+    if (!s || s.starting) return { ok: false, message: 'No recorder is open' };
+    s.starting = true;
+    s.error = null;
+    push();
+    try {
+      if (s.agent) {
+        await call('recordings.start', { recordingId: s.agent.recordingId, options: startOptions });
+      } else {
+        const target = await resolveTarget(s.request.target);
+        await call('recordings.start', { options: startOptions, target });
+        const { direct: _direct, ...rest } = s.request;
+        lastRequest = rest;
+      }
+      beginHandoff();
+      if (session === s) endSession('started');
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (session === s) {
+        s.starting = false;
+        s.error = message;
+        push();
+        void loadSources();
+      }
+      return { ok: false, message };
+    }
+  };
+
+  const beginHandoff = () => {
+    handoffUntil = Date.now() + HANDOFF_MS;
+    if (handoffTimer) clearTimeout(handoffTimer);
+    handoffTimer = setTimeout(() => {
+      handoffUntil = 0;
+      handoffTimer = null;
+      syncCamera();
+    }, HANDOFF_MS);
+  };
+
+  // ---- 控制条 ----
+  const barAnchor = (r: RecordingSummary): { kind: PickerKind; target: Bounds | null; display: Bounds } => {
+    const src = r.options.source;
+    if (src.kind === 'window') {
+      const w = sources.sources?.windows.find((x) => x.id === src.windowId);
+      if (w?.bounds) {
+        const d = displayOfWorker(w.bounds.displayId);
+        return { kind: 'window', target: { x: d.bounds.x + w.bounds.x, y: d.bounds.y + w.bounds.y, width: w.bounds.width, height: w.bounds.height }, display: d.workArea };
+      }
+      return { kind: 'window', target: null, display: screen.getPrimaryDisplay().workArea };
+    }
+    return { kind: src.kind, target: null, display: displayOfWorker(src.displayId).workArea };
+  };
+  const syncBar = () => {
+    const r = current();
+    if (!r) {
+      destroy(bar);
+      bar = null;
+      barHeight = BAR.height;
+      return;
+    }
+    if (bar && !bar.isDestroyed()) return;
+    const a = barAnchor(r);
+    const p = barPlacement(a.kind, a.target, a.display, barHeight);
+    const win = createSurface('bar', { ...p, width: BAR.width, height: barHeight }, null);
+    win.once('ready-to-show', () => {
+      if (bar === win) win.showInactive();
+    });
+    bar = win;
+  };
+  const setBarHeight = (height: number) => {
+    barHeight = height;
+    if (!bar || bar.isDestroyed()) return;
+    const b = bar.getBounds();
+    if (b.height === height) return;
+    // 底边不动。
+    bar.setBounds({ x: b.x, y: b.y + b.height - height, width: BAR.width, height });
+  };
+
+  const stopOrCancel = (r: RecordingSummary) => {
+    // 倒计时里按停止就是取消：什么都还没录。
+    if (r.state === 'countdown' || r.state === 'preparing') return quietly('recordings.discard', { recordingId: r.recordingId });
+    if (isCapturing(r.state)) return quietly('recordings.stop', { recordingId: r.recordingId });
+    return Promise.resolve();
+  };
+  const restart = async (r: RecordingSummary) => {
+    if (restarting) return;
+    restarting = true;
+    try {
+      await call('recordings.discard', { recordingId: r.recordingId });
+      await call('recordings.start', { options: r.options, target: r.target });
+      beginHandoff();
+    } catch (error) {
+      console.error('[recording] restart failed', error);
+    } finally {
+      restarting = false;
+      if (!current() && hidden.length) restoreApp();
+    }
+  };
+  const barAction = async (action: unknown) => {
+    const r = current();
+    if (!r) return;
+    if (action === 'stop') await stopOrCancel(r);
+    else if (action === 'pause' && r.state === 'recording') await quietly('recordings.pause', { recordingId: r.recordingId });
+    else if (action === 'resume' && r.state === 'paused') await quietly('recordings.resume', { recordingId: r.recordingId });
+    else if (action === 'restart' && (r.state === 'recording' || r.state === 'paused')) await restart(r);
+    else if (action === 'discard' && isCapturing(r.state)) {
+      if (settings.afterDiscard === 'launcher') reopenAfter = lastRequest ?? settings.home;
+      await quietly('recordings.discard', { recordingId: r.recordingId });
+    }
+  };
+
+  // ---- 摄像头预览 ----
+  const cameraWanted = (): boolean => {
+    const r = current();
+    if (r) return !!r.options.camera && isCapturing(r.state) && !cameraHidden.has(r.recordingId);
+    if (session) return !!session.choice?.camera;
+    return Date.now() < handoffUntil && !!cameraWin;
+  };
+  const cameraBounds = (): Bounds => {
+    const { box, pad } = camera;
+    const ref = camera.pos ? screen.getDisplayNearestPoint({ x: Math.round(camera.pos.x), y: Math.round(camera.pos.y) }) : cursorDisplay();
+    const p = cameraPlacement(camera.pos, box, ref.workArea);
+    return { x: p.x - pad.side, y: p.y - pad.top, width: box.width + pad.side * 2, height: box.height + pad.top + pad.side };
+  };
+  function syncCamera() {
+    if (!cameraWanted()) {
+      destroy(cameraWin);
+      cameraWin = null;
+      return;
+    }
+    if (cameraWin && !cameraWin.isDestroyed()) return;
+    const win = createSurface('camera', cameraBounds(), null);
+    win.once('ready-to-show', () => {
+      if (cameraWin === win) win.showInactive();
+    });
+    cameraWin = win;
+  }
+  const setCameraBounds = (next: typeof camera) => {
+    camera = next;
+    if (cameraWin && !cameraWin.isDestroyed()) cameraWin.setBounds(cameraBounds());
+  };
+  const closeCamera = () => {
+    const r = current();
+    if (r) cameraHidden.add(r.recordingId);
+    else if (session?.choice) session.choice = { ...session.choice, camera: null, cameraName: null };
+    push();
+    syncCamera();
+  };
+
+  // ---- 应用窗口 ----
+  const hideApp = () => {
+    const shown = options.appWindows().filter((w) => !w.isDestroyed() && w.isVisible() && !w.isMinimized());
+    hidden = [...hidden.filter((w) => !w.isDestroyed() && !shown.includes(w)), ...shown];
+    for (const w of shown) {
+      if (settings.mainWindow === 'minimize') w.minimize();
+      else w.hide();
+    }
+  };
+  function restoreApp() {
+    const windows = hidden.filter((w) => !w.isDestroyed());
+    hidden = [];
+    if (windows.length === 0) return void options.showWindow();
+    for (const w of windows) {
+      if (w.isMinimized()) w.restore();
+      w.show();
+    }
+    windows[0]!.focus();
+  }
+
+  // ---- 菜单栏 ----
+  const idleMenu = (): MenuItemConstructorOptions[] => {
+    const can = !!settings.home;
+    return [
+      { label: RB.trayOpen, click: () => void options.showWindow() },
+      { type: 'separator' },
+      { label: RB.trayDisplay, enabled: can, click: () => openHome('display') },
+      { label: RB.trayWindow, enabled: can, click: () => openHome('window') },
+      { label: RB.trayArea, enabled: can, click: () => openHome('area') },
+      { type: 'separator' },
+      { label: RB.traySettings, click: () => openAppSettings() },
+      { label: RB.trayQuit, click: () => options.quit() },
+    ];
+  };
+  const syncTray = (rebuild = false) => {
+    const r = current();
+    const mode = r ? 'stop' : configured && settings.trayIcon ? 'idle' : null;
+    if (!mode) {
       tray?.destroy();
       tray = null;
-      trayPhase = null;
+      trayMode = null;
       return;
     }
     if (!tray) {
-      tray = new Tray(options.platform === 'darwin' ? macTrayImage() : appTrayImage());
+      tray = new Tray(mode === 'stop' ? stopImage(options.platform) : idleImage(options.platform));
       tray.on('click', () => {
-        if (options.platform !== 'darwin') tray?.popUpContextMenu();
+        if (trayMode === 'stop') {
+          const now = current();
+          if (now) void stopOrCancel(now);
+        } else if (options.platform !== 'darwin') {
+          tray?.popUpContextMenu();
+        }
       });
+      trayMode = null;
     }
-    const time = view.phase === 'countdown' ? RB.countdown(Math.ceil(view.seconds)) : clock(view.seconds);
-    if (options.platform === 'darwin') tray.setTitle(view.phase === 'finishing' ? RB.finishing : `● ${time}`);
-    tray.setToolTip(RB.trayTip(time));
-    const key = `${view.phase}|${view.canStop}|${view.canDiscard}|${RB.pause}`;
-    if (key !== trayPhase) {
-      trayPhase = key;
-      tray.setContextMenu(Menu.buildFromTemplate(trayMenu(view, recordingId)));
+    if (mode !== trayMode || rebuild) {
+      if (mode !== trayMode) tray.setImage(mode === 'stop' ? stopImage(options.platform) : idleImage(options.platform));
+      trayMode = mode;
+      tray.setContextMenu(mode === 'stop' ? null : Menu.buildFromTemplate(idleMenu()));
     }
+    tray.setToolTip(r ? (isCapturing(r.state) ? RB.trayStopTip(clock(r.elapsed)) : RB.trayFinishing) : RB.trayTip);
+  };
+
+  const openHome = (direct?: PickerKind) => {
+    if (!settings.home) return void options.showWindow();
+    const { direct: _direct, ...home } = settings.home;
+    open(direct ? { ...home, direct } : home);
+  };
+  const openAppSettings = () => {
+    const win = options.showWindow();
+    const send = () => win.webContents.send(RECORDING_APP_SETTINGS_CHANNEL);
+    if (win.webContents.isLoading()) win.webContents.once('did-finish-load', () => setTimeout(send, 500));
+    else send();
   };
 
   // ---- 快捷键 ----
-  const unregister = () => {
-    if (!registered) return;
-    for (const accel of [registered.stop, registered.pause]) if (accel) globalShortcut.unregister(accel);
-    registered = null;
-  };
-  const register = () => {
-    if (registered) return;
-    const failed: Array<'stop' | 'pause'> = [];
-    const { stop, pause } = settings.shortcuts;
-    const ok = (accel: string, run: () => void) => {
-      try {
-        return globalShortcut.register(accel, run);
-      } catch {
-        return false;
-      }
-    };
-    if (stop && !ok(stop, () => {
-      const r = current();
-      if (r) void request('recordings.stop', r.recordingId);
-    })) failed.push('stop');
-    if (pause && pause !== stop && !ok(pause, () => {
-      const r = current();
+  const runShortcut = (key: ShortcutKey) => {
+    const r = current();
+    if (key === 'stop') {
+      if (r) void stopOrCancel(r);
+    } else if (key === 'pause') {
       const method = toggleMethod(r);
-      if (r && method) void request(method, r.recordingId);
-    })) failed.push('pause');
-    registered = { stop: failed.includes('stop') ? '' : stop, pause: failed.includes('pause') ? '' : pause };
-    if (failed.length) failedTo(failed);
-  };
-
-  const failedTo = (failed: Array<'start' | 'stop' | 'pause'>) => {
-    for (const w of options.appWindows()) if (!w.isDestroyed()) w.webContents.send(RECORDING_SHORTCUT_FAILED_CHANNEL, failed);
-  };
-  // 按下开始录制：带回一个应用窗口，只让它打开面板（几个窗口都收的话会各开一个）。一个窗口都没有时只开窗口：
-  // 新窗口的界面还没装好，收不到这一下。
-  const onStartShortcut = () => {
-    const had = options.appWindows().length > 0;
-    const win = options.showWindow();
-    if (had && !win.isDestroyed()) win.webContents.send(RECORDING_START_SHORTCUT_CHANNEL);
-  };
-  /** 让开始录制的占用跟上此刻的状态与设置；`report` 时注册不上要告诉界面（只在用户改了这组键时，不在每次启动时）。 */
-  const syncStart = (report = false) => {
-    const want = startShortcutWanted(current(), connected, configured) ? settings.shortcuts.start : '';
-    if (want === startRegistered) return;
-    if (startRegistered) globalShortcut.unregister(startRegistered);
-    startRegistered = '';
-    // 注册不上的那组键不在每次状态变化时再试；改了设置（`report`）才重试。
-    if (!want || (want === startRefused && !report)) return;
-    let ok = false;
-    try {
-      ok = globalShortcut.register(want, onStartShortcut);
-    } catch {
-      ok = false;
+      if (r && method) void quietly(method, { recordingId: r.recordingId });
+    } else if (key === 'restart') {
+      if (r && (r.state === 'recording' || r.state === 'paused')) void restart(r);
+    } else {
+      openHome(key === 'launcher' ? undefined : key);
     }
-    startRefused = ok ? '' : want;
-    if (ok) startRegistered = want;
-    else if (report) failedTo(['start']);
+  };
+  /** 让快捷键的占用跟上此刻的状态与设置；`report` 里的那几个注册不上时告诉界面（只在用户改了它们时，不在每次启动时）。 */
+  const syncShortcuts = (report: ReadonlySet<ShortcutKey> = new Set()) => {
+    const r = current();
+    const openOn = openShortcutsWanted(r, connected, configured);
+    const captureOn = captureShortcutsWanted(r);
+    // 先放掉这次不要的，再注册要的（同一组键可能从一组换到另一组）。
+    const want = new Map<ShortcutKey, string>();
+    for (const key of SHORTCUT_KEYS) {
+      const on = OPEN_SHORTCUTS.includes(key) ? openOn : CAPTURE_SHORTCUTS.includes(key) && captureOn;
+      want.set(key, on ? settings.shortcuts[key] : '');
+    }
+    for (const [key, accel] of [...registered]) {
+      if (want.get(key) === accel) continue;
+      globalShortcut.unregister(accel);
+      registered.delete(key);
+    }
+    const failed: ShortcutKey[] = [];
+    const used = new Set(registered.values());
+    for (const key of SHORTCUT_KEYS) {
+      const accel = want.get(key) ?? '';
+      if (!accel || registered.get(key) === accel) continue;
+      // 注册不上的那组键不在每次状态变化时再试；改了设置才重试。
+      if (refused.get(key) === accel && !report.has(key)) continue;
+      let ok = false;
+      if (!used.has(accel)) {
+        try {
+          ok = globalShortcut.register(accel, () => runShortcut(key));
+        } catch {
+          ok = false;
+        }
+      }
+      if (ok) {
+        registered.set(key, accel);
+        used.add(accel);
+        refused.delete(key);
+      } else {
+        refused.set(key, accel);
+        if (report.has(key)) failed.push(key);
+      }
+    }
+    if (failed.length) for (const w of options.appWindows()) if (!w.isDestroyed()) w.webContents.send(RECORDING_SHORTCUT_FAILED_CHANNEL, failed);
+  };
+  const unregisterAll = () => {
+    for (const accel of registered.values()) globalShortcut.unregister(accel);
+    registered.clear();
   };
 
   // ---- 状态变化 ----
   const sync = () => {
     const r = current();
-    const view = barView(r);
-    if (r && view) {
-      const lost = announcedLost.get(r.recordingId) ?? new Set();
-      const fresh = view.lost.filter((role) => !lost.has(role));
-      if (fresh.length) {
-        for (const role of fresh) lost.add(role);
-        announcedLost.set(r.recordingId, lost);
-        notice = RB.lost(fresh.map(roleName).join(', '));
-      }
-      sendBar(view);
-    } else {
-      notice = null;
-      closeBar();
+    if (!r && reopenAfter && !session) {
+      const next = reopenAfter;
+      reopenAfter = null;
+      setTimeout(() => open(next), 0);
     }
-    updateTray(view, r?.recordingId ?? null);
-    if (shortcutsWanted(r)) register();
-    else unregister();
-    syncStart();
+    syncBar();
+    syncCamera();
+    syncTray();
+    syncShortcuts();
+    push();
   };
 
   const onRecording = (r: RecordingSummary) => {
-    const plan = windowPlan(seen.get(r.recordingId), r.state, hideForRecording(r, settings.hideWindow));
+    const before = seen.get(r.recordingId);
     seen.set(r.recordingId, r.state);
     recordings.set(r.recordingId, r);
+    if (isCapturing(r.state) && handoffTimer) {
+      clearTimeout(handoffTimer);
+      handoffTimer = null;
+      handoffUntil = 0;
+    }
+    const plan = windowPlan(before, r.state, hideForRecording(r));
     if (plan === 'hide') hideApp();
-    if (plan === 'restore') restoreApp();
+    // 重新开始时上一次的结束不放回窗口：下一次马上又要收起。
+    const another = [...recordings.values()].some((x) => x.recordingId !== r.recordingId && isCapturing(x.state));
+    if (plan === 'restore' && !restarting && !another) restoreApp();
+    // 智能体那次被别处开始或取消了：启动器跟着关。
+    if (session?.agent?.recordingId === r.recordingId && r.state !== 'waiting' && !session.starting) endSession('gone');
   };
 
   const stopTopic = client.subscribeRecordings({
@@ -347,120 +726,197 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
       sync();
     },
   });
-  // 断线（Runtime 退出或重启）：窗口放回来，控制条与快捷键拿掉，等重连后的快照。
+  // 断线（Runtime 退出或重启）：窗口放回来，小窗与快捷键拿掉，等重连后的快照。
   const stopState = client.onState((state) => {
     connected = state.status === 'connected';
-    if (connected) return void syncStart();
+    if (connected) return void sync();
     if (hidden.length) restoreApp();
     recordings.clear();
+    if (session) endSession('gone');
     sync();
   });
   // 订阅不会自己连上：先连一次，之后断线由客户端重连。
   void client.connect().catch((error: unknown) => console.error('[recording] connect failed', error));
-  const stopLocale = onLocaleChange(() => {
-    trayPhase = null;
-    sync();
-  });
+  const stopLocale = onLocaleChange(() => syncTray(true));
+
+  // ---- 应用窗口来的 ----
+  const fromApp = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) =>
+    event.senderFrame === event.sender.mainFrame && options.appWindows().some((w) => !w.isDestroyed() && w.webContents === event.sender);
 
   ipcMain.on(RECORDING_CONFIGURE_CHANNEL, (event, raw: unknown) => {
-    if (!isAppSender(event.sender, options) || event.senderFrame !== event.sender.mainFrame) return;
+    if (!fromApp(event)) return;
     const next = parseHostSettings(raw);
-    const changed = next.shortcuts.stop !== settings.shortcuts.stop || next.shortcuts.pause !== settings.shortcuts.pause;
-    const startChanged = configured && next.shortcuts.start !== settings.shortcuts.start;
+    const changed = new Set<ShortcutKey>(configured ? SHORTCUT_KEYS.filter((k) => next.shortcuts[k] !== settings.shortcuts[k]) : []);
     settings = next;
     configured = true;
-    if (changed && registered) {
-      unregister();
-      sync();
-    }
-    // 换了一组键：先放掉旧的再按新的注册（同一组键时什么都不做）。
-    if (startChanged && startRegistered) {
-      globalShortcut.unregister(startRegistered);
-      startRegistered = '';
-    }
-    syncStart(startChanged);
+    syncShortcuts(changed);
+    syncTray(true);
+    push();
+  });
+  ipcMain.on(RECORDING_OPEN_CHANNEL, (event, raw: unknown) => {
+    if (!fromApp(event)) return;
+    const request = parseSessionRequest(raw);
+    if (request) open(request);
   });
   ipcMain.handle(RECORDING_SETTINGS_CHANNEL, async (event, permission: unknown) => {
-    if (!isAppSender(event.sender, options) || event.senderFrame !== event.sender.mainFrame) throw new Error('Only app windows can open system settings');
+    if (!fromApp(event)) throw new Error('Only app windows can open system settings');
     const url = privacyUrl(permission, options.platform);
     if (!url) throw new Error('No system settings page for this permission on this platform');
     await shell.openExternal(url);
   });
-  ipcMain.handle(RECORDING_PICK_AREA_CHANNEL, async (event, displayId: unknown): Promise<AreaPick | null> => {
-    if (!isAppSender(event.sender, options) || event.senderFrame !== event.sender.mainFrame) throw new Error('Only app windows can pick an area');
-    const shown = options.appWindows().filter((w) => !w.isDestroyed() && w.isVisible());
-    const asker = BrowserWindow.fromWebContents(event.sender);
-    for (const w of shown) w.hide();
-    try {
-      return await picker.pick(displayId);
-    } finally {
-      for (const w of shown) if (!w.isDestroyed()) w.show();
-      if (asker && !asker.isDestroyed()) asker.focus();
+
+  // ---- 小窗来的 ----
+  const surfaceOf = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): Surface | null => {
+    const s = surfaces.get(event.sender.id);
+    return s && !s.win.isDestroyed() && s.win.webContents === event.sender && event.senderFrame === event.sender.mainFrame ? s : null;
+  };
+  ipcMain.handle(SURFACE_INIT_CHANNEL, async (event): Promise<RecordingSurfaceInit> => {
+    const s = surfaceOf(event);
+    if (!s) throw new Error('Not a recording surface');
+    // 覆盖层要知道自己盖着 Worker 的哪块屏幕：等这一轮来源问完。
+    if (s.display && sourcesLoad) await sourcesLoad.catch(() => {});
+    return {
+      kind: s.kind,
+      platform: options.platform,
+      display: s.display ? { bounds: { ...s.display.bounds }, workerDisplayId: workerIdOf(s.display) } : null,
+    };
+  });
+  ipcMain.on(SURFACE_READY_CHANNEL, (event) => {
+    const s = surfaceOf(event);
+    if (!s) return;
+    ready.add(event.sender.id);
+    s.win.webContents.send(SURFACE_STATE_CHANNEL, view());
+  });
+  ipcMain.handle(SURFACE_ACT_CHANNEL, async (event, raw: unknown): Promise<{ ok: true } | { ok: false; message: string }> => {
+    if (!surfaceOf(event)) return { ok: false, message: 'Not a recording surface' };
+    const a = raw as RecordingSurfaceAction | null;
+    if (!a || typeof a !== 'object' || typeof a.type !== 'string') return { ok: false, message: 'Bad action' };
+    switch (a.type) {
+      case 'resolve':
+        if (session && !session.choice && isObject(a.choice)) {
+          session.choice = session.phase === 'picker' ? { ...a.choice, source: session.picker } : a.choice;
+          session.notices = Array.isArray(a.notices) ? a.notices : [];
+          push();
+          syncCamera();
+        }
+        break;
+      case 'choose':
+        if (session && isObject(a.choice)) {
+          session.choice = a.choice;
+          push();
+          syncCamera();
+        }
+        break;
+      case 'pick':
+        if (!session || !isPicker(a.kind)) break;
+        if (session.phase === 'picker' && session.picker === a.kind) toLauncher();
+        else toPicker(a.kind);
+        break;
+      case 'escape':
+        toLauncher();
+        break;
+      case 'close':
+        endSession('cancelled');
+        break;
+      case 'start':
+        return start(isObject(a.options) ? (a.options as Partial<RecordingOptions>) : {});
+      case 'permission': {
+        const url = privacyUrl(a.permission, options.platform);
+        if (url) await shell.openExternal(url);
+        break;
+      }
+      case 'settings':
+        openAppSettings();
+        break;
+      case 'refresh':
+        await loadSources();
+        break;
+      case 'bar':
+        await barAction(a.action);
+        break;
+      case 'bar-height':
+        if (finite(a.height) && a.height >= 32 && a.height <= 600) setBarHeight(Math.ceil(a.height));
+        break;
+      case 'camera-bounds': {
+        const box = a.box;
+        const pad = a.pad;
+        const pos = a.pos;
+        if (!isObject(box) || !finite(box.width) || !finite(box.height) || box.width < 50 || box.height < 50 || box.width > 1200 || box.height > 1200) break;
+        if (!isObject(pad) || !finite(pad.side) || !finite(pad.top) || pad.side < 0 || pad.top < 0 || pad.side > 100 || pad.top > 100) break;
+        if (pos !== null && (!isObject(pos) || !finite(pos.x) || !finite(pos.y))) break;
+        setCameraBounds({ box: { width: Math.round(box.width), height: Math.round(box.height) }, pos: pos ? { x: pos.x, y: pos.y } : null, pad: { side: pad.side, top: pad.top } });
+        break;
+      }
+      case 'camera-close':
+        closeCamera();
+        break;
+      default:
+        return { ok: false, message: 'Unknown action' };
     }
-  });
-  ipcMain.on(RECORDING_BAR_READY_CHANNEL, (event) => {
-    if (!bar || bar.isDestroyed() || event.sender !== bar.webContents) return;
-    barReady = true;
-    sync();
-  });
-  ipcMain.handle(RECORDING_BAR_ACT_CHANNEL, async (event, action: unknown) => {
-    if (!bar || bar.isDestroyed() || event.sender !== bar.webContents) return;
-    const r = current();
-    if (!r || typeof action !== 'string') return;
-    const a = action as BarAction;
-    if (a === 'pause') await request('recordings.pause', r.recordingId);
-    else if (a === 'resume') await request('recordings.resume', r.recordingId);
-    else if (a === 'stop') await request('recordings.stop', r.recordingId);
-    // 丢弃在条上已经确认过一次（两步按钮）。
-    else if (a === 'discard') await discard(r.recordingId);
+    return { ok: true };
   });
 
   return {
-    isBarWindow: (win) => (!!bar && win === bar) || picker.isPickerWindow(win),
+    isSurfaceWindow: (win) => [...surfaces.values()].some((s) => s.win === win),
     dispose() {
       stopTopic();
       stopState();
       stopLocale();
-      unregister();
-      if (startRegistered) globalShortcut.unregister(startRegistered);
-      startRegistered = '';
-      closeBar();
-      picker.dispose();
+      unregisterAll();
+      if (handoffTimer) clearTimeout(handoffTimer);
+      for (const s of [...surfaces.values()]) destroy(s.win);
+      surfaces.clear();
       tray?.destroy();
       tray = null;
       ipcMain.removeAllListeners(RECORDING_CONFIGURE_CHANNEL);
-      ipcMain.removeAllListeners(RECORDING_BAR_READY_CHANNEL);
+      ipcMain.removeAllListeners(RECORDING_OPEN_CHANNEL);
+      ipcMain.removeAllListeners(SURFACE_READY_CHANNEL);
       ipcMain.removeHandler(RECORDING_SETTINGS_CHANNEL);
-      ipcMain.removeHandler(RECORDING_BAR_ACT_CHANNEL);
-      ipcMain.removeHandler(RECORDING_PICK_AREA_CHANNEL);
+      ipcMain.removeHandler(SURFACE_INIT_CHANNEL);
+      ipcMain.removeHandler(SURFACE_ACT_CHANNEL);
       client.close();
     },
   };
 }
 
-function isAppSender(sender: Electron.WebContents, options: RecordingServiceOptions): boolean {
-  return options.appWindows().some((w) => !w.isDestroyed() && w.webContents === sender);
+function isObject(v: unknown): v is Record<string, never> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
-function roleName(role: RecordingStreamStatus['role']): string {
-  switch (role) {
-    case 'camera':
-      return RB.roleCamera;
-    case 'microphone':
-      return RB.roleMicrophone;
-    case 'system-audio':
-      return RB.roleSystemAudio;
-    case 'screen':
-      return RB.roleScreen;
-    case 'pointer':
-      return RB.rolePointer;
-    case 'keyboard':
-      return RB.roleKeyboard;
+function finite(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
+function isPicker(v: unknown): v is PickerKind {
+  return v === 'display' || v === 'window' || v === 'area';
+}
+
+function idleImage(platform: NodeJS.Platform): NativeImage {
+  return platform === 'darwin' ? macTrayImage() : appTrayImage();
+}
+
+/** 录制中的菜单栏图标：圆角方块（macOS 是模板图，跟着菜单栏变色；别的系统是红色）。 */
+function stopImage(platform: NodeJS.Platform): NativeImage {
+  const size = 32;
+  const inset = 7;
+  const radius = 4;
+  const [r, g, b] = platform === 'darwin' ? [0, 0, 0] : [0xd7, 0x37, 0x3f];
+  const buf = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = Math.max(inset + radius - (x + 0.5), 0, x + 0.5 - (size - inset - radius));
+      const dy = Math.max(inset + radius - (y + 0.5), 0, y + 0.5 - (size - inset - radius));
+      const d = Math.hypot(dx, dy) - radius;
+      const alpha = Math.round(255 * Math.min(1, Math.max(0, 0.5 - d)));
+      const i = (y * size + x) * 4;
+      // BGRA
+      buf[i] = b;
+      buf[i + 1] = g;
+      buf[i + 2] = r;
+      buf[i + 3] = alpha;
+    }
   }
-}
-
-/** 控制条（或区域选框）页面在哪：开发时跟着开发服务器，打包后在 `out/renderer`。 */
-export function barPageOf(devServerUrl: string | undefined, mainDir: string, page = 'recording-bar.html'): { url: string } | { file: string } {
-  if (devServerUrl) return { url: new URL(page, devServerUrl.endsWith('/') ? devServerUrl : `${devServerUrl}/`).href };
-  return { file: path.join(mainDir, '../renderer', page) };
+  const image = nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: 2 });
+  if (platform === 'darwin') image.setTemplateImage(true);
+  return image;
 }

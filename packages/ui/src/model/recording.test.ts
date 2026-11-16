@@ -2,19 +2,25 @@ import { RECORDING_DEFAULTS, type RecordingSources, type RecordingSummary } from
 import { describe, expect, it } from 'vitest';
 import {
   autoOpenWaiting,
+  barActions,
+  barStatus,
+  canPreview,
   choiceFromOptions,
   choiceOptions,
   DEFAULT_CHOICE,
+  devicePill,
+  filterList,
   formatElapsed,
   LOW_DISK_MINUTES,
   lowDisk,
+  needsMicConfirm,
   recordingBytesPerSecond,
   recordingEntry,
   resolveChoice,
   shouldOpenAfter,
+  showsIncludeSelf,
   sourceBlocks,
   startBlock,
-  startFromShortcut,
   unavailableCode,
   unfinishedRecordings,
   type SourcesState,
@@ -100,43 +106,40 @@ describe('recordingEntry', () => {
 });
 
 describe('resolveChoice', () => {
-  it('记下的设备不在了退回「不用」并提示，窗口不在了退回整块屏幕', () => {
+  it('记下的设备不在了退回「不用」并提示；窗口不在了清掉窗口（覆盖层里再选）', () => {
     const { choice, notices } = resolveChoice(
       { ...DEFAULT_CHOICE, camera: 'gone', cameraName: 'Old Cam', microphone: 'gone-mic', source: 'window', windowId: 'w9', displayId: 'x' },
       sources(),
     );
-    expect(choice).toMatchObject({ camera: null, microphone: null, source: 'display', windowId: null, displayId: null });
+    expect(choice).toMatchObject({ camera: null, microphone: null, source: 'window', windowId: null, displayId: null });
     expect(notices.map((n) => n.kind)).toEqual(['camera-gone', 'microphone-gone', 'window-gone']);
     expect(notices[0]).toEqual({ kind: 'camera-gone', name: 'Old Cam' });
   });
 
-  it('设备都在、系统默认麦克风不提示；区域退回整块屏幕', () => {
+  it('设备都在、系统默认麦克风不提示；还没框的区域照样是区域（覆盖层里画）', () => {
     const { choice, notices } = resolveChoice({ ...DEFAULT_CHOICE, camera: 'cam1', source: 'area' }, sources());
     expect(notices).toEqual([]);
-    expect(choice).toMatchObject({ camera: 'cam1', microphone: 'default', source: 'display' });
+    expect(choice).toMatchObject({ camera: 'cam1', microphone: 'default', source: 'area', area: null });
   });
 });
 
 describe('一个区域', () => {
   const area = { displayId: '1', rect: { x: 100, y: 50, width: 640, height: 360 } };
-  const picker = { areaPicker: true };
+  const locked = { areaLocked: true } as const;
 
-  it('宿主有选框时区域可选；没有时置灰', () => {
-    expect(sourceBlocks(sources(), picker).area).toBeNull();
-    expect(sourceBlocks(sources({ displays: [] }), picker).area).toEqual({ kind: 'no-display' });
-    expect(sourceBlocks(sources()).area).toEqual({ kind: 'no-area-picker' });
+  it('有屏幕时区域可选', () => {
+    expect(sourceBlocks(sources()).area).toBeNull();
+    expect(sourceBlocks(sources({ displays: [] })).area).toEqual({ kind: 'no-display' });
   });
 
-  it('记下的区域还在屏幕里就照用；屏幕不在了或框出了屏幕时丢掉并提示；还没框时退回整块屏幕', () => {
-    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area }, sources(), picker)).toEqual({ choice: { ...DEFAULT_CHOICE, source: 'area', area }, notices: [] });
-    const gone = resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area: { ...area, displayId: '9' } }, sources(), picker);
-    expect(gone.choice).toMatchObject({ source: 'display', area: null });
+  it('锁定的区域还在屏幕里就沿用；没锁定的不沿用；屏幕不在了或框出了屏幕时丢掉并提示', () => {
+    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area, ...locked }, sources())).toEqual({ choice: { ...DEFAULT_CHOICE, source: 'area', area, ...locked }, notices: [] });
+    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area }, sources()).choice.area).toBeNull();
+    const gone = resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area: { ...area, displayId: '9' }, ...locked }, sources());
+    expect(gone.choice).toMatchObject({ source: 'area', area: null, areaLocked: false });
     expect(gone.notices).toEqual([{ kind: 'area-gone' }]);
-    const outside = resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area: { displayId: null, rect: { x: 1000, y: 0, width: 640, height: 360 } } }, sources(), picker);
-    expect(outside.choice.source).toBe('display');
-    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area' }, sources(), picker)).toEqual({ choice: DEFAULT_CHOICE, notices: [] });
-    // 宿主没有选框：记下的区域留着（下次在桌面端还能用），来源退回整块屏幕。
-    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area }, sources()).choice).toMatchObject({ source: 'display', area });
+    const outside = resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area: { displayId: null, rect: { x: 1000, y: 0, width: 640, height: 360 } }, ...locked }, sources());
+    expect(outside.choice.area).toBeNull();
   });
 
   it('选了区域还没框时不能开始；框好了换成 area 来源', () => {
@@ -149,15 +152,15 @@ describe('一个区域', () => {
 
   it('智能体给的区域落到面板上；码率按框的大小估', () => {
     const choice = choiceFromOptions({ ...RECORDING_DEFAULTS, source: { kind: 'area', displayId: '1', rect: area.rect } }, DEFAULT_CHOICE);
-    expect(choice).toMatchObject({ source: 'area', area });
+    expect(choice).toMatchObject({ source: 'area', area, areaLocked: true });
     const screenOnly = { ...DEFAULT_CHOICE, microphone: null };
     expect(recordingBytesPerSecond({ ...screenOnly, source: 'area', area }, sources())).toBeCloseTo((640 * 360 * 4 * 30 * 0.15) / 8);
   });
 });
 
 describe('选项能不能选与开始', () => {
-  it('区域没有选框时置灰；没有窗口时窗口置灰', () => {
-    expect(sourceBlocks(sources({ windows: [] }))).toEqual({ display: null, window: { kind: 'no-window' }, area: { kind: 'no-area-picker' } });
+  it('没有窗口时窗口置灰', () => {
+    expect(sourceBlocks(sources({ windows: [] }))).toEqual({ display: null, window: { kind: 'no-window' }, area: null });
   });
 
   it('屏幕被拒时开始不可用；可选的一路被拒时去掉它才能开始；还没问过的不挡', () => {
@@ -214,23 +217,54 @@ describe('磁盘剩余空间', () => {
   });
 });
 
-describe('开始录制的快捷键', () => {
-  it('面板开着或入口不显示时不动；置灰时说明原因；否则在这一页的项目里打开面板', () => {
-    expect(startFromShortcut({ entry: { kind: 'ready' }, panelOpen: true, projectId: null })).toBeNull();
-    expect(startFromShortcut({ entry: { kind: 'hidden' }, panelOpen: false, projectId: null })).toBeNull();
-    expect(startFromShortcut({ entry: { kind: 'disabled', block: { kind: 'busy' } }, panelOpen: false, projectId: null })).toEqual({ kind: 'blocked', block: { kind: 'busy' } });
-    expect(startFromShortcut({ entry: { kind: 'ready' }, panelOpen: false, projectId: 'p1' })).toEqual({ kind: 'open', projectId: 'p1' });
+describe('启动器与录制卡', () => {
+  it('药丸：被拒是「允许」，没选是「关」，不在了是「未连接」，否则「开」；还没问过的不算被拒', () => {
+    expect(devicePill({ permission: 'denied', on: true })).toEqual({ state: 'allow', action: 'open-settings' });
+    expect(devicePill({ permission: 'not-determined', on: false })).toEqual({ state: 'off', action: 'open-list' });
+    expect(devicePill({ permission: 'granted', on: true, connected: false })).toEqual({ state: 'missing', action: 'open-list' });
+    expect(devicePill({ permission: null, on: true })).toEqual({ state: 'on', action: 'turn-off' });
+  });
+
+  it('列表搜索不分大小写；「把 BaoCut 也录进去」只在屏幕与区域；没选麦克风时按设置先确认', () => {
+    const items = [{ label: 'Safari — Docs' }, { label: 'Notes' }];
+    expect(filterList(items, ' safari ')).toEqual([items[0]]);
+    expect(filterList(items, '')).toEqual(items);
+    expect(showsIncludeSelf('display')).toBe(true);
+    expect(showsIncludeSelf('area')).toBe(true);
+    expect(showsIncludeSelf('window')).toBe(false);
+    expect(needsMicConfirm(null, true)).toBe(true);
+    expect(needsMicConfirm(null, false)).toBe(false);
+    expect(needsMicConfirm('default', true)).toBe(false);
+    expect(canPreview('granted')).toBe(true);
+    expect(canPreview('not-determined')).toBe(false);
+  });
+});
+
+describe('控制条', () => {
+  it('第一格：倒计时是数字，准备中、暂停、收尾是字，录制中是时长', () => {
+    expect(barStatus(rec({ state: 'countdown', countdownLeft: 3 }))).toEqual({ kind: 'countdown', seconds: 3 });
+    expect(barStatus(rec({ state: 'preparing' }))).toEqual({ kind: 'starting' });
+    expect(barStatus(rec({ state: 'paused', elapsed: 9 }))).toEqual({ kind: 'paused' });
+    expect(barStatus(rec({ state: 'stopping' }))).toEqual({ kind: 'finishing' });
+    expect(barStatus(rec({ state: 'importing' }))).toEqual({ kind: 'finishing' });
+    expect(barStatus(rec({ state: 'recording', elapsed: 65 }))).toEqual({ kind: 'clock', text: '1:05' });
+  });
+
+  it('倒计时里不能暂停；收尾时都不能点', () => {
+    expect(barActions('countdown')).toEqual({ stop: true, pause: false, restart: true, discard: true });
+    expect(barActions('recording')).toEqual({ stop: true, pause: true, restart: true, discard: true });
+    expect(barActions('finalizing')).toEqual({ stop: false, pause: false, restart: false, discard: false });
   });
 });
 
 describe('智能体发起的与没收完的', () => {
-  it('正看着发起它的会话、没关掉过、没有别的面板时自动弹出', () => {
+  it('正看着发起它的会话、没关掉过、启动器没开着时自动打开', () => {
     const waiting = rec();
-    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_1', dismissed: [], panelOpen: false })).toBe(waiting);
-    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_2', dismissed: [], panelOpen: false })).toBeNull();
-    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_1', dismissed: ['rec_1'], panelOpen: false })).toBeNull();
-    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_1', dismissed: [], panelOpen: true })).toBeNull();
-    expect(autoOpenWaiting({ recordings: [rec({ state: 'recording' })], conversationId: 'conv_1', dismissed: [], panelOpen: false })).toBeNull();
+    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_1', dismissed: [], sessionOpen: false })).toBe(waiting);
+    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_2', dismissed: [], sessionOpen: false })).toBeNull();
+    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_1', dismissed: ['rec_1'], sessionOpen: false })).toBeNull();
+    expect(autoOpenWaiting({ recordings: [waiting], conversationId: 'conv_1', dismissed: [], sessionOpen: true })).toBeNull();
+    expect(autoOpenWaiting({ recordings: [rec({ state: 'recording' })], conversationId: 'conv_1', dismissed: [], sessionOpen: false })).toBeNull();
   });
 
   it('没收完的按时间倒序；导入了的不算', () => {
