@@ -27,6 +27,8 @@
     const canSplit = isVideo && !!window.BC_VIDEO_EDIT.splitElementAt(ctx.elements, ctx.elDocs, at.id, ctx.playT);
     /* 停用位（第 120 轮）：元素块上也给一条，与行头那只眼睛写同一个字 */
     const off = !!((ctx.elDocs || {})[at.id] || {}).hidden;
+    /* 联动组（屏幕录制设计 §5）：「解组」之后屏幕、摄像头与声音各剪各的；可以撤销 */
+    const linked = !!(el && window.BC_SV && window.BC_SV.linkOf(el, ctx.elDocs)) && !!ctx.ungroup;
     return (
       <div className="tl__popanchor" style={{left: at.x, top: at.y, width: 0, height: 0}}>
         <Popover open onClose={onClose} align="left" dir="up" width={248}>
@@ -36,6 +38,12 @@
               <>
                 <MenuItem icon="split" label="在播放头分割" suffix="S" disabled={!canSplit}
                   sub={canSplit ? null : '播放头不在这一段里'} onClick={run(() => ctx.split(at.id))} />
+                <MenuRule />
+              </>
+            ) : null}
+            {linked ? (
+              <>
+                <MenuItem icon="link" label="解组" sub="屏幕、摄像头与声音各剪各的" onClick={run(() => ctx.ungroup(at.id))} />
                 <MenuRule />
               </>
             ) : null}

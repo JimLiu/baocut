@@ -1044,6 +1044,8 @@
     const mediaElements = useMemo(() => localMedia
       ? window.BC_VIDEO_EDIT.initial(localMedia.clips, proj.src.name).map(e => ({...e, name: proj.src.name}))
         .concat(localMedia.elements || [])
+      /* 录屏（屏幕录制设计 §5）：屏幕、摄像头、麦克风、系统音频四件，同一个联动组 */
+      : proj.recording ? window.BC_SV.recordingElements(proj.recording, {canvasRatio: window.BC_LAYOUT.ratioValue(proj.ratio || '16:9')})
       : bare ? childFraming(window.BC_VIDEO_EDIT.initial(setup.clips, proj.src.name).map(e => ({...e, name: proj.src.name}))) : [], [proj.id]);
     const els = useElementStore(pick, initiallyEmpty || !!localMedia || bare, mediaElements, proj.src.name);
     /* 音频转视频项目打开时声波已选中（§9 a2v 行「wave 自动选中」）：右栏直接是它的属性页 */
@@ -1261,7 +1263,12 @@
     const splitTarget = (id) => (id ? (els.elements.find(e => e.id === id && VE.canSplit(e, playT)) || null)
       : VE.splitTarget(els.elements, els.elDocs, playT, sel && sel.kind === 'element' ? sel.id : null));
     const canSplit = !!splitTarget();
+    /* 编辑录制（recording-edit.jsx）：取景文档、选中的缩放、解组与整组拆分 */
+    const screenViews = window.useScreenViewStore({proj, els, history, pick, app});
     const split = (id) => {
+      /* 联动组整组拆分（视频格式规范 §3.18）：右键菜单指定的那一件或播放头下的那一件在联动组里时，整组一起切 */
+      const linked = (id ? els.elements.find(e => e.id === id) : null) || splitTarget();
+      if (linked && screenViews.splitLinked(linked, playT)) return;
       const target = splitTarget(id);
       if (!target) { app.toast('把播放头移到一段视频内再分割'); return; }
       const r = VE.splitElementAt(els.elements, els.elDocs, target.id, playT, {id: target.id + '-s' + els.nextSeq()});
@@ -1392,6 +1399,7 @@
       elements: tpl.withTemplateRow(els.elements, els.elDocs),
       aiReq, requestAi, openCrop, cropInstance, openVideoReplace, replaceWithOutput, applyReplacePlan, clearAiReq: () => setAiReq(null),
       opening, clearOpening: () => setOpening(null),
+      ...screenViews,
     };
     /* ⌘A 读这一份（元素投影在 ctx 里才算齐）；键盘层与剪贴板见 editor-keys.jsx。 */
     stageRef.current = {elements: ctx.elements.filter(e => e.kind !== 'audio'), playT};

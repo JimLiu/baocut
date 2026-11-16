@@ -81,6 +81,8 @@ const WEB_DENY = [
   /^app\/main\.jsx/, /^app\/voice-picker/, /^app\/model-openai-api/, /^app\/panel-image-gen/, /^app\/image-gen/, /^app\/image-edit/, /^app\/model-image-edit/, /^app\/model-footage/, /^app\/model-writing/,
   /* 克隆新音色的录音音质自查（2026-11-08）：只在 App 的设置页 */
   /^app\/model-voice-take/,
+  /* 屏幕录制的面板、录制卡、恢复提示与设置（屏幕录制设计 §11）：只在 App；编辑录制（model-screen-view、recording-*）两端都有 */
+  /^app\/model-recording/,
   /^app\/model-settings-nav/, /^app\/model-settings-link/, /^app\/model-app-update/, /^app\/model-models-dir/, /^app\/model-local-check/,
   /* App rail / Home / Space（2026-10-01）：只属于 App 外壳，且全部用 react-spectrum */
   /^app\/apprail/, /^app\/home-/, /^app\/space/, /^app\/model-home/, /^app\/model-space(?!-search\.js)/, /^app\/model-app-ia/,
@@ -156,6 +158,12 @@ test('Web 入口在加载模块之前声明表面', () => {
   const decl = html.indexOf('window.BC_SURFACE_ID =');
   assert.ok(decl > 0 && decl < html.indexOf('src="app/model-surface.js'));
   assert.match(html, /window\.BC_SURFACE_ID = \/\[\?&\]review=\/\.test\(location\.search\) \? 'review' : 'web';/);
+});
+
+test('录制入口只在 App：Web 与审片页都没有，录好的视频两端都能编辑', () => {
+  assert.equal(S.make('app').record, true);
+  assert.equal(S.make('web').record, false);
+  assert.equal(S.make('review').record, false);
 });
 
 test('review：Web 能力再去掉视频列表、导出与任务，标记仍是截图模式', () => {

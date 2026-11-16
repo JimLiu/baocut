@@ -66,13 +66,19 @@
       if (k === 'blank') app.newProject({entry: 'blank', dir});
       else if (k === 'file') app.newProject({entry: 'media', dir});
       else if (k === 'import') onImport();
+      else if (k === 'record' && window.BC_RECORDER) window.BC_RECORDER.open({mode: 'new', dir});
     };
+    /* 「录制新视频」只在 App（录制要桌面端、Runtime 就在这台电脑上，model-surface.js） */
+    const record = window.BC_SURFACE.record && window.BC_RECORDER
+      ? [<R.MenuItem key="record" id="record" textValue="录制新视频"><R.Icons.DeviceLaptop /><R.Text>录制新视频…</R.Text><R.Text slot="description">不经过智能体，把屏幕录成一个新视频</R.Text></R.MenuItem>]
+      : [];
     return (
       <R.MenuTrigger>
         <R.Button variant="accent" size="M"><R.Icons.Add /><R.Text>新建</R.Text></R.Button>
         <R.Menu aria-label="新建" onAction={onAction}>
           <R.MenuItem id="blank" textValue="新建空视频"><R.Icons.Filmstrip /><R.Text>新建空视频</R.Text><R.Text slot="description">不转录、不排队，立即可用</R.Text></R.MenuItem>
           <R.MenuItem id="file" textValue="从文件新建视频"><R.Icons.Video /><R.Text>从文件新建视频…</R.Text><R.Text slot="description">视频或音频，转录后进编辑器</R.Text></R.MenuItem>
+          {record}
           <R.MenuItem id="import" textValue="导入素材"><R.Icons.Import /><R.Text>导入素材…</R.Text><R.Text slot="description">图片、音频、字幕、文档，拷进项目的素材目录</R.Text></R.MenuItem>
         </R.Menu>
       </R.MenuTrigger>

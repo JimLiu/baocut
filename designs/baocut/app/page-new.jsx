@@ -230,6 +230,8 @@
         <div className="newp home-create">
           {/* 旧版项目导入在跑 / 留了没导入的（legacy-import-task.jsx，只在 App） */}
           {window.LegacyImportBanner ? <window.LegacyImportBanner /> : null}
+          {/* 没有收完的录制（new-recording.jsx，只在 App）：恢复，或删掉录下的文件 */}
+          {window.BC_SURFACE.record && window.HomeRecovery ? <window.HomeRecovery /> : null}
           <div className="newp__hd newp__hd--hero">
             <div className="greet">想做个什么视频？</div>
           </div>

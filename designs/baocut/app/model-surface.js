@@ -21,7 +21,10 @@
       pages: true,       // 新建项目 / 我的项目 / 后台任务 / 工具 / 服务 / 设置
       help: true,        // 帮助中心（F1）
       windowChrome: true, // 标题栏画 macOS 红绿灯与前进后退
-      importMedia: true, // 往项目里加本机文件 / 在线素材 / 录制
+      importMedia: true, // 往项目里加本机文件 / 在线素材
+      /* 屏幕录制的入口（屏幕录制设计 §11，product-design §3.2.1、§4.8、§5.9）：Home、Space、编辑器素材面板与智能体的录制卡。
+         只在桌面端、Runtime 就在这台电脑上时才有；Web 不显示入口，录好的视频两端都能编辑。 */
+      record: true,
       flashFix: true,    // 光速修正：再导一次只重渲改过的区间（Web 的导出只有整片重导）
       remote: true,      // 远端算力：共享侧在服务页，使用侧是各处的「在哪儿跑 / 用哪台电脑」（Web 没有服务页，也不配对节点）
       sidebarDefaultOpen: true,
@@ -50,14 +53,14 @@
     web: {
       id: 'web', name: 'BaoCut Web',
       ai: false, agent: false, pages: false, help: false, windowChrome: false,
-      importMedia: true, flashFix: false, remote: false,
+      importMedia: true, record: false, flashFix: false, remote: false,
       sidebarDefaultOpen: false, appRail: false, fontDownloads: false, reveal: false, exportNextToSource: false, localAdmin: false,
       videoList: true, exportVideo: true, tasks: true,
     },
     review: {
       id: 'review', name: 'BaoCut 审片',
       ai: false, agent: false, pages: false, help: false, windowChrome: false,
-      importMedia: true, flashFix: false, remote: false,
+      importMedia: true, record: false, flashFix: false, remote: false,
       sidebarDefaultOpen: false, appRail: false, fontDownloads: false, reveal: false, exportNextToSource: false, localAdmin: false,
       videoList: false, exportVideo: false, tasks: false,
     },

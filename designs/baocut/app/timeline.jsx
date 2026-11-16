@@ -430,6 +430,8 @@
                     <window.DubHead row={r} tag={tags[r.key]} ctx={ctx} onOpen={setDubMenu} open={!!dubMenu && dubMenu.lang === (r.dub || {}).lang} />
                   ) : r.kind === 'score' ? (
                     <window.ScoreHead row={r} ctx={ctx} onOpen={setScoreMenu} open={!!scoreMenu && scoreMenu.bus === r.bus} />
+                  ) : r.kind === 'svzoom' || r.kind === 'svmouse' ? (
+                    <window.ScreenRowHead row={r} />
                   ) : r.kind === 'transcript' ? (
                     <><Ic n="transcript" className="ic--14" />
                       <span className="thd__label" title="文稿 · 只读 · 这条视频还没有字幕轨，在字幕 Tab 生成">{TL.headLabel(r)}</span></>
@@ -453,7 +455,11 @@
                   )}
                 </div>
                 <div className="trow__body">
-                  {r.member ? (
+                  {r.kind === 'svzoom' ? (
+                    <window.ScreenZoomRow row={r} pxps={pxps} ctx={ctx} />
+                  ) : r.kind === 'svmouse' ? (
+                    <window.ScreenMouseRow row={r} pxps={pxps} ctx={ctx} />
+                  ) : r.member ? (
                     <MemberBlock group={r.el} member={r.member} row={r} pxps={pxps} ctx={ctx} draft={draft} />
                   ) : r.kind === 'template' ? (
                     <TemplateBlock row={r} pxps={pxps} ctx={ctx} on={ctx.isSel('element', r.el.id)} onMenu={setBlkMenu} />

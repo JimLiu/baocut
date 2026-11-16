@@ -125,7 +125,12 @@
       : el.kind === 'text' && el.text ? window.BC_EL.textLabel(el.text, 20) : el.name;
     const imp = TL.importState((ctx.elDocs[el.id] || {}).media);
     const kfN = window.BC_KF.total((ctx.elDocs[el.id] || {}).keyframes);
-    const kfMark = kfN ? <span className="tkf" title={kfN + ' 个关键帧'}><Ic n="keyframe" className="ic--14" /></span> : null;
+    const kfMark0 = kfN ? <span className="tkf" title={kfN + ' 个关键帧'}><Ic n="keyframe" className="ic--14" /></span> : null;
+    /* 联动标记（屏幕录制设计 §5，视频格式规范 §3.18）：同一次录制的屏幕、摄像头与声音在一个联动组里，
+       块上挂一枚链环；拖动、修剪与拆分整组一起，「解组」在块的右键菜单里 */
+    const link = window.BC_SV ? window.BC_SV.linkOf(el, ctx.elDocs) : null;
+    const kfMark = link ? <>{kfMark0}<span className="scv-link" title="与这次录制的其他轨道联动：移动、拆分、修剪一起进行"
+      aria-label="联动"><Ic n="link" className="ic--12" /></span></> : kfMark0;
     const isVideo = el.kind === 'video';
     /* 白板手绘（2026-09-11）：与视频同为两层媒体条——上半画面带、下半画时带，
        内容在 [timeline-whiteboard.jsx](timeline-whiteboard.jsx)；手绘参数读这一件的样式文档
@@ -178,8 +183,20 @@
         setGesture(null); setDraft(null); onSnap(null);
         if (onDraft) onDraft(null);
         if (Math.abs(last.start - base.start) > 0.001 || Math.abs(last.end - base.end) > 0.001) {
+          /* 联动组整组一起动（视频格式规范 §3.18）：拖动时各成员平移同样多，修剪时各成员的同一端挪同样多；一条历史 */
+          const mates = link ? window.BC_SV.withLinked(ctx.elements, ctx.elDocs, [el.id]).filter((id) => id !== el.id) : [];
+          if (mates.length && ctx.history) ctx.history.begin();
           ctx.setElDoc(el.id, {start: +last.start.toFixed(2), end: +last.end.toFixed(2)});
-          app.toast(`${el.name} · ${T.timecode(last.start)} → ${T.timecode(last.end)}`);
+          const ds = last.start - base.start, de = last.end - base.end;
+          mates.forEach((id) => {
+            const m = Object.assign({}, ctx.elements.find((x) => x.id === id), ctx.elDocs[id]);
+            if (m.end == null) return;
+            const start = mode === 'right' ? m.start : Math.max(0, m.start + ds);
+            const end = mode === 'left' ? m.end : m.end + de;
+            if (end - start > 0.1) ctx.setElDoc(id, {start: +start.toFixed(2), end: +end.toFixed(2)});
+          });
+          if (mates.length && ctx.history) ctx.history.commit('link-move');
+          app.toast(`${el.name}${mates.length ? '（整组 ' + (mates.length + 1) + ' 件）' : ''} · ${T.timecode(last.start)} → ${T.timecode(last.end)}`);
         }
       };
       window.addEventListener('mousemove', move);

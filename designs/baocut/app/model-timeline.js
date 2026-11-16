@@ -31,8 +31,16 @@
      其余各类——元素、文字、模板、音频、音乐、配音、背景声——与字幕行同高；波形不再单独撑高一行。
      文本组的成员行是组内的子泳道，保持矮一档。 */
   const LANE_H = 46;
+  /* 屏幕的附属行（屏幕录制设计 §5）：「缩放」「鼠标」两行矮一档，跟在屏幕那一道下面 */
   const ROW_H = {element: LANE_H, video: 66, text: LANE_H, member: 24, template: LANE_H, subs: LANE_H,
-    audio: LANE_H, music: LANE_H, dub: LANE_H, bed: LANE_H};
+    audio: LANE_H, music: LANE_H, dub: LANE_H, bed: LANE_H, svzoom: 28, svmouse: 28};
+  /* 录制的各路（屏幕录制设计 §5）：一道上全是同一路时行头念这一路，而不是「视频」「音频」 */
+  const ROLE_HEAD = {screen: '屏幕', camera: '摄像头', microphone: '麦克风', 'system-audio': '系统音频'};
+  function rowRole(r) {
+    const list = r.els && r.els.length ? r.els : r.el ? [r.el] : [];
+    const role = list.length ? list[0].role : null;
+    return role && list.every((e) => e.role === role) ? role : null;
+  }
   const languageBadge = (lang) => {
     const code = String(lang || '').split(/[-_]/)[0].toUpperCase();
     return code === 'JA' ? 'JP' : code.slice(0, 3);
@@ -48,6 +56,10 @@
     if (r.kind === 'transcript') return '文稿';
     if (r.kind === 'dub') return (r.dub?.role === 'narration' ? '旁白' : '配音') + (language ? ' · ' + language : '');
     if (r.member) return r.member.name || '文字';
+    if (r.kind === 'svzoom') return '缩放';
+    if (r.kind === 'svmouse') return '鼠标';
+    const role = rowRole(r);
+    if (role && ROLE_HEAD[role]) return ROLE_HEAD[role];
     const kind = r.elKind || r.el?.kind || r.kind;
     return ({video:'视频', image:'图片', text:'文字', textgroup:'文字组', template:'模板', tpl:'模板',
       sticker:'贴纸', whiteboard:'白板', music:'音乐', bed:'背景声', audio:r.split ? '原声' : '音频'})[kind] || r.label || r.el?.name || '元素';
@@ -377,6 +389,16 @@
           out.push({key: 'el:' + e.kind + '@' + lane, kind, elKind: e.kind, lane,
             h: isMediaKind(e.kind) ? ROW_H.video : ROW_H[kind], el: list[0], els: list,
             off: list.every((x) => !!hiddenEls[x.id])});
+          /* 屏幕录制的实例（带取景文档 `screenView`，屏幕录制设计 §5）：这一道下面跟「缩放」「鼠标」两条附属行，
+             画的是取景文档里的缩放区间与录制里的点击，按这一道上的屏幕实例投到序列上。它们不是轨：没有开关、
+             不进导出，拖行头时跟着屏幕那一道走。 */
+          const views = [];
+          list.forEach((x) => { if (x.screenView && views.indexOf(x.screenView) < 0) views.push(x.screenView); });
+          views.forEach((v) => {
+            const screens = list.filter((x) => x.screenView === v);
+            out.push({key: 'svz:' + v + '@' + lane, kind: 'svzoom', h: ROW_H.svzoom, view: v, screens, indent: true});
+            out.push({key: 'svm:' + v + '@' + lane, kind: 'svmouse', h: ROW_H.svmouse, view: v, screens, indent: true});
+          });
         }
         return;
       }
@@ -455,7 +477,7 @@
     if (row.kind === 'audio' || row.kind === 'music' || row.kind === 'dub' || row.kind === 'score') return 'audio';
     return null;
   }
-  const ridesAlong = (row) => row.kind === 'member' || row.kind === 'bed';
+  const ridesAlong = (row) => row.kind === 'member' || row.kind === 'bed' || row.kind === 'svzoom' || row.kind === 'svmouse';
   /** 行按「轨 + 它的随行」分成单元，保持显示顺序。 */
   function trackUnits(rows) {
     const units = [];

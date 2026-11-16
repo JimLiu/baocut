@@ -76,6 +76,9 @@
     artifacts_save: (a) => ({kind: 'artifact', label: '保存产物', icon: 'download', summary: a.path || ''}),
     /* 从链接下载视频（这时视频还没创建；下载完成后建出视频记录，会话里那张下载卡原位换成视频卡） */
     downloads_fetch: (a) => ({kind: 'download', label: '下载视频', icon: 'download', summary: join(a.site, a.name || a.title || a.url)}),
+    /* 屏幕录制（屏幕录制设计 §13）：不直接开始采集，线程里挂录制卡，用户在预先填好的面板上按开始 */
+    record: (a) => ({kind: 'record', label: '屏幕录制', icon: 'video',
+      summary: join(a.source === 'window' ? '一个窗口' : a.source === 'area' ? '一个区域' : '整块屏幕', a.camera ? '摄像头' : null, a.microphone ? '麦克风' : null)}),
     downloads_save: (a) => ({kind: 'download', label: '放到下载', icon: 'download', summary: a.name || base(a.path)}),
     space_list: (a) => ({kind: 'space', label: '浏览 Space', icon: 'asset', summary: a.filter || a.kind || ''}),
     space_search: (a) => ({kind: 'space-search', label: '搜索 Space', icon: 'search', summary: a.query || ''}),

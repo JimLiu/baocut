@@ -24,6 +24,8 @@
       "app/model-llm-tools.js",
       "app/model-newproject.js",
       "app/model-timeline.js",
+      "app/model-screen-view.js",
+      "app/model-recording.js",
       "app/model-ripple.js",
       "app/model-cut.js",
       "app/model-export.js",
@@ -343,6 +345,10 @@
       "app/stage-elements.jsx",
       "app/daoyazi-stage.jsx",
       "app/stage-load.jsx",
+      "app/recording-edit.jsx",
+      "app/recording-timeline.jsx",
+      "app/recording-inspector.jsx",
+      "app/recording-stage.jsx",
       "app/stage.jsx",
       "app/player.jsx",
       "app/subtrack.jsx",
@@ -502,6 +508,7 @@
       "app/crop.css",
       "app/stage-load.css",
       "app/stage-panels.css",
+      "app/recording.css",
       "app/daoyazi.css",
       "app/help-center.css",
       "app/player.css",
@@ -548,9 +555,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=05a55be4f261",
-    "css": "generated/app.css?v=ee4ecffc1974",
-    "bytes": 5308745
+    "js": "generated/app.js?v=0d6afad10c57",
+    "css": "generated/app.css?v=00381347dae1",
+    "bytes": 5356357
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -573,6 +580,7 @@
       "app/model-prompt-slots.js",
       "app/model-newproject.js",
       "app/model-timeline.js",
+      "app/model-screen-view.js",
       "app/model-ripple.js",
       "app/model-cut.js",
       "app/model-export.js",
@@ -711,6 +719,10 @@
       "app/stage-elements.jsx",
       "app/daoyazi-stage.jsx",
       "app/stage-load.jsx",
+      "app/recording-edit.jsx",
+      "app/recording-timeline.jsx",
+      "app/recording-inspector.jsx",
+      "app/recording-stage.jsx",
       "app/stage.jsx",
       "app/player.jsx",
       "app/subtrack.jsx",
@@ -808,6 +820,7 @@
       "app/daoyazi.css",
       "app/stage-load.css",
       "app/stage-panels.css",
+      "app/recording.css",
       "app/stage-markup.css",
       "app/web-shell.css",
       "app/player.css",
@@ -821,9 +834,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=038ea7e7f4db",
-    "css": "generated/web.css?v=9f964af07c95",
-    "bytes": 2921485
+    "js": "generated/web.js?v=3bb4e5eb56c4",
+    "css": "generated/web.css?v=32e1aa9cee7f",
+    "bytes": 2955040
   },
   "components": {
     "file": "Components.html",

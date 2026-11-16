@@ -232,6 +232,56 @@
        · `content`：第二层。文稿段落、章节、说话人、译文、画面文字，各自带时间。
          真机上这一层来自内核 `bcut project search` 的缓存索引，所以**排队中 /
          出错的项目没有 content**——还没转录出来的东西搜不到，这不是缺数据。 */
+  /* ---------- 示例录制（屏幕录制设计 docs/design/screen-recording §5，product-design §5.9） ----------
+     一次 1 分 36 秒的录制：屏幕（另画光标）、摄像头、麦克风、系统音频四路，同一个联动组；屏幕带一份取景文档
+     （五段按点击生成的自动缩放，其中一段改过，加一段手动的「固定看一点」）。录屏的画面是示意的渐变，
+     时刻都在录制时钟上（秒），点击的坐标是画面的 0–1。 */
+  const recordingDemo = {
+    id: 'rec-1115-1012', view: 'sv-1115-1012', link: 'lg-1115-1012', duration: 96, date: '今天 10:12',
+    pointer: 'separate',
+    streams: {
+      screen: {asset: 'screen-1115-1012.mp4', w: 2560, h: 1600},
+      camera: {asset: 'camera-1115-1012.mp4', w: 1280, h: 720},
+      microphone: {asset: 'microphone-1115-1012.m4a'},
+      system: {asset: 'system-audio-1115-1012.m4a'},
+    },
+    clicks: [
+      {t: 4.2, x: 0.14, y: 0.09}, {t: 5.6, x: 0.22, y: 0.09}, {t: 18.4, x: 0.62, y: 0.71}, {t: 19.9, x: 0.66, y: 0.72},
+      {t: 21.3, x: 0.7, y: 0.73}, {t: 37.5, x: 0.31, y: 0.44}, {t: 52.3, x: 0.82, y: 0.18}, {t: 53.8, x: 0.84, y: 0.2},
+      {t: 71.2, x: 0.47, y: 0.86}, {t: 84.6, x: 0.9, y: 0.06},
+    ],
+    zooms: [
+      {id: 'z1', t0: 3.6, t1: 7.2, scale: 2, focus: {kind: 'pointer'}, origin: 'auto'},
+      {id: 'z2', t0: 17.8, t1: 24.6, scale: 2.5, focus: {kind: 'pointer'}, origin: 'auto', edited: true, rampIn: 0.6},
+      {id: 'z3', t0: 36.9, t1: 39.1, scale: 2, focus: {kind: 'pointer'}, origin: 'auto'},
+      {id: 'z4', t0: 51.7, t1: 55.4, scale: 2, focus: {kind: 'pointer'}, origin: 'auto'},
+      {id: 'z5', t0: 60, t1: 68, scale: 2.4, focus: {kind: 'point', x: 0.68, y: 0.32}, origin: 'manual'},
+      {id: 'z6', t0: 70.6, t1: 72.8, scale: 2, focus: {kind: 'pointer'}, origin: 'auto'},
+    ],
+    follow: {safeArea: 0.5, smoothing: 0.6},
+    cursor: {size: 1.5, idleHide: 2, ripple: true},
+  };
+  /* 录制的素材：缩略图渐变是录下来的画面内容本身的示意（一扇浅色窗口、一张人脸），不是界面表面 */
+  const recordingSources = {
+    video: [
+      {id: 'rv1', name: 'screen-1115-1012.mp4', meta: '2560 × 1600 · 30 fps · 412 MB', dur: 96, badge: '屏幕',
+       /* @ds-allow: 录下来的画面内容（窗口、人脸）的示意色，不属于主题 UI 色 */
+       grad: 'linear-gradient(180deg, #2B3242 0 6%, #F3F5F8 6% 100%)', naturalW: 2560, naturalH: 1600},
+      {id: 'rv2', name: 'camera-1115-1012.mp4', meta: '1280 × 720 · 30 fps · 96 MB', dur: 96, badge: '摄像头',
+       /* @ds-allow: 录下来的画面内容（窗口、人脸）的示意色，不属于主题 UI 色 */
+       grad: 'radial-gradient(circle at 50% 38%, #E2B48C 0 17%, #3B2F2A 18% 26%, #485A70 27% 100%)', naturalW: 1280, naturalH: 720},
+    ],
+    audio: [
+      {id: 'ra1', name: 'microphone-1115-1012.m4a', meta: '01:36 · 48 kHz', dur: 96, badge: '麦克风'},
+      {id: 'ra2', name: 'system-audio-1115-1012.m4a', meta: '01:36 · 48 kHz', dur: 96, badge: '系统音频'},
+    ],
+  };
+  /* 没有收完的录制（§11 恢复）：启动页顶上只讲最新的一次。`ago` 是多少分钟前 */
+  const recordingRecovery = [
+    {id: 'rr1', date: '今天 09:05', duration: 74, ago: 70},
+    {id: 'rr2', date: '昨天 16:20', duration: 312, ago: 1100},
+  ];
+
   const projects = [
     {id: 'p11', title: 'Sintel · 预告片剪辑', dir: 'd6', folder: 'Sintel预告', status: 'ready', bare: true, focus: 'movie',
      preview: {url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
@@ -531,6 +581,16 @@
      src: {name: 'year-review.mov', path: '~/Movies/回顾/year-review.mov', format: 'MOV · H.264', res: '1920×1080', bytes: 6335076761, state: 'ok'},
      duration: 4820, lang: '中文', model: 'qwen3-asr-0.6b', modified: '上周', mtime: 11520, otime: 20160, ctime: 40320, hue: 350,
      desc: '一年素材的粗剪合集，转录失败了还没重跑。',
+     content: {}, meta: {}},
+    /* 录屏（屏幕录制设计 §5）：时间线上是屏幕、摄像头、麦克风、系统音频四件，同一个联动组 */
+    {id: 'p17', title: '第 5 讲 · 时间线怎么拆分（录屏）', dir: 'd5', folder: '第05讲-录屏', status: 'complete', bare: true,
+     recording: recordingDemo,
+     src: {name: 'screen-1115-1012.mp4', path: '~/BaoCut/确定性渲染课程/第05讲-录屏/recordings/rec-1115-1012/screen-1115-1012.mp4',
+       format: 'MP4 · H.264', res: '2560×1600', bytes: 432013312, state: 'ok'},
+     duration: 96, lang: '中文', modified: '刚刚', mtime: 2, otime: 4, ctime: 10, hue: 265,
+     desc: '屏幕加摄像头的讲解录屏：自动缩放跟着点击，一段手动缩放固定看右上角的面板。',
+     notes: '时间线上屏幕下面是「缩放」与「鼠标」两行；选中屏幕看检查器里的「屏幕取景」。',
+     toast: '录屏 · 屏幕、摄像头、麦克风、系统音频四路联动 · 6 段缩放',
      content: {}, meta: {}},
   ];
 
@@ -2753,6 +2813,17 @@
          {id: 'm3', role: 'tool', tool: 'downloads_fetch', args: {site: 'boke.example', name: 'founders-talk-ep42.m4a'}, status: 'done', took: '6s', taskId: 'ag30d'},
          {id: 'm4', role: 'assistant', text: '下载好了：「创业者对谈 · 第 42 期」，38 MB，存在 ~/Downloads/founders-talk-ep42.m4a。在下载卡上可以直接播放或在文件夹中显示。'},
        ]},
+      /* 智能体请用户录一段（屏幕录制设计 §13）：`record` 不直接开始采集，线程里挂一张录制卡，卡上打开预先填好的录制面板，
+         用户按「开始录制」才开始；录完放进一部新视频，卡上换成「打开视频」。 */
+      {id: 's35', title: '录一段时间线拆分的讲解', project: null, dir: 'd5', harness: 'claude', model: 'sonnet', effort: 'mid',
+       status: 'idle', ago: 2,
+       messages: [
+         {id: 'm1', role: 'user', text: '帮我录一段屏幕加摄像头，我讲一下时间线怎么拆分片段。录完把口误剪掉、加上字幕。', ...turnDone(2, 6)},
+         {id: 'm2', role: 'assistant', text: '我把录制面板填好了：整块屏幕、内建摄像头、系统默认麦克风，光标另画，之后能按点击自动放大。核对一下，准备好了按「开始录制」。'},
+         {id: 'm3', role: 'tool', tool: 'record', args: {source: 'display', camera: true, microphone: true}, status: 'done', took: '1s',
+          recording: {id: 'rq35', source: 'display', camera: 'c1', mic: 'default', cursor: 'separate', project: 'p17'}},
+         {id: 'm4', role: 'assistant', text: '录完按停止，我接着处理。'},
+       ]},
       /* 边转边问：转录在后台跑，Agent 问了一句就收掉这一轮；用户回话时转录还没完，视频卡跟到新的一轮（ag23t） */
       {id: 's23', title: '转录这支预告片', project: 'p11', harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'idle', ago: 1,
@@ -3509,6 +3580,13 @@
     const movie = !!proj.preview;
     const main = {...sources.video[0], name: proj.src.name, dur: proj.duration,
       ...(movie ? {url: proj.preview.url, poster: proj.preview.poster, meta: proj.src.format} : {})};
+    if (proj.recording) {
+      // 录屏（屏幕录制设计 §5）：素材是录制的四路，时长是录制的长度；没有文稿与字幕，打开先看视频
+      const d = proj.recording.duration;
+      return {entry, tab: 'video', transcript: false, captions: false, music: false, score: [], duration: d,
+        clips: [{id: 'k1', start: 0, end: d, src: 0}], chapters: [],
+        sources: {image: [], video: recordingSources.video.slice(), audio: recordingSources.audio.slice()}};
+    }
     if (proj.scenes) {
       // 讲解动画（docs/design/lite-editor §2.1）：章节就是场景表的每一行；没有配乐与别的素材，只有成片那一条视频
       return {entry, tab: entry.tab, transcript: true, captions: true, music: false, score: [], duration: DUR, clips,
@@ -4423,5 +4501,6 @@ description: 「确定性渲染」课程的统一规范：讲师口吻、代码�
     canvasStyle, templateItems, elementSpecs,
     textCats, textPresets, textAnims, textStylePresets,
     entries, cutSuggestions, semantic, videoVersions,
+    recordingDemo, recordingSources, recordingRecovery,
   };
 })();

@@ -274,6 +274,8 @@
           </div>
 
           <MediaSection v={v} set={set} onAdjust={onAdjust} onFilters={onFilters} />
+          {/* 录制带来的屏幕 / 摄像头（recording-inspector.jsx）：屏幕取景、跟随、光标、演示样式；摄像头布局 */}
+          {id && window.ScreenViewSections ? <window.ScreenViewSections ctx={ctx} id={id} /> : null}
           {/* 几何段（几何面板设计稿 §8.2）：旋转 · 翻转 · 适应画布那一行放到本段末行。
               按原片取景的视频（`focal`）换成「取景」段（stage-framing.jsx）：位置、大小、旋转由取景点和画幅现算，只留放大。
               分屏的视频（`panels`）换成「版式」段（stage-panels.jsx）。 */}

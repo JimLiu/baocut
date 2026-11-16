@@ -191,6 +191,7 @@
     const task = (id) => app.tasks.find((t) => t.id === id);
     return <div className="chat-outputs" role="group" aria-label="消息产物">
       {cards.map((c) => {
+        if (c.k === 'recording') return window.RecordingCard ? <window.RecordingCard key={c.recording.id} request={c.recording} sess={sess} /> : null;
         if (c.k === 'artifact') return <window.SessionArtifactCard key={`${c.item.id}@${c.item.turn != null ? c.item.turn : ''}`} item={c.item} sess={sess} />;
         const t = task(c.taskId);
         if (!t) return null;

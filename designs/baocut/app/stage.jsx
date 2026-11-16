@@ -370,6 +370,8 @@
           {player ? null : <StageChips />}
           <StageMediaNotice proj={ctx.proj} />
           <window.StageLoadNotice proj={ctx.proj} />
+          {/* 缩放取景框（recording-stage.jsx）：选中一段「固定看一点」的缩放时画在屏幕画面上，拖动改看哪里 */}
+          {!player && !markupOn && window.ScreenFramingBox ? <window.ScreenFramingBox ctx={ctx} frameRef={frameRef} /> : null}
           {/* 视频标注层（product-design §3.2.3「视频标注」；stage-notes.jsx，只在 App 入口）：挂在 `.frame` 最后，盖在元素与字幕之上，
               画播放头附近那一帧的草稿标记；全屏播放器不画。 */}
           {!player && window.StageNotesLayer ? <window.StageNotesLayer ctx={ctx} frameRef={frameRef} /> : null}

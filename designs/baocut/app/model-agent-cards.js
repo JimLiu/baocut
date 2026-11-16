@@ -363,7 +363,8 @@
       下载、完成的候选。视频卡一条会话一部视频一张，挂在 sessionArtifacts 算出的锚点；
       下载卡挂在最后一条引用它的工具行，候选卡挂在第一次引用它的那一行。下载建出视频（任务带上 `project`）后
       不再挂下载卡，换成视频卡；两张同时挂在同一行时下载卡在前（先有下载，后有视频）。
-      返回 Map(行 id → [{k: 'artifact', item} | {k: 'download', taskId} | {k: 'candidate', taskId}])，行内按消息先后。 */
+      智能体调 `record` 的那一行挂录制卡。
+      返回 Map(行 id → [{k: 'artifact', item} | {k: 'download', taskId} | {k: 'candidate', taskId} | {k: 'recording', recording}])，行内按消息先后。 */
   function rowCards(rows, messages, artifacts, tasks) {
     const idx = rowIndex(rows);
     const order = new Map((messages || []).map((m, i) => [m.id, i]));
@@ -372,6 +373,11 @@
     (artifacts || []).forEach((a) => { if (idx.has(a.messageId)) list.push({at: order.get(a.messageId), rank: 1, row: idx.get(a.messageId), card: {k: 'artifact', item: a}}); });
     const seen = new Map();
     (messages || []).forEach((m, i) => {
+      /* 录制卡（屏幕录制设计 §13）：挂在智能体调 `record` 的那一行，状态由录制宿主管（new-recording.jsx） */
+      if (m.role === 'tool' && m.tool === 'record' && m.recording && idx.has(m.id)) {
+        list.push({at: i, rank: 0, row: idx.get(m.id), card: {k: 'recording', recording: m.recording}});
+        return;
+      }
       if (m.role !== 'tool' || !m.taskId || !idx.has(m.id)) return;
       const t = byId.get(m.taskId);
       if (!t) return;

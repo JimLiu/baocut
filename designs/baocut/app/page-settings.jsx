@@ -64,6 +64,8 @@
             <window.AppUpdateAutoRow />
           </div>
         </section>
+        {/* 屏幕录制（new-recording.jsx，只在 App）：全局快捷键、缺省帧率与倒计时、录制时收起 */}
+        {window.BC_SURFACE.record && window.RecordingSettingsGroup ? <window.RecordingSettingsGroup /> : null}
         {/* 下载来源与离线（2026-10-13 设计稿，download-sources.jsx）：多个来源，按种类各选一个在用 */}
         <window.DownloadSourcesGroup />
       </>

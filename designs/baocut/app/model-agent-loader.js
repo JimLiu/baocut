@@ -64,6 +64,8 @@
     /* 进出 */
     import: ['cloud', 'arrow', 'folder'],
     download: ['cloud', 'arrow', 'floppy'],
+    /* 屏幕录制：画面、麦克风、时间线 */
+    record: ['eye', 'microphone', 'timeline'],
     export: ['floppy', 'arrow', 'journey'],
     artifact: ['floppy', 'folder', 'cart'],
     /* 任务、模型与命令 */

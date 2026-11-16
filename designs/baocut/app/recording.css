@@ -1,0 +1,48 @@
+/* 录制带来的屏幕在编辑器里的几处（recording-timeline.jsx、recording-inspector.jsx、recording-stage.jsx；
+   屏幕录制设计 §5）。App 与 Web 都加载。三种缩放：自动（浅紫）、自动 · 改过（深一档紫，带标记）、手动（靛蓝）。 */
+
+/* 时间线块上的联动标记 */
+.scv-link { flex: none; display: inline-flex; align-items: center; margin-left: 4px; color: var(--gray-700); opacity: 0.9; }
+.tkf + .scv-link { margin-left: 2px; }
+
+/* 「缩放」「鼠标」两条附属行 */
+.scv-lane { position: absolute; inset: 0; cursor: crosshair; }
+.scv-lane--mouse { cursor: pointer; }
+.scv-lane--mouse::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--gray-300); }
+.scv-lasso { position: absolute; top: 4px; bottom: 4px; border-radius: 4px; border: 1px dashed var(--indigo-1000); background: var(--indigo-200); pointer-events: none; }
+.scv-zoom { position: absolute; top: 4px; bottom: 4px; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+  border-radius: 4px; border: 1px solid transparent; font-size: 11px; font-weight: 700; color: var(--gray-900); cursor: grab; overflow: hidden; }
+.scv-zoom::before, .scv-zoom::after { content: ''; position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; }
+.scv-zoom::before { left: 0; }
+.scv-zoom::after { right: 0; }
+.scv-zoom--auto { background: var(--purple-300); border-color: var(--purple-400); }
+.scv-zoom--edited { background: var(--purple-400); border-color: var(--purple-700); }
+.scv-zoom--manual { background: var(--indigo-300); border-color: var(--indigo-700); }
+.scv-zoom.is-on { box-shadow: 0 0 0 2px var(--blue-800); z-index: 1; }
+.scv-zoom.is-clip-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.scv-zoom.is-clip-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.scv-zoom__lb { pointer-events: none; font-variant-numeric: tabular-nums; }
+.scv-zoom__mark { position: absolute; top: 2px; right: 2px; width: 6px; height: 6px; border-radius: 9999px; background: var(--purple-1000); pointer-events: none; }
+.scv-click { position: absolute; top: 6px; bottom: 6px; width: 2px; margin-left: -1px; border-radius: 0; background: var(--gray-700); }
+
+/* 检查器 */
+.scv-list { display: flex; flex-direction: column; gap: 2px; margin: 4px 0; }
+.scv-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12px; color: var(--gray-800); text-align: left; }
+.scv-item:hover { background: var(--gray-100); }
+.scv-item.is-on { background: var(--blue-100); color: var(--gray-900); }
+.scv-item__sw { flex: none; width: 10px; height: 10px; border-radius: 3px; border: 1px solid transparent; }
+.scv-item__n { flex: none; font-weight: 700; }
+.scv-item__m { flex: 1; min-width: 0; color: var(--gray-600); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scv-item__o { flex: none; font-size: 11px; color: var(--gray-600); }
+.scv-item__o--edited { color: var(--purple-1000); }
+.scv-item__o--manual { color: var(--indigo-1000); }
+.scv-edit { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; padding: 8px; border-radius: 8px; background: var(--gray-75); }
+.scv-group.is-off { opacity: 0.55; }
+.scv-picker { width: 100%; }
+
+/* 舞台上的缩放取景框 */
+.scv-frame { position: absolute; pointer-events: none; z-index: 40; }
+.scv-frame__box { position: absolute; box-sizing: border-box; border: 2px solid var(--indigo-1000); border-radius: 3px;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.28); /* @ds-allow: 压暗取景框外的录屏画面，跟着画面走，不是 S2 表面 */ cursor: move; pointer-events: auto; }
+.scv-frame__lb { position: absolute; left: -2px; top: -22px; padding: 1px 6px; border-radius: 4px; background: var(--indigo-1000);
+  color: var(--gray-25); font-size: 11px; font-weight: 700; white-space: nowrap; }

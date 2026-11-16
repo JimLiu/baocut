@@ -896,3 +896,24 @@ test('单条文字叠在原片上面：「添加文本框」造出来的字不�
   const rank = TL.stackRank(rows);
   assert.ok(rank.txt > rank.vid, '文字的名次高于原片');
 });
+
+test('录屏：屏幕那一道下面跟「缩放」「鼠标」两条附属行，行头念录制的各路，拖行头时跟着屏幕走', () => {
+  const base = {start: 0, end: 30, link: 'g'};
+  const els = [
+    Object.assign({id: 'scr', kind: 'video', role: 'screen', screenView: 'v'}, base),
+    Object.assign({id: 'cam', kind: 'video', role: 'camera'}, base),
+    Object.assign({id: 'mic', kind: 'audio', role: 'microphone'}, base),
+  ];
+  const {rows} = TL.rows(els, {subTracks: [], music: false, audio: false});
+  assert.deepStrictEqual(rows.map((r) => [r.kind, TL.headLabel(r)]), [
+    ['element', '摄像头'], ['element', '屏幕'], ['svzoom', '缩放'], ['svmouse', '鼠标'], ['element', '麦克风'],
+  ]);
+  const zoom = rows.find((r) => r.kind === 'svzoom');
+  assert.strictEqual(zoom.h, 28);
+  assert.strictEqual(zoom.view, 'v');
+  assert.deepStrictEqual(zoom.screens.map((e) => e.id), ['scr']);
+  assert.deepStrictEqual(TL.rowEls(zoom), [], '附属行上没有元素块');
+  assert.strictEqual(TL.laneSwitch(zoom), null, '附属行没有开关');
+  const unit = TL.trackUnits(rows).find((u) => u.rows[0].el && u.rows[0].el.id === 'scr');
+  assert.deepStrictEqual(unit.rows.map((r) => r.kind), ['element', 'svzoom', 'svmouse']);
+});
