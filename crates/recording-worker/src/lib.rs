@@ -5,6 +5,7 @@
 //!
 //! 错误说明是给 Runtime 日志看的开发者文字（英文），不是界面文字。
 
+pub mod pacing;
 pub mod platform;
 pub mod protocol;
 pub mod server;

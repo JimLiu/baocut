@@ -179,7 +179,7 @@ impl Capturer for MacCapturer {
     }
 
     fn close(&mut self) {
-        if let Some(screen) = self.screen.take() {
+        if let Some(mut screen) = self.screen.take() {
             screen.stop();
         }
         for device in self.devices.drain(..) {

@@ -7,14 +7,20 @@
 //!   （屏幕自己的点坐标）。输出的像素尺寸是内容的点尺寸乘 `SCContentFilter.pointPixelScale`（macOS 14）。
 //! - 光标：`showsCursor` 只在 `baked` 时打开，`separate` 时由指针线程另记（[`super::pointer`]）。
 //! - 系统声音：`capturesAudio`，48 kHz 立体声，`excludesCurrentProcessAudio` 不录自己。
-//! - 帧：`SCStreamFrameInfoStatus` 是 `complete` 的才是新画面，别的状态（画面没变、空白、暂停）没有像素，跳过。
+//! - 帧：`SCStreamFrameInfoStatus` 是 `complete` 的才是新画面，别的状态没有像素。画面静止时系统送 `idle`（没有新画面），
+//!   写入端借它把上一帧换个时刻补写（[`crate::pacing`]）；窗口被隐藏、最小化或不在当前桌面时系统只送一个 `suspended`，
+//!   之后什么都不送，由补帧定时器兜底。
+//! - 第一帧：`start` 等到第一帧完整的画面才算开始（最多三秒）。窗口没有画面时报 `SOURCE_NOT_CAPTURABLE`，屏幕与区域
+//!   报 `CAPTURE_UNAVAILABLE`，不会只录到声音。
 //! - 时刻：`SCStream.synchronizationClock` 上的时刻（macOS 13），写日志时换到主机时钟。
 //!
 //! 系统录屏权限没有允许时，取可录内容或开始采集由系统决定弹授权窗口还是失败；失败照实报告。
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use block2::RcBlock;
 use dispatch2::{DispatchQueue, DispatchRetained};
@@ -30,6 +36,7 @@ use objc2_screen_capture_kit::{
     SCStreamDelegate, SCStreamFrameInfoScreenRect, SCStreamFrameInfoStatus, SCStreamOutput, SCStreamOutputType, SCWindow,
 };
 
+use crate::pacing;
 use crate::protocol::{CaptureKind, Exclusion, Rect, Source, WorkerError, WorkerEvent};
 use crate::sink::Sink;
 
@@ -145,6 +152,8 @@ pub struct ScreenIvars {
     sink: Arc<Sink>,
     /// 窗口录制：每帧更新窗口在屏幕上的位置。
     window_rect: Option<SharedRect>,
+    /// 最近一个样本说这一路被挂起了（`SCFrameStatus.suspended`）。
+    suspended: Arc<AtomicBool>,
 }
 
 define_class!(
@@ -160,17 +169,26 @@ define_class!(
         unsafe fn did_output(&self, _stream: &SCStream, sample: &CMSampleBuffer, kind: SCStreamOutputType) {
             let ivars = self.ivars();
             if kind == SCStreamOutputType::Screen {
-                if let Some(info) = frame_info(sample) {
-                    if !info.complete {
-                        return;
-                    }
-                    if let (Some(shared), Some(rect)) = (&ivars.window_rect, info.screen_rect)
-                        && let Ok(mut current) = shared.lock()
-                    {
-                        *current = rect;
-                    }
-                    ivars.screen.append(sample);
+                let Some(info) = frame_info(sample) else { return };
+                if info.status == SCFrameStatus::Suspended.0 {
+                    // 窗口被隐藏、最小化（或系统暂停了这一路）：此后不再送样本，直到它回来。
+                    ivars.suspended.store(true, Ordering::Relaxed);
                 }
+                if info.status == SCFrameStatus::Idle.0 {
+                    // 画面没变：这个样本没有像素，但时刻在同一条时间线上，拿来补写最后一帧。
+                    ivars.screen.hold(unsafe { sample.presentation_time_stamp() }, pacing::REPEAT_GAP_NS);
+                    return;
+                }
+                if !info.complete {
+                    return;
+                }
+                ivars.suspended.store(false, Ordering::Relaxed);
+                if let (Some(shared), Some(rect)) = (&ivars.window_rect, info.screen_rect)
+                    && let Ok(mut current) = shared.lock()
+                {
+                    *current = rect;
+                }
+                ivars.screen.append(sample);
             } else if kind == SCStreamOutputType::Audio
                 && let Some(audio) = &ivars.audio
             {
@@ -200,6 +218,8 @@ impl ScreenOutput {
 struct FrameInfo {
     complete: bool,
     screen_rect: Option<CGRect>,
+    /// `SCFrameStatus` 的值。
+    status: isize,
 }
 
 /// 帧的附加信息（`SCStreamFrameInfo` 各键在样本附件数组的第一个字典里）。
@@ -215,7 +235,7 @@ fn frame_info(sample: &CMSampleBuffer) -> Option<FrameInfo> {
         let mut rect = CGRect::default();
         unsafe { CGRectMakeWithDictionaryRepresentation(Some(dictionary), &mut rect) }.then_some(rect)
     });
-    Some(FrameInfo { complete, screen_rect })
+    Some(FrameInfo { complete, screen_rect, status: status.integerValue() })
 }
 
 pub struct ScreenCapture {
@@ -223,6 +243,61 @@ pub struct ScreenCapture {
     _output: Retained<ScreenOutput>,
     _video_queue: DispatchRetained<DispatchQueue>,
     _audio_queue: DispatchRetained<DispatchQueue>,
+    keep_alive: Option<KeepAlive>,
+}
+
+/// 开始采集之后等第一帧完整的画面的最长时间。ScreenCaptureKit 开始后先送一帧当前的画面（实测几十毫秒内）；
+/// 等不到就是拿不到画面，`start` 失败，不录一份只有声音的录制。
+const FIRST_FRAME_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// 等第一帧。窗口被隐藏、最小化时 ScreenCaptureKit 只送一个 `suspended` 样本、之后什么都不送（实测）：看到它就不再等，
+/// 报 `SOURCE_NOT_CAPTURABLE`（Runtime 换成「窗口不在屏幕上」）。屏幕与区域等不到是 `CAPTURE_UNAVAILABLE`。
+fn wait_for_first_frame(screen: &Track, suspended: &AtomicBool, kind: CaptureKind) -> Result<(), WorkerError> {
+    let deadline = Instant::now() + FIRST_FRAME_TIMEOUT;
+    while !screen.has_frame() {
+        let gave_up = Instant::now() >= deadline || (suspended.load(Ordering::Relaxed) && kind == CaptureKind::Window);
+        if gave_up {
+            return Err(match kind {
+                CaptureKind::Window => WorkerError::new(
+                    "SOURCE_NOT_CAPTURABLE",
+                    "ScreenCaptureKit delivers no picture for this window (it is hidden, minimized or not on the current desktop)",
+                ),
+                _ => WorkerError::new("CAPTURE_UNAVAILABLE", "ScreenCaptureKit started but delivered no picture"),
+            });
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    Ok(())
+}
+
+/// 连 `idle` 样本也没有时（窗口在录制中被隐藏或最小化）定时补写最后一帧，文件照常往下写分片（[`crate::pacing`]）。
+struct KeepAlive {
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl KeepAlive {
+    fn start(screen: Arc<Track>) -> Self {
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&stop);
+        let thread = std::thread::Builder::new()
+            .name("screen-keep-alive".to_owned())
+            .spawn(move || {
+                while !flag.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_nanos(pacing::KEEP_ALIVE_POLL_NS));
+                    objc2::rc::autoreleasepool(|_| screen.keep_alive(super::clock::now(), pacing::KEEP_ALIVE_GAP_NS));
+                }
+            })
+            .ok();
+        Self { stop, thread }
+    }
+
+    fn stop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
 }
 
 pub struct ScreenOptions {
@@ -258,7 +333,14 @@ impl ScreenCapture {
             }
         }
         let has_audio = audio.is_some();
-        let output = ScreenOutput::new(ScreenIvars { screen: Arc::clone(&screen), audio: audio.clone(), sink, window_rect });
+        let suspended = Arc::new(AtomicBool::new(false));
+        let output = ScreenOutput::new(ScreenIvars {
+            screen: Arc::clone(&screen),
+            audio: audio.clone(),
+            sink,
+            window_rect,
+            suspended: Arc::clone(&suspended),
+        });
         let delegate = ProtocolObject::<dyn SCStreamDelegate>::from_ref(&*output);
         let stream = unsafe { SCStream::initWithFilter_configuration_delegate(SCStream::alloc(), &resolved.filter, &config, Some(delegate)) };
         let video_queue = DispatchQueue::new("com.baocut.recording.screen", None);
@@ -277,10 +359,20 @@ impl ScreenCapture {
         if let Some(audio) = &audio {
             audio.set_clock(clock);
         }
-        Ok(Self { stream, _output: output, _video_queue: video_queue, _audio_queue: audio_queue })
+        if let Err(error) = wait_for_first_frame(&screen, &suspended, resolved.kind) {
+            if let Err(message) = wait_for(|done| unsafe { stream.stopCaptureWithCompletionHandler(Some(done)) }) {
+                eprintln!("ScreenCaptureKit did not stop cleanly: {message}");
+            }
+            return Err(error);
+        }
+        let keep_alive = KeepAlive::start(Arc::clone(&screen));
+        Ok(Self { stream, _output: output, _video_queue: video_queue, _audio_queue: audio_queue, keep_alive: Some(keep_alive) })
     }
 
-    pub fn stop(&self) {
+    pub fn stop(&mut self) {
+        if let Some(mut keep_alive) = self.keep_alive.take() {
+            keep_alive.stop();
+        }
         if let Err(message) = wait_for(|done| unsafe { self.stream.stopCaptureWithCompletionHandler(Some(done)) }) {
             eprintln!("ScreenCaptureKit did not stop cleanly: {message}");
         }

@@ -8,7 +8,10 @@
 //!   （`AVVideoAllowFrameReorderingKey` 为假）：实测带 B 帧又分片写时，写到第一片常常失败（OSStatus -16341）。
 //! - 段结束时 `endSessionAtSourceTime` 定在段的结尾，`finishWriting` 等完成，再写 `stream-end` 行。
 //! - 屏幕的画面静止时 ScreenCaptureKit 不送新帧。新的一段开始时把上一帧完整的画面改成这一段开始的时刻补进去，
-//!   静止的画面在新段里也有内容。
+//!   静止的画面在新段里也有内容，文件也在段开始时就开好。之后画面一直不变时按 [`crate::pacing`] 的节奏补写同一帧
+//!   （由 `idle` 样本驱动，连 `idle` 也没有时由定时检查兜底），分片照常一秒一个往下写，崩溃时最多丢最近约一秒半。
+//!   第一个分片提前到半秒（`initialMovieFragmentInterval`），文件开始后很快就有可读的开头。
+//! - 写入端要求时刻递增：不晚于上一个写下的样本的一律丢掉（补帧之后才送到的、时刻更早的真实画面）。
 //!
 //! 样本的时刻在采集的同步时钟上（ScreenCaptureKit 与 AVCaptureSession 各自的 `synchronizationClock`）；日志里的
 //! 时刻都换到主机时钟上（[`clock`]），文件里保留原来的时刻。
@@ -50,7 +53,15 @@ struct OpenFile {
     input: Retained<AVAssetWriterInput>,
     /// 最后追加的样本的时刻（采集时钟），段的结尾不早于它。
     last: CMTime,
+    /// 已经追加过样本（`last` 之前是会话的起点，第一个样本可以等于它）。
+    appended: bool,
 }
+
+/// 屏幕最后一帧完整的画面。单独一把锁：采集线程拿不到 [`State`] 的锁时也记得下它。
+struct Frame(CFRetained<CMSampleBuffer>);
+
+// SAFETY: CMSampleBuffer 是线程安全的 CoreFoundation 对象，这里只保留引用、换时刻复制。
+unsafe impl Send for Frame {}
 
 struct State {
     /// 开着的段与它开始的时刻（主机时钟）。
@@ -60,8 +71,6 @@ struct State {
     lost_at: Option<Ns>,
     /// 写入出错过：这一段不再写，推送过一次 `failed`。
     broken: bool,
-    /// 屏幕：最后一帧完整的画面。
-    last_frame: Option<CFRetained<CMSampleBuffer>>,
     /// 样本的时钟；None 是主机时钟。
     clock: Option<CFRetained<CMClock>>,
 }
@@ -76,6 +85,8 @@ pub struct Track {
     sink: Arc<Sink>,
     device: Option<DeviceRef>,
     state: Mutex<State>,
+    /// 屏幕：最后一帧完整的画面（补帧用）。
+    last_frame: Mutex<Option<Frame>>,
 }
 
 impl Track {
@@ -85,8 +96,18 @@ impl Track {
             dir,
             sink,
             device,
-            state: Mutex::new(State { segment: None, open: None, lost_at: None, broken: false, last_frame: None, clock: None }),
+            state: Mutex::new(State { segment: None, open: None, lost_at: None, broken: false, clock: None }),
+            last_frame: Mutex::new(None),
         })
+    }
+
+    /// 已经有过一帧完整的画面（开始采集时等第一帧用）。
+    pub fn has_frame(&self) -> bool {
+        self.last_frame.lock().map(|frame| frame.is_some()).unwrap_or(false)
+    }
+
+    fn last_frame(&self) -> Option<CFRetained<CMSampleBuffer>> {
+        self.last_frame.lock().ok().and_then(|frame| frame.as_ref().map(|frame| frame.0.clone()))
     }
 
     /// 采集的同步时钟（会话开起来之后才知道）。
@@ -101,24 +122,63 @@ impl Track {
     }
 
     /// 采集线程上的一个样本。拿不到锁（主线程正在开关段）就丢掉这个样本，不等。
+    /// 屏幕的最后一帧不依赖这把锁：主线程开关段时到的那一帧没写进文件，也记得下来。
     pub fn append(&self, sample: &CMSampleBuffer) {
+        if self.role == Role::Screen
+            && let Ok(mut frame) = self.last_frame.lock()
+        {
+            *frame = Some(Frame(unsafe { CFRetained::retain(NonNull::from(sample)) }));
+        }
         let Ok(mut state) = self.state.try_lock() else { return };
-        objc2::rc::autoreleasepool(|_| self.append_locked(&mut state, sample));
-        if self.role == Role::Screen {
-            state.last_frame = Some(unsafe { CFRetained::retain(NonNull::from(sample)) });
+        objc2::rc::autoreleasepool(|_| self.append_locked(&mut state, sample, false));
+    }
+
+    /// 屏幕没有新画面：到了补帧的间隔就把最后一帧换到 `at`（采集时钟）再写一次。`at` 是 ScreenCaptureKit 的 `idle`
+    /// 样本的时刻（与真实画面同一条时间线，递增），或定时检查给的「现在」。
+    pub fn hold(&self, at: CMTime, gap_ns: u64) {
+        if self.role != Role::Screen {
+            return;
+        }
+        let Ok(mut state) = self.state.try_lock() else { return };
+        let Some(open) = state.open.as_ref() else { return };
+        let (Some(last), Some(now)) = (clock::to_ns(self.to_host(&state, open.last)), clock::to_ns(self.to_host(&state, at))) else { return };
+        if !crate::pacing::due(last.0, now.0, gap_ns) {
+            return;
+        }
+        let Some(frame) = self.last_frame() else { return };
+        if let Some(retimed) = retime(&frame, at) {
+            objc2::rc::autoreleasepool(|_| self.append_locked(&mut state, &retimed, true));
         }
     }
 
-    fn append_locked(&self, state: &mut State, sample: &CMSampleBuffer) {
+    /// 定时兜底：主机时钟上的「现在」换到采集时钟，交给 [`Self::hold`]。
+    pub fn keep_alive(&self, now: Ns, gap_ns: u64) {
+        let at = match self.state.try_lock() {
+            Ok(state) => self.from_host(&state, now),
+            Err(_) => return,
+        };
+        self.hold(at, gap_ns);
+    }
+
+    /// `repeat`：补写的帧（段开始时的那一帧、静止时的重复帧）。它们的时刻由这里定，不再与段的起点比较：
+    /// 时钟换来换去的舍入可能让它比起点早一纳秒。
+    fn append_locked(&self, state: &mut State, sample: &CMSampleBuffer, repeat: bool) {
         if state.lost_at.is_some() || state.broken {
             return;
         }
         let Some((segment, start)) = state.segment.clone() else { return };
         let native = unsafe { sample.presentation_time_stamp() };
         let Some(host) = clock::to_ns(self.to_host(state, native)) else { return };
-        if host < start {
+        if host < start && !repeat {
             return;
         }
+        if let Some(open) = state.open.as_ref()
+            && open.appended
+            && unsafe { CMTime::compare(native, open.last) } <= 0
+        {
+            return;
+        }
+        let host = host.max(start);
         if state.open.is_none() {
             match self.open_file(&segment, sample, native) {
                 Ok(open) => {
@@ -144,6 +204,7 @@ impl Track {
         }
         if unsafe { open.input.appendSampleBuffer(sample) } {
             open.last = native;
+            open.appended = true;
         } else if unsafe { open.writer.status() } == AVAssetWriterStatus::Failed {
             state.broken = true;
             let message = writer_error(&open.writer);
@@ -174,7 +235,10 @@ impl Track {
         let file_type = if video { unsafe { AVFileTypeMPEG4 } } else { unsafe { AVFileTypeAppleM4A } }.ok_or("no file type")?;
         let writer = unsafe { AVAssetWriter::assetWriterWithURL_fileType_error(&url, file_type) }
             .map_err(|error| format!("cannot create the {} writer: {}", self.role.as_str(), error.localizedDescription()))?;
-        unsafe { writer.setMovieFragmentInterval(CMTime::new(1, 1)) };
+        unsafe {
+            writer.setMovieFragmentInterval(CMTime::new(1, 1));
+            writer.setInitialMovieFragmentInterval(CMTime::new(1, 2));
+        }
         let format = unsafe { sample.format_description() };
         let settings = unsafe { output_settings(video, format.as_deref()) }.ok_or("cannot build the output settings")?;
         let media = if video { unsafe { AVMediaTypeVideo } } else { unsafe { AVMediaTypeAudio } }.ok_or("no media type")?;
@@ -195,7 +259,7 @@ impl Track {
             return Err(writer_error(&writer));
         }
         unsafe { writer.startSessionAtSourceTime(native) };
-        Ok(OpenFile { writer, input, last: native })
+        Ok(OpenFile { writer, input, last: native, appended: false })
     }
 
     /// 开始一段。屏幕有上一帧完整的画面时，把它改到这一段开始的时刻先写进去。
@@ -206,10 +270,10 @@ impl Track {
         if self.role != Role::Screen || state.lost_at.is_some() {
             return;
         }
-        let Some(frame) = state.last_frame.clone() else { return };
+        let Some(frame) = self.last_frame() else { return };
         let at = self.from_host(&state, start);
         if let Some(retimed) = retime(&frame, at) {
-            objc2::rc::autoreleasepool(|_| self.append_locked(&mut state, &retimed));
+            objc2::rc::autoreleasepool(|_| self.append_locked(&mut state, &retimed, true));
         }
     }
 
@@ -226,7 +290,7 @@ impl Track {
         }
         if self.role == Role::Screen
             && unsafe { CMTime::compare(at, open.last) } > 0
-            && let Some(frame) = state.last_frame.clone()
+            && let Some(frame) = self.last_frame()
             && let Some(retimed) = retime(&frame, at)
             && unsafe { open.input.isReadyForMoreMediaData() }
         {
