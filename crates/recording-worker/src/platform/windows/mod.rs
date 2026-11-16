@@ -157,8 +157,16 @@ impl WinCapturer {
             keys: None,
         };
         // 设备先开：权限被拒绝时在屏幕开始采集之前失败。
-        if let Some(id) = params.camera.as_deref() {
-            let (activate, reference) = camera::find(id)?;
+        let camera_device = match params.camera.as_deref().map(camera::find).transpose() {
+            Ok(found) => found,
+            // 摄像头不在（拔掉了，或者这台电脑没有）不算失败：照常录，只是没有这一路画面。
+            Err(error) if error.code == "SOURCE_NOT_FOUND" => {
+                eprintln!("recording-worker: {}; recording without a camera", error.message);
+                None
+            }
+            Err(error) => return Err(error),
+        };
+        if let Some((activate, reference)) = camera_device {
             let track = Track::new(Role::Camera, dir.clone(), Arc::clone(&sink), Some(reference), None);
             match CameraCapture::start(&activate, Arc::clone(&track)) {
                 Ok(camera) => {

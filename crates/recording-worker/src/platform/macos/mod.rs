@@ -102,9 +102,9 @@ impl MacCapturer {
             let Some(id) = id else { continue };
             let (device, reference) = match av_capture::find(video, id) {
                 Ok(found) => found,
-                // 麦克风不在（拔掉了，或者这台电脑没有）不算失败：照常录，只是没有这一路声音。
-                Err(error) if !video && error.code == "SOURCE_NOT_FOUND" => {
-                    eprintln!("recording-worker: {}; recording without a microphone", error.message);
+                // 摄像头或麦克风不在（拔掉了，或者这台电脑没有）不算失败：照常录，只是没有这一路。
+                Err(error) if error.code == "SOURCE_NOT_FOUND" => {
+                    eprintln!("recording-worker: {}; recording without it", error.message);
                     continue;
                 }
                 Err(error) => return Err(error),

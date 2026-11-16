@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
 import { RECORDING_DEFAULTS, RpcError, type Project, type RecordingSources, type RecordingSummary, type VideoSnapshot } from '@baocut/protocol';
-import { withoutMissingMicrophone } from './recording-service.ts';
+import { withoutMissingDevices } from './recording-service.ts';
 import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
 import { startRuntime, type RunningRuntime, type StartRuntimeOptions } from '../runtime.ts';
@@ -319,24 +319,28 @@ describe.skipIf(!engine || !ffmpeg)('屏幕录制（假 Worker + 真实引擎）
     await client.request('recordings.discard', { recordingId: next.recordingId });
   }, 60_000);
 
-  it('a microphone that is not on this computer does not fail the recording: it records without that stream', async () => {
+  it('a camera or microphone that is not on this computer does not fail the recording: it records without that stream', async () => {
     await boot();
-    const started = await startRecording({ countdown: 0, microphone: 'mic-unplugged' });
-    expect(started.options.microphone).toBeNull();
+    const started = await startRecording({ countdown: 0, camera: 'cam-unplugged', microphone: 'mic-unplugged' });
+    expect(started.options).toMatchObject({ camera: null, microphone: null });
     const recording = await until(started.recordingId, (r) => r.state === 'recording');
     expect(recording.error).toBeNull();
     await client.request('recordings.discard', { recordingId: started.recordingId });
   }, 60_000);
 
-  it('withoutMissingMicrophone drops only a microphone that cannot be found', () => {
-    const sources = (microphones: Array<{ id: string; name: string }>) => ({ microphones }) as unknown as RecordingSources;
-    const options = (microphone: string | null) => ({ ...RECORDING_DEFAULTS, microphone });
-    const one = sources([{ id: 'mic-1', name: 'Mic' }]);
-    expect(withoutMissingMicrophone(options('default'), sources([])).microphone).toBeNull();
-    expect(withoutMissingMicrophone(options('default'), one).microphone).toBe('default');
-    expect(withoutMissingMicrophone(options('mic-1'), one).microphone).toBe('mic-1');
-    expect(withoutMissingMicrophone(options('mic-2'), one).microphone).toBeNull();
-    expect(withoutMissingMicrophone(options(null), one).microphone).toBeNull();
+  it('withoutMissingDevices drops only a camera or microphone that cannot be found', () => {
+    const one = { cameras: [{ id: 'cam-1', name: 'Cam' }], microphones: [{ id: 'mic-1', name: 'Mic' }] } as unknown as RecordingSources;
+    const none = { cameras: [], microphones: [] } as unknown as RecordingSources;
+    const pick = (camera: string | null, microphone: string | null, sources: RecordingSources) => {
+      const o = withoutMissingDevices({ ...RECORDING_DEFAULTS, camera, microphone }, sources);
+      return [o.camera, o.microphone];
+    };
+    expect(pick('default', 'default', none)).toEqual([null, null]);
+    expect(pick('default', 'default', one)).toEqual(['default', 'default']);
+    expect(pick('cam-1', 'mic-1', one)).toEqual(['cam-1', 'mic-1']);
+    expect(pick('cam-2', 'mic-1', one)).toEqual([null, 'mic-1']);
+    expect(pick('cam-1', 'mic-2', one)).toEqual(['cam-1', null]);
+    expect(pick(null, null, one)).toEqual([null, null]);
   });
 
   it('自动缩放：有点击的录制导入后取景里有 origin: auto 的区间；关掉自动缩放或不录鼠标时没有', async () => {

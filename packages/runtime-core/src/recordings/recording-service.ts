@@ -282,12 +282,12 @@ export class RecordingService {
 
   /**
    * 预检（`record --dry-run` 与开始之前）：Worker 在、平台能录、开着桌面端、必需的权限没有被拒、磁盘够。不对时抛
-   * `RECORDING_UNAVAILABLE` / 权限错误 / `RECORDING_DISK_FULL`；返回解析过的选项与将要用的设备。要的麦克风不在时不算错：
-   * 返回的选项里麦克风是 null，这次录制没有麦克风这一路。
+   * `RECORDING_UNAVAILABLE` / 权限错误 / `RECORDING_DISK_FULL`；返回解析过的选项与将要用的设备。要的摄像头或麦克风不在时不算错：
+   * 返回的选项里那一项是 null，这次录制没有那一路。
    */
   async precheck(partial: Partial<RecordingOptions> = {}): Promise<{ options: RecordingOptions; sources: RecordingSources; freeBytes: number }> {
     const sources = await this.#reachable();
-    const options = withoutMissingMicrophone({ ...RECORDING_DEFAULTS, ...partial }, sources);
+    const options = withoutMissingDevices({ ...RECORDING_DEFAULTS, ...partial }, sources);
     this.#checkPermissions(options, sources.permissions);
     this.#checkSource(options, sources);
     await fs.mkdir(this.#o.root, { recursive: true });
@@ -943,8 +943,7 @@ export class RecordingService {
     const source = options.source;
     const missing =
       (source.kind === 'window' && !sources.windows.some((w) => w.id === source.windowId)) ||
-      (source.kind !== 'window' && source.displayId !== undefined && !sources.displays.some((d) => d.id === source.displayId)) ||
-      (options.camera !== null && options.camera !== 'default' && !sources.cameras.some((c) => c.id === options.camera));
+      (source.kind !== 'window' && source.displayId !== undefined && !sources.displays.some((d) => d.id === source.displayId));
     if (missing) throw new RpcError('not-found', RcRecordings.sourceNotFound(), { code: 'RECORDING_SOURCE_NOT_FOUND' });
   }
 
@@ -955,12 +954,14 @@ export class RecordingService {
   }
 }
 
-/** 要的麦克风不在这台电脑上（指定的设备不在了，或者要系统缺省而一个麦克风都没有）时不录麦克风：录制照常，只是没有这一路声音。 */
-export function withoutMissingMicrophone(options: RecordingOptions, sources: RecordingSources): RecordingOptions {
-  const id = options.microphone;
-  if (id === null) return options;
-  const found = id === 'default' ? sources.microphones.length > 0 : sources.microphones.some((m) => m.id === id);
-  return found ? options : { ...options, microphone: null };
+/**
+ * 要的摄像头或麦克风不在这台电脑上（指定的设备不在了，或者要系统缺省而一个都没有）时不录那一路：录制照常，只是没有这一路画面或声音。
+ */
+export function withoutMissingDevices(options: RecordingOptions, sources: RecordingSources): RecordingOptions {
+  const found = (id: string | null, devices: ReadonlyArray<{ id: string }>) => id === null || (id === 'default' ? devices.length > 0 : devices.some((d) => d.id === id));
+  const camera = found(options.camera, sources.cameras) ? options.camera : null;
+  const microphone = found(options.microphone, sources.microphones) ? options.microphone : null;
+  return camera === options.camera && microphone === options.microphone ? options : { ...options, camera, microphone };
 }
 
 /** 磁盘不到十分钟的录制时（`record --dry-run` 与面板的警告）。 */
