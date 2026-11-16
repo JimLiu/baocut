@@ -1,6 +1,6 @@
 import { RECORDING_DEFAULTS, type RecordingSummary } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
-import { areaRect, barView, clock, currentRecording, hideForRecording, MIN_AREA, parseAreaDrag, parseHostSettings, pickDisplay, privacyUrl, shortcutsWanted, toggleMethod, windowPlan } from './recording-rules.ts';
+import { areaRect, barView, clock, currentRecording, hideForRecording, MIN_AREA, parseAreaDrag, parseHostSettings, pickDisplay, privacyUrl, shortcutsWanted, startShortcutWanted, toggleMethod, windowPlan } from './recording-rules.ts';
 
 const rec = (over: Partial<RecordingSummary> = {}): RecordingSummary => ({
   recordingId: 'rec_1',
@@ -77,8 +77,22 @@ describe('快捷键与设置', () => {
   });
 
   it('渲染进程给的设置：不认识的值退回缺省，空串是不用', () => {
-    expect(parseHostSettings({ shortcuts: { stop: 'Alt+S', pause: '' }, hideWindow: false })).toEqual({ shortcuts: { stop: 'Alt+S', pause: '' }, hideWindow: false });
-    expect(parseHostSettings({ shortcuts: { stop: 42, pause: 'x'.repeat(80) } })).toEqual(parseHostSettings(null));
+    expect(parseHostSettings({ shortcuts: { start: 'Alt+R', stop: 'Alt+S', pause: '' }, hideWindow: false })).toEqual({
+      shortcuts: { start: 'Alt+R', stop: 'Alt+S', pause: '' },
+      hideWindow: false,
+    });
+    expect(parseHostSettings({ shortcuts: { start: {}, stop: 42, pause: 'x'.repeat(80) } })).toEqual(parseHostSettings(null));
+    // 开始录制缺省不用；旧的界面不给 start 时也是不用。
+    expect(parseHostSettings(null).shortcuts.start).toBe('');
+    expect(parseHostSettings({ shortcuts: { stop: 'Alt+S', pause: 'Alt+P' } }).shortcuts.start).toBe('');
+  });
+
+  it('开始录制的快捷键：设置到了、连着 Runtime、没有在录时才占着', () => {
+    expect(startShortcutWanted(null, true, true)).toBe(true);
+    expect(startShortcutWanted(null, true, false)).toBe(false);
+    expect(startShortcutWanted(null, false, true)).toBe(false);
+    expect(startShortcutWanted(rec(), true, true)).toBe(false);
+    expect(startShortcutWanted(rec({ state: 'preparing' }), true, true)).toBe(false);
   });
 
   it('只认四项权限；macOS 给隐私页的地址，别的系统没有就是 null', () => {

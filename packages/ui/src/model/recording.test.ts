@@ -14,6 +14,7 @@ import {
   shouldOpenAfter,
   sourceBlocks,
   startBlock,
+  startFromShortcut,
   unavailableCode,
   unfinishedRecordings,
   type SourcesState,
@@ -210,6 +211,15 @@ describe('磁盘剩余空间', () => {
     expect(lowDisk(DEFAULT_CHOICE, withDisk(rate * 60 * 4.5))).toEqual({ freeBytes: rate * 60 * 4.5, minutes: 4 });
     expect(lowDisk(DEFAULT_CHOICE, withDisk(rate * 10))?.minutes).toBe(1);
     expect(lowDisk(DEFAULT_CHOICE, withDisk(Number.NaN))).toBeNull();
+  });
+});
+
+describe('开始录制的快捷键', () => {
+  it('面板开着或入口不显示时不动；置灰时说明原因；否则在这一页的项目里打开面板', () => {
+    expect(startFromShortcut({ entry: { kind: 'ready' }, panelOpen: true, projectId: null })).toBeNull();
+    expect(startFromShortcut({ entry: { kind: 'hidden' }, panelOpen: false, projectId: null })).toBeNull();
+    expect(startFromShortcut({ entry: { kind: 'disabled', block: { kind: 'busy' } }, panelOpen: false, projectId: null })).toEqual({ kind: 'blocked', block: { kind: 'busy' } });
+    expect(startFromShortcut({ entry: { kind: 'ready' }, panelOpen: false, projectId: 'p1' })).toEqual({ kind: 'open', projectId: 'p1' });
   });
 });
 

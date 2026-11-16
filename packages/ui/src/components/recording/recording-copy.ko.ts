@@ -118,9 +118,11 @@ export const ko: RecordingMessages = {
   deleteFailed: (message) => `녹화를 삭제할 수 없습니다: ${message}`,
 
   settingsGroup: '화면 녹화',
+  shortcutStart: '녹화 시작',
+  shortcutStartHint: '어떤 앱에서든 녹화 패널을 엽니다. 설정해 두면 다른 앱에서는 이 키를 쓸 수 없습니다.',
   shortcutStop: '녹화 중지',
   shortcutPause: '일시 정지 또는 재개',
-  shortcutHint: '녹화 중에는 BaoCut이 숨겨져 있어도 어디서든 단축키가 작동합니다.',
+  shortcutHint: '중지와 일시정지는 녹화 중 어디서나 사용할 수 있으며, BaoCut이 숨겨져 있어도 마찬가지입니다.',
   shortcutPress: '키를 누르세요…',
   shortcutNone: '없음',
   shortcutChange: '변경',
@@ -129,4 +131,8 @@ export const ko: RecordingMessages = {
   shortcutFailed: (names) => `“${names}” 단축키를 설정할 수 없습니다. 다른 앱에서 사용 중일 수 있습니다.`,
   hideWindow: '녹화 중 BaoCut 숨기기',
   hideWindowHint: '작은 제어 막대만 화면에 남습니다. 이 막대는 녹화되지 않습니다.',
+  defaultFps: '프레임 레이트',
+  defaultFpsHint: '직접 시작하는 녹화에 적용됩니다. 60fps는 더 부드럽지만 파일이 커집니다.',
+  fpsValue: (fps: number) => `${fps}fps`,
+  defaultCountdownHint: '녹화 패널은 이 값으로 시작합니다. 패널에서 바꾸면 여기도 바뀝니다.',
 };

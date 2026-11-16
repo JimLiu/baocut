@@ -118,9 +118,11 @@ export const it: RecordingMessages = {
   deleteFailed: (message) => `Impossibile eliminare la registrazione: ${message}`,
 
   settingsGroup: 'Registrazione schermo',
+  shortcutStart: 'Avvia registrazione',
+  shortcutStartHint: 'Apre il pannello di registrazione da qualsiasi app. Finché è impostata, le altre app non possono usare questi tasti.',
   shortcutStop: 'Interrompi registrazione',
   shortcutPause: 'Pausa o ripresa',
-  shortcutHint: 'Le scorciatoie funzionano ovunque durante la registrazione, anche con BaoCut nascosto.',
+  shortcutHint: 'Interrompi e pausa funzionano ovunque durante la registrazione, anche quando BaoCut è nascosto.',
   shortcutPress: 'Premi i tasti…',
   shortcutNone: 'Nessuna',
   shortcutChange: 'Modifica',
@@ -129,4 +131,8 @@ export const it: RecordingMessages = {
   shortcutFailed: (names) => `Impossibile impostare la scorciatoia per “${names}”. Potrebbe essere usata da un’altra app.`,
   hideWindow: 'Nascondi BaoCut durante la registrazione',
   hideWindowHint: 'Sullo schermo resta solo la piccola barra di controllo, che non viene registrata.',
+  defaultFps: 'Frequenza fotogrammi',
+  defaultFpsHint: 'Per le registrazioni che avvii tu. 60 fps è più fluido, ma crea file più grandi.',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: 'Il pannello di registrazione parte da questo valore. Se lo cambi nel pannello, cambia anche qui.',
 };

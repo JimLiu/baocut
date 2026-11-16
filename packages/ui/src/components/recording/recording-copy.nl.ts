@@ -118,9 +118,11 @@ export const nl: RecordingMessages = {
   deleteFailed: (message) => `Kan de opname niet verwijderen: ${message}`,
 
   settingsGroup: 'Schermopname',
+  shortcutStart: 'Opname starten',
+  shortcutStartHint: 'Opent het opnamepaneel vanuit elke app. Zolang hij is ingesteld, kunnen andere apps deze toetsen niet gebruiken.',
   shortcutStop: 'Opname stoppen',
   shortcutPause: 'Onderbreken of hervatten',
-  shortcutHint: 'Sneltoetsen werken overal tijdens het opnemen, ook als BaoCut is verborgen.',
+  shortcutHint: 'Stoppen en pauzeren werken tijdens de opname overal, ook als BaoCut verborgen is.',
   shortcutPress: 'Druk op toetsen…',
   shortcutNone: 'Geen',
   shortcutChange: 'Wijzig',
@@ -129,4 +131,8 @@ export const nl: RecordingMessages = {
   shortcutFailed: (names) => `Kan de sneltoets voor “${names}” niet instellen. Mogelijk wordt die door een andere app gebruikt.`,
   hideWindow: 'BaoCut verbergen tijdens het opnemen',
   hideWindowHint: 'Alleen de kleine bedieningsbalk blijft op het scherm. Die wordt niet opgenomen.',
+  defaultFps: 'Framerate',
+  defaultFpsHint: 'Voor opnames die je zelf start. 60 fps is vloeiender, maar geeft grotere bestanden.',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: 'Het opnamepaneel begint met deze waarde. Wijzig je hem in het paneel, dan verandert hij hier ook.',
 };

@@ -118,9 +118,11 @@ export const tr: RecordingMessages = {
   deleteFailed: (message) => `Kayıt silinemedi: ${message}`,
 
   settingsGroup: 'Ekran kaydı',
+  shortcutStart: 'Kaydı başlat',
+  shortcutStartHint: 'Kayıt panelini her uygulamadan açar. Ayarlı olduğu sürece diğer uygulamalar bu tuşları kullanamaz.',
   shortcutStop: 'Kaydı durdur',
   shortcutPause: 'Duraklat veya sürdür',
-  shortcutHint: 'Kayıt sırasında kısayollar, BaoCut gizliyken bile her yerde çalışır.',
+  shortcutHint: 'Durdurma ve duraklatma, kayıt sırasında her yerde çalışır; BaoCut gizliyken bile.',
   shortcutPress: 'Tuşlara basın…',
   shortcutNone: 'Yok',
   shortcutChange: 'Değiştir',
@@ -129,4 +131,8 @@ export const tr: RecordingMessages = {
   shortcutFailed: (names) => `“${names}” için kısayol ayarlanamadı. Başka bir uygulama kullanıyor olabilir.`,
   hideWindow: 'Kayıt sırasında BaoCut’u gizle',
   hideWindowHint: 'Ekranda yalnızca küçük denetim çubuğu kalır. Kaydedilmez.',
+  defaultFps: 'Kare hızı',
+  defaultFpsHint: 'Kendi başlattığınız kayıtlar için. 60 fps daha akıcıdır ama dosyalar büyür.',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: 'Kayıt paneli bu değerle açılır. Panelde değiştirirseniz burada da değişir.',
 };

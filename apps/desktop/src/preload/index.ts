@@ -79,13 +79,19 @@ const recording: NonNullable<HostBridge['recording']> = {
   openSystemSettings: (permission) => ipcRenderer.invoke('baocut:recording-open-settings', permission),
   configure: (settings) =>
     ipcRenderer.send('baocut:recording-configure', {
-      shortcuts: { stop: settings.shortcuts.stop, pause: settings.shortcuts.pause },
+      shortcuts: { start: settings.shortcuts.start, stop: settings.shortcuts.stop, pause: settings.shortcuts.pause },
       hideWindow: settings.hideWindow,
     }),
   // 区域选框：主进程在那块屏幕上盖一个透明窗口，交回相对屏幕的逻辑点；取消时 null（参数在主进程里重新校验）。
   pickArea: (displayId) => ipcRenderer.invoke('baocut:recording-pick-area', displayId),
+  // 开始录制的全局快捷键按下了（主进程已把这个窗口带到前台）：界面打开录制面板。
+  onStartShortcut: (listener) => {
+    const handler = () => listener();
+    ipcRenderer.on('baocut:recording-start-shortcut', handler);
+    return () => void ipcRenderer.removeListener('baocut:recording-start-shortcut', handler);
+  },
   onShortcutFailed: (listener) => {
-    const handler = (_event: IpcRendererEvent, failed: Array<'stop' | 'pause'>) => listener(failed);
+    const handler = (_event: IpcRendererEvent, failed: Array<'start' | 'stop' | 'pause'>) => listener(failed);
     ipcRenderer.on('baocut:recording-shortcut-failed', handler);
     return () => void ipcRenderer.removeListener('baocut:recording-shortcut-failed', handler);
   },

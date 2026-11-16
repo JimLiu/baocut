@@ -118,9 +118,11 @@ export const fr: RecordingMessages = {
   deleteFailed: (message) => `Impossible de supprimer l’enregistrement : ${message}`,
 
   settingsGroup: 'Enregistrement de l’écran',
+  shortcutStart: 'Démarrer l’enregistrement',
+  shortcutStartHint: 'Ouvre le panneau d’enregistrement depuis n’importe quelle app. Tant qu’il est défini, les autres apps ne peuvent pas utiliser ces touches.',
   shortcutStop: 'Arrêter l’enregistrement',
   shortcutPause: 'Mettre en pause ou reprendre',
-  shortcutHint: 'Les raccourcis fonctionnent partout pendant l’enregistrement, même quand BaoCut est masqué.',
+  shortcutHint: 'Arrêter et mettre en pause fonctionnent partout pendant l’enregistrement, même quand BaoCut est masqué.',
   shortcutPress: 'Appuyez sur les touches…',
   shortcutNone: 'Aucun',
   shortcutChange: 'Modifier',
@@ -129,4 +131,8 @@ export const fr: RecordingMessages = {
   shortcutFailed: (names) => `Impossible de définir le raccourci pour « ${names} ». Une autre app l’utilise peut-être.`,
   hideWindow: 'Masquer BaoCut pendant l’enregistrement',
   hideWindowHint: 'Seule la petite barre de contrôle reste à l’écran. Elle n’est pas enregistrée.',
+  defaultFps: 'Fréquence d’images',
+  defaultFpsHint: 'Pour les enregistrements que vous lancez vous-même. 60 i/s est plus fluide, mais produit des fichiers plus lourds.',
+  fpsValue: (fps: number) => `${fps} i/s`,
+  defaultCountdownHint: 'Le panneau d’enregistrement part de ce réglage. Le modifier dans le panneau le modifie aussi ici.',
 };

@@ -124,9 +124,11 @@ export const pl: RecordingMessages = {
   deleteFailed: (message) => `Nie udało się usunąć nagrania: ${message}`,
 
   settingsGroup: 'Nagrywanie ekranu',
+  shortcutStart: 'Rozpocznij nagrywanie',
+  shortcutStartHint: 'Otwiera panel nagrywania z dowolnej aplikacji. Dopóki jest ustawiony, inne aplikacje nie mogą używać tych klawiszy.',
   shortcutStop: 'Zatrzymaj nagrywanie',
   shortcutPause: 'Wstrzymaj lub wznów',
-  shortcutHint: 'Podczas nagrywania skróty działają wszędzie, nawet gdy BaoCut jest ukryty.',
+  shortcutHint: 'Zatrzymywanie i pauza działają wszędzie podczas nagrywania, także gdy BaoCut jest ukryty.',
   shortcutPress: 'Naciśnij klawisze…',
   shortcutNone: 'Brak',
   shortcutChange: 'Zmień',
@@ -135,4 +137,8 @@ export const pl: RecordingMessages = {
   shortcutFailed: (names) => `Nie udało się ustawić skrótu dla „${names}”. Może być używany przez inną aplikację.`,
   hideWindow: 'Ukryj BaoCut podczas nagrywania',
   hideWindowHint: 'Na ekranie zostaje tylko mały pasek sterowania. Nie jest nagrywany.',
+  defaultFps: 'Liczba klatek na sekundę',
+  defaultFpsHint: 'Dla nagrań, które rozpoczynasz sam. 60 kl./s jest płynniejsze, ale pliki są większe.',
+  fpsValue: (fps: number) => `${fps} kl./s`,
+  defaultCountdownHint: 'Panel nagrywania zaczyna od tej wartości. Zmiana w panelu zmienia ją także tutaj.',
 };

@@ -14,6 +14,7 @@ import {
   parseHostSettings,
   privacyUrl,
   shortcutsWanted,
+  startShortcutWanted,
   toggleMethod,
   windowPlan,
   type BarView,
@@ -27,7 +28,8 @@ import {
  *   （`setContentProtection`）：Windows 上不被截进画面；macOS 上它设的是 `NSWindowSharingNone`，Electron 文档说明用
  *   ScreenCaptureKit 的应用仍然截得到，Recording Worker 正是用它采集，所以 macOS 上还要 Worker 把这个窗口排除在外。
  * - 菜单栏（托盘）图标：同样的四个动作；macOS 的菜单栏上写已录时长。
- * - 全局快捷键：停止、暂停与继续，只在采集时注册；注册不上时告诉界面（被别的应用占了）。
+ * - 全局快捷键：停止、暂停与继续，只在采集时注册；注册不上时告诉界面（被别的应用占了）。开始录制（缺省不用）反过来，
+ *   连着 Runtime 又没有在录时占着：按下时把应用窗口带到前台，让界面打开录制面板。
  * - 区域选框（area-picker.ts）：面板选「一个区域」时盖在屏幕上；框选期间收起应用窗口（不然面板挡着要框的内容），完了放回来。
  * 规则在 recording-rules.ts 并有单测；这里是薄薄的 Electron 调用。录完之后打开编辑器由界面做（它看着状态走到「已进时间线」）。
  */
@@ -35,6 +37,7 @@ import {
 export const RECORDING_CONFIGURE_CHANNEL = 'baocut:recording-configure';
 export const RECORDING_SETTINGS_CHANNEL = 'baocut:recording-open-settings';
 export const RECORDING_SHORTCUT_FAILED_CHANNEL = 'baocut:recording-shortcut-failed';
+export const RECORDING_START_SHORTCUT_CHANNEL = 'baocut:recording-start-shortcut';
 export const RECORDING_BAR_VIEW_CHANNEL = 'baocut:recording-bar-view';
 export const RECORDING_BAR_ACT_CHANNEL = 'baocut:recording-bar-act';
 export const RECORDING_BAR_READY_CHANNEL = 'baocut:recording-bar-ready';
@@ -96,6 +99,11 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
   let tray: Tray | null = null;
   let trayPhase: string | null = null;
   let registered: { stop: string; pause: string } | null = null;
+  /** 开始录制眼下占着的那组键（空串是没占）；界面第一次把设置交过来之前不占，连着 Runtime 时才占。 */
+  let startRegistered = '';
+  let startRefused = '';
+  let configured = false;
+  let connected = false;
 
   const current = () => currentRecording([...recordings.values()]);
   const picker = createAreaPicker({ page: options.areaPage, preload: options.areaPreload });
@@ -260,7 +268,36 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
       if (r && method) void request(method, r.recordingId);
     })) failed.push('pause');
     registered = { stop: failed.includes('stop') ? '' : stop, pause: failed.includes('pause') ? '' : pause };
-    if (failed.length) for (const w of options.appWindows()) if (!w.isDestroyed()) w.webContents.send(RECORDING_SHORTCUT_FAILED_CHANNEL, failed);
+    if (failed.length) failedTo(failed);
+  };
+
+  const failedTo = (failed: Array<'start' | 'stop' | 'pause'>) => {
+    for (const w of options.appWindows()) if (!w.isDestroyed()) w.webContents.send(RECORDING_SHORTCUT_FAILED_CHANNEL, failed);
+  };
+  // 按下开始录制：带回一个应用窗口，只让它打开面板（几个窗口都收的话会各开一个）。一个窗口都没有时只开窗口：
+  // 新窗口的界面还没装好，收不到这一下。
+  const onStartShortcut = () => {
+    const had = options.appWindows().length > 0;
+    const win = options.showWindow();
+    if (had && !win.isDestroyed()) win.webContents.send(RECORDING_START_SHORTCUT_CHANNEL);
+  };
+  /** 让开始录制的占用跟上此刻的状态与设置；`report` 时注册不上要告诉界面（只在用户改了这组键时，不在每次启动时）。 */
+  const syncStart = (report = false) => {
+    const want = startShortcutWanted(current(), connected, configured) ? settings.shortcuts.start : '';
+    if (want === startRegistered) return;
+    if (startRegistered) globalShortcut.unregister(startRegistered);
+    startRegistered = '';
+    // 注册不上的那组键不在每次状态变化时再试；改了设置（`report`）才重试。
+    if (!want || (want === startRefused && !report)) return;
+    let ok = false;
+    try {
+      ok = globalShortcut.register(want, onStartShortcut);
+    } catch {
+      ok = false;
+    }
+    startRefused = ok ? '' : want;
+    if (ok) startRegistered = want;
+    else if (report) failedTo(['start']);
   };
 
   // ---- 状态变化 ----
@@ -283,6 +320,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     updateTray(view, r?.recordingId ?? null);
     if (shortcutsWanted(r)) register();
     else unregister();
+    syncStart();
   };
 
   const onRecording = (r: RecordingSummary) => {
@@ -311,7 +349,8 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
   });
   // 断线（Runtime 退出或重启）：窗口放回来，控制条与快捷键拿掉，等重连后的快照。
   const stopState = client.onState((state) => {
-    if (state.status === 'connected') return;
+    connected = state.status === 'connected';
+    if (connected) return void syncStart();
     if (hidden.length) restoreApp();
     recordings.clear();
     sync();
@@ -327,11 +366,19 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     if (!isAppSender(event.sender, options) || event.senderFrame !== event.sender.mainFrame) return;
     const next = parseHostSettings(raw);
     const changed = next.shortcuts.stop !== settings.shortcuts.stop || next.shortcuts.pause !== settings.shortcuts.pause;
+    const startChanged = configured && next.shortcuts.start !== settings.shortcuts.start;
     settings = next;
+    configured = true;
     if (changed && registered) {
       unregister();
       sync();
     }
+    // 换了一组键：先放掉旧的再按新的注册（同一组键时什么都不做）。
+    if (startChanged && startRegistered) {
+      globalShortcut.unregister(startRegistered);
+      startRegistered = '';
+    }
+    syncStart(startChanged);
   });
   ipcMain.handle(RECORDING_SETTINGS_CHANNEL, async (event, permission: unknown) => {
     if (!isAppSender(event.sender, options) || event.senderFrame !== event.sender.mainFrame) throw new Error('Only app windows can open system settings');
@@ -375,6 +422,8 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
       stopState();
       stopLocale();
       unregister();
+      if (startRegistered) globalShortcut.unregister(startRegistered);
+      startRegistered = '';
       closeBar();
       picker.dispose();
       tray?.destroy();

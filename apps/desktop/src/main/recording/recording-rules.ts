@@ -73,6 +73,14 @@ export function shortcutsWanted(r: RecordingSummary | null): boolean {
   return !!r && (r.state === 'recording' || r.state === 'paused' || r.state === 'countdown');
 }
 
+/**
+ * 「开始录制」的全局快捷键什么时候占着：设置交过来之后（之前不知道用户是不是清掉了它）、连着 Runtime、而且眼下没有在录的
+ * （在录时这组键还给别的应用，停止与暂停另有自己的）。
+ */
+export function startShortcutWanted(r: RecordingSummary | null, connected: boolean, configured: boolean): boolean {
+  return configured && connected && !r;
+}
+
 /** 快捷键「暂停与继续」此刻该调哪个方法。 */
 export function toggleMethod(r: RecordingSummary | null): 'recordings.pause' | 'recordings.resume' | null {
   if (r?.state === 'recording') return 'recordings.pause';
@@ -82,22 +90,24 @@ export function toggleMethod(r: RecordingSummary | null): 'recordings.pause' | '
 
 /** 渲染进程给的设置：快捷键是 Electron accelerator 写法（空串不用），不认识的值退回缺省。 */
 export interface RecordingHostSettings {
-  shortcuts: { stop: string; pause: string };
+  shortcuts: { start: string; stop: string; pause: string };
   hideWindow: boolean;
 }
 
 export const DEFAULT_HOST_SETTINGS: RecordingHostSettings = {
-  shortcuts: { stop: 'CommandOrControl+Shift+2', pause: 'CommandOrControl+Shift+3' },
+  // 开始录制缺省不用：它在不录的时候一直占着，会抢走别的应用里的这组键，由用户自己挑。
+  shortcuts: { start: '', stop: 'CommandOrControl+Shift+2', pause: 'CommandOrControl+Shift+3' },
   hideWindow: true,
 };
 
 const ACCELERATOR = /^[A-Za-z0-9+\-=[\];',./`\\ ]{0,64}$/;
 
 export function parseHostSettings(raw: unknown): RecordingHostSettings {
-  const v = (raw ?? {}) as { shortcuts?: { stop?: unknown; pause?: unknown }; hideWindow?: unknown };
+  const v = (raw ?? {}) as { shortcuts?: { start?: unknown; stop?: unknown; pause?: unknown }; hideWindow?: unknown };
   const key = (value: unknown, fallback: string) => (typeof value === 'string' && ACCELERATOR.test(value) ? value : fallback);
   return {
     shortcuts: {
+      start: key(v.shortcuts?.start, DEFAULT_HOST_SETTINGS.shortcuts.start),
       stop: key(v.shortcuts?.stop, DEFAULT_HOST_SETTINGS.shortcuts.stop),
       pause: key(v.shortcuts?.pause, DEFAULT_HOST_SETTINGS.shortcuts.pause),
     },

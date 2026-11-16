@@ -142,9 +142,11 @@ const en = {
 
   // 设置 › 通用 › 录制（桌面端）
   settingsGroup: 'Screen recording',
+  shortcutStart: 'Start recording',
+  shortcutStartHint: 'Opens the recording panel from any app. While it’s set, other apps can’t use these keys.',
   shortcutStop: 'Stop recording',
   shortcutPause: 'Pause or resume',
-  shortcutHint: 'Shortcuts work everywhere while recording, even when BaoCut is hidden.',
+  shortcutHint: 'Stop and pause work everywhere while recording, even when BaoCut is hidden.',
   shortcutPress: 'Press keys…',
   shortcutNone: 'None',
   shortcutChange: 'Change',
@@ -153,6 +155,10 @@ const en = {
   shortcutFailed: (names: string) => `Couldn’t set the shortcut for ${names}. Another app may be using it.`,
   hideWindow: 'Hide BaoCut while recording',
   hideWindowHint: 'Only the small control bar stays on screen. It isn’t recorded.',
+  defaultFps: 'Frame rate',
+  defaultFpsHint: 'For recordings you start yourself. 60 fps is smoother but makes larger files.',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: 'The recording panel starts with this. Changing it in the panel changes it here too.',
 };
 
 export type RecordingMessages = typeof en;

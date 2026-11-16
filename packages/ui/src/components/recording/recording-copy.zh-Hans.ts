@@ -118,9 +118,11 @@ export const zhHans: RecordingMessages = {
   deleteFailed: (message) => `删除不了录制：${message}`,
 
   settingsGroup: '屏幕录制',
+  shortcutStart: '开始录制',
+  shortcutStartHint: '在任何应用里都能打开录制面板。设了之后，别的应用就用不了这组键。',
   shortcutStop: '停止录制',
   shortcutPause: '暂停与继续',
-  shortcutHint: '录制中在任何地方都能用，BaoCut 收起时也一样。',
+  shortcutHint: '停止与暂停在录制中任何地方都能用，BaoCut 收起时也一样。',
   shortcutPress: '请按键…',
   shortcutNone: '不用',
   shortcutChange: '更改',
@@ -129,4 +131,8 @@ export const zhHans: RecordingMessages = {
   shortcutFailed: (names) => `设不了「${names}」的快捷键，可能被别的应用占用了。`,
   hideWindow: '录制时收起 BaoCut',
   hideWindowHint: '屏幕上只留一个小控制条，它不会被录进去。',
+  defaultFps: '帧率',
+  defaultFpsHint: '用于你自己开始的录制。60 fps 更流畅，文件也更大。',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: '录制面板按这一项开始；在面板里改了，这里也跟着变。',
 };

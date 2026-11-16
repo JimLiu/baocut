@@ -118,9 +118,11 @@ export const vi: RecordingMessages = {
   deleteFailed: (message) => `Không thể xóa bản ghi: ${message}`,
 
   settingsGroup: 'Ghi màn hình',
+  shortcutStart: 'Bắt đầu ghi',
+  shortcutStartHint: 'Mở bảng ghi từ bất kỳ ứng dụng nào. Khi đã đặt, các ứng dụng khác không dùng được tổ hợp phím này.',
   shortcutStop: 'Dừng ghi',
   shortcutPause: 'Tạm dừng hoặc tiếp tục',
-  shortcutHint: 'Phím tắt hoạt động ở mọi nơi khi đang ghi, kể cả khi BaoCut bị ẩn.',
+  shortcutHint: 'Dừng và tạm dừng dùng được ở mọi nơi khi đang ghi, kể cả khi BaoCut đang ẩn.',
   shortcutPress: 'Nhấn phím…',
   shortcutNone: 'Không có',
   shortcutChange: 'Thay đổi',
@@ -129,4 +131,8 @@ export const vi: RecordingMessages = {
   shortcutFailed: (names) => `Không thể đặt phím tắt cho “${names}”. Có thể một ứng dụng khác đang dùng nó.`,
   hideWindow: 'Ẩn BaoCut khi đang ghi',
   hideWindowHint: 'Chỉ còn thanh điều khiển nhỏ trên màn hình. Thanh này không được ghi lại.',
+  defaultFps: 'Tốc độ khung hình',
+  defaultFpsHint: 'Dùng cho các bản ghi bạn tự bắt đầu. 60 fps mượt hơn nhưng tệp lớn hơn.',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: 'Bảng ghi bắt đầu với giá trị này. Đổi trong bảng thì ở đây cũng đổi theo.',
 };

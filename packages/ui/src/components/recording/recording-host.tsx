@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { localizeText, type Id, type RecordingState, type RecordingSummary } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
-import { autoOpenWaiting, recordingEntry, shouldOpenAfter, type RecordingBlock, type RecordingEntry, type SourcesState } from '../../model/recording.ts';
+import { autoOpenWaiting, recordingEntry, shouldOpenAfter, startFromShortcut, type RecordingBlock, type RecordingEntry, type SourcesState } from '../../model/recording.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useConnection } from '../../state/connection-store.ts';
@@ -15,7 +15,7 @@ import { RecordingPanel } from './recording-panel.tsx';
  * - 连上之后问一次能录什么（`recordings.sources`），入口据此显示或置灰；面板打开时再问一次。
  * - 智能体在这条会话里发起的录制停在 `waiting`：正看着这条会话时自动弹出预先填好的面板（关掉就是 `recordings.cancel`）。
  * - 看着一次录制走到「已进时间线」、选项要求打开时，打开编辑器到那个视频（录进当前视频的，编辑器本来就开着）。
- * - 把设置 › 录制的几项交给宿主（主进程的控制条、菜单栏图标与全局快捷键）。
+ * - 把设置 › 通用 › 屏幕录制的几项交给宿主（主进程的控制条、菜单栏图标与全局快捷键）；按下开始录制的快捷键时打开面板。
  * Web 没有这些：主题与方法都不对 Web 开放，宿主也没有录制能力。
  */
 
@@ -112,8 +112,22 @@ export function RecordingHost() {
   useEffect(() => {
     if (!capable || !runtime.host.recording?.onShortcutFailed) return;
     return runtime.host.recording.onShortcutFailed((failed) => {
-      const names = failed.map((w) => (w === 'stop' ? RC.shortcutStop : RC.shortcutPause)).join(', ');
+      const names = failed.map((w) => (w === 'start' ? RC.shortcutStart : w === 'stop' ? RC.shortcutStop : RC.shortcutPause)).join(', ');
       ToastQueue.negative(RC.shortcutFailed(names), { timeout: 6000 });
+    });
+  }, [runtime, capable]);
+
+  // 开始录制的全局快捷键：主进程已把窗口带到前台；按此刻的状态决定（监听只装一次，读 store 里最新的）。
+  useEffect(() => {
+    if (!capable || !runtime.host.recording?.onStartShortcut) return;
+    return runtime.host.recording.onStartShortcut(() => {
+      const rec = useRecordings.getState();
+      const route = useShell.getState().route;
+      const projectId = route.tab === 'home' || route.tab === 'space' ? route.projectId : null;
+      const entry = recordingEntry({ platform: runtime.host.platform, hostCapable: true, sources: rec.sources, recordings: rec.recordings });
+      const next = startFromShortcut({ entry, panelOpen: !!rec.panel, projectId });
+      if (next?.kind === 'open') rec.openPanel({ target: { home: { projectId: next.projectId } } });
+      else if (next?.kind === 'blocked') ToastQueue.neutral(blockText(next.block), { timeout: 5000 });
     });
   }, [runtime, capable]);
 

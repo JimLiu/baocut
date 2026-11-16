@@ -84,6 +84,20 @@ export function recordingEntry(input: {
   return { kind: 'ready' };
 }
 
+/**
+ * 按下开始录制的全局快捷键时做什么：面板已经开着就不动（窗口已经带到前台）；入口置灰时说明为什么；否则打开面板，
+ * 录成眼下这一页的项目里的一个新视频（与 Home 的「录制」相同）。入口不显示（Web、宿主不能录）时什么都不做。
+ */
+export function startFromShortcut(input: {
+  entry: RecordingEntry;
+  panelOpen: boolean;
+  projectId: Id | null;
+}): { kind: 'open'; projectId: Id | null } | { kind: 'blocked'; block: RecordingBlock } | null {
+  if (input.panelOpen || input.entry.kind === 'hidden') return null;
+  if (input.entry.kind === 'disabled') return { kind: 'blocked', block: input.entry.block };
+  return { kind: 'open', projectId: input.projectId };
+}
+
 /** 面板记住的选择（按这台电脑记，localStorage）。设备按 ID 记，名字留着在设备不在时提示。 */
 export interface RecordingChoice {
   source: 'display' | 'window' | 'area';
@@ -125,6 +139,9 @@ export const DEFAULT_CHOICE: RecordingChoice = {
 };
 
 export const COUNTDOWNS = [3, 5, 0] as const;
+
+/** 设置里能选的屏幕帧率，第一个是缺省（与 `RECORDING_DEFAULTS.fps` 一致）。 */
+export const RECORDING_FPS = [30, 60] as const;
 
 /** 设备不在了退回「不用」时的提示种类，带上次记下的名字。 */
 export type RecordingNotice =

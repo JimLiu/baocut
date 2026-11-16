@@ -118,9 +118,11 @@ export const de: RecordingMessages = {
   deleteFailed: (message) => `Die Aufnahme konnte nicht gelöscht werden: ${message}`,
 
   settingsGroup: 'Bildschirmaufnahme',
+  shortcutStart: 'Aufnahme starten',
+  shortcutStartHint: 'Öffnet das Aufnahmefeld aus jeder App. Solange er festgelegt ist, können andere Apps diese Tasten nicht verwenden.',
   shortcutStop: 'Aufnahme beenden',
   shortcutPause: 'Pausieren oder fortsetzen',
-  shortcutHint: 'Die Kurzbefehle funktionieren während der Aufnahme überall, auch wenn BaoCut ausgeblendet ist.',
+  shortcutHint: 'Beenden und Pausieren funktionieren während der Aufnahme überall, auch wenn BaoCut ausgeblendet ist.',
   shortcutPress: 'Tasten drücken …',
   shortcutNone: 'Keiner',
   shortcutChange: 'Ändern',
@@ -129,4 +131,8 @@ export const de: RecordingMessages = {
   shortcutFailed: (names) => `Der Kurzbefehl für „${names}“ konnte nicht festgelegt werden. Möglicherweise wird er von einer anderen App verwendet.`,
   hideWindow: 'BaoCut während der Aufnahme ausblenden',
   hideWindowHint: 'Nur die kleine Steuerleiste bleibt auf dem Bildschirm. Sie wird nicht aufgenommen.',
+  defaultFps: 'Bildrate',
+  defaultFpsHint: 'Für Aufnahmen, die du selbst startest. 60 fps ist flüssiger, erzeugt aber größere Dateien.',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: 'Das Aufnahmefeld startet mit diesem Wert. Änderst du ihn dort, ändert er sich auch hier.',
 };

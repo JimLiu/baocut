@@ -124,9 +124,11 @@ export const ru: RecordingMessages = {
   deleteFailed: (message) => `Не удалось удалить запись: ${message}`,
 
   settingsGroup: 'Запись экрана',
+  shortcutStart: 'Начать запись',
+  shortcutStartHint: 'Открывает панель записи из любого приложения. Пока сочетание задано, другие приложения не могут его использовать.',
   shortcutStop: 'Остановить запись',
   shortcutPause: 'Пауза или продолжение',
-  shortcutHint: 'Во время записи сочетания работают везде, даже когда BaoCut скрыт.',
+  shortcutHint: 'Остановка и пауза работают везде во время записи, даже когда BaoCut скрыт.',
   shortcutPress: 'Нажмите клавиши…',
   shortcutNone: 'Нет',
   shortcutChange: 'Изменить',
@@ -135,4 +137,8 @@ export const ru: RecordingMessages = {
   shortcutFailed: (names) => `Не удалось задать сочетание для «${names}». Возможно, оно занято другим приложением.`,
   hideWindow: 'Скрывать BaoCut во время записи',
   hideWindowHint: 'На экране остаётся только небольшая панель управления. Она не записывается.',
+  defaultFps: 'Частота кадров',
+  defaultFpsHint: 'Для записей, которые вы начинаете сами. 60 кадров/с плавнее, но файлы больше.',
+  fpsValue: (fps: number) => `${fps} кадров/с`,
+  defaultCountdownHint: 'Панель записи открывается с этим значением. Если изменить его на панели, оно изменится и здесь.',
 };

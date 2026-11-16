@@ -118,9 +118,11 @@ export const zhHant: RecordingMessages = {
   deleteFailed: (message) => `無法刪除錄製：${message}`,
 
   settingsGroup: '螢幕錄製',
+  shortcutStart: '開始錄製',
+  shortcutStartHint: '在任何應用程式裡都能打開錄製面板。設定之後，其他應用程式就無法使用這組按鍵。',
   shortcutStop: '停止錄製',
   shortcutPause: '暫停與繼續',
-  shortcutHint: '錄製期間在任何地方都能使用，BaoCut 隱藏時也一樣。',
+  shortcutHint: '停止與暫停在錄製中任何地方都能用，BaoCut 收起時也一樣。',
   shortcutPress: '請按下按鍵…',
   shortcutNone: '無',
   shortcutChange: '更改',
@@ -129,4 +131,8 @@ export const zhHant: RecordingMessages = {
   shortcutFailed: (names) => `無法設定「${names}」的快速鍵，可能已被其他 App 佔用。`,
   hideWindow: '錄製時隱藏 BaoCut',
   hideWindowHint: '螢幕上只會留下小型控制列，它不會被錄進去。',
+  defaultFps: '影格率',
+  defaultFpsHint: '用於你自己開始的錄製。60 fps 更流暢，檔案也更大。',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: '錄製面板依這一項開始；在面板裡改了，這裡也跟著變。',
 };

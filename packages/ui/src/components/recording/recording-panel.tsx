@@ -90,6 +90,9 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
   const sourcesState = useRecordings((s) => s.sources);
   const waitingRec = useRecordings((s) => (request.recordingId ? (s.recordings.find((r) => r.recordingId === request.recordingId) ?? null) : null));
   const saved = useRecordingPrefs((s) => s.choice);
+  // 帧率不在面板上：用户开始的用设置里的缺省，智能体发起的用它给的。
+  const savedFps = useRecordingPrefs((s) => s.fps);
+  const fps = waitingRec ? waitingRec.options.fps : savedFps;
   const [choice, setChoice] = useState<RecordingChoice | null>(null);
   const [notices, setNotices] = useState<RecordingNotice[]>([]);
   const [busy, setBusy] = useState(false);
@@ -133,7 +136,7 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
         await runtime.client.request('recordings.start', { recordingId: request.recordingId, options });
       } else {
         const target = await resolveTarget(runtime, request.target);
-        await runtime.client.request('recordings.start', { options, target });
+        await runtime.client.request('recordings.start', { options: { ...options, fps }, target });
       }
       started.current = true;
       useRecordingPrefs.getState().setChoice(choice);
@@ -146,7 +149,7 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
   };
 
   const block = choice && sources ? startBlock(choice, sources) : null;
-  const disk = choice && sources && sources.available ? lowDisk(choice, sources) : null;
+  const disk = choice && sources && sources.available ? lowDisk(choice, sources, fps) : null;
   const ready = !!choice && !!sources && block?.kind === 'ok';
 
   return (

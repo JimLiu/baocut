@@ -118,9 +118,11 @@ export const ptBR: RecordingMessages = {
   deleteFailed: (message) => `Não foi possível excluir a gravação: ${message}`,
 
   settingsGroup: 'Gravação de tela',
+  shortcutStart: 'Iniciar gravação',
+  shortcutStartHint: 'Abre o painel de gravação em qualquer app. Enquanto estiver definido, outros apps não podem usar essas teclas.',
   shortcutStop: 'Parar gravação',
   shortcutPause: 'Pausar ou retomar',
-  shortcutHint: 'Os atalhos funcionam em qualquer lugar durante a gravação, mesmo com o BaoCut oculto.',
+  shortcutHint: 'Parar e pausar funcionam em qualquer lugar durante a gravação, mesmo com o BaoCut oculto.',
   shortcutPress: 'Pressione as teclas…',
   shortcutNone: 'Nenhum',
   shortcutChange: 'Alterar',
@@ -129,4 +131,8 @@ export const ptBR: RecordingMessages = {
   shortcutFailed: (names) => `Não foi possível definir o atalho de “${names}”. Outro app pode estar usando-o.`,
   hideWindow: 'Ocultar o BaoCut durante a gravação',
   hideWindowHint: 'Somente a pequena barra de controle fica na tela. Ela não é gravada.',
+  defaultFps: 'Taxa de quadros',
+  defaultFpsHint: 'Para gravações que você inicia. 60 fps é mais fluido, mas gera arquivos maiores.',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: 'O painel de gravação começa com este valor. Se você mudar no painel, muda aqui também.',
 };

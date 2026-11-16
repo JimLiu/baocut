@@ -118,9 +118,11 @@ export const ja: RecordingMessages = {
   deleteFailed: (message) => `収録を削除できませんでした：${message}`,
 
   settingsGroup: '画面収録',
+  shortcutStart: '収録を開始',
+  shortcutStartHint: 'どのアプリからでも収録パネルを開けます。設定している間、ほかのアプリではこのキーを使えません。',
   shortcutStop: '収録を停止',
   shortcutPause: '一時停止 / 再開',
-  shortcutHint: '収録中はどこでも使えます。BaoCut が非表示のときも同様です。',
+  shortcutHint: '停止と一時停止は、収録中ならどこでも使えます。BaoCut が非表示のときも同様です。',
   shortcutPress: 'キーを押してください…',
   shortcutNone: 'なし',
   shortcutChange: '変更',
@@ -129,4 +131,8 @@ export const ja: RecordingMessages = {
   shortcutFailed: (names) => `「${names}」のショートカットを設定できませんでした。ほかのAppで使われている可能性があります。`,
   hideWindow: '収録中は BaoCut を非表示にする',
   hideWindowHint: '小さなコントロールバーだけが画面に残ります。これは収録されません。',
+  defaultFps: 'フレームレート',
+  defaultFpsHint: '自分で開始する収録に使います。60 fps はなめらかですが、ファイルが大きくなります。',
+  fpsValue: (fps: number) => `${fps} fps`,
+  defaultCountdownHint: '収録パネルはこの設定で始まります。パネルで変更すると、ここも変わります。',
 };

@@ -92,15 +92,20 @@ export interface HostBridge {
 export interface RecordingHost {
   /** 打开系统设置里对应的隐私页（屏幕录制、摄像头、麦克风、输入监控）；BaoCut 不替用户改。 */
   openSystemSettings(permission: 'screen' | 'camera' | 'microphone' | 'inputMonitoring'): Promise<void>;
-  /** 设置 › 录制的几项：全局快捷键（Electron accelerator，空串不用）与录制时是否收起窗口。启动时与每次改动时调用。 */
-  configure(settings: { shortcuts: { stop: string; pause: string }; hideWindow: boolean }): void;
+  /**
+   * 设置 › 通用 › 屏幕录制的几项：全局快捷键（Electron accelerator，空串不用；开始录制在不录时占着，停止与暂停在采集时占着）
+   * 与录制时是否收起窗口。启动时与每次改动时调用。
+   */
+  configure(settings: { shortcuts: { start: string; stop: string; pause: string }; hideWindow: boolean }): void;
   /**
    * 在那块屏幕（Worker 报的屏幕 ID；null 是主屏）上框一个区域：交回实际用的屏幕 ID 与相对它左上角的逻辑点，取消时 null。
    * 桌面端才有（主进程的透明选框窗口）；没有它时面板里「一个区域」置灰。
    */
   pickArea?(displayId: string | null): Promise<{ displayId: string; rect: { x: number; y: number; width: number; height: number } } | null>;
-  /** 快捷键注册不上（被别的应用占了）时通知界面：给出没注册上的那几个。 */
-  onShortcutFailed?(listener: (failed: Array<'stop' | 'pause'>) => void): () => void;
+  /** 开始录制的全局快捷键按下了：宿主已把窗口带到前台，界面打开录制面板。 */
+  onStartShortcut?(listener: () => void): () => void;
+  /** 快捷键注册不上（被别的应用占了）时通知界面：给出没注册上的那几个（开始录制只在改了它时才报）。 */
+  onShortcutFailed?(listener: (failed: Array<'start' | 'stop' | 'pause'>) => void): () => void;
 }
 
 /**
