@@ -1,4 +1,5 @@
-import type { AudioItem, FitMode, ImageItem, VideoItem } from '@baocut/protocol';
+import type { AudioItem, DocumentRecord, FitMode, Id, ImageItem, VideoItem } from '@baocut/protocol';
+import { isCameraItem } from '../../model/screen-view.ts';
 import { isFramed, isPanelled } from '../../model/stage-framing.ts';
 import { Note, PRow, Sec, SecHead, Seg } from './inspector-controls.tsx';
 import { DubTakesSection } from './dub-takes.tsx';
@@ -7,6 +8,7 @@ import { EffectsSection } from './inspector-effects.tsx';
 import { FramingSection } from './inspector-framing.tsx';
 import { GeometrySection } from './inspector-geometry.tsx';
 import { PanelsSection } from './inspector-panels.tsx';
+import { CameraLayoutSection, ScreenViewSections } from './inspector-screen-view.tsx';
 import { DeleteItem, OpacityRow, SoundSection, SpeedSection, TimeSection, type ItemPageProps } from './inspector-sections.tsx';
 import { TransitionSection } from './inspector-transition.tsx';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
@@ -52,8 +54,8 @@ function PictureSection(props: ItemPageProps<VideoItem | ImageItem>) {
   );
 }
 
-/** 编辑视频：变速、声音（含压低原声）、画面、效果、转场、几何（按原片取景时换成「取景」段，分屏时换成「版式」段）、时间。 */
-export function VideoItemPage(props: ItemPageProps<VideoItem>) {
+/** 编辑视频：变速、声音（含压低原声）、画面、录制的取景或摄像头布局、效果、转场、几何（按原片取景时换成「取景」段，分屏时换成「版式」段）、时间。 */
+export function VideoItemPage({ documents, ...props }: ItemPageProps<VideoItem> & { documents: Record<Id, DocumentRecord> }) {
   const geometry = { sequence: props.sequence, assets: props.assets, edit: props.edit, isDisabled: !props.canChange };
   return (
     <>
@@ -61,6 +63,9 @@ export function VideoItemPage(props: ItemPageProps<VideoItem>) {
       <SoundSection {...props} />
       <DuckingCard {...props} />
       <PictureSection {...props} />
+      {/* 录制的屏幕与摄像头（屏幕录制设计 §5）：取景与演示样式、摄像头布局。 */}
+      {props.item.screenView ? <ScreenViewSections {...props} documents={documents} /> : null}
+      {isCameraItem(props.item, props.assets) ? <CameraLayoutSection {...props} /> : null}
       <EffectsSection {...props} />
       <TransitionSection {...props} />
       {isPanelled(props.item) ? (

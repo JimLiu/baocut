@@ -179,7 +179,7 @@ function ItemPage({
       </p>
       <LockNotice item={item} sequence={sequence} edit={edit} editable={editable} />
       {item.type === 'video' ? (
-        <VideoItemPage item={item} {...props} />
+        <VideoItemPage item={item} documents={documents} {...props} />
       ) : item.type === 'image' ? (
         <ImagePage item={item} {...props} />
       ) : item.type === 'audio' ? (

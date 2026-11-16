@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -21,6 +22,7 @@ import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
 import Emoji from '@react-spectrum/s2/icons/Emoji';
 import ImageIcon from '@react-spectrum/s2/icons/Image';
 import Layers from '@react-spectrum/s2/icons/Layers';
+import LinkIcon from '@react-spectrum/s2/icons/Link';
 import Lock from '@react-spectrum/s2/icons/Lock';
 import LockOpen from '@react-spectrum/s2/icons/LockOpen';
 import Shapes from '@react-spectrum/s2/icons/Shapes';
@@ -61,6 +63,7 @@ import {
   type DubGroup,
   type Stretch,
 } from '../../model/timeline-dub.ts';
+import { linkGroupOf, withLinkedMembers } from '../../model/screen-view.ts';
 import { marqueeItems, marqueeSelection, type MarqueeLane } from '../../model/timeline-marquee.ts';
 import { rulerTicks, spanIndex, spansIn, type SpanIndex } from '../../model/timeline-window.ts';
 import { anchoredScroll, clipSpanAt, selectionSpan, zoomFloor, zoomPlan, type ZoomAction } from '../../model/timeline-zoom.ts';
@@ -81,10 +84,12 @@ import { TemplateRow } from './timeline-template.tsx';
 import { DubBlockView, stretchedLook, useDubBlocks } from './timeline-dub.tsx';
 import { DubHeadMenu, useDubTrack } from './timeline-dub-head.tsx';
 import { TimelineMenu, type TimelineMenuTarget } from './timeline-menu.tsx';
+import { SCREEN_VIEW_ROW_HEIGHT, ScreenViewRows, screenViewLanes } from './timeline-screen-view.tsx';
 import { CutBands } from './timeline-seams.tsx';
 import { useVisibleLane } from './use-visible-lane.ts';
 import './editor.css';
 import { EDITOR_COPY as E } from './editor-copy.ts';
+import { SCREEN_VIEW_COPY as SV } from './screen-view-copy.ts';
 
 /** 拖素材时用的数据类型：素材面板 → 时间线。 */
 export const ASSET_DRAG_TYPE = 'application/x-baocut-asset';
@@ -622,7 +627,8 @@ export function Timeline({
       toggleSelect(item.id);
       return;
     }
-    const group = selection.includes(item.id) ? selection : [item.id];
+    // 录制的联动组整组一起动（屏幕录制设计 §5）：预览里同组的片段跟着走。
+    const group = withLinkedMembers(sequence, selection.includes(item.id) ? selection : [item.id]);
     if (!selection.includes(item.id)) select([item.id]);
     if (!editable || item.locked || tracks.get(item.trackId)?.locked) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -1026,11 +1032,13 @@ export function Timeline({
         />
       );
     }
+    const linked = !!linkGroupOf(sequence, item);
     const title =
       width > 36 ? (
         <span className={clipTitle}>
           <look.icon styles={clipIcon} data-bc-icons="own" />
           <span className={clipName}>{name}</span>
+          {linked ? <LinkIcon styles={clipIcon} aria-label={SV.linked} data-bc-icons="own" /> : null}
         </span>
       ) : null;
     return (
@@ -1044,7 +1052,7 @@ export function Timeline({
           transform: moving && moving.itemId === item.id && moving.offsetY ? `translateY(${moving.offsetY}px)` : undefined,
         }}
         data-active={active || undefined}
-        title={`${name} · ${formatTimecode(start / perSecond, fps)} – ${formatTimecode(end / perSecond, fps)}`}
+        title={`${name} · ${formatTimecode(start / perSecond, fps)} – ${formatTimecode(end / perSecond, fps)}${linked ? `\n${SV.linked}` : ''}`}
         onPointerDown={(event) => onClipPointerDown(event, item)}
         onContextMenu={(event) => onClipContextMenu(event, item)}>
         {item.type === 'video' && width >= MEDIA_MIN_PX ? (
@@ -1147,6 +1155,9 @@ export function Timeline({
       />
     );
   };
+  // 每条轨道上用屏幕取景的文档：它们的附属行画在轨道行下面。
+  const screenLaneMap = useMemo(() => new Map(rows.map(({ track }) => [track.id, screenViewLanes(sequence, track.id)])), [rows, sequence]);
+  const screenLanes = (trackId: Id) => screenLaneMap.get(trackId) ?? [];
   const readoutFrame = moving
     ? (() => {
         const grabbed = items.get(moving.itemId);
@@ -1237,62 +1248,80 @@ export function Timeline({
             />
           ))}
           {rows.map(({ track, label }) => (
-            <div
-              key={track.id}
-              className={row}
-              style={{
-                height: rowHeight(track),
-                // 拖行头时这一行跟着指针走（不换父节点，指针捕获不断），压在别的行上面。
-                transform: draggingTrack?.trackId === track.id ? `translateY(${draggingTrack.offsetY}px)` : undefined,
-                zIndex: draggingTrack?.trackId === track.id ? 6 : undefined,
-                opacity: draggingTrack?.trackId === track.id ? 0.85 : undefined,
-              }}>
-              {draggingTrack?.target?.trackId === track.id ? (
-                <div className={trackDropLine} style={draggingTrack.target.position === 'above' ? { top: -1 } : { bottom: -1 }} />
-              ) : null}
-              {trackHeader(track, label)}
+            <Fragment key={track.id}>
               <div
-                ref={(element) => {
-                  if (element) laneRefs.current.set(track.id, element);
-                  else laneRefs.current.delete(track.id);
-                }}
-                className={lane({
-                  isDropTarget:
-                    dropTrack === track.id || (moving?.trackId === track.id && moving.trackId !== items.get(moving.itemId)?.trackId),
-                })}
-                style={{ width: laneWidth }}
-                onDragOver={(event) => onLaneDragOver(event, track)}
-                onDragLeave={() => setDropTrack(null)}
-                onDrop={(event) => onLaneDrop(event, track)}>
-                {moving
-                  ? moving.itemIds
-                      .map((id) => items.get(id))
-                      .filter((item): item is SequenceItem => !!item && item.trackId === track.id)
-                      .map((item) => {
-                        const range = startOf(item);
-                        if (range.end < windowFrom || range.start > windowTo) return null;
-                        return (
-                          <div
-                            key={`ghost-${item.id}`}
-                            className={ghost}
-                            style={{ left: xOfFrame(range.start), width: xOfFrame(range.end) - xOfFrame(range.start) }}
-                          />
-                        );
-                      })
-                  : null}
-                {laneItems(track).map(renderClip)}
-                {readoutFrame !== null && gestureItemId && items.get(gestureItemId)?.trackId === track.id ? (
-                  <span className={readout} style={{ left: xOfFrame(readoutFrame) }}>
-                    {formatTimecode(readoutFrame / perSecond, fps)}
-                  </span>
+                className={row}
+                style={{
+                  height: rowHeight(track),
+                  // 拖行头时这一行跟着指针走（不换父节点，指针捕获不断），压在别的行上面。
+                  transform: draggingTrack?.trackId === track.id ? `translateY(${draggingTrack.offsetY}px)` : undefined,
+                  zIndex: draggingTrack?.trackId === track.id ? 6 : undefined,
+                  opacity: draggingTrack?.trackId === track.id ? 0.85 : undefined,
+                }}>
+                {draggingTrack?.target?.trackId === track.id ? (
+                  <div className={trackDropLine} style={draggingTrack.target.position === 'above' ? { top: -1 } : { bottom: -1 }} />
                 ) : null}
-                {stretchReadout?.trackId === track.id ? (
-                  <span className={readout} style={{ left: xOfFrame(stretchReadout.frame), transform: 'translateX(-100%)' }}>
-                    {stretchReadout.text}
-                  </span>
-                ) : null}
+                {trackHeader(track, label)}
+                <div
+                  ref={(element) => {
+                    if (element) laneRefs.current.set(track.id, element);
+                    else laneRefs.current.delete(track.id);
+                  }}
+                  className={lane({
+                    isDropTarget:
+                      dropTrack === track.id || (moving?.trackId === track.id && moving.trackId !== items.get(moving.itemId)?.trackId),
+                  })}
+                  style={{ width: laneWidth }}
+                  onDragOver={(event) => onLaneDragOver(event, track)}
+                  onDragLeave={() => setDropTrack(null)}
+                  onDrop={(event) => onLaneDrop(event, track)}>
+                  {moving
+                    ? moving.itemIds
+                        .map((id) => items.get(id))
+                        .filter((item): item is SequenceItem => !!item && item.trackId === track.id)
+                        .map((item) => {
+                          const range = startOf(item);
+                          if (range.end < windowFrom || range.start > windowTo) return null;
+                          return (
+                            <div
+                              key={`ghost-${item.id}`}
+                              className={ghost}
+                              style={{ left: xOfFrame(range.start), width: xOfFrame(range.end) - xOfFrame(range.start) }}
+                            />
+                          );
+                        })
+                    : null}
+                  {laneItems(track).map(renderClip)}
+                  {readoutFrame !== null && gestureItemId && items.get(gestureItemId)?.trackId === track.id ? (
+                    <span className={readout} style={{ left: xOfFrame(readoutFrame) }}>
+                      {formatTimecode(readoutFrame / perSecond, fps)}
+                    </span>
+                  ) : null}
+                  {stretchReadout?.trackId === track.id ? (
+                    <span className={readout} style={{ left: xOfFrame(stretchReadout.frame), transform: 'translateX(-100%)' }}>
+                      {stretchReadout.text}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            </div>
+              {/* 屏幕实例的「缩放」「鼠标」附属行（屏幕录制设计 §5）。拖片段的预览期间附属行停在原位，松手提交后才跟上。 */}
+              {screenLanes(track.id).map((documentId) => (
+                <ScreenViewRows
+                  key={documentId}
+                  sequence={sequence}
+                  documents={documents}
+                  documentId={documentId}
+                  rowClass={row}
+                  headerClass={header({ isOff: false })}
+                  laneClass={lane({ isDropTarget: false })}
+                  laneWidth={laneWidth}
+                  xOf={xOf}
+                  pps={pps}
+                  editable={editable}
+                  onSeek={seek}
+                />
+              ))}
+            </Fragment>
           ))}
 
           {/* 剪口带贯穿所有轨道（原型 timeline-cutbands.jsx）；拖片段、微调时先收起，框选时留着。 */}
@@ -1304,7 +1333,7 @@ export function Timeline({
               xOfFrame={(frame) => HEAD + xOfFrame(frame)}
               top={RULER}
               height={rows.reduce(
-                (sum, { track }) => sum + rowHeight(track),
+                (sum, { track }) => sum + rowHeight(track) + screenLanes(track.id).length * 2 * SCREEN_VIEW_ROW_HEIGHT,
                 (templateRows + liveRows.length + transcripts.length) * ROW_HEIGHT,
               )}
               pps={pps}

@@ -6,12 +6,14 @@ import CutIcon from '@react-spectrum/s2/icons/Cut';
 import DeleteIcon from '@react-spectrum/s2/icons/Delete';
 import DuplicateIcon from '@react-spectrum/s2/icons/Duplicate';
 import PasteIcon from '@react-spectrum/s2/icons/Paste';
+import UnLinkIcon from '@react-spectrum/s2/icons/UnLink';
 import Visibility from '@react-spectrum/s2/icons/Visibility';
 import VisibilityOff from '@react-spectrum/s2/icons/VisibilityOff';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Pressable } from 'react-aria-components';
 import { TIMELINE_EDIT_COPY as COPY } from '../../copy.ts';
 import { itemLabel } from '../../model/editor.ts';
+import { linkGroupOf } from '../../model/screen-view.ts';
 import type { DubBlock } from '../../model/timeline-dub.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
@@ -33,6 +35,7 @@ import {
   splitAtPlayhead,
 } from './timeline-commands.ts';
 import { TIMELINE_RIPPLE_COPY as RIPPLE } from './timeline-ripple-copy.ts';
+import { SCREEN_VIEW_COPY as SV } from './screen-view-copy.ts';
 
 /** 右键的是哪一件、指针在哪（视口坐标）。 */
 export interface TimelineMenuTarget {
@@ -43,7 +46,7 @@ export interface TimelineMenuTarget {
 
 /**
  * 时间线片段的右键菜单（原型 timeline-menu.jsx）：片段名做标题；在播放头分割；复制、剪切、粘贴、再制；
- * 停用或启用这一件；删除；从所有轨道删除这一段（⇧Delete，等于框选所有轨道再删）。命令与快捷键是同一份（timeline-commands）。
+ * 停用或启用这一件；录制的联动组「解组」；删除；从所有轨道删除这一段（⇧Delete，等于框选所有轨道再删）。命令与快捷键是同一份（timeline-commands）。
  *
  * 菜单开在指针那一点：用一个 `position: fixed` 的 0 尺寸锚当触发器（时间线是滚动区，浮层挂在片段上会跟着滚、
  * 也会被裁），受控打开。原型只给视频块「在播放头分割」；这里每一类都给，与 S、⌘B 一致，播放头不在这一件里时禁用。
@@ -101,9 +104,11 @@ function TimelineItemMenu({
   const canSplit = !!item && canSplitAt(sequence, item.id, useEditor.getState().playhead);
   // 选中的只有字幕时没有能拿的段（字幕实例铺满整条轨）。
   const canRemoveSpan = canRemoveSelectionSpan(sequence);
+  // 登记过的联动组（录制的各路）：给「解组」（屏幕录制设计 §5）。
+  const group = item ? linkGroupOf(sequence, item) : null;
   const disabled = editable
     ? [...(canSplit ? [] : ['split']), ...(canRemoveSpan ? [] : ['removeSpan'])]
-    : ['split', 'cut', 'paste', 'duplicate', 'toggle', 'delete', 'removeSpan'];
+    : ['split', 'cut', 'paste', 'duplicate', 'toggle', 'delete', 'removeSpan', 'ungroup'];
 
   const run = (key: string) => {
     if (!item) return;
@@ -124,6 +129,8 @@ function TimelineItemMenu({
         return void deleteSelection(actions);
       case 'removeSpan':
         return void removeSelectionSpan(actions);
+      case 'ungroup':
+        return void (group && actions.apply([{ type: 'unlinkItems', sequenceId: sequence.id, groupId: group.id }]));
     }
   };
 
@@ -192,6 +199,13 @@ function TimelineItemMenu({
             <Text slot="label">{enabled ? COPY.disable : COPY.enable}</Text>
             <Text slot="description">{enabled ? COPY.disableHint : COPY.enableHint}</Text>
           </MenuItem>
+          {group ? (
+            <MenuItem id="ungroup" textValue={SV.ungroup}>
+              <UnLinkIcon />
+              <Text slot="label">{SV.ungroup}</Text>
+              <Text slot="description">{SV.ungroupTip}</Text>
+            </MenuItem>
+          ) : null}
         </MenuSection>
         <MenuSection>
           <MenuItem id="delete" textValue={COPY.remove}>
