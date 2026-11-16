@@ -435,6 +435,8 @@ export function startDesktopApp(): void {
       showWindow,
       barPage: barPageOf(devServerUrl, __dirname),
       barPreload: path.join(__dirname, '../preload/recording-bar.js'),
+      areaPage: barPageOf(devServerUrl, __dirname, 'recording-area.html'),
+      areaPreload: path.join(__dirname, '../preload/recording-area.js'),
     });
     app.on('activate', () => {
       if (appWindows().length === 0) createWindow();

@@ -23,4 +23,6 @@ export const zhHans: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut 正在录制 · ${elapsed}`,
   trayShow: '显示 BaoCut',
   failed: (message) => `没有做成：${message}`,
+  areaHint: '拖动鼠标框出要录制的区域',
+  areaCancel: '按 Esc 取消',
 };

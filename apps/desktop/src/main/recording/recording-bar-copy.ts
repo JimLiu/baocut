@@ -38,6 +38,8 @@ const en = {
   trayTip: (elapsed: string) => `BaoCut is recording · ${elapsed}`,
   trayShow: 'Show BaoCut',
   failed: (message: string) => `Couldn’t do that: ${message}`,
+  areaHint: 'Drag to select the area to record',
+  areaCancel: 'Press Esc to cancel',
 };
 
 export type RecordingBarMessages = typeof en;

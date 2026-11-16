@@ -23,4 +23,6 @@ export const nl: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut neemt op · ${elapsed}`,
   trayShow: 'BaoCut tonen',
   failed: (message) => `Dat is niet gelukt: ${message}`,
+  areaHint: 'Sleep om het op te nemen gebied te selecteren',
+  areaCancel: 'Druk op Esc om te annuleren',
 };

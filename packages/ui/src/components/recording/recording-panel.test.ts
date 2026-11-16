@@ -26,9 +26,13 @@ const sources = (over: Partial<RecordingSources> = {}): RecordingSources => ({
 
 const runtime = { host: { platform: 'darwin', recording: { openSystemSettings: async () => {}, configure: () => {} } } } as unknown as RuntimeSession;
 
-const render = (s: RecordingSources, choice: Partial<RecordingChoice> = {}) =>
+const withPicker = {
+  host: { platform: 'darwin', recording: { openSystemSettings: async () => {}, configure: () => {}, pickArea: async () => null } },
+} as unknown as RuntimeSession;
+
+const render = (s: RecordingSources, choice: Partial<RecordingChoice> = {}, rt: RuntimeSession = runtime) =>
   renderToStaticMarkup(
-    createElement(RuntimeContext.Provider, { value: runtime }, createElement(RecordingFields, { sources: s, choice: { ...DEFAULT_CHOICE, ...choice }, onChange: () => {} })),
+    createElement(RuntimeContext.Provider, { value: rt }, createElement(RecordingFields, { sources: s, choice: { ...DEFAULT_CHOICE, ...choice }, onChange: () => {} })),
   );
 
 describe('RecordingFields', () => {
@@ -42,6 +46,17 @@ describe('RecordingFields', () => {
     const html = render(sources({ cameras: [] }));
     expect(html).toContain(RC.noAreaPicker);
     expect(html).toContain(RC.noCamera);
+  });
+
+  it('宿主有选框时区域可选：框好的写出大小与屏幕，没框时给「框选区域」；整屏与区域有「把 BaoCut 也录进去」，窗口没有', () => {
+    const area = { displayId: '2', rect: { x: 0, y: 0, width: 1280, height: 720 } };
+    const picked = render(sources(), { source: 'area', area }, withPicker);
+    expect(picked).not.toContain(RC.noAreaPicker);
+    expect(picked).toContain(RC.areaSummary(1280, 720, 'Studio'));
+    expect(picked).toContain(RC.areaReselect);
+    expect(picked).toContain(RC.includeSelf);
+    expect(render(sources(), { source: 'area' }, withPicker)).toContain(RC.areaSelect);
+    expect(render(sources(), { source: 'window', windowId: 'w1' })).not.toContain(RC.includeSelf);
   });
 
   it('选了的一路被系统拒绝时给出原因与「打开系统设置」；还没问过的说开始时会问', () => {

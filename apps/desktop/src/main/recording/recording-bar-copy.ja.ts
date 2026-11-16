@@ -23,4 +23,6 @@ export const ja: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut が録画中 · ${elapsed}`,
   trayShow: 'BaoCut を表示',
   failed: (message) => `実行できませんでした：${message}`,
+  areaHint: 'ドラッグして収録する範囲を選択',
+  areaCancel: 'Esc キーでキャンセル',
 };

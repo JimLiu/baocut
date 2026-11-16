@@ -23,4 +23,6 @@ export const ko: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut 녹화 중 · ${elapsed}`,
   trayShow: 'BaoCut 보기',
   failed: (message) => `완료하지 못했습니다: ${message}`,
+  areaHint: '드래그하여 녹화할 영역 선택',
+  areaCancel: '취소하려면 Esc 키를 누르세요',
 };

@@ -97,8 +97,15 @@ export interface RecordingChoice {
   cursor: RecordingCursorMode;
   keys: RecordingKeysMode;
   countdown: number;
+  /** 「一个区域」框好的那块：所在屏幕（Worker 的屏幕 ID，null 是主屏）与相对它左上角的逻辑点。没框过时 null。 */
+  area: RecordingArea | null;
   /** 整屏与区域也录进 BaoCut 自己的窗口（`recordings.start` 的 `includeSelf`）；录单个窗口时不起作用。 */
   includeSelf: boolean;
+}
+
+export interface RecordingArea {
+  displayId: string | null;
+  rect: { x: number; y: number; width: number; height: number };
 }
 
 export const DEFAULT_CHOICE: RecordingChoice = {
@@ -113,6 +120,7 @@ export const DEFAULT_CHOICE: RecordingChoice = {
   cursor: RECORDING_DEFAULTS.cursor,
   keys: RECORDING_DEFAULTS.keys,
   countdown: RECORDING_DEFAULTS.countdown,
+  area: null,
   includeSelf: false,
 };
 
@@ -123,13 +131,32 @@ export type RecordingNotice =
   | { kind: 'camera-gone'; name: string | null }
   | { kind: 'microphone-gone'; name: string | null }
   | { kind: 'display-gone' }
-  | { kind: 'window-gone' };
+  | { kind: 'window-gone' }
+  | { kind: 'area-gone' };
+
+/** 区域所在的屏幕（null 是主屏）。 */
+export function areaDisplay(area: RecordingArea, sources: RecordingSources): RecordingSources['displays'][number] | null {
+  if (area.displayId === null) return sources.displays.find((d) => d.primary) ?? sources.displays[0] ?? null;
+  return sources.displays.find((d) => d.id === area.displayId) ?? null;
+}
+
+/** 区域还在它那块屏幕里（逻辑点）。 */
+function areaFits(area: RecordingArea, sources: RecordingSources): boolean {
+  const d = areaDisplay(area, sources);
+  const r = area.rect;
+  return !!d && r.x >= 0 && r.y >= 0 && r.width > 0 && r.height > 0 && r.x + r.width <= d.width && r.y + r.height <= d.height;
+}
 
 /**
  * 把记下的选择落到这台电脑现在的设备上：摄像头、麦克风不在了退回「不用」，屏幕不在了退回主屏，窗口不在了退回整块屏幕，各给一条提示。
- * 区域没有选框，退回整块屏幕（不提示，入口本来就不可选）。
+ * 记下的区域所在屏幕不在了、或框已经出了那块屏幕（换了分辨率），丢掉它并提示；宿主没有选框（`areaPicker` 为假）时
+ * 「一个区域」退回整块屏幕（不提示，入口本来就不可选）；选着区域却没有框时也退回整块屏幕。
  */
-export function resolveChoice(choice: RecordingChoice, sources: RecordingSources): { choice: RecordingChoice; notices: RecordingNotice[] } {
+export function resolveChoice(
+  choice: RecordingChoice,
+  sources: RecordingSources,
+  host: { areaPicker: boolean } = { areaPicker: false },
+): { choice: RecordingChoice; notices: RecordingNotice[] } {
   const next = { ...choice };
   const notices: RecordingNotice[] = [];
   if (next.camera !== null && next.camera !== 'default' && !sources.cameras.some((c) => c.id === next.camera)) {
@@ -151,7 +178,11 @@ export function resolveChoice(choice: RecordingChoice, sources: RecordingSources
     next.source = 'display';
     next.windowId = null;
   }
-  if (next.source === 'area') next.source = 'display';
+  if (next.area && !areaFits(next.area, sources)) {
+    if (next.source === 'area') notices.push({ kind: 'area-gone' });
+    next.area = null;
+  }
+  if (next.source === 'area' && (!host.areaPicker || !next.area)) next.source = 'display';
   return { choice: next, notices };
 }
 
@@ -177,25 +208,25 @@ export function neededPermissions(choice: RecordingChoice): Array<keyof Recordin
   return wanted;
 }
 
-/** 各个来源能不能选。 */
-export function sourceBlocks(sources: RecordingSources): Record<RecordingChoice['source'], OptionBlock | null> {
+/** 各个来源能不能选。区域要在屏幕上画一个框：宿主有选框（桌面端主进程的透明窗口，`areaPicker`）才能选。 */
+export function sourceBlocks(sources: RecordingSources, host: { areaPicker: boolean } = { areaPicker: false }): Record<RecordingChoice['source'], OptionBlock | null> {
   return {
     display: sources.displays.length ? null : { kind: 'no-display' },
     window: sources.windows.length ? null : { kind: 'no-window' },
-    // 区域要在屏幕上画一个框；那个选框（主进程的透明全屏窗口）还没有，先置灰。
-    area: { kind: 'no-area-picker' },
+    area: !host.areaPicker ? { kind: 'no-area-picker' } : sources.displays.length ? null : { kind: 'no-display' },
   };
 }
 
 /**
- * 开始按钮挡在哪：录不了；屏幕权限被拒（必需的一路）；选了的可选一路权限被拒（去掉它就能继续）。
+ * 开始按钮挡在哪：录不了；选了区域还没框；屏幕权限被拒（必需的一路）；选了的可选一路权限被拒（去掉它就能继续）。
  * `missing` 是被拒的权限，按 `neededPermissions` 的顺序。
  */
 export function startBlock(
   choice: RecordingChoice,
   sources: RecordingSources,
-): { kind: 'ok' } | { kind: 'unavailable' } | { kind: 'permission'; missing: Array<keyof RecordingPermissions>; required: boolean } {
+): { kind: 'ok' } | { kind: 'unavailable' } | { kind: 'no-area' } | { kind: 'permission'; missing: Array<keyof RecordingPermissions>; required: boolean } {
   if (!sources.available) return { kind: 'unavailable' };
+  if (choice.source === 'area' && !choice.area) return { kind: 'no-area' };
   const missing = neededPermissions(choice).filter((p) => permissionBlocked(sources.permissions[p]));
   if (missing.length === 0) return { kind: 'ok' };
   return { kind: 'permission', missing, required: missing.includes('screen') };
@@ -205,7 +236,10 @@ export function startBlock(
 export function choiceOptions(choice: RecordingChoice): Partial<RecordingOptions> {
   let source: RecordingSource;
   if (choice.source === 'window' && choice.windowId) source = { kind: 'window', windowId: choice.windowId };
-  else source = choice.displayId ? { kind: 'display', displayId: choice.displayId } : { kind: 'display' };
+  else if (choice.source === 'area' && choice.area) {
+    const { displayId, rect } = choice.area;
+    source = displayId ? { kind: 'area', displayId, rect: { ...rect } } : { kind: 'area', rect: { ...rect } };
+  } else source = choice.displayId ? { kind: 'display', displayId: choice.displayId } : { kind: 'display' };
   return {
     source,
     camera: choice.camera,
@@ -236,13 +270,16 @@ const AUDIO_BYTES_PER_SECOND = 128_000 / 8;
  */
 export function recordingBytesPerSecond(choice: RecordingChoice, sources: RecordingSources, fps: number = RECORDING_DEFAULTS.fps): number {
   const primary = sources.displays.find((d) => d.primary) ?? sources.displays[0];
-  const display = sources.displays.find((d) => d.id === choice.displayId) ?? primary;
-  const scale = display?.scale ?? 1;
+  let display = sources.displays.find((d) => d.id === choice.displayId) ?? primary;
   let points = display ? display.width * display.height : 1920 * 1080;
   if (choice.source === 'window') {
     const w = sources.windows.find((x) => x.id === choice.windowId);
     if (w) points = w.width * w.height;
+  } else if (choice.source === 'area' && choice.area) {
+    display = areaDisplay(choice.area, sources) ?? primary;
+    points = choice.area.rect.width * choice.area.rect.height;
   }
+  const scale = display?.scale ?? 1;
   const screen = (points * scale * scale * fps * BITS_PER_PIXEL) / 8;
   const camera = choice.camera ? (CAMERA_PIXELS * CAMERA_FPS * BITS_PER_PIXEL) / 8 : 0;
   const audio = (choice.microphone ? AUDIO_BYTES_PER_SECOND : 0) + (choice.systemAudio ? AUDIO_BYTES_PER_SECOND : 0);
@@ -267,9 +304,10 @@ export function choiceFromOptions(options: RecordingOptions, base: RecordingChoi
   const source = options.source;
   return {
     ...base,
-    source: source.kind === 'window' ? 'window' : 'display',
-    displayId: source.kind === 'window' ? base.displayId : (source.displayId ?? null),
+    source: source.kind,
+    displayId: source.kind === 'display' ? (source.displayId ?? null) : base.displayId,
     windowId: source.kind === 'window' ? source.windowId : base.windowId,
+    area: source.kind === 'area' ? { displayId: source.displayId ?? null, rect: { ...source.rect } } : base.area,
     camera: options.camera,
     cameraName: options.camera === base.camera ? base.cameraName : null,
     microphone: options.microphone,

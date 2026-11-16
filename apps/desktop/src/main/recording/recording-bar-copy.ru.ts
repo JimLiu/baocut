@@ -23,4 +23,6 @@ export const ru: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut ведёт запись · ${elapsed}`,
   trayShow: 'Показать BaoCut',
   failed: (message) => `Не получилось: ${message}`,
+  areaHint: 'Выделите мышью область для записи',
+  areaCancel: 'Нажмите Esc для отмены',
 };

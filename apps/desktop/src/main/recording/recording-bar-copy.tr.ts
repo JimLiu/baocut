@@ -23,4 +23,6 @@ export const tr: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut kayıt yapıyor · ${elapsed}`,
   trayShow: 'BaoCut’u göster',
   failed: (message) => `Yapılamadı: ${message}`,
+  areaHint: 'Kaydedilecek alanı seçmek için sürükleyin',
+  areaCancel: 'İptal etmek için Esc tuşuna basın',
 };

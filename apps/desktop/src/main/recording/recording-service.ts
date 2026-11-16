@@ -3,6 +3,7 @@ import { BrowserWindow, Menu, Tray, dialog, globalShortcut, ipcMain, screen, she
 import { BaoCutClient } from '@baocut/client';
 import { onLocaleChange, type Id, type RecordingState, type RecordingStreamStatus, type RecordingSummary } from '@baocut/protocol';
 import { appTrayImage, macTrayImage } from '../bot/bot-service.ts';
+import { createAreaPicker, type AreaPick } from './area-picker.ts';
 import { RB } from './recording-bar-copy.ts';
 import {
   barView,
@@ -27,6 +28,7 @@ import {
  *   ScreenCaptureKit 的应用仍然截得到，Recording Worker 正是用它采集，所以 macOS 上还要 Worker 把这个窗口排除在外。
  * - 菜单栏（托盘）图标：同样的四个动作；macOS 的菜单栏上写已录时长。
  * - 全局快捷键：停止、暂停与继续，只在采集时注册；注册不上时告诉界面（被别的应用占了）。
+ * - 区域选框（area-picker.ts）：面板选「一个区域」时盖在屏幕上；框选期间收起应用窗口（不然面板挡着要框的内容），完了放回来。
  * 规则在 recording-rules.ts 并有单测；这里是薄薄的 Electron 调用。录完之后打开编辑器由界面做（它看着状态走到「已进时间线」）。
  */
 
@@ -36,6 +38,7 @@ export const RECORDING_SHORTCUT_FAILED_CHANNEL = 'baocut:recording-shortcut-fail
 export const RECORDING_BAR_VIEW_CHANNEL = 'baocut:recording-bar-view';
 export const RECORDING_BAR_ACT_CHANNEL = 'baocut:recording-bar-act';
 export const RECORDING_BAR_READY_CHANNEL = 'baocut:recording-bar-ready';
+export const RECORDING_PICK_AREA_CHANNEL = 'baocut:recording-pick-area';
 
 export interface RecordingServiceOptions {
   connection(): Promise<{ endpoint: string; token: string }>;
@@ -48,10 +51,13 @@ export interface RecordingServiceOptions {
   /** 控制条页面：开发时开发服务器的地址，打包后 `out/renderer` 下的文件。 */
   barPage: { url: string } | { file: string };
   barPreload: string;
+  /** 录制区域的选框页面与 preload（同控制条）。 */
+  areaPage: { url: string } | { file: string };
+  areaPreload: string;
 }
 
 export interface RecordingService {
-  /** 这个窗口是不是控制条（`showWindow` 之类找应用窗口时跳过它）。 */
+  /** 这个窗口是不是控制条或区域选框（`showWindow` 之类找应用窗口时跳过它）。 */
   isBarWindow(win: BrowserWindow): boolean;
   dispose(): void;
 }
@@ -92,6 +98,7 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
   let registered: { stop: string; pause: string } | null = null;
 
   const current = () => currentRecording([...recordings.values()]);
+  const picker = createAreaPicker({ page: options.areaPage, preload: options.areaPreload });
 
   const request = (method: 'recordings.pause' | 'recordings.resume' | 'recordings.stop', recordingId: Id) =>
     client.request(method, { recordingId }).catch((error: unknown) => console.error(`[recording] ${method} failed`, error));
@@ -332,6 +339,18 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
     if (!url) throw new Error('No system settings page for this permission on this platform');
     await shell.openExternal(url);
   });
+  ipcMain.handle(RECORDING_PICK_AREA_CHANNEL, async (event, displayId: unknown): Promise<AreaPick | null> => {
+    if (!isAppSender(event.sender, options) || event.senderFrame !== event.sender.mainFrame) throw new Error('Only app windows can pick an area');
+    const shown = options.appWindows().filter((w) => !w.isDestroyed() && w.isVisible());
+    const asker = BrowserWindow.fromWebContents(event.sender);
+    for (const w of shown) w.hide();
+    try {
+      return await picker.pick(displayId);
+    } finally {
+      for (const w of shown) if (!w.isDestroyed()) w.show();
+      if (asker && !asker.isDestroyed()) asker.focus();
+    }
+  });
   ipcMain.on(RECORDING_BAR_READY_CHANNEL, (event) => {
     if (!bar || bar.isDestroyed() || event.sender !== bar.webContents) return;
     barReady = true;
@@ -350,19 +369,21 @@ export function installRecordingService(options: RecordingServiceOptions): Recor
   });
 
   return {
-    isBarWindow: (win) => !!bar && win === bar,
+    isBarWindow: (win) => (!!bar && win === bar) || picker.isPickerWindow(win),
     dispose() {
       stopTopic();
       stopState();
       stopLocale();
       unregister();
       closeBar();
+      picker.dispose();
       tray?.destroy();
       tray = null;
       ipcMain.removeAllListeners(RECORDING_CONFIGURE_CHANNEL);
       ipcMain.removeAllListeners(RECORDING_BAR_READY_CHANNEL);
       ipcMain.removeHandler(RECORDING_SETTINGS_CHANNEL);
       ipcMain.removeHandler(RECORDING_BAR_ACT_CHANNEL);
+      ipcMain.removeHandler(RECORDING_PICK_AREA_CHANNEL);
       client.close();
     },
   };
@@ -389,8 +410,8 @@ function roleName(role: RecordingStreamStatus['role']): string {
   }
 }
 
-/** 控制条页面在哪：开发时跟着开发服务器，打包后在 `out/renderer`。 */
-export function barPageOf(devServerUrl: string | undefined, mainDir: string): { url: string } | { file: string } {
-  if (devServerUrl) return { url: new URL('recording-bar.html', devServerUrl.endsWith('/') ? devServerUrl : `${devServerUrl}/`).href };
-  return { file: path.join(mainDir, '../renderer/recording-bar.html') };
+/** 控制条（或区域选框）页面在哪：开发时跟着开发服务器，打包后在 `out/renderer`。 */
+export function barPageOf(devServerUrl: string | undefined, mainDir: string, page = 'recording-bar.html'): { url: string } | { file: string } {
+  if (devServerUrl) return { url: new URL(page, devServerUrl.endsWith('/') ? devServerUrl : `${devServerUrl}/`).href };
+  return { file: path.join(mainDir, '../renderer', page) };
 }

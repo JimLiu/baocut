@@ -23,4 +23,6 @@ export const vi: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut đang ghi hình · ${elapsed}`,
   trayShow: 'Hiện BaoCut',
   failed: (message) => `Không thực hiện được: ${message}`,
+  areaHint: 'Kéo để chọn vùng cần quay',
+  areaCancel: 'Nhấn Esc để hủy',
 };

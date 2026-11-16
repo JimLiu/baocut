@@ -135,3 +135,52 @@ export function clock(seconds: number): string {
   const ss = String(s % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
+
+// ---- 区域框选（屏幕录制设计 §11 第 1 项「一个区域」） ----
+
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** 框太小当作没选（误点一下不算一个区域）。逻辑点。 */
+export const MIN_AREA = 32;
+
+/**
+ * 选框盖在哪块屏幕上：界面给的 ID（Worker 报的屏幕 ID，macOS 上与 Electron 的 `display.id` 同为 CGDirectDisplayID）对得上就用它，
+ * 对不上或没给就用主屏。
+ */
+export function pickDisplay<D extends { id: number; bounds: Bounds }>(displays: readonly D[], wanted: unknown, primary: D): D {
+  if (typeof wanted === 'string' && wanted) return displays.find((d) => String(d.id) === wanted) ?? primary;
+  return primary;
+}
+
+/**
+ * 拖出来的框换成相对那块屏幕左上角的逻辑点：`from` 与 `to` 是选框页面里的坐标（CSS 像素即逻辑点），`content` 是选框窗口
+ * 内容区此刻在桌面上的位置（macOS 可能把它压到菜单栏下面，所以不假定它与屏幕重合），`display` 是那块屏幕。
+ * 结果夹在屏幕里、取整；夹完宽或高不到 `MIN_AREA` 时 null。
+ */
+export function areaRect(from: { x: number; y: number }, to: { x: number; y: number }, content: Bounds, display: Bounds): Bounds | null {
+  const ox = content.x - display.x;
+  const oy = content.y - display.y;
+  const clampX = (v: number) => Math.min(display.width, Math.max(0, v + ox));
+  const clampY = (v: number) => Math.min(display.height, Math.max(0, v + oy));
+  const x0 = Math.round(clampX(Math.min(from.x, to.x)));
+  const x1 = Math.round(clampX(Math.max(from.x, to.x)));
+  const y0 = Math.round(clampY(Math.min(from.y, to.y)));
+  const y1 = Math.round(clampY(Math.max(from.y, to.y)));
+  if (x1 - x0 < MIN_AREA || y1 - y0 < MIN_AREA) return null;
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+}
+
+/** 选框页面交回来的拖动：两个有限的点；别的形状不认。 */
+export function parseAreaDrag(raw: unknown): { from: { x: number; y: number }; to: { x: number; y: number } } | null {
+  const v = raw as { from?: { x?: unknown; y?: unknown }; to?: { x?: unknown; y?: unknown } } | null;
+  const point = (p: { x?: unknown; y?: unknown } | undefined) =>
+    p && typeof p.x === 'number' && typeof p.y === 'number' && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null;
+  const from = point(v?.from);
+  const to = point(v?.to);
+  return from && to ? { from, to } : null;
+}

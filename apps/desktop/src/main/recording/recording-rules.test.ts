@@ -1,6 +1,6 @@
 import { RECORDING_DEFAULTS, type RecordingSummary } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
-import { barView, clock, currentRecording, hideForRecording, parseHostSettings, privacyUrl, shortcutsWanted, toggleMethod, windowPlan } from './recording-rules.ts';
+import { areaRect, barView, clock, currentRecording, hideForRecording, MIN_AREA, parseAreaDrag, parseHostSettings, pickDisplay, privacyUrl, shortcutsWanted, toggleMethod, windowPlan } from './recording-rules.ts';
 
 const rec = (over: Partial<RecordingSummary> = {}): RecordingSummary => ({
   recordingId: 'rec_1',
@@ -93,5 +93,37 @@ describe('快捷键与设置', () => {
     expect(clock(0)).toBe('0:00');
     expect(clock(61.9)).toBe('1:01');
     expect(clock(3601)).toBe('1:00:01');
+  });
+});
+
+describe('区域框选', () => {
+  const main = { id: 1, bounds: { x: 0, y: 0, width: 1512, height: 982 } };
+  const side = { id: 724, bounds: { x: 1512, y: -200, width: 1920, height: 1080 } };
+
+  it('按 ID 找屏幕，对不上或没给时用主屏', () => {
+    expect(pickDisplay([main, side], '724', main)).toBe(side);
+    expect(pickDisplay([main, side], 'fake-display', main)).toBe(main);
+    expect(pickDisplay([main, side], null, main)).toBe(main);
+  });
+
+  it('拖出的框换成相对屏幕的逻辑点：反向拖也行，窗口被压到菜单栏下面时补上偏移', () => {
+    expect(areaRect({ x: 300, y: 200 }, { x: 100, y: 50 }, main.bounds, main.bounds)).toEqual({ x: 100, y: 50, width: 200, height: 150 });
+    // 选框窗口从 y=37 开始（菜单栏下面）：页面里的 0 是屏幕上的 37。
+    expect(areaRect({ x: 100, y: 0 }, { x: 300, y: 100 }, { ...main.bounds, y: 37, height: 945 }, main.bounds)).toEqual({ x: 100, y: 37, width: 200, height: 100 });
+    // 副屏在左上方有负坐标：照样相对它自己的左上角。
+    expect(areaRect({ x: 10.4, y: 20.6 }, { x: 510, y: 420 }, side.bounds, side.bounds)).toEqual({ x: 10, y: 21, width: 500, height: 399 });
+  });
+
+  it('夹在屏幕里；太小的当作没选', () => {
+    expect(areaRect({ x: -50, y: -50 }, { x: 2000, y: 2000 }, main.bounds, main.bounds)).toEqual({ x: 0, y: 0, width: 1512, height: 982 });
+    expect(areaRect({ x: 10, y: 10 }, { x: 10 + MIN_AREA - 1, y: 200 }, main.bounds, main.bounds)).toBeNull();
+    expect(areaRect({ x: 1500, y: 10 }, { x: 1600, y: 200 }, main.bounds, main.bounds)).toBeNull();
+  });
+
+  it('只认两个有限的点', () => {
+    expect(parseAreaDrag({ from: { x: 1, y: 2 }, to: { x: 3, y: 4 } })).toEqual({ from: { x: 1, y: 2 }, to: { x: 3, y: 4 } });
+    expect(parseAreaDrag({ from: { x: 1, y: Number.NaN }, to: { x: 3, y: 4 } })).toBeNull();
+    expect(parseAreaDrag('x')).toBeNull();
+    expect(parseAreaDrag(null)).toBeNull();
   });
 });

@@ -43,6 +43,9 @@ const en = {
   displayMain: (name: string) => `${name} · Main`,
   window: 'Window',
   windowName: (app: string, title: string) => (title ? `${app} — ${title}` : app),
+  areaSelect: 'Select area…',
+  areaReselect: 'Select again…',
+  areaSummary: (width: number, height: number, screen: string) => (screen ? `${width} × ${height} on ${screen}` : `${width} × ${height}`),
   includeSelf: 'Include BaoCut in the recording',
   includeSelfHint: 'When off, BaoCut’s windows and your conversations stay out of the video.',
   camera: 'Camera',
@@ -97,6 +100,7 @@ const en = {
   needScreen: 'Screen Recording permission is required to record.',
   needOptional: (names: string) => `Turn on ${names} in System Settings, or stop using it, to start.`,
   unavailable: 'Recording isn’t available right now.',
+  areaNeeded: 'Select an area on screen to start.',
   unavailableNoWorker: 'The screen recorder is missing from this copy of BaoCut. Reinstall BaoCut to record.',
   unavailableNoWindow: 'Open the BaoCut app on this computer to record.',
   diskLow: (free: string, minutes: number) => `Only ${free} free where recordings are saved, enough for about ${minutes} min. You can still start.`,
@@ -107,6 +111,7 @@ const en = {
     name ? `“${name}” isn’t connected, so the microphone is off.` : 'The microphone you used last time isn’t connected, so the microphone is off.',
   displayGone: 'The screen you used last time isn’t connected. Recording the main screen.',
   windowGone: 'The window you used last time is closed. Recording the entire screen.',
+  areaGone: 'The area you used last time no longer fits its screen. Select it again.',
 
   // 会话卡片
   cardTitle: 'Screen recording',

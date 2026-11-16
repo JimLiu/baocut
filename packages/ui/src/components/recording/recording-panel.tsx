@@ -17,6 +17,7 @@ import {
 } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
+  areaDisplay,
   choiceFromOptions,
   choiceOptions,
   COUNTDOWNS,
@@ -42,6 +43,7 @@ import { loadSources, unsupportedText } from './recording-host.tsx';
  * 录制面板（屏幕录制设计 §11）：Home、Space「新建」、编辑器素材面板与智能体的 `record` 打开同一个面板。
  * 八项：录什么、摄像头（带预览）、麦克风（带电平）、系统声音、鼠标、键盘、倒计时、开始。
  * - 每一路旁边是系统权限的状态；被拒的给「打开系统设置」，BaoCut 不替用户改。屏幕被拒时开始不可用；可选的一路被拒时去掉它才能开始。
+ * - 「一个区域」由宿主的选框框出（桌面端主进程盖在所选屏幕上的透明窗口）；没有选框的宿主置灰。框好的区域记着，下次直接用。
  * - 整屏与区域有「把 BaoCut 也录进去」（`includeSelf`，缺省关）；录单个窗口时不显示（选的就是那个窗口）。
  * - 记住上次的选择（这台电脑的 localStorage）；设备不在时退回「不用」并提示。
  * - `sources` 给了剩余空间、不够录十分钟时提醒（只提醒，照样能开始）；录不了时按原因码说明。
@@ -101,10 +103,10 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
   useEffect(() => {
     if (!sources || choice) return;
     const base = waitingRec ? choiceFromOptions(waitingRec.options, saved) : saved;
-    const resolved = resolveChoice(base, sources);
+    const resolved = resolveChoice(base, sources, { areaPicker: !!runtime.host.recording?.pickArea });
     setChoice(resolved.choice);
     setNotices(resolved.notices);
-  }, [sources, choice, waitingRec, saved]);
+  }, [sources, choice, waitingRec, saved, runtime]);
 
   // 智能体发起的那次被别处取消或开始了：面板跟着关。
   useEffect(() => {
@@ -179,6 +181,7 @@ export function RecordingPanel({ request }: { request: RecordingPanelRequest }) 
               <p className={problem}>{block.required ? RC.needScreen : RC.needOptional(block.missing.map(permName).join(', '))}</p>
             ) : null}
             {block && block.kind === 'unavailable' ? <p className={problem}>{RC.unavailable}</p> : null}
+            {block && block.kind === 'no-area' ? <p className={note}>{RC.areaNeeded}</p> : null}
             {disk ? <p className={warn}>{RC.diskLow(formatBytes(disk.freeBytes), disk.minutes)}</p> : null}
             {failure ? <p className={problem}>{failure}</p> : null}
           </div>
@@ -204,8 +207,11 @@ async function resolveTarget(runtime: RuntimeSession, target: RecordingPanelRequ
 }
 
 export function RecordingFields({ sources, choice, onChange }: { sources: RecordingSources; choice: RecordingChoice; onChange(next: RecordingChoice): void }) {
+  const runtime = useRuntime();
+  const picker = runtime.host.recording?.pickArea;
+  const [picking, setPicking] = useState(false);
   const set = (patch: Partial<RecordingChoice>) => onChange({ ...choice, ...patch });
-  const blocks = sourceBlocks(sources);
+  const blocks = sourceBlocks(sources, { areaPicker: !!picker });
   const sourceBlock = blocks[choice.source];
   const permissions = sources.permissions;
   const cameraName = choice.camera ? (sources.cameras.find((c) => c.id === choice.camera)?.name ?? null) : null;
@@ -226,6 +232,26 @@ export function RecordingFields({ sources, choice, onChange }: { sources: Record
   const primary = sources.displays.find((d) => d.primary)?.id ?? sources.displays[0]?.id ?? null;
   const unavailable = !sources.available;
 
+  // 框一个区域：选框盖在所选屏幕上（应用窗口这时收起），框好了换成「一个区域」；取消时来源不变。
+  // 主进程找不到这块屏幕时盖在主屏上，交回它自己的屏幕 ID；Worker 不认得那个 ID 时仍记成问的那块（见 host.ts）。
+  const pickArea = async () => {
+    if (!picker || picking) return;
+    setPicking(true);
+    try {
+      const wanted = choice.displayId ?? primary;
+      const result = await picker(wanted);
+      if (!result) return;
+      const known = sources.displays.some((d) => d.id === result.displayId);
+      onChange({ ...choice, source: 'area', area: { displayId: known ? result.displayId : wanted, rect: result.rect } });
+    } catch {
+      /* 选框开不出来：来源不变 */
+    } finally {
+      setPicking(false);
+    }
+  };
+  const areaShown = choice.source === 'area' && choice.area ? choice.area : null;
+  const areaScreen = areaShown ? areaDisplay(areaShown, sources) : null;
+
   return (
     <>
       <div className={field}>
@@ -236,7 +262,10 @@ export function RecordingFields({ sources, choice, onChange }: { sources: Record
           aria-labelledby="rec-source"
           isDisabled={unavailable}
           selectedKey={choice.source}
-          onSelectionChange={(key) => set({ source: key as RecordingChoice['source'] })}>
+          onSelectionChange={(key) => {
+            if (key === 'area' && !choice.area) return void pickArea();
+            set({ source: key as RecordingChoice['source'] });
+          }}>
           <SegmentedControlItem id="display" isDisabled={!!blocks.display}>
             {RC.sourceDisplay}
           </SegmentedControlItem>
@@ -250,14 +279,25 @@ export function RecordingFields({ sources, choice, onChange }: { sources: Record
         {blocks.area ? <p className={note}>{blockOption(blocks.area)}</p> : null}
         {blocks.window && choice.source !== 'window' ? <p className={note}>{blockOption(blocks.window)}</p> : null}
         {sourceBlock ? <p className={warn}>{blockOption(sourceBlock)}</p> : null}
-        {choice.source === 'display' && displays.length > 1 ? (
+        {choice.source !== 'window' && displays.length > 1 ? (
           <Picker
             label={RC.display}
             items={displays}
-            selectedKey={choice.displayId ?? primary}
-            onSelectionChange={(key) => key !== null && set({ displayId: String(key) })}>
+            selectedKey={(choice.source === 'area' ? choice.area?.displayId : null) ?? choice.displayId ?? primary}
+            // 区域换了屏幕要重新框。
+            onSelectionChange={(key) => key !== null && set(choice.source === 'area' ? { displayId: String(key), area: null } : { displayId: String(key) })}>
             {(d) => <PickerItem id={d.id}>{d.name}</PickerItem>}
           </Picker>
+        ) : null}
+        {choice.source === 'area' ? (
+          <div className={perm}>
+            {areaShown ? (
+              <span data-area>{RC.areaSummary(areaShown.rect.width, areaShown.rect.height, areaScreen?.name ?? '')}</span>
+            ) : null}
+            <Button size="S" variant="secondary" isPending={picking} isDisabled={unavailable || !picker} onPress={() => void pickArea()}>
+              {areaShown ? RC.areaReselect : RC.areaSelect}
+            </Button>
+          </div>
         ) : null}
         {choice.source === 'window' && sources.windows.length ? (
           <Picker
@@ -432,6 +472,8 @@ function noticeText(n: RecordingNotice): string {
       return RC.displayGone;
     case 'window-gone':
       return RC.windowGone;
+    case 'area-gone':
+      return RC.areaGone;
   }
 }
 

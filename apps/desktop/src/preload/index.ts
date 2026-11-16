@@ -82,6 +82,8 @@ const recording: NonNullable<HostBridge['recording']> = {
       shortcuts: { stop: settings.shortcuts.stop, pause: settings.shortcuts.pause },
       hideWindow: settings.hideWindow,
     }),
+  // 区域选框：主进程在那块屏幕上盖一个透明窗口，交回相对屏幕的逻辑点；取消时 null（参数在主进程里重新校验）。
+  pickArea: (displayId) => ipcRenderer.invoke('baocut:recording-pick-area', displayId),
   onShortcutFailed: (listener) => {
     const handler = (_event: IpcRendererEvent, failed: Array<'stop' | 'pause'>) => listener(failed);
     ipcRenderer.on('baocut:recording-shortcut-failed', handler);

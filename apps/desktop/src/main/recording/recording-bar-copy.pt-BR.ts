@@ -23,4 +23,6 @@ export const ptBR: RecordingBarMessages = {
   trayTip: (elapsed) => `O BaoCut está gravando · ${elapsed}`,
   trayShow: 'Mostrar o BaoCut',
   failed: (message) => `Não foi possível concluir: ${message}`,
+  areaHint: 'Arraste para selecionar a área a gravar',
+  areaCancel: 'Pressione Esc para cancelar',
 };

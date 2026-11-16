@@ -23,4 +23,6 @@ export const it: RecordingBarMessages = {
   trayTip: (elapsed) => `BaoCut sta registrando · ${elapsed}`,
   trayShow: 'Mostra BaoCut',
   failed: (message) => `Operazione non riuscita: ${message}`,
+  areaHint: 'Trascina per selezionare l’area da registrare',
+  areaCancel: 'Premi Esc per annullare',
 };

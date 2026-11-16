@@ -116,6 +116,44 @@ describe('resolveChoice', () => {
   });
 });
 
+describe('一个区域', () => {
+  const area = { displayId: '1', rect: { x: 100, y: 50, width: 640, height: 360 } };
+  const picker = { areaPicker: true };
+
+  it('宿主有选框时区域可选；没有时置灰', () => {
+    expect(sourceBlocks(sources(), picker).area).toBeNull();
+    expect(sourceBlocks(sources({ displays: [] }), picker).area).toEqual({ kind: 'no-display' });
+    expect(sourceBlocks(sources()).area).toEqual({ kind: 'no-area-picker' });
+  });
+
+  it('记下的区域还在屏幕里就照用；屏幕不在了或框出了屏幕时丢掉并提示；还没框时退回整块屏幕', () => {
+    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area }, sources(), picker)).toEqual({ choice: { ...DEFAULT_CHOICE, source: 'area', area }, notices: [] });
+    const gone = resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area: { ...area, displayId: '9' } }, sources(), picker);
+    expect(gone.choice).toMatchObject({ source: 'display', area: null });
+    expect(gone.notices).toEqual([{ kind: 'area-gone' }]);
+    const outside = resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area: { displayId: null, rect: { x: 1000, y: 0, width: 640, height: 360 } } }, sources(), picker);
+    expect(outside.choice.source).toBe('display');
+    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area' }, sources(), picker)).toEqual({ choice: DEFAULT_CHOICE, notices: [] });
+    // 宿主没有选框：记下的区域留着（下次在桌面端还能用），来源退回整块屏幕。
+    expect(resolveChoice({ ...DEFAULT_CHOICE, source: 'area', area }, sources()).choice).toMatchObject({ source: 'display', area });
+  });
+
+  it('选了区域还没框时不能开始；框好了换成 area 来源', () => {
+    expect(startBlock({ ...DEFAULT_CHOICE, source: 'area' }, sources())).toEqual({ kind: 'no-area' });
+    expect(startBlock({ ...DEFAULT_CHOICE, source: 'area', area }, sources())).toEqual({ kind: 'ok' });
+    expect(choiceOptions({ ...DEFAULT_CHOICE, source: 'area', area }).source).toEqual({ kind: 'area', displayId: '1', rect: area.rect });
+    expect(choiceOptions({ ...DEFAULT_CHOICE, source: 'area', area: { ...area, displayId: null } }).source).toEqual({ kind: 'area', rect: area.rect });
+    expect(choiceOptions({ ...DEFAULT_CHOICE, source: 'area', area }).includeSelf).toBe(false);
+  });
+
+  it('智能体给的区域落到面板上；码率按框的大小估', () => {
+    const choice = choiceFromOptions({ ...RECORDING_DEFAULTS, source: { kind: 'area', displayId: '1', rect: area.rect } }, DEFAULT_CHOICE);
+    expect(choice).toMatchObject({ source: 'area', area });
+    const screenOnly = { ...DEFAULT_CHOICE, microphone: null };
+    expect(recordingBytesPerSecond({ ...screenOnly, source: 'area', area }, sources())).toBeCloseTo((640 * 360 * 4 * 30 * 0.15) / 8);
+  });
+});
+
 describe('选项能不能选与开始', () => {
   it('区域没有选框时置灰；没有窗口时窗口置灰', () => {
     expect(sourceBlocks(sources({ windows: [] }))).toEqual({ display: null, window: { kind: 'no-window' }, area: { kind: 'no-area-picker' } });
