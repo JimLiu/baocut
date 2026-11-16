@@ -111,9 +111,9 @@
         onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); onImport(); }}>
         <Ic n="upload" className="ic--20" /><div><b>添加视频</b><span>拖入文件，或选择本地视频</span></div>
         <Btn size="s" icon="plus" onClick={onImport}>导入</Btn>
-        {/* 录制（只在 App，new-recording.jsx）：录好的屏幕、摄像头与声音放到播放头处的新轨道上 */}
+        {/* 录制（只在 App，new-recording.jsx）：打开录制启动器，落点是这部视频；录好的屏幕、摄像头与声音放到播放头处的新轨道上 */}
         {window.BC_SURFACE.record && window.BC_RECORDER && ctx.addRecordingAt ? <Tip label="把屏幕录进这个视频，放在播放头处的新轨道上">
-          <Btn size="s" variant="secondary" icon="video" onClick={() => window.BC_RECORDER.open({mode: 'into', onDone: ({rec, sources}) => {
+          <Btn size="s" variant="secondary" icon="video" onClick={() => window.BC_RECORDER.open({mode: 'into', video: ctx.proj && ctx.proj.title, dir: ctx.proj && ctx.proj.dir, onDone: ({rec, sources}) => {
             sources.video.forEach((x) => ctx.addSource('video', x));
             sources.audio.forEach((x) => ctx.addSource('audio', x));
             ctx.addRecordingAt(rec, ctx.playT, window.BC_LAYOUT.ratioValue(ctx.ratio || '16:9'));

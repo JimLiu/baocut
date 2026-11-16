@@ -83,6 +83,8 @@ const WEB_DENY = [
   /^app\/model-voice-take/,
   /* 屏幕录制的面板、录制卡、恢复提示与设置（屏幕录制设计 §11）：只在 App；编辑录制（model-screen-view、recording-*）两端都有 */
   /^app\/model-recording/,
+  /* 录制启动器、选取覆盖层、录制卡、控制条、摄像头浮窗与托盘（录屏界面重设计 §1–§5）：只在 App */
+  /^app\/recording-(launcher|card|picker|live|capture)/,
   /^app\/model-settings-nav/, /^app\/model-settings-link/, /^app\/model-app-update/, /^app\/model-models-dir/, /^app\/model-local-check/,
   /* App rail / Home / Space（2026-10-01）：只属于 App 外壳，且全部用 react-spectrum */
   /^app\/apprail/, /^app\/home-/, /^app\/space/, /^app\/model-home/, /^app\/model-space(?!-search\.js)/, /^app\/model-app-ia/,

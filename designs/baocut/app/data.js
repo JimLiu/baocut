@@ -2813,15 +2813,16 @@
          {id: 'm3', role: 'tool', tool: 'downloads_fetch', args: {site: 'boke.example', name: 'founders-talk-ep42.m4a'}, status: 'done', took: '6s', taskId: 'ag30d'},
          {id: 'm4', role: 'assistant', text: '下载好了：「创业者对谈 · 第 42 期」，38 MB，存在 ~/Downloads/founders-talk-ep42.m4a。在下载卡上可以直接播放或在文件夹中显示。'},
        ]},
-      /* 智能体请用户录一段（屏幕录制设计 §13）：`record` 不直接开始采集，线程里挂一张录制卡，卡上打开预先填好的录制面板，
-         用户按「开始录制」才开始；录完放进一部新视频，卡上换成「打开视频」。 */
+      /* 智能体请用户录一段（屏幕录制设计 §13）：`record` 不直接开始采集，线程里挂一张录制卡，卡上打开预先填好的录制启动器，
+         用户在覆盖层的录制卡上按「开始录制」才开始；录完放进一部新视频，卡上换成「打开视频」。 */
       {id: 's35', title: '录一段时间线拆分的讲解', project: null, dir: 'd5', harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'idle', ago: 2,
        messages: [
          {id: 'm1', role: 'user', text: '帮我录一段屏幕加摄像头，我讲一下时间线怎么拆分片段。录完把口误剪掉、加上字幕。', ...turnDone(2, 6)},
-         {id: 'm2', role: 'assistant', text: '我把录制面板填好了：整块屏幕、内建摄像头、系统默认麦克风，光标另画，之后能按点击自动放大。核对一下，准备好了按「开始录制」。'},
+         {id: 'm2', role: 'assistant', text: '我把录制启动器填好了：整块屏幕、内建摄像头、系统默认麦克风，光标另画，之后能按点击自动放大。核对一下，准备好了按「开始录制」。'},
          {id: 'm3', role: 'tool', tool: 'record', args: {source: 'display', camera: true, microphone: true}, status: 'done', took: '1s',
-          recording: {id: 'rq35', source: 'display', camera: 'c1', mic: 'default', cursor: 'separate', project: 'p17'}},
+          recording: {id: 'rq35', source: 'display', camera: 'c1', mic: 'default', cursor: 'separate', project: 'p17', dir: 'd5',
+            note: '屏幕加摄像头，讲时间线怎么拆分片段'}},
          {id: 'm4', role: 'assistant', text: '录完按停止，我接着处理。'},
        ]},
       /* 边转边问：转录在后台跑，Agent 问了一句就收掉这一轮；用户回话时转录还没完，视频卡跟到新的一轮（ag23t） */

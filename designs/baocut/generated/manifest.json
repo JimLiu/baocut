@@ -26,6 +26,7 @@
       "app/model-timeline.js",
       "app/model-screen-view.js",
       "app/model-recording.js",
+      "app/model-recording-area.js",
       "app/model-ripple.js",
       "app/model-cut.js",
       "app/model-export.js",
@@ -235,6 +236,10 @@
       "app/home-templates.jsx",
       "app/composer-insert-menu.jsx",
       "app/new-recording.jsx",
+      "app/recording-launcher.jsx",
+      "app/recording-card.jsx",
+      "app/recording-picker.jsx",
+      "app/recording-live.jsx",
       "app/new-agent.jsx",
       "app/page-new.jsx",
       "app/page-tasks.jsx",
@@ -509,6 +514,7 @@
       "app/stage-load.css",
       "app/stage-panels.css",
       "app/recording.css",
+      "app/recording-capture.css",
       "app/daoyazi.css",
       "app/help-center.css",
       "app/player.css",
@@ -555,9 +561,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=8e72d1980625",
-    "css": "generated/app.css?v=00381347dae1",
-    "bytes": 5358463
+    "js": "generated/app.js?v=c67dbca96dd8",
+    "css": "generated/app.css?v=f74750c34d85",
+    "bytes": 5401540
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -834,9 +840,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=3b902e4b44f5",
+    "js": "generated/web.js?v=53bbe6a93dca",
     "css": "generated/web.css?v=32e1aa9cee7f",
-    "bytes": 2955333
+    "bytes": 2955508
   },
   "components": {
     "file": "Components.html",

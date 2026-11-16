@@ -104,7 +104,7 @@
         <window.OnboardingDialog />
         {/* 所有模型下载的确认框（download-dialog.jsx）：大小、按种类分组的来源（可就地换）、许可 */}
         <window.ModelDownloadDialog />
-        {/* 录制面板与控制条（new-recording.jsx，只在 App）：Home、Space、编辑器与会话录制卡四个入口共用一处 */}
+        {/* 录制启动器、选取覆盖层、控制条、摄像头浮窗与托盘（new-recording.jsx，只在 App）：各个入口共用一处 */}
         {window.RecordingHost ? <window.RecordingHost /> : null}
         <ConfirmDialog ask={store.ask} onCancel={store.clearAsk}
           onConfirm={() => { const a = store.ask; store.clearAsk(); if (a && a.run) a.run(); }} />
