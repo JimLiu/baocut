@@ -21,6 +21,8 @@
       <div className="home-shelf__hd">
         <h2 className="home-shelf__title">快捷开始</h2>
         <span className="spacer" />
+        {/* 「录制」排在「新建空白视频」前面：两者都不经过 Agent（product-design §3.2.1，new-recording.jsx） */}
+        {window.HomeRecord ? <window.HomeRecord /> : null}
         <R.TooltipTrigger placement="bottom">
           <R.ActionButton isQuiet size="S" onPress={onBlank}><Ic n="blank" className="ic--16" /><R.Text>新建空白视频</R.Text></R.ActionButton>
           <R.Tooltip>不转录、不排队，直接进编辑器</R.Tooltip>

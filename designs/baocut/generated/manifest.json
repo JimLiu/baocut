@@ -232,6 +232,7 @@
       "app/onboarding.jsx",
       "app/home-templates.jsx",
       "app/composer-insert-menu.jsx",
+      "app/new-recording.jsx",
       "app/new-agent.jsx",
       "app/page-new.jsx",
       "app/page-tasks.jsx",
@@ -547,9 +548,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=205615108ea9",
-    "css": "generated/app.css?v=4773824f0990",
-    "bytes": 5302321
+    "js": "generated/app.js?v=05a55be4f261",
+    "css": "generated/app.css?v=ee4ecffc1974",
+    "bytes": 5308745
   },
   "web": {
     "file": "BaoCutWeb.html",

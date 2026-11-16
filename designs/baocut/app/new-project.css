@@ -126,3 +126,13 @@
 .home-project-menu { display: flex; flex-direction: column; gap: 4px; width: 288px; padding: 8px; box-sizing: border-box; }
 .home-project-menu__list { max-height: 240px; overflow-y: auto; }
 .home-project-menu__empty { margin: 0; padding: 8px 12px; color: var(--gray-600); font-size: 12px; }
+/* 录制面板与控制条（product-design §3.2.1，new-recording.jsx）：面板是普通对话框；控制条在真实应用里是独立的置顶小窗，原型画在窗口底部正中。 */
+.nrec { display: flex; flex-direction: column; gap: 12px; }
+.nrec__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.nrec__note { margin: -4px 0 0; color: var(--gray-600); font-size: 12px; }
+.nrec-bar { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); }
+.nrec-bar__dot { width: 10px; height: 10px; border-radius: 9999px; background: var(--red-900); }
+.nrec-bar__dot.is-idle { background: var(--gray-400); }
+.nrec-bar__status { min-width: 120px; font-size: 14px; color: var(--gray-900); font-variant-numeric: tabular-nums; }
+.nrec-bar__ask { font-size: 12px; color: var(--gray-700); }
