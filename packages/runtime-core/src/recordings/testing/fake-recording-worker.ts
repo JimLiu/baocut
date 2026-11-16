@@ -71,7 +71,8 @@ function synthesize(stream: OpenStream, endNs: bigint): void {
   const out = path.join(dir!, stream.file);
   const video = (size: string, rate: number) => [
     ...['-f', 'lavfi', '-i', `testsrc=size=${size}:rate=${rate}:duration=${seconds}`],
-    ...['-c:v', 'mpeg4', '-q:v', '8'],
+    // H.264 like the real Worker: Chromium cannot play MPEG-4 Part 2, so the editor would report the source as unplayable.
+    ...['-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-bf', '0'],
   ];
   const audio = (frequency: number) => [
     ...['-f', 'lavfi', '-i', `sine=frequency=${frequency}:sample_rate=48000:duration=${seconds}`],
