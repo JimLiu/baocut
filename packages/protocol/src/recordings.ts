@@ -195,7 +195,8 @@ export interface RecordingDevice {
 }
 
 /**
- * 这台电脑不能录的机器可读原因（`RecordingSources.unavailable.code`，以及 `RECORDING_UNAVAILABLE` 错误的 `details.unavailable.code`）：
+ * 这台电脑不能录的机器可读原因（`RecordingSources.unavailable.code`，以及 `recordings.*` 方法的 `RECORDING_UNAVAILABLE` 错误的
+ * `details.unavailable.code`；`recordings` 主题与智能体工具的同名错误只有 `details.reason`）：
  * - `platform-unsupported`：这个系统还不能录（Worker 回答不支持，或 Runtime 没有录制服务）。
  * - `remote-runtime`：请求来自远程或对外的连接（Web、对外服务）；`recordings.*` 以 `RECORDING_UNAVAILABLE` 拒绝，只出现在错误里。
  * - `no-desktop`：这台电脑上没开着 BaoCut 桌面端（命令行自己拉起的 Runtime，屏幕录制设计 §14）。

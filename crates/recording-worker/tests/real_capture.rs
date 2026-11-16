@@ -99,6 +99,13 @@ fn static_area_survives_kill() {
             "camera": null, "microphone": null, "systemAudio": false, "cursor": "none", "keys": "off", "fps": 30,
         }),
     );
+    if started["error"]["code"] == json!("CAPTURE_UNAVAILABLE") {
+        // 屏幕锁着或显示器睡着：CoreGraphics 照样列出显示器，ScreenCaptureKit 列不出（实测）。
+        eprintln!("skipped: {}", started["error"]["message"]);
+        let _ = worker.child.kill();
+        let _ = std::fs::remove_dir_all(&dir);
+        return;
+    }
     assert!(started.get("error").is_none(), "start failed: {started}");
     let seconds = 5.0;
     std::thread::sleep(Duration::from_secs_f64(seconds));
