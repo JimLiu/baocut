@@ -8,8 +8,13 @@ use crate::sink::Sink;
 
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 mod unsupported;
+#[cfg(windows)]
+mod windows;
+/// Windows 实现里与系统无关的部分（键码表、时刻换算、像素格式与几何）：测试在任何平台上都跑。
+#[cfg(any(windows, test))]
+mod windows_portable;
 
 pub trait Platform {
     /// `hello` 里的平台名（`darwin`、`win32`、`linux`），与 Node 的 `process.platform` 同一套写法。
@@ -41,7 +46,11 @@ pub fn current() -> Box<dyn Platform> {
     {
         Box::new(macos::MacPlatform::new())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(windows)]
+    {
+        Box::new(self::windows::WinPlatform::new())
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
     {
         Box::new(unsupported::UnsupportedPlatform)
     }

@@ -3673,6 +3673,8 @@ dependencies = [
  "objc2-screen-capture-kit",
  "serde",
  "serde_json",
+ "windows",
+ "windows-core",
 ]
 
 [[package]]

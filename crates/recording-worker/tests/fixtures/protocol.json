@@ -2,7 +2,9 @@
   "protocol": 1,
   "hello": [
     { "protocol": 1, "version": "0.4.0", "platform": "darwin", "capture": { "supported": true } },
-    { "protocol": 1, "version": "0.4.0", "platform": "win32", "capture": { "supported": false, "reason": "screen capture is not supported on this platform yet" } }
+    { "protocol": 1, "version": "0.4.0", "platform": "win32", "capture": { "supported": false, "reason": "screen capture is not supported on this platform yet" } },
+    { "protocol": 1, "version": "0.4.0", "platform": "win32", "capture": { "supported": false, "reason": "windows-capture-unverified" } },
+    { "protocol": 1, "version": "0.4.0", "platform": "win32", "capture": { "supported": true } }
   ],
   "sources": [
     {
@@ -11,6 +13,13 @@
       "windows": [{ "id": "4242", "title": "Untitled", "app": "TextEdit", "width": 800, "height": 600 }],
       "cameras": [{ "id": "cam-1", "name": "Camera", "default": true }],
       "microphones": [{ "id": "mic-1", "name": "Microphone" }]
+    },
+    {
+      "permissions": { "screen": "granted", "camera": "granted", "microphone": "not-determined", "inputMonitoring": "granted" },
+      "displays": [{ "id": "\\\\.\\DISPLAY1", "name": "Generic PnP Monitor", "width": 1280, "height": 720, "scale": 1.5, "primary": true }],
+      "windows": [{ "id": "395042", "title": "Untitled - Notepad", "app": "Notepad", "width": 960, "height": 640 }],
+      "cameras": [{ "id": "\\\\?\\usb#vid_046d&pid_085e&mi_00#7&1b2c3d4&0&0000#{e5323777-f976-4f5b-9b55-b94699c46e44}\\global", "name": "Integrated Camera" }],
+      "microphones": [{ "id": "{0.0.1.00000000}.{6d3a1b2c-0000-4000-8000-00aa00389b71}", "name": "Microphone Array (Realtek(R) Audio)", "default": true }]
     }
   ],
   "start": [
@@ -33,6 +42,8 @@
   "journal": [
     { "type": "begin", "recorder": { "name": "baocut", "version": "0.4.0" }, "platform": "darwin", "startedAt": "2026-11-15T22:06:36.816Z", "cursor": "separate", "keyboard": "shortcuts", "capture": { "kind": "display", "width": 2560, "height": 1440, "scale": 1 } },
     { "type": "begin", "recorder": { "name": "baocut" }, "platform": "darwin", "startedAt": "2026-11-15T22:06:36.816Z", "cursor": "none", "keyboard": null, "capture": { "kind": "window", "width": 800, "height": 600, "scale": 2 } },
+    { "type": "begin", "recorder": { "name": "baocut", "version": "0.4.0" }, "platform": "win32", "startedAt": "2026-11-15T22:06:36.816Z", "cursor": "separate", "keyboard": "all", "capture": { "kind": "area", "width": 960, "height": 540, "scale": 1.5 } },
+    { "type": "cursor", "id": "0d4c2a91e3b7f5a8", "file": "cursor-0d4c2a91e3b7f5a8.png", "hotspot": { "x": 0, "y": 0 }, "scale": 1 },
     { "type": "segment", "id": "s1", "startNs": "196951569671916" },
     { "type": "cursor", "id": "fcb3b73749ac68ac", "file": "cursor-fcb3b73749ac68ac.png", "hotspot": { "x": 0.25, "y": 0.125 }, "scale": 2 },
     { "type": "pointer", "segmentId": "s1", "file": "s1-pointer.jsonl" },

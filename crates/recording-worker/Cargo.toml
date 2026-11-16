@@ -1,6 +1,6 @@
 [package]
 name = "recording-worker"
-description = "BaoCut 的 Recording Worker（屏幕录制设计 §7）：采集屏幕、窗口或区域、系统声音、摄像头与麦克风，记录指针与（可选的）键盘；Runtime 以子进程调用，stdin/stdout 的 JSON 行。macOS 用 ScreenCaptureKit + AVFoundation，别的平台回答「不支持」"
+description = "BaoCut 的 Recording Worker（屏幕录制设计 §7）：采集屏幕、窗口或区域、系统声音、摄像头与麦克风，记录指针与（可选的）键盘；Runtime 以子进程调用，stdin/stdout 的 JSON 行。macOS 用 ScreenCaptureKit + AVFoundation；Windows 用 Windows.Graphics.Capture + WASAPI + Media Foundation（未经实机验证，缺省关闭）；别的平台回答「不支持」"
 version.workspace = true
 edition.workspace = true
 license-file.workspace = true
@@ -17,6 +17,47 @@ path = "src/main.rs"
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+
+# Windows：屏幕、窗口与区域走 Windows.Graphics.Capture（D3D11 帧），麦克风与系统声音（回环）走 WASAPI，摄像头走
+# Media Foundation 的 Source Reader，四路都由 Media Foundation 的 Sink Writer 写（H.264 与 AAC，分片 MP4）；指针、
+# 光标图片与键盘走 Win32。用微软官方的 `windows` 绑定，版本对齐 `media-native` 的 0.62，不加第三方采集库。
+# 采集只通过了交叉编译检查，没有在 Windows 上运行过：缺省不开放（`platform/windows/mod.rs`）。
+[target.'cfg(windows)'.dependencies]
+windows-core = "0.62"
+windows = { version = "0.62", features = [
+    "Foundation",
+    "Foundation_Metadata",
+    "Graphics",
+    "Graphics_Capture",
+    "Graphics_DirectX",
+    "Graphics_DirectX_Direct3D11",
+    "Security_Authorization_AppCapabilityAccess",
+    "Win32_Devices_FunctionDiscovery",
+    "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Media_KernelStreaming",
+    "Win32_Media_MediaFoundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Performance",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics_Capture",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 [target.'cfg(unix)'.dependencies]
 # 录制目录所在盘的剩余空间（`statvfs`）。

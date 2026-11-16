@@ -292,7 +292,16 @@ pub fn free_bytes(dir: &Path) -> Option<u64> {
     Some(stat.f_bavail as u64 * stat.f_frsize as u64)
 }
 
-#[cfg(not(unix))]
+/// Windows：`GetDiskFreeSpaceExW` 给调用者能用的字节数（考虑了磁盘配额）。
+#[cfg(windows)]
+pub fn free_bytes(dir: &Path) -> Option<u64> {
+    use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+    let mut available = 0u64;
+    unsafe { GetDiskFreeSpaceExW(&windows_core::HSTRING::from(dir.as_os_str()), Some(&mut available), None, None) }.ok()?;
+    Some(available)
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn free_bytes(_dir: &Path) -> Option<u64> {
     None
 }
