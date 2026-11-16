@@ -50,7 +50,7 @@ import {
   type ClipKind,
 } from '../../model/editor.ts';
 import { captionKindLabel } from '../../model/caption-tracks.ts';
-import { importAndPlace, isPlaceable, moveOperation, placeAsset, trimBounds, trimOperation } from '../../model/editor-ops.ts';
+import { importAndPlace, isPlaceable, moveOperation, placeAsset, trimBounds, trimOperation, trimPreview } from '../../model/editor-ops.ts';
 import { kindOfFileName } from '../../model/space.ts';
 import type { Rect } from '../../model/stage-pose.ts';
 import {
@@ -946,6 +946,8 @@ export function Timeline({
   const startOf = (item: SequenceItem) => itemFrames(item, fps);
   const moving = gesture?.kind === 'move' && gesture.started ? gesture : null;
   const trimming = gesture?.kind === 'trim' ? gesture : null;
+  // 裁边的预览：联动组里一起修剪的成员也跟着画（同整组移动的预览）。
+  const trimmed = trimming ? trimPreview(sequence, assets, trimming.itemId, trimming.edge, trimming.frame) : null;
   const draggingTrack = gesture?.kind === 'track' && gesture.started ? gesture : null;
   const stretching = gesture?.kind === 'stretch' ? gesture : null;
   const marquee = gesture?.kind === 'marquee' && gesture.started ? gesture : null;
@@ -963,6 +965,7 @@ export function Timeline({
     if (item) pinned.push(item);
   };
   pin(gestureItemId);
+  for (const id of trimmed?.keys() ?? []) if (id !== gestureItemId) pin(id);
   pin(menu?.itemId);
   const shifting = gesture?.kind === 'move' ? gesture : null;
   if (shifting || nudged) {
@@ -990,9 +993,10 @@ export function Timeline({
       start += moving.deltaFrames;
       end += moving.deltaFrames;
     }
-    if (trimming && trimming.itemId === item.id) {
-      if (trimming.edge === 'start') start = trimming.frame;
-      else end = trimming.frame;
+    const trim = trimmed?.get(item.id);
+    if (trim) {
+      start = trim.start;
+      end = trim.end;
     }
     const stretched = stretching?.itemId === item.id ? stretching.stretch : null;
     if (stretched) end = start + stretched.seconds * perSecond;
@@ -1002,7 +1006,7 @@ export function Timeline({
     const track = tracks.get(item.trackId);
     const locked = item.locked || !!track?.locked;
     const selected = selection.includes(item.id);
-    const active = (moving && moving.itemIds.includes(item.id)) || trimming?.itemId === item.id;
+    const active = (moving && moving.itemIds.includes(item.id)) || !!trim;
     const seconds = (end - start) / perSecond;
     const look = CLIP_LOOKS[clipKind(item)];
     const muted = item.type === 'audio' && !!item.mix.muted;

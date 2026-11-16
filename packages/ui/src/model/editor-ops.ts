@@ -288,17 +288,65 @@ export function trimOperation(sequence: Sequence, item: SequenceItem, edge: 'sta
   return { type: 'trimItem', sequenceId: sequence.id, itemId: item.id, edge, at: frames(target), alignment: 'exact-frame' };
 }
 
-/** 在播放头处拆分：选中的实例里跨过播放头的；没有选中时拆所有跨过播放头、没有锁定的实例。 */
+/**
+ * 在播放头处拆分：选中的实例里跨过播放头的；没有选中时拆所有跨过播放头、没有锁定的实例。联动组（格式规范 §3.18）
+ * 只给一个成员发 `splitItem`：引擎拆一个成员就拆了整组，同一组再拆一次时拆分点已经在那一段的边上，整笔事务会被拒绝。
+ */
 export function splitOperations(sequence: Sequence, selection: readonly Id[], playheadFrame: number): EditOperation[] {
   const locked = new Set(sequence.tracks.filter((t) => t.locked).map((t) => t.id));
   const pool = selection.length ? sequence.items.filter((item) => selection.includes(item.id)) : sequence.items;
+  const groups = new Set<Id>();
   return pool
     .filter((item) => !item.locked && !locked.has(item.trackId))
     .filter((item) => {
       const range = itemFrames(item, sequence.fps);
       return range.start < playheadFrame - 1e-6 && range.end > playheadFrame + 1e-6;
     })
+    .filter((item) => {
+      if (!item.linkGroupId) return true;
+      if (groups.has(item.linkGroupId)) return false;
+      groups.add(item.linkGroupId);
+      return true;
+    })
     .map((item) => ({ type: 'splitItem', sequenceId: sequence.id, itemId: item.id, at: frames(playheadFrame), alignment: 'exact-frame' }));
+}
+
+/**
+ * 拖裁边时时间线上画成什么样（帧，可以带小数）：不在联动组里的只有它自己；在组里时照引擎的成组修剪
+ * （`crates/video-engine` `recording_links::trim`）：这条边原来和它对齐的成员、跨过修剪点的成员一起修剪到那里，
+ * 往外拉时素材不够的成员只拉到素材的头（尾），一点都拉不出去的不动。本来就没伸到那里的成员不动，不在表里。
+ */
+export function trimPreview(
+  sequence: Sequence,
+  assets: Record<Id, AssetRecord>,
+  itemId: Id,
+  edge: 'start' | 'end',
+  frame: number,
+): Map<Id, { start: number; end: number }> {
+  const out = new Map<Id, { start: number; end: number }>();
+  const grabbed = sequence.items.find((item) => item.id === itemId);
+  if (!grabbed) return out;
+  const own = itemFrames(grabbed, sequence.fps);
+  out.set(itemId, edge === 'start' ? { start: frame, end: own.end } : { start: own.start, end: frame });
+  if (!grabbed.linkGroupId) return out;
+  const old = edge === 'start' ? own.start : own.end;
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+  for (const member of sequence.items) {
+    if (member.id === itemId || member.linkGroupId !== grabbed.linkGroupId) continue;
+    const { start, end } = itemFrames(member, sequence.fps);
+    const aligned = near(edge === 'start' ? start : end, old);
+    if (!aligned && !(start < frame - 1e-6 && frame < end - 1e-6)) continue;
+    const bounds = trimBounds(member, assets, sequence);
+    if (edge === 'start') {
+      // 往外拉：素材的头在修剪点之后时只到素材的头，那里也不比原来早就不动。
+      const to = frame < start ? Math.max(frame, bounds.min) : frame;
+      if (to < start - 1e-6 || frame >= start) out.set(member.id, { start: Math.min(to, end), end });
+    } else {
+      const to = frame > end ? Math.min(frame, bounds.max) : frame;
+      if (to > end + 1e-6 || frame <= end) out.set(member.id, { start, end: Math.max(to, start) });
+    }
+  }
+  return out;
 }
 
 /**

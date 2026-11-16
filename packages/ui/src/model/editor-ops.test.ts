@@ -19,6 +19,7 @@ import {
   splitOperations,
   trimBounds,
   trimOperation,
+  trimPreview,
   usageCount,
 } from './editor-ops.ts';
 
@@ -269,6 +270,48 @@ describe('编辑操作', () => {
     expect(splitOperations(seq, [], 30).map((op) => 'itemId' in op && op.itemId)).toEqual(['a']);
     expect(splitOperations(seq, ['c'], 30)).toEqual([]);
     expect(splitOperations(seq, [], 60)).toEqual([]);
+  });
+
+  it('拆分联动组只给一个成员发操作（引擎拆一个就拆了整组）', () => {
+    const linked = (item: VideoItem) => ({ ...item, linkGroupId: 'lg' });
+    const seq = sequence(
+      [track('v1', 0, 'visual'), track('v2', 1, 'visual')],
+      [linked(video('a', 'v1', 0, 60)), linked(video('b', 'v2', 0, 60)), video('c', 'v2', 60, 30)],
+    );
+    expect(splitOperations(seq, [], 30).map((op) => 'itemId' in op && op.itemId)).toEqual(['a']);
+    expect(splitOperations(seq, ['b', 'a'], 30).map((op) => 'itemId' in op && op.itemId)).toEqual(['a']);
+  });
+
+  it('裁边预览：联动组里对齐的、跨过修剪点的成员一起画，素材不够的只拉到头', () => {
+    const at = (item: VideoItem, fromFrame: number, durationFrames: number, sourceInFrames: number): VideoItem => ({
+      ...item,
+      linkGroupId: 'lg',
+      span: { fromFrame, durationFrames },
+      timeMap: { kind: 'linear', sourceIn: { ticks: String(sourceInFrames), timescale: 30 }, rate: { num: 1, den: 1 } },
+    });
+    const tracks = [track('v1', 0, 'visual'), track('v2', 1, 'visual'), track('v3', 2, 'visual')];
+    const seq = sequence(tracks, [
+      at(video('a', 'v1', 0, 60), 0, 60, 0),
+      at(video('b', 'v2', 0, 60), 10, 50, 10),
+      at(video('d', 'v3', 0, 60), 20, 30, 20),
+      video('x', 'v3', 60, 30),
+    ]);
+    const assets = { asset_v: clip };
+    const ranges = (m: Map<string, { start: number; end: number }>) => Object.fromEntries(m);
+    // 结尾往里收到 40：这条边与 a 对齐的 b、跨过 40 的 d 一起收；组外的 x 不动。
+    expect(ranges(trimPreview(seq, assets, 'a', 'end', 40))).toEqual({ a: { start: 0, end: 40 }, b: { start: 10, end: 40 }, d: { start: 20, end: 40 } });
+    // b 的开头往外拉到 4：跨过 4 的 a 跟着收到 4；d 没伸到那里，不动。
+    expect(ranges(trimPreview(seq, assets, 'b', 'start', 4))).toEqual({ b: { start: 4, end: 60 }, a: { start: 4, end: 60 } });
+
+    const wide = sequence(tracks, [
+      at(video('g', 'v1', 0, 60), 30, 30, 30),
+      at(video('e', 'v2', 0, 60), 30, 30, 6),
+      at(video('f', 'v3', 0, 60), 30, 30, 0),
+    ]);
+    // 开头一起往外拉到 15：e 的素材只够往前 6 帧，停在 24；f 一点都拉不出去，不动。
+    expect(ranges(trimPreview(wide, assets, 'g', 'start', 15))).toEqual({ g: { start: 15, end: 60 }, e: { start: 24, end: 60 } });
+    // 不在组里的只有它自己。
+    expect(ranges(trimPreview(seq, assets, 'x', 'start', 70))).toEqual({ x: { start: 70, end: 90 } });
   });
 });
 
