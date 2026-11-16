@@ -16,6 +16,7 @@ export const zhHant: ScreenViewMessages = {
   focusPointer: "跟隨滑鼠",
   focusPoint: "固定一點",
   focusPointNote: "在舞台上拖動取景框，選看哪裡。",
+  focusFrame: "取景框",
   rampIn: "進入過渡",
   rampOut: "退出過渡",
   deleteZoom: "刪除這段縮放",

@@ -16,6 +16,7 @@ export const ru: ScreenViewMessages = {
   focusPointer: "За мышью",
   focusPoint: "Фиксированная точка",
   focusPointNote: "Перетащите рамку на сцене, чтобы выбрать, куда смотреть.",
+  focusFrame: "Область увеличения",
   rampIn: "Плавный вход",
   rampOut: "Плавный выход",
   deleteZoom: "Удалить увеличение",

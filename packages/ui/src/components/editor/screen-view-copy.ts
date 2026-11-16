@@ -31,6 +31,8 @@ const en = {
   focusPointer: "Follow mouse",
   focusPoint: "Fixed point",
   focusPointNote: "Drag the frame on the stage to choose where to look.",
+  /** 舞台上取景框的读屏名 */
+  focusFrame: "Zoomed area",
   rampIn: "Ease in",
   rampOut: "Ease out",
   deleteZoom: "Delete zoom",

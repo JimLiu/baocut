@@ -16,6 +16,7 @@ export const vi: ScreenViewMessages = {
   focusPointer: "Theo chuột",
   focusPoint: "Điểm cố định",
   focusPointNote: "Kéo khung trên sân khấu để chọn chỗ nhìn.",
+  focusFrame: "Vùng phóng to",
   rampIn: "Chuyển vào",
   rampOut: "Chuyển ra",
   deleteZoom: "Xóa đoạn phóng to",

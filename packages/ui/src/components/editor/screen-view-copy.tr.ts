@@ -16,6 +16,7 @@ export const tr: ScreenViewMessages = {
   focusPointer: "Fareyi izle",
   focusPoint: "Sabit nokta",
   focusPointNote: "Nereye bakılacağını seçmek için sahnedeki çerçeveyi sürükleyin.",
+  focusFrame: "Yakınlaştırılan alan",
   rampIn: "Giriş geçişi",
   rampOut: "Çıkış geçişi",
   deleteZoom: "Yakınlaştırmayı sil",

@@ -16,6 +16,7 @@ export const ja: ScreenViewMessages = {
   focusPointer: "マウスに追従",
   focusPoint: "固定点",
   focusPointNote: "ステージ上の枠をドラッグして注視点を選びます。",
+  focusFrame: "ズーム範囲",
   rampIn: "イン",
   rampOut: "アウト",
   deleteZoom: "このズームを削除",

@@ -16,6 +16,7 @@ export const pl: ScreenViewMessages = {
   focusPointer: "Za myszą",
   focusPoint: "Stały punkt",
   focusPointNote: "Przeciągnij ramkę na scenie, aby wybrać cel.",
+  focusFrame: "Obszar powiększenia",
   rampIn: "Przejście wejścia",
   rampOut: "Przejście wyjścia",
   deleteZoom: "Usuń powiększenie",

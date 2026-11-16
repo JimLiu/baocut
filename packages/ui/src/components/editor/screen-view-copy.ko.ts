@@ -16,6 +16,7 @@ export const ko: ScreenViewMessages = {
   focusPointer: "마우스 따라가기",
   focusPoint: "고정 지점",
   focusPointNote: "스테이지의 틀을 드래그해 볼 곳을 고르세요.",
+  focusFrame: "확대 영역",
   rampIn: "들어가기 전환",
   rampOut: "나가기 전환",
   deleteZoom: "이 확대 삭제",

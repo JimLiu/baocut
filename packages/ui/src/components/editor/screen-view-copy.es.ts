@@ -16,6 +16,7 @@ export const es: ScreenViewMessages = {
   focusPointer: "Seguir el ratón",
   focusPoint: "Punto fijo",
   focusPointNote: "Arrastra el marco en el escenario para elegir dónde enfocar.",
+  focusFrame: "Zona ampliada",
   rampIn: "Transición de entrada",
   rampOut: "Transición de salida",
   deleteZoom: "Eliminar zoom",

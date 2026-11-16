@@ -16,6 +16,7 @@ export const nl: ScreenViewMessages = {
   focusPointer: "Muis volgen",
   focusPoint: "Vast punt",
   focusPointNote: "Sleep het kader op het podium om te kiezen waar je kijkt.",
+  focusFrame: "Ingezoomd gebied",
   rampIn: "Inloop",
   rampOut: "Uitloop",
   deleteZoom: "Zoom verwijderen",

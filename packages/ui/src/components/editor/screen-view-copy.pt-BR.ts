@@ -16,6 +16,7 @@ export const ptBR: ScreenViewMessages = {
   focusPointer: "Seguir o mouse",
   focusPoint: "Ponto fixo",
   focusPointNote: "Arraste o quadro no palco para escolher o foco.",
+  focusFrame: "Área ampliada",
   rampIn: "Transição de entrada",
   rampOut: "Transição de saída",
   deleteZoom: "Excluir zoom",

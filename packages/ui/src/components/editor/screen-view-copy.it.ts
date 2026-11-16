@@ -16,6 +16,7 @@ export const it: ScreenViewMessages = {
   focusPointer: "Segui il mouse",
   focusPoint: "Punto fisso",
   focusPointNote: "Trascina la cornice sullo stage per scegliere dove guardare.",
+  focusFrame: "Area ingrandita",
   rampIn: "Transizione in entrata",
   rampOut: "Transizione in uscita",
   deleteZoom: "Elimina zoom",

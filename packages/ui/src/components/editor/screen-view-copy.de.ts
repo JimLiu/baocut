@@ -16,6 +16,7 @@ export const de: ScreenViewMessages = {
   focusPointer: "Maus folgen",
   focusPoint: "Fester Punkt",
   focusPointNote: "Zieh den Rahmen auf der Bühne, um den Fokus zu wählen.",
+  focusFrame: "Zoombereich",
   rampIn: "Einblenden",
   rampOut: "Ausblenden",
   deleteZoom: "Zoom löschen",

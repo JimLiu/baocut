@@ -83,6 +83,7 @@ import type { PreviewEngine } from './preview-engine.ts';
 import { panelNames } from './framing-info.tsx';
 import { FramingAnchor, GroupBox, Guides, ItemBox, Marquee, PanelSeams, ThinBox, type View } from './stage-boxes.tsx';
 import { StageCaptionToolbar } from './stage-caption-toolbar.tsx';
+import { StageFocusFrame } from './stage-focus-frame.tsx';
 import { StageFramingChip } from './stage-framing-chip.tsx';
 import { StageTextEdit } from './stage-text-edit.tsx';
 import { StageToolbar } from './stage-toolbar.tsx';
@@ -104,6 +105,7 @@ import { StageToolbar } from './stage-toolbar.tsx';
  * - 分屏的视频（`panels.ts`，原型 stage-panels.jsx `PanelsSelection`）：框是整块画布，画出各格的接缝与叫法，没有把手；按在一格里拖
  *   只改这一格的取景点（画面跟着手走），拖到原片边上小牌说一句。指针在一格里滚轮（触控板双指滑动、捏合）或触屏两指捏合，缩放这一格，
  *   指针下那一点不动，一阵缩放停下 0.4 秒记一步；指针不在格子里时不拦滚轮。
+ * - 选中一段「固定看一点」的屏幕缩放时画它的取景框（`stage-focus-frame`），框自己接拖动，不进上面这套手势。
  */
 
 const root = style({ position: 'absolute', inset: 0, outlineStyle: 'none', userSelect: 'none', touchAction: 'none' });
@@ -977,6 +979,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     >
       <div ref={spaceRef} className={space} style={frame}>
         {boxes}
+        <StageFocusFrame sequence={sequence} view={view} />
         {(captionShift
           ? captionShift.hits.map((hit) => ({ ...hit, cx: hit.cx + captionShift.dx, cy: hit.cy + captionShift.dy }))
           : captionHits.filter((hit) => selection.includes(hit.itemId))
