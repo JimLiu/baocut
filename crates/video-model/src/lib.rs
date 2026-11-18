@@ -775,6 +775,23 @@ impl TimelineItem {
         self.asset_ref().into_iter().chain(extra)
     }
 
+    /// 与 [`Self::asset_refs`] 同一组引用，可改：素材换了版本时把实例改指过去（§4.2 重新链接）。
+    pub fn asset_refs_mut(&mut self) -> Vec<&mut VersionRef> {
+        match self {
+            TimelineItem::Video(v) => vec![&mut v.asset_ref],
+            TimelineItem::Image(i) => vec![&mut i.asset_ref],
+            TimelineItem::Audio(a) => vec![&mut a.asset_ref],
+            TimelineItem::Sticker(s) => s.asset_ref.iter_mut().chain(s.motion_ref.iter_mut()).collect(),
+            TimelineItem::Placeholder(p) => p.asset_ref.iter_mut().collect(),
+            TimelineItem::Whiteboard(w) => vec![&mut w.asset_ref],
+            TimelineItem::Composition(c) => {
+                let CompositionSource::Bundle { asset_ref } = &mut c.source;
+                std::iter::once(asset_ref).chain(c.prerender.iter_mut()).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
+
     /// 帧网格上的区间。音频实例在采样级定位，没有。
     pub fn span(&self) -> Option<FrameSpan> {
         match self {

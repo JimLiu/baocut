@@ -16,11 +16,11 @@ use sha2::{Digest, Sha256};
 use crate::error::{EngineResult, ErrorBody, MessageRef, Text, kinds, msg};
 use crate::ids::{new_id, new_transaction_id, now_rfc3339};
 use crate::import::{
-    DIRECTORY_MEDIA_TYPE, PreparedAsset, blob_rel_path, hash_file, hash_tree, link_locator, locate_linked, prepare_import, publish_tree,
-    publish_verified,
+    DIRECTORY_MEDIA_TYPE, PreparedAsset, StorageMode, blob_rel_path, hash_file, hash_tree, link_locator, locate_linked, prepare_import,
+    prepare_import_hashed, publish_tree, publish_verified,
 };
 use crate::model::*;
-use crate::ops::{EditContext, EditOperation, apply_operation, check_overlaps, parse_operation};
+use crate::ops::{EditContext, EditOperation, Relinked, apply_operation, check_overlaps, parse_operation};
 use crate::receipt::*;
 use crate::state::{EntityChange, EntityKind, Placed, SequenceEntity, VideoState};
 use crate::store::{CommitRecord, DocumentBody, ProjectClaim, Store, UndoRecord, UndoStep};
@@ -827,7 +827,7 @@ impl Video {
 
         // 导入、收纳与重新链接在事务之外准备：复制、摘要、探测都不占用写事务（架构设计 §5.2）。
         let mut prepared: HashMap<usize, PreparedAsset> = HashMap::new();
-        let mut relinked: HashMap<usize, FileLocator> = HashMap::new();
+        let mut relinked: HashMap<usize, Relinked> = HashMap::new();
         for (index, op) in ops.iter().enumerate() {
             let outside = |e: ErrorBody| with_operation_index(e, index);
             match op {
@@ -1080,9 +1080,10 @@ impl Video {
         }
     }
 
-    /// 核对新位置上的内容与素材当前版本一致，返回新的定位。定位与导入时一样规范化：
-    /// 在项目目录里的记相对视频目录的路径，项目外的记绝对路径（视频格式规范 §4.2）。
-    fn relink(&self, asset_id: &str, path: &str) -> EngineResult<FileLocator> {
+    /// 准备重新链接（视频格式规范 §4.2）。定位与导入时一样规范化：在项目目录里的记相对视频目录的路径，
+    /// 项目外的记绝对路径。新位置上是同样的 bytes 时只换定位；是不同的 bytes（文件被覆盖、重新导出）时
+    /// 按导入的规则探测，作为这个素材的新版本。种类不同的文件与代码包目录不认作同一素材。
+    fn relink(&self, asset_id: &str, path: &str) -> EngineResult<Relinked> {
         let asset = self
             .state
             .assets
@@ -1093,19 +1094,32 @@ impl Video {
             return Err(ErrorBody::invalid_operation(msg!("engine.relinkNotLinked", "Only linked assets can be relinked")).entities([asset_id]));
         }
         let (locator, resolved) = link_locator(&self.dir, Path::new(path));
-        let hash = if record.media_type == DIRECTORY_MEDIA_TYPE {
-            hash_tree(&resolved, record.tree.as_ref().and_then(|t| t.include.as_deref()))?.0
+        let directory = record.media_type == DIRECTORY_MEDIA_TYPE;
+        let (hash, length) = if directory {
+            let (hash, length, _) = hash_tree(&resolved, record.tree.as_ref().and_then(|t| t.include.as_deref()))?;
+            (hash, length)
         } else {
-            hash_file(&resolved)?.0
+            hash_file(&resolved)?
         };
-        if hash != record.content_hash {
-            // 同一路径出现新的 bytes 是新内容，不是重新链接：导入成新素材，再换进选定的实例（视频格式规范 §4.2）。
-            return Err(ErrorBody::invalid_operation(msg!(
+        if hash == record.content_hash {
+            return Ok(Relinked::Moved(locator));
+        }
+        let mismatch = || {
+            ErrorBody::invalid_operation(msg!(
                 "engine.relinkContentMismatch",
                 "The content at the new location does not match the asset; to use the new content, import it (importAsset) and swap it into the clips (replaceItemAsset)"
-            )).entities([asset_id]));
+            ))
+            .entities([asset_id])
+        };
+        if directory {
+            return Err(mismatch());
         }
-        Ok(locator)
+        let prepared = prepare_import_hashed(&self.dir, Path::new(path), &self.ffprobe, Some(StorageMode::Linked), None, Some((hash, length)))?;
+        let same_kind = prepared.kind == asset.kind && (asset.kind != AssetKind::Other || prepared.media_type == record.media_type);
+        if !same_kind {
+            return Err(mismatch());
+        }
+        Ok(Relinked::Changed(Box::new(prepared)))
     }
 
     /// 撤销是补偿事务（命令与协议规范 §8.3）：目标对象必须仍是那笔事务之后的样子，

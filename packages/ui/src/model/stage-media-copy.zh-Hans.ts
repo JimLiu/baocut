@@ -17,7 +17,7 @@ export const zhHans: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause}${tail}`,
   volume: (volume: string) => `文件在「${volume}」上：接上这个盘就会自动恢复。`,
   more: (count: number) => `还有 ${count} 个视频或音频素材也放不出来。`,
-  relinkHint: '选回原来的文件就能找回；BaoCut 会核对内容，内容不同的文件关联不上。',
+  relinkHint: '选回原来的文件就能找回；内容不同的文件（比如重新导出过）也可以，用到它的片段都会换成新文件。',
   desktopOnly: '要找回，在 BaoCut 桌面应用里打开这个视频，用画面上的「重新关联…」选回原来的文件。',
   managed: '这个文件原本收在视频目录里，不能重新关联到别处。',
   oldRevision: '时间线用的是这个素材的旧版本，只有当前版本能重新关联。',

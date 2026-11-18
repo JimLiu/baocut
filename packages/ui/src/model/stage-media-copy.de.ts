@@ -24,7 +24,7 @@ export const de: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause} ${tail}`,
   volume: (volume: string) => `Die Datei liegt auf „${volume}“. Laufwerk verbinden; automatische Wiederherstellung.`,
   more: (count: number) => `${count} weitere Video- oder Audiomaterialien ${pluralForm('de', count, { one: "Material", other: "Materialien" })} sind ebenfalls nicht abspielbar.`,
-  relinkHint: "Originaldatei zur Wiederherstellung auswählen. BaoCut prüft den Inhalt; anderer Inhalt ist nicht neu verknüpfbar.",
+  relinkHint: "Datei zur Wiederherstellung auswählen. Auch eine geänderte Fassung (etwa neu exportiert) geht: Alle Clips, die sie nutzen, wechseln zur neuen Datei.",
   desktopOnly: "Video in der BaoCut-Desktop-App öffnen und auf der Arbeitsfläche „Erneut verknüpfen…“ wählen, um die Originaldatei auszuwählen.",
   managed: "Diese Datei liegt im Videoordner und kann nicht mit einem anderen Ort verknüpft werden.",
   oldRevision: "Zeitleiste verwendet eine ältere Materialversion; nur aktuelle Version ist neu verknüpfbar.",

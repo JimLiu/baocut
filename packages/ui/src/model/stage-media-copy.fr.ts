@@ -24,7 +24,7 @@ export const fr: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause} ${tail}`,
   volume: (volume: string) => `Le fichier est sur « ${volume} ». Connectez ce disque pour récupération automatique.`,
   more: (count: number) => `${count} autres médias vidéo ou audio ${pluralForm('fr', count, { one: "média", other: "médias" })} sont aussi illisibles.`,
-  relinkHint: "Choisissez l’original pour récupérer. BaoCut vérifie le contenu, différent = reconnexion refusée.",
+  relinkHint: "Choisissez le fichier pour le récupérer. Une version modifiée (réexportée, par exemple) convient aussi : tous les clips qui l’utilisent passent au nouveau fichier.",
   desktopOnly: "Ouvrez dans BaoCut bureau et utilisez « Relier à nouveau… » sur le canevas pour choisir l’original.",
   managed: "Fichier stocké dans le dossier vidéo, non reconnectable ailleurs.",
   oldRevision: "La timeline utilise une ancienne version ; seule l’actuelle peut être reconnectée.",

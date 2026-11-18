@@ -9,7 +9,7 @@ export const ptBR: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause} ${tail}`,
   volume: (volume: string) => `O arquivo está em “${volume}”. Conecte essa unidade e ele será recuperado automaticamente.`,
   more: (count: number) => pluralForm('pt-BR', count, { one: `Mais ${count} mídia de vídeo ou áudio também não pode ser reproduzida.`, other: `Mais ${count} mídias de vídeo ou áudio também não podem ser reproduzidas.` }),
-  relinkHint: 'Escolha o arquivo original para recuperá-lo. O BaoCut verifica o conteúdo, e um arquivo diferente não pode ser vinculado novamente.',
+  relinkHint: 'Escolha o arquivo para recuperá-lo. Uma versão alterada (exportada de novo, por exemplo) também serve: todos os clipes que o usam passam para o arquivo novo.',
   desktopOnly: 'Para recuperar, abra este vídeo no aplicativo de desktop BaoCut e use “Vincular novamente…” na tela para escolher o arquivo original.',
   managed: 'Este arquivo estava armazenado na pasta do vídeo, então não pode ser vinculado a outro local.',
   oldRevision: 'A linha do tempo usa uma versão antiga desta mídia; somente a atual pode ser vinculada novamente.',
