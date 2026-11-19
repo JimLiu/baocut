@@ -699,6 +699,41 @@ describe('ClaudeSession：访问模式、模型与强度', () => {
     expect(fake.last().options).not.toHaveProperty('effort');
     expect(s.session.describePersistence()).toEqual({ driverId: 'claude', data: { sessionId: 'sess-e' } });
   });
+  it('强度：后台任务还在跑时不重启 Query（重启会结束它们），跑完之后的第一轮再换', async () => {
+    let turns = 0;
+    const fake = createFakeClaude({
+      sessionId: 'sess-b',
+      turn: (t) => {
+        if (turns++ === 0) {
+          t.emit({
+            type: 'system',
+            subtype: 'background_tasks_changed',
+            tasks: [{ task_id: 'b1', task_type: 'local_bash', description: 'npm run dev' }],
+            session_id: t.query.sessionId,
+            uuid: 'u',
+          } as unknown as SDKMessage);
+        }
+        t.result();
+      },
+    });
+    const s = track(open(fake));
+    const first = await s.session.startTurn({ text: 'go' }, settings({ effort: 'high' }));
+    await s.completed(first.turnId);
+    expect(await s.session.canRelease!()).toBe(false);
+
+    const second = await s.session.startTurn({ text: 'go' }, settings({ effort: 'max' }));
+    expect(await s.completed(second.turnId)).toMatchObject({ outcome: 'completed' });
+    expect(fake.queries).toHaveLength(1);
+    expect(fake.last().closed).toBe(false);
+
+    fake.last().emit({ type: 'system', subtype: 'background_tasks_changed', tasks: [], session_id: 'sess-b', uuid: 'u' } as unknown as SDKMessage);
+    for (let i = 0; i < 200 && !(await s.session.canRelease!()); i++) await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(await s.session.canRelease!()).toBe(true);
+    const third = await s.session.startTurn({ text: 'go' }, settings({ effort: 'max' }));
+    await s.completed(third.turnId);
+    expect(fake.queries).toHaveLength(2);
+    expect(fake.last().options).toMatchObject({ effort: 'max', resume: 'sess-b' });
+  });
 });
 
 describe('ClaudeSession：恢复、错误与退出', () => {
@@ -897,6 +932,8 @@ describe('ClaudeSession：恢复、错误与退出', () => {
     fake.last().crash(new Error('Claude Code process exited with code 1'));
     const exited = await until(() => s.of('session.exited')[0]);
     expect(exited.error).toBe('Claude Code process exited with code 1');
+    // 输出流抛错时进程未必已经退出：Query 照样关掉。
+    expect(fake.last().closed).toBe(true);
     expect(s.of('approval.resolved').map((e) => e.approvalId)).toEqual([request.approvalId]);
     // 进程退出即会话结束：之后的 close() 不再发第二条 session.exited，也不能再开回合。
     await s.session.close();
@@ -965,6 +1002,17 @@ describe('ClaudeSession：图片与受限调用', () => {
       { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: Buffer.from([0xff, 0xd8, 0xff]).toString('base64') } },
       { type: 'text', text: '看图' },
     ]);
+  });
+
+  it('读图片的时候会话关了：这一轮被拒，不再起 Query', async () => {
+    const png = path.join(dir, 'a.png');
+    await fs.writeFile(png, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const fake = createFakeClaude();
+    const s = track(open(fake));
+    const started = s.session.startTurn({ text: '看图', images: [{ path: png, mimeType: 'image/png' }] }, settings());
+    await s.session.close();
+    await expect(started).rejects.toThrow(/已关闭/);
+    expect(fake.queries).toHaveLength(0);
   });
 
   it('受限调用（cwd-write-only）：acceptEdits 加沙箱，不给 MCP 服务，要问的一律拒绝、不发审批', async () => {

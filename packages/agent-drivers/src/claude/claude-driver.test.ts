@@ -7,8 +7,16 @@ import { localizeText, setLocale } from '@baocut/protocol';
 import { createFakeClaude, createFakeClaudeCli, type FakeClaude, type FakeClaudeCli } from '../testing/fake-claude.ts';
 import { claudeExec, claudeSearch, describeClaudeAccount, parseClaudeVersion, parseCmdShimTarget } from './claude-binary.ts';
 import { ClaudeDriver } from './claude-driver.ts';
-import { FALLBACK_CLAUDE_MODELS } from './claude-models.ts';
+import { FALLBACK_CLAUDE_MODELS, claudeTier } from './claude-models.ts';
 import { ClaudeSession } from './claude-session.ts';
+
+async function until(check: () => boolean, timeoutMs = 2_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) throw new Error('timed out waiting');
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
 
 /**
  * Claude Driver 的探测，对着假 claude（`--version`、`auth status`）与假 Query（`supportedModels()`）。
@@ -83,7 +91,7 @@ describe('ClaudeDriver 探测（假 claude）', () => {
     expect((await driver.probe({ executable: missing })).detail).toContain(missing);
   });
 
-  it('模型表来自 supportedModels()：default 行不单列，它指向的标为默认；tier、强度；问完就关；同一个 claude 不重问', async () => {
+  it('模型表来自 supportedModels()：default 行不单列，它指向的标为默认；tier、强度；问完结束输入、等它自己退出；同一个 claude 不重问', async () => {
     const probe = await driver.probe();
     expect(probe.models.map((m) => [m.id, m.label, m.tier, m.isDefault])).toEqual([
       ['opus', 'Opus 5.5', 'max', true],
@@ -107,11 +115,23 @@ describe('ClaudeDriver 探测（假 claude）', () => {
       managedSettings: { allowManagedPermissionRulesOnly: true },
       persistSession: false,
     });
-    expect(query.closed).toBe(true);
     expect(query.inputs).toEqual([]);
+    // 不当场关掉：它可能还在刷新 OAuth 令牌。输入结束，它自己退出（输出流结束）之后才 close。
+    await until(() => query.inputEnded);
+    expect(query.closed).toBe(false);
+    query.end();
+    await until(() => query.closed);
 
     await driver.probe();
     expect(fake.queries).toHaveLength(1);
+  });
+
+  it('问模型表的 claude 迟迟不退出：过了宽限时间才关掉', async () => {
+    const graced = new ClaudeDriver(silentLogger, { locate: cli.locate, queryFactory: fake.factory, settingsFile, discoveryExitGraceMs: 30 });
+    await graced.probe();
+    const query = fake.last();
+    // 假 Query 的输出流不会自己结束：只能是宽限时间到了关的。
+    await until(() => query.closed);
   });
 
   it('模型表不设时效：过多久都不重问；换了版本、改了 settings.json 或重新检测才重问', async () => {
@@ -237,6 +257,17 @@ describe('ClaudeDriver 探测（假 claude）', () => {
 });
 
 describe('Claude 的版本与账号描述', () => {
+  it('按名字归档：Mythos、Fable、Opus 都是 max', () => {
+    expect(['claude-mythos-5-2', 'claude-fable-5-1[1m]', 'opus', 'sonnet', 'haiku', 'my-gateway-model'].map(claudeTier)).toEqual([
+      'max',
+      'max',
+      'max',
+      'balanced',
+      'fast',
+      null,
+    ]);
+  });
+
   it('解析 --version', () => {
     expect(parseClaudeVersion('2.1.284 (Claude Code)\n')).toBe('2.1.284');
     expect(parseClaudeVersion('nonsense')).toBeNull();

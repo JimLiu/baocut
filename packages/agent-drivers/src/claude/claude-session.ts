@@ -274,6 +274,9 @@ export class ClaudeSession implements AgentSession {
     if (this.#closed) throw new Error(String(DriversCommon.sessionClosed({ name: 'Claude' })));
     if (this.#turn) throw new Error(String(DriversCommon.turnInProgress()));
     const message = await toClaudeUserMessage(input);
+    // 读图片的时候会话可能已经关了：关了就不再起 Query，免得留下没人管的 claude 进程。
+    if (this.#closed) throw new Error(String(DriversCommon.sessionClosed({ name: 'Claude' })));
+    if (this.#turn) throw new Error(String(DriversCommon.turnInProgress()));
     const live = await this.#prepare(settings);
     const turnId = newId('turn');
     this.#turn = {
@@ -398,7 +401,14 @@ export class ClaudeSession implements AgentSession {
   async #prepare(settings: TurnSettings): Promise<LiveQuery> {
     const effort = this.#effort(settings.effort);
     let live = this.#live;
-    if (live && live.applied.effort !== effort) {
+    if (live && live.applied.effort !== effort && live.background > 0) {
+      // 重启会结束这个进程里的后台命令与后台子智能体：先按原来的强度跑，后台跑完之后的第一轮再换。
+      this.#log.info('Claude effort changed while background tasks run; keeping the Query until they finish', {
+        from: live.applied.effort,
+        to: effort,
+        background: live.background,
+      });
+    } else if (live && live.applied.effort !== effort) {
       // 强度只能在起 Query 时给：带着恢复句柄重启（driver.ts 的约定）。2.1.x 的 `applyFlagSettings({ effortLevel })`
       // 可以不重启就改，没有采用：它是 flag 设置层，和用户自己的设置怎么叠加没有核实。
       this.#log.info('Claude effort changed; restarting the Query with the resume handle', { from: live.applied.effort, to: effort });
@@ -597,6 +607,8 @@ export class ClaudeSession implements AgentSession {
     // 进程没了，会话随之结束（Harness 收到 session.exited 就放下它）；之后的 close() 不再重复发 session.exited。
     this.#closed = true;
     this.#live = null;
+    // 输出流抛错时进程未必已经退出：照样关掉 Query。
+    this.#retire(live);
     this.#turn = null;
     // i18n-ignore: 交给 Claude 的拒绝说明，给模型看
     this.#settleApprovals('Claude Code 进程已退出。');

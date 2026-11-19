@@ -1,3 +1,8 @@
+/*
+ * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
+ * packages/server/src/server/agent/providers/claude/model-discovery.ts 的 letDiscoveryExit（问完模型表不当场结束 claude，
+ * 结束输入后等它自己退出，宽限 60 秒）。改成排空输出流来判断退出，不拿子进程句柄。
+ */
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -46,7 +51,12 @@ export interface ClaudeDriverOptions {
   settingsFile?: string;
   /** Claude Code 的配置目录，本机会话的记录在它的 `projects/` 下（导入外部会话）。默认 `$CLAUDE_CONFIG_DIR`（`~/.claude`）。 */
   configDir?: string;
+  /** 问完模型表之后，等那个 claude 自己退出的上限（毫秒），过了才关掉。默认 60 秒；测试用来缩短。 */
+  discoveryExitGraceMs?: number;
 }
+
+/** 够 claude 做完它在回答之前开始的 OAuth 令牌刷新。 */
+const DISCOVERY_EXIT_GRACE_MS = 60_000;
 
 /**
  * Claude Code Driver：经 `@anthropic-ai/claude-agent-sdk` 驱动用户自己安装的 claude（架构设计 §3.1）。
@@ -61,6 +71,7 @@ export class ClaudeDriver implements AgentDriver {
   readonly #factory: ClaudeQueryFactory;
   readonly #settingsFile: string | null;
   readonly #configDir: string | null;
+  readonly #discoveryExitGraceMs: number;
   #models: { key: string; result: Promise<ClaudeModelEntry[] | null> } | null = null;
 
   constructor(log: Logger, options: ClaudeDriverOptions = {}) {
@@ -69,6 +80,7 @@ export class ClaudeDriver implements AgentDriver {
     this.#factory = options.queryFactory ?? sdkQueryFactory;
     this.#settingsFile = options.settingsFile ?? null;
     this.#configDir = options.configDir ?? null;
+    this.#discoveryExitGraceMs = options.discoveryExitGraceMs ?? DISCOVERY_EXIT_GRACE_MS;
   }
 
   describe(): DriverDescription {
@@ -235,11 +247,37 @@ export class ClaudeDriver implements AgentDriver {
     } finally {
       clearTimeout(timer);
       input.end();
+      if (query) this.#letDiscoveryExit(query);
+    }
+  }
+
+  /**
+   * 不当场关掉问模型表的 claude：它可能在回答之后还在刷新过期的 OAuth 令牌。Claude Code 先换掉刷新令牌、再存新的一对，
+   * 这时结束它，磁盘上留下的是作废的令牌，用户被登出。输入已经结束，它做完就会自己退出（输出流随之结束）；
+   * 超过 `discoveryExitGraceMs` 才关掉。
+   */
+  #letDiscoveryExit(query: ReturnType<ClaudeQueryFactory>): void {
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(grace);
       try {
-        query?.close();
+        query.close();
       } catch {
         // 已经退出。
       }
-    }
+    };
+    const grace = setTimeout(close, this.#discoveryExitGraceMs);
+    grace.unref?.();
+    void (async () => {
+      try {
+        for await (const message of query) void message;
+      } catch {
+        // 出错退出也算退出。
+      } finally {
+        close();
+      }
+    })();
   }
 }

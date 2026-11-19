@@ -38,10 +38,10 @@ function efforts(levels: readonly EffortLevel[] | undefined): DriverEffort[] {
   return (levels ?? []).map((id) => ({ id, label: EFFORT_LABEL[id] ?? id }));
 }
 
-/** 按名字归档。Fable 是比 Opus 更强的一档，也归 `max`；认不出的（网关的自定义 id 等）为 null。 */
+/** 按名字归档。Mythos、Fable 是比 Opus 更强的档，也归 `max`；认不出的（网关的自定义 id 等）为 null。 */
 export function claudeTier(id: string): ModelTier | null {
   const lower = id.toLowerCase();
-  if (lower.includes('fable') || lower.includes('opus')) return 'max';
+  if (lower.includes('mythos') || lower.includes('fable') || lower.includes('opus')) return 'max';
   if (lower.includes('sonnet')) return 'balanced';
   if (lower.includes('haiku')) return 'fast';
   return null;
