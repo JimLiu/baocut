@@ -9,13 +9,13 @@
   "notesLocalized": {},
   "app": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-aarch64-apple-darwin.zip",
+    "url": "https://baocut.com/releases/download/baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-aarch64-apple-darwin.zip",
     "size": 306103967,
     "sha256": "f31d41518a75c4dffa635502fe2d44d5f7936bfa15c4d3a7f4edcec56e3680f5"
   },
   "cli": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-CLI-3.19.2-build.97-aarch64-apple-darwin.zip",
+    "url": "https://baocut.com/releases/download/baocut-v3.19.2-build.97/BaoCut-CLI-3.19.2-build.97-aarch64-apple-darwin.zip",
     "size": 217514811,
     "sha256": "4bcc1c857c9a4c76d01957eb00135f892ff8833cba7ba84ecf6a858c03bd65e6"
   }

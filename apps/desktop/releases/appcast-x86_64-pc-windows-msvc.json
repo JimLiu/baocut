@@ -9,13 +9,13 @@
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-win-x64-setup.exe",
+    "url": "https://baocut.com/releases/download/baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-win-x64-setup.exe",
     "size": 226125742,
     "sha256": "80b0e5f17f6704f53e9bdfcc7fa0c7b7ddafb7a81936bc37d19522c6bbb91126"
   },
   "cli": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.19.2-build.97/BaoCut-CLI-3.19.2-build.97-x86_64-pc-windows-msvc.zip",
+    "url": "https://baocut.com/releases/download/baocut-v3.19.2-build.97/BaoCut-CLI-3.19.2-build.97-x86_64-pc-windows-msvc.zip",
     "size": 182068722,
     "sha256": "b325dff8e8686bc30374784008b3196f028fef7b6ffa3475be33ffdabffbfeeb"
   }

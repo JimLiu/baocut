@@ -35,7 +35,8 @@ test('the cask follows a feed on either GitHub Releases or the baocut.com mirror
 
 test('the cask refuses a feed that points elsewhere', () => {
   const feed = pinned();
-  assert.throws(() => renderHomebrewCask({ ...feed, app: { ...feed.app, url: feed.app.url.replace('jimliu/baocut', 'someone/else') } }), /asset naming/);
+  const file = feed.app.url.split('/').slice(-2).join('/');
+  assert.throws(() => renderHomebrewCask({ ...feed, app: { ...feed.app, url: `https://github.com/someone/else/releases/download/${file}` } }), /asset naming/);
   assert.throws(() => renderHomebrewCask({ ...feed, app: { ...feed.app, url: feed.app.url.replace(/^https:\/\/[^/]+/, 'https://example.com') } }), /asset naming/);
   assert.throws(() => renderHomebrewCask({ ...feed, target: 'x86_64-pc-windows-msvc' }), /Apple Silicon/);
   assert.throws(() => renderHomebrewCask({ ...feed, app: { ...feed.app, sha256: 'nope' } }), /checksum/);
