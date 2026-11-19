@@ -5,7 +5,8 @@ A release needs no download-link edits. Both READMEs ("Download and install" and
 `baocut-portal` Worker redirects each id to the newest published release that has
 that platform's files, on the site's mirror
 (`https://baocut.com/releases/download/<tag>/<file>`, the same path as on GitHub).
-The update feeds point at the same mirror. A cron trigger copies the newest two
+The update feeds point at GitHub Releases, not the mirror; the app falls back to
+the mirror itself. A cron trigger copies the newest two
 releases from GitHub into R2 every 10 minutes; until a file is copied, the mirror
 redirects to GitHub, so nothing breaks right after publishing. Do not edit the READMEs, rebuild or redeploy the site for a
 release. Only verify that the site picked it up.

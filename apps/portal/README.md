@@ -64,7 +64,7 @@ npx --yes wrangler@4.144.0 secret put GITHUB_TOKEN --config apps/portal/wrangler
 GitHub Releases 的下载在一些网络里很慢（见 [issue #141](https://github.com/JimLiu/baocut/issues/141)），官网在 Cloudflare 上放一份副本。GitHub 仍是唯一的来源，镜像只复制、不改。
 
 - **地址**：`https://baocut.com/releases/download/<tag>/<文件>`，路径与 `https://github.com/jimliu/baocut/releases/download/<tag>/<文件>` 相同。只认 `baocut-v<版本>-build.<构建号>` 的 tag 与带同一版本、构建号的 `BaoCut-…`、`BaoCut-CLI-…` 的 `.zip`、`.dmg`、`.exe`，别的路径 404。
-- **读**：R2 里有就直接给，支持 `Range`（应用的断点续传）、`HEAD`、`If-None-Match` 与 `If-Range`，响应 `Cache-Control: immutable`。没有（还没复制、已经清掉、没绑 R2、R2 出错）就 302 到 GitHub 上的同名文件，所以更新源在发布当时就可以写镜像地址。
+- **读**：R2 里有就直接给，支持 `Range`（应用的断点续传）、`HEAD`、`If-None-Match` 与 `If-Range`，响应 `Cache-Control: immutable`。没有（还没复制、已经清掉、没绑 R2、R2 出错）就 302 到 GitHub 上的同名文件，所以发布当时就能用。更新源写的是 GitHub 地址（旧版应用只下这一个地址），新版应用打不开 GitHub 时才来镜像取同一个文件。
 - **写**：定时任务每 10 分钟读一次最近 5 个 Release，取构建号最大的两个已发布 Release，把其中已传完的上述文件复制进 R2（`<tag>/<文件>`），按 GitHub 的大小与 `digest`（sha256）由 R2 校验，传一半不会留下对象；然后删掉不属于这两个 Release 的对象。每次最多花 8 分钟开始新的复制，剩下的下一次接着做。GitHub 读不到时什么都不删。macOS 先发布、Windows 后追加：各自的文件在出现后的下一轮复制。
 - **日志**：每次定时任务记一条 `mirror` 日志（复制了哪些、已有几个、推迟、失败与删掉的），读到没镜像的文件时不记。查法同上面的 `github-releases`。
 - **核对**：发布后 10 分钟左右，`curl -sI https://baocut.com/releases/download/<tag>/<文件>` 应是 200 且带 `Accept-Ranges: bytes`；还是 302 就看 `mirror` 日志里的 `failed`。

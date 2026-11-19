@@ -88,7 +88,7 @@ jobs:
             --sign-sha1 "$BAOCUT_MAC_SIGNING_SHA1" \
             --sign-keychain "$RUNNER_TEMP/baocut-signing.keychain-db" \
             --notary-profile baocut-notary --out "$RUNNER_TEMP/mac-release" \
-            --download-base-url "https://baocut.com/releases/download/baocut-v${VERSION}-build.${BUILD}"
+            --download-base-url "https://github.com/jimliu/baocut/releases/download/baocut-v${VERSION}-build.${BUILD}"
           node apps/desktop/tools/macos-release.mjs prepare "$RUNNER_TEMP/mac-release"
       - name: Remove signing and notarization credentials
         if: always() && steps.credentials.outcome != 'skipped'

@@ -22,10 +22,10 @@ test('rejects version mismatches, reused builds on any platform and version regr
   assert.throws(() => validateTagVersion(tag, ['3.0.1'], [{ version: '3.1.0', build: 60 }]), /go backwards/);
 });
 
-test('feeds point at the baocut.com mirror; checks accept it or the same GitHub release file', () => {
+test('feeds point at GitHub Releases; checks accept it or the same file on the baocut.com mirror', () => {
   const tag = 'baocut-v3.0.1-build.61';
   const file = 'BaoCut-3.0.1-build.61-aarch64-apple-darwin.zip';
-  assert.equal(releaseDownloadBase(tag), `https://baocut.com/releases/download/${tag}`);
+  assert.equal(releaseDownloadBase(tag), `https://github.com/jimliu/baocut/releases/download/${tag}`);
   assert.throws(() => releaseDownloadBase('skill-v1.0.0'));
   for (const href of [`https://baocut.com/releases/download/${tag}/${file}`, `https://github.com/JimLiu/baocut/releases/download/${tag}/${file}`,
     `https://github.com/jimliu/baocut/releases/download/${tag}/${file}`]) {

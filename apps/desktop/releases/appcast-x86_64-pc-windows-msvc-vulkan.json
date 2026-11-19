@@ -9,13 +9,13 @@
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://baocut.com/releases/download/baocut-v3.20.0-build.98/BaoCut-3.20.0-build.98-win-x64-vulkan-setup.exe",
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.0-build.98/BaoCut-3.20.0-build.98-win-x64-vulkan-setup.exe",
     "size": 243284978,
     "sha256": "4eccd10bc0076d30d6c42519baf417475f88f27541befd74f2f28953f64d139b"
   },
   "cli": {
     "format": "zip",
-    "url": "https://baocut.com/releases/download/baocut-v3.20.0-build.98/BaoCut-CLI-3.20.0-build.98-x86_64-pc-windows-msvc-vulkan.zip",
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.0-build.98/BaoCut-CLI-3.20.0-build.98-x86_64-pc-windows-msvc-vulkan.zip",
     "size": 233888998,
     "sha256": "fda23327ffeee530aba80da6eaf6d8eefd6f1f942e8a0cede6ddc79c4715e4fe"
   }

@@ -25,12 +25,13 @@ export function validateTagVersion(tag, versions, feeds) {
 }
 
 /**
- * 更新源里的安装包地址目录：官网的镜像（apps/portal 的 mirror.ts）。路径与 GitHub Releases 相同，文件从那里复制过去，
- * 还没复制到时官网再跳回 GitHub，所以发布当时就可以写进更新源。
+ * 更新源里的安装包地址目录：GitHub Releases 上的这次发布。已经装好的旧版只下清单里写的这个地址（3.20 之前没有备用
+ * 地址），所以清单写最稳的来源；新版应用自己先试 GitHub、打不开再试官网镜像（apps/portal 的 mirror.ts，路径相同）。
  */
+export const GITHUB_DOWNLOAD_ORIGIN = 'https://github.com/jimliu/baocut';
 export const MIRROR_DOWNLOAD_ORIGIN = 'https://baocut.com';
 export function releaseDownloadBase(tag) {
-  return `${MIRROR_DOWNLOAD_ORIGIN}/releases/download/${parseReleaseTag(tag).tag}`;
+  return `${GITHUB_DOWNLOAD_ORIGIN}/releases/download/${parseReleaseTag(tag).tag}`;
 }
 
 /**

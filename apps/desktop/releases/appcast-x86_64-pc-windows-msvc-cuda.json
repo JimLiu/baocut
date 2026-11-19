@@ -9,13 +9,13 @@
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://baocut.com/releases/download/baocut-v3.20.0-build.98/BaoCut-3.20.0-build.98-win-x64-cuda-setup.exe",
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.0-build.98/BaoCut-3.20.0-build.98-win-x64-cuda-setup.exe",
     "size": 776270257,
     "sha256": "7b677c8ba08a468e0979fa33ec9bf8ef1f1572b2289507f53a111ce574d0f37b"
   },
   "cli": {
     "format": "zip",
-    "url": "https://baocut.com/releases/download/baocut-v3.20.0-build.98/BaoCut-CLI-3.20.0-build.98-x86_64-pc-windows-msvc-cuda.zip",
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.0-build.98/BaoCut-CLI-3.20.0-build.98-x86_64-pc-windows-msvc-cuda.zip",
     "size": 801293501,
     "sha256": "3832706c384441c7a92b1bfe051afe9cfb626b7f074e8853d6f7534afc04abb5"
   }

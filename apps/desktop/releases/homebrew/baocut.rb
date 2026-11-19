@@ -4,7 +4,7 @@ cask "baocut" do
   version "3.20.0,98"
   sha256 "7cb4f0b6f0d00ad1b3abeb26e58c26dcab5691864ce220088867ccfaee316bb2"
 
-  url "https://baocut.com/releases/download/baocut-v#{version.csv.first}-build.#{version.csv.second}/BaoCut-#{version.csv.first}-build.#{version.csv.second}-aarch64-apple-darwin.zip"
+  url "https://github.com/jimliu/baocut/releases/download/baocut-v#{version.csv.first}-build.#{version.csv.second}/BaoCut-#{version.csv.first}-build.#{version.csv.second}-aarch64-apple-darwin.zip"
   name "BaoCut"
   desc "AI video agent that keeps every result in an editable timeline"
   homepage "https://baocut.com/"
