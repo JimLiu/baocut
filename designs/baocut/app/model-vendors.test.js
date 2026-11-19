@@ -193,7 +193,10 @@ test('能力页第 ④ 节的全目录：已连接 → 已添加没账号 → �
 test('能力页第 ④ 节的全目录：查询名字 / id / 模型 id；P1 与智能体不列，自建列在最后', () => {
   const {settings, accounts} = V.seed(NOW);
   assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, ' Kimi ').map((r) => r.id), ['moonshot', 'siliconflow']);
-  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'gpt-6').map((r) => r.id), ['openai', 'openrouter']);
+  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'gpt-6.2').map((r) => r.id), ['openai', 'openrouter']);
+  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'gemini-4-hydrogen').map((r) => r.id), ['google', 'openrouter']);
+  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'fable-5-2').map((r) => r.id), ['anthropic']);
+  assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'fable-5.2').map((r) => r.id), ['openrouter']);
   assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, 'groq').map((r) => r.id), ['groq']);
   assert.deepEqual(V.capCatalog('text', settings, accounts, NOW, '没有这家'), []);
   assert.ok(!V.capCatalog('tts', settings, accounts, NOW).some((r) => r.id === 'minimax'), 'MiniMax 的合成是 P1');

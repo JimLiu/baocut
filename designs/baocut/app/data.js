@@ -2414,9 +2414,9 @@
          （BaoCut 能驱动的最低版本 / 上游最新版本）、loggedIn、runError、installs（原样给你看、也能替你摆进终端的
          安装与升级命令）、模型的 tier（balanced = 推荐 / max = 最强 / fast = 最快，见 model-agent-setup.js）。
          `found:false` 的那一家仍然带着「装好之后」的 ver / bin / realBin，安装演示落定时直接用。 */
-      {id: 'claude', name: 'Claude Code', cmd: 'claude', found: true, ver: '2.1.296', minVer: '2.0.0', latest: '2.2.0',
+      {id: 'claude', name: 'Claude Code', cmd: 'claude', found: true, ver: '2.1.328', minVer: '2.0.0', latest: '2.1.328',
        runtimeModel: 'sonnet', configModel: 'sonnet', configModelKnown: true,
-       bin: '/opt/homebrew/bin/claude', realBin: '/opt/homebrew/Caskroom/claude-code/2.1.296/claude', loggedIn: true, runError: null,
+       bin: '/opt/homebrew/bin/claude', realBin: '/opt/homebrew/Caskroom/claude-code/2.1.328/claude', loggedIn: true, runError: null,
        account: 'Claude Pro 订阅 · 已登录', plan: 'Claude Pro 或 Max 订阅', dflt: true, enabled: true,
        install: 'npm install -g @anthropic-ai/claude-code',
        installs: [
@@ -2424,13 +2424,13 @@
          {k: 'brew', label: 'Homebrew', needs: 'Homebrew', cmd: 'brew install --cask claude-code', upgrade: 'brew upgrade --cask claude-code'},
          {k: 'npm', label: 'npm', needs: 'Node.js', cmd: 'npm install -g @anthropic-ai/claude-code', upgrade: 'npm install -g @anthropic-ai/claude-code@latest'},
        ],
-       models: [{id: 'sonnet', name: 'Sonnet 5.5', dflt: true, tier: 'balanced'}, {id: 'opus', name: 'Opus 5.5', tier: 'max'}, {id: 'haiku', name: 'Haiku 5.5', tier: 'fast'}, {id: 'claude-fable-5-1', name: 'Fable 5.1', tier: 'max'}]},
+       models: [{id: 'sonnet', name: 'Sonnet 5.5', dflt: true, tier: 'balanced'}, {id: 'opus', name: 'Opus 5.5', tier: 'max'}, {id: 'haiku', name: 'Haiku 5.5', tier: 'fast'}, {id: 'fable', name: 'Fable 5.2', tier: 'max'}]},
       /* 2026-09-29：configModel = BaoCut 不传模型时 CLI 自己的配置会选哪个（codex 读 `~/.codex/config.toml` 的 model）；
          configModelKnown = 这一版 CLI 的完整模型表（含隐藏模型）里有没有它，内核算好送来。演示场景「默认模型需升级」
          把本机版本压回 0.153.0、模型表换成还没有 gpt-6-sol 的旧表，重现那次事故。
-         新版目录含 GPT-6.1 Terra，按 CLI 自己的次序取第一个 `-terra` 推荐（见 model-agent-setup.js::recommended）。 */
-      {id: 'codex', name: 'Codex CLI', cmd: 'codex', found: false, ver: '0.159.0', minVer: '0.120.0', latest: '0.159.0',
-       runtimeModel: 'gpt-6.1-sol', configModel: 'gpt-6.1-sol', configModelKnown: true,
+         GPT-6.2 Sol 比目录里的 GPT-6.1 Terra 新，按现有规则推荐 Sol（见 model-agent-setup.js::recommended）。 */
+      {id: 'codex', name: 'Codex CLI', cmd: 'codex', found: false, ver: '0.170.0', minVer: '0.120.0', latest: '0.170.0',
+       runtimeModel: 'gpt-6.2-sol', configModel: 'gpt-6.2-sol', configModelKnown: true,
        bin: '/opt/homebrew/bin/codex', realBin: '/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js', loggedIn: true, auth: 'chatgpt', runError: null,
        install: 'npm install -g @openai/codex',
        installs: [
@@ -2438,7 +2438,9 @@
          {k: 'npm', label: 'npm', needs: 'Node.js', cmd: 'npm install -g @openai/codex', upgrade: 'npm install -g @openai/codex@latest'},
        ],
        account: 'ChatGPT Plus / Pro 订阅', plan: 'ChatGPT Plus 或 Pro 订阅', enabled: false,
-       models: [{id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', dflt: true, tier: 'balanced'}, {id: 'gpt-6-astra', name: 'GPT-6 Astra', tier: 'max'}, {id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', tier: 'balanced'}, {id: 'gpt-6-luna', name: 'GPT-6 Luna', tier: 'fast'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}]},
+       models: [{id: 'gpt-6.2-sol', name: 'GPT-6.2 Sol', dflt: true, tier: 'balanced'}, {id: 'gpt-6.2-astra', name: 'GPT-6.2 Astra', tier: 'max'},
+         {id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', tier: 'balanced'}, {id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', tier: 'balanced'},
+         {id: 'gpt-6-astra', name: 'GPT-6 Astra', tier: 'max'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}, {id: 'gpt-6-luna', name: 'GPT-6 Luna', tier: 'fast'}]},
       ...MAIN_PRESETS,
       ...MORE_HARNESSES,
     ],

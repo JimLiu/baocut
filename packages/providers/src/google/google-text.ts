@@ -1,24 +1,9 @@
-// Google Gemini 文本模型（`generateText`，架构设计 §6.4）。2026-10-16 核对模型目录：
-//   https://ai.google.dev/api/generate-content
-//   https://ai.google.dev/gemini-api/docs/models
-//   https://ai.google.dev/gemini-api/docs/models/gemini-4-argon
-//   https://ai.google.dev/gemini-api/docs/structured-output
-//   https://ai.google.dev/gemini-api/docs/thinking
-//   https://ai.google.dev/api/models#method:-models.list
-// 文档确认的：`POST {base}/models/{model}:generateContent`（`x-goog-api-key` 请求头）；`contents[{ role: 'user' | 'model',
-// parts: [{ text }] }]`、`systemInstruction`；`generationConfig` 的 `maxOutputTokens`、`temperature`、`seed`、
-// `responseMimeType: 'application/json'` 与 `responseJsonSchema`、`thinkingConfig.thinkingLevel`；响应的
-// `candidates[].finishReason`（`STOP`、`MAX_TOKENS`、`SAFETY`、`RECITATION`、`BLOCKLIST`、`PROHIBITED_CONTENT`、`SPII`……）、
-// `content.parts[].thought`（思考摘要，不取）、`promptFeedback.blockReason`、`usageMetadata`（`promptTokenCount`、
-// `candidatesTokenCount`、`thoughtsTokenCount`）、`modelVersion`。稳定的文本模型：gemini-3.8-flash（推荐）、3.7-flash、
-// 3.6-flash、3.5-flash、3.5-flash-lite、3.1-flash-lite；3.8 与 3.7 的思考档位是 low / medium / high（API 默认 medium），
-// 3.6 与 3.5-flash-lite 是 minimal–high（3.5-flash-lite 的 API 默认 minimal）。`GET {base}/models` 分页列出模型（`models[].name`
-// 是 `models/<id>`，`nextPageToken`）。BaoCut 不用 API 默认档：没指定推理强度时下发模型表的 `defaultEffort`，取最低一档。
-// 没能确认的：3.5-flash 与 3.1-flash-lite 的思考档位（按 minimal–high 声明）；各模型的
-// 输出上限（按 65,536 token 声明）与上下文（按 1,048,576 token 声明）；上下文过长时的错误形状（按 400 正文里提到 token
-// 上限的识别为 `INPUT_TOO_LONG`）。费用按 `unknown`。
-// Gemini 4 Argon 使用统一的 1,048,576 token 窗口，同步输出上限 65,536，支持 low / medium / high；
-// 不声明采样参数。保留 3.8 Flash 为均衡默认，不启用需要续传的 long decode。
+// Google Gemini text models (architecture §6.4).
+// https://ai.google.dev/api/generate-content
+// https://aistudio.google.com/docs/thinking
+// Gemini 4 uses a shared 1,048,576-token window. Direct non-streaming REST caps Carbon and Argon
+// at 32,768 output tokens. Hydrogen and Neon support 65,536 without long decode.
+// https://aistudio.google.com/docs/long-decode?generate-content=true#default-output-limits
 import { ProviderFailure, type TextReply } from '@baocut/models';
 import type { TextEffort, TextFinishReason, TextModelInfo } from '@baocut/protocol';
 import {
@@ -36,6 +21,8 @@ import { ProvidersHttp as PH } from '@baocut/protocol/messages/providers';
 
 const LABEL = 'Google Gemini';
 const ALL: TextEffort[] = ['minimal', 'low', 'medium', 'high'];
+const GEMINI_4_EFFORTS: TextEffort[] = ['low', 'medium', 'high'];
+const NO_SAMPLING = { acceptsTemperature: false, acceptsSeed: false };
 
 function model(
   modelId: string,
@@ -60,8 +47,11 @@ function model(
 }
 
 const MODELS: TextModelInfo[] = [
-  model('gemini-3.8-flash', 'Gemini 3.8 Flash', ['low', 'medium', 'high'], 'low', { default: true }),
-  model('gemini-4-argon', 'Gemini 4 Argon', ['low', 'medium', 'high'], 'low', { acceptsTemperature: false, acceptsSeed: false }),
+  model('gemini-4-hydrogen', 'Gemini 4 Hydrogen', GEMINI_4_EFFORTS, 'low', { ...NO_SAMPLING, default: true }),
+  model('gemini-4-neon', 'Gemini 4 Neon', GEMINI_4_EFFORTS, 'low', NO_SAMPLING),
+  model('gemini-4-carbon', 'Gemini 4 Carbon', GEMINI_4_EFFORTS, 'low', { ...NO_SAMPLING, maxOutputTokens: 32_768 }),
+  model('gemini-4-argon', 'Gemini 4 Argon', GEMINI_4_EFFORTS, 'low', { ...NO_SAMPLING, maxOutputTokens: 32_768 }),
+  model('gemini-3.8-flash', 'Gemini 3.8 Flash', ['low', 'medium', 'high'], 'low'),
   model('gemini-3.7-flash', 'Gemini 3.7 Flash', ['low', 'medium', 'high'], 'low'),
   model('gemini-3.6-flash', 'Gemini 3.6 Flash', ALL, 'minimal'),
   model('gemini-3.5-flash', 'Gemini 3.5 Flash', ALL, 'minimal'),

@@ -92,7 +92,7 @@ function anthropicReply(request: RecordedRequest, text: string, extra: Record<st
 }
 
 describe('Anthropic 文本（Messages）', () => {
-  it('模型表：默认 Sonnet 5.5；Haiku 5.5 支持推理强度，Fable 5.1 可选；都不发送采样参数', () => {
+  it('defaults to Sonnet 5.5 and exposes Haiku 5.5 and both Fable versions with reasoning effort', () => {
     const models = new AnthropicTextAdapter().models(config('x', null));
     expect(models.find((m) => m.default)?.modelId).toBe('claude-sonnet-5-5');
     expect(models.find((m) => m.modelId === 'claude-opus-5-5')).toMatchObject({ defaultEffort: 'medium', acceptsTemperature: false });
@@ -102,7 +102,9 @@ describe('Anthropic 文本（Messages）', () => {
       acceptsTemperature: false,
       contextTokens: 1_000_000,
     });
-    expect(models.find((m) => m.modelId === 'claude-fable-5-1')).toMatchObject({ defaultEffort: 'high', acceptsTemperature: false });
+    for (const modelId of ['claude-fable-5-2', 'claude-fable-5-1']) {
+      expect(models.find((m) => m.modelId === modelId)).toMatchObject({ defaultEffort: 'high', acceptsTemperature: false });
+    }
   });
 
   it('请求形状：x-api-key 与 anthropic-version，system 在顶层，output_config 带推理强度与 JSON Schema；跳过思考块，输入含缓存', async () => {
