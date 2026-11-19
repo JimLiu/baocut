@@ -112,6 +112,8 @@ function userAgent(): string {
 async function fetchText(url: string): Promise<string> {
   const response = await net.fetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': userAgent() },
+    // 刚发版时「检查更新」要读到最新的清单，不用 Chromium 缓存里几分钟前的那份。
+    cache: 'no-store',
     signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -123,52 +125,74 @@ async function fetchText(url: string): Promise<string> {
 /** 网络响应体 → 字节流；每收到一块就重置断流计时。 */
 async function* readBody(body: ReadableStream<Uint8Array>, onChunk: () => void): ByteSource {
   const reader = body.getReader();
+  let finished = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
-      if (done) return;
+      if (done) {
+        finished = true;
+        return;
+      }
       onChunk();
       yield value;
     }
   } finally {
+    // 读到一半就停了（超出清单大小、取消）：断开连接，不让剩下的几百 MB 接着下。
+    if (!finished) await reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
 }
 
 /**
  * 打开安装包。`offset` 大于 0 时带 `Range: bytes=<offset>-` 续传：206 必须正好从 `offset` 起；服务端不认 Range（200）
- * 就从头给；416（本地的半截比服务端的文件还长）不带 Range 重来一次。
+ * 就从头给；416（本地的半截比服务端的文件还长）不带 Range 重来一次。服务端报的文件总长（206 的 `Content-Range`、
+ * 200 的 `Content-Length`）与清单的 `size` 不同就不是同一个文件：不接着下，抛错让调用方换地址或稍后重来。
+ * 不走 HTTP 缓存：几百 MB 的安装包不该进 Chromium 的磁盘缓存，续传也只认服务端的回答。
  */
-async function openRemote(url: string, signal: AbortSignal, offset: number): Promise<RemoteBytes> {
+async function openRemote(url: string, signal: AbortSignal, offset: number, size: number): Promise<RemoteBytes> {
   const stall = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const arm = () => {
     clearTimeout(timer);
     timer = setTimeout(() => stall.abort(new Error('download stalled')), STALL_TIMEOUT_MS);
   };
+  const refuse = async (response: Response, message: string): Promise<never> => {
+    clearTimeout(timer);
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error(message);
+  };
   arm();
   const headers: Record<string, string> = { 'User-Agent': userAgent() };
   if (offset > 0) headers.Range = `bytes=${offset}-`;
-  const response = await net.fetch(url, { headers, signal: AbortSignal.any([signal, stall.signal]) });
+  let response: Response;
+  try {
+    response = await net.fetch(url, { headers, cache: 'no-store', signal: AbortSignal.any([signal, stall.signal]) });
+  } catch (error) {
+    clearTimeout(timer);
+    throw error;
+  }
   if (offset > 0 && response.status === 416) {
     clearTimeout(timer);
-    await response.body?.cancel();
-    return openRemote(url, signal, 0);
+    await response.body?.cancel().catch(() => undefined);
+    return openRemote(url, signal, 0, size);
   }
-  if (!response.ok || !response.body) {
-    clearTimeout(timer);
-    throw new Error(`HTTP ${response.status}`);
-  }
+  if (!response.ok || !response.body) return refuse(response, `HTTP ${response.status}`);
   let start = 0;
+  let total: number | null = null;
   if (response.status === 206) {
     const range = parseContentRange(response.headers.get('Content-Range'));
     if (!range || range.start !== offset) {
-      clearTimeout(timer);
-      await response.body.cancel();
-      throw new Error(`unexpected Content-Range ${response.headers.get('Content-Range')} for byte ${offset}`);
+      return refuse(response, `unexpected Content-Range ${response.headers.get('Content-Range')} for byte ${offset}`);
     }
     start = range.start;
+    total = range.total;
+  } else {
+    // 压缩过的响应 `Content-Length` 是压缩后的长度，不拿来比。
+    const length = response.headers.get('Content-Length')?.trim() ?? '';
+    const encoding = (response.headers.get('Content-Encoding') ?? 'identity').trim().toLowerCase();
+    if (/^\d+$/.test(length) && encoding === 'identity' && Number.isSafeInteger(Number(length))) total = Number(length);
   }
+  if (total !== null && total !== size) return refuse(response, `server file is ${total} bytes, the manifest says ${size}`);
   const body = response.body;
   const source: ByteSource = (async function* () {
     try {

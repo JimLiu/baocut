@@ -19,7 +19,7 @@ export const NSIS_UNINSTALLER = `Uninstall ${PRODUCT_NAME}.exe`;
 /** 标准版的变体名（打包脚本的 `--variant cpu`）；它的更新源文件名不带后缀。 */
 export const STANDARD_VARIANT = 'cpu';
 /** 下载页：自动安装走不通时打开它。 */
-export const DOWNLOAD_PAGE = 'https://github.com/jimliu/baocut/releases';
+export const DOWNLOAD_PAGE = 'https://baocut.com/#download';
 /** 启动后多久做第一次自动检查（秒）。 */
 export const FIRST_CHECK_DELAY_S = 15;
 /** 两次自动检查的间隔（秒）。 */
@@ -28,6 +28,8 @@ export const CHECK_INTERVAL_S = 6 * 3600;
 export const TICK_S = 30 * 60;
 /** 退出即安装最多等多久（毫秒）：只剩写换包脚本、记下安装器这类便宜的事，超时就照常退出，不让退出卡住。 */
 export const QUIT_INSTALL_DEADLINE_MS = 5000;
+/** 下载断了（打不开、读到一半出错）自动接着下：每次重试前等这么久（毫秒），用完了才报失败。 */
+export const DOWNLOAD_RETRY_DELAYS_MS: readonly number[] = [3_000, 10_000, 30_000];
 
 // ---- 更新源 ----
 

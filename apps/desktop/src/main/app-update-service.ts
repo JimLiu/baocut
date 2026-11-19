@@ -4,6 +4,7 @@ import fs, { type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import type { AppUpdateFailure, AppUpdateInfo, AppUpdateNotice, AppUpdatePrefs, AppUpdateSnapshot, AppUpdateState } from '@baocut/ui';
 import {
+  DOWNLOAD_RETRY_DELAYS_MS,
   FIRST_CHECK_DELAY_S,
   QUIT_INSTALL_DEADLINE_MS,
   TICK_S,
@@ -54,8 +55,11 @@ export interface RemoteBytes {
   offset: number;
 }
 
-/** 打开 https 安装包：`offset` 大于 0 时请服务端从那个字节接着给（断点续传）。 */
-export type OpenRemote = (url: string, signal: AbortSignal, offset: number) => Promise<RemoteBytes>;
+/**
+ * 打开 https 安装包：`offset` 大于 0 时请服务端从那个字节接着给（断点续传）。`size` 是清单里的大小：服务端报的
+ * 文件总长对不上（不是同一个文件）就抛错，不给字节。
+ */
+export type OpenRemote = (url: string, signal: AbortSignal, offset: number, size: number) => Promise<RemoteBytes>;
 
 export type DownloadResult =
   | { ok: true; path: string }
@@ -72,6 +76,25 @@ export interface DownloadOptions {
   onProgress(pct: number): void;
   /** 打开 https 安装包的字节流（本地文件不经它）。 */
   openRemote: OpenRemote;
+  /** 网络断了自动重试前各等多久（毫秒）；默认 `DOWNLOAD_RETRY_DELAYS_MS`，给空数组就不重试。 */
+  retryDelaysMs?: readonly number[];
+  /** 等 `ms` 毫秒，`signal` 停了提前返回；默认用 `setTimeout`。 */
+  wait?(ms: number, signal: AbortSignal): Promise<void>;
+  /** 每次自动重试前回调（记日志用）。 */
+  onRetry?(attempt: number, detail: string): void;
+}
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    }
+    signal.addEventListener('abort', done, { once: true });
+  });
 }
 
 /** 依次打开候选地址（镜像打不开时退回 GitHub），返回第一个打开的；都打不开时抛最后一个错误。 */
@@ -95,14 +118,31 @@ async function resumableBytes(part: string, size: number): Promise<number> {
 }
 
 /**
- * 流式下载到 `dir/<文件名>.part`，边写边算 SHA-256；大小、摘要都对才改名成正式文件名。超出清单大小立即中止，
+ * 下载并校验，网络断了（`download` 类失败）隔一会儿自动从 `.part` 接着下，`retryDelaysMs` 用完才报失败。
+ * 取消与校验失败不重试。
+ */
+export async function downloadTo(info: AppUpdateInfo, dir: string, options: DownloadOptions): Promise<DownloadResult> {
+  // 本地文件（覆盖过的更新源）读不到不是网络问题，不重试。
+  const delays = isFileUrl(info.url) ? [] : (options.retryDelaysMs ?? DOWNLOAD_RETRY_DELAYS_MS);
+  const wait = options.wait ?? sleep;
+  for (let attempt = 0; ; attempt++) {
+    const result = await downloadOnce(info, dir, options);
+    if (result.ok || result.cancelled || result.failure !== 'download' || attempt >= delays.length) return result;
+    options.onRetry?.(attempt + 1, result.detail);
+    await wait(delays[attempt]!, options.signal);
+    if (options.signal.aborted) return CANCELLED;
+  }
+}
+
+/**
+ * 下一次：流式下载到 `dir/<文件名>.part`，边写边算 SHA-256；大小、摘要都对才改名成正式文件名。超出清单大小立即中止，
  * `signal` 一停即中止。成功后清掉缓存目录里别的安装包。
  *
  * 断点续传：网络断了（打不开、读到一半出错）时留着 `.part`，下次下载同一个文件（文件名带版本与构建号）时先把它算进摘要，
  * 再请服务端从它的末尾接着给；服务端给了整个文件就从头写。取消与校验失败照旧删掉 `.part`；接上的内容不对，
  * 最后的大小或摘要对不上，删掉后下次从头下。地址是官网镜像时，打不开就退回 GitHub 上的同一个文件。
  */
-export async function downloadTo(info: AppUpdateInfo, dir: string, options: DownloadOptions): Promise<DownloadResult> {
+async function downloadOnce(info: AppUpdateInfo, dir: string, options: DownloadOptions): Promise<DownloadResult> {
   const name = fileName(info);
   const destination = path.join(dir, name);
   const part = path.join(dir, `${name}.part`);
@@ -123,7 +163,7 @@ export async function downloadTo(info: AppUpdateInfo, dir: string, options: Down
         source = createReadStream(local);
       } else {
         const kept = await resumableBytes(part, info.size);
-        const remote = await openFirst(downloadCandidates(info.url), (url) => options.openRemote(url, options.signal, kept), options.signal);
+        const remote = await openFirst(downloadCandidates(info.url), (url) => options.openRemote(url, options.signal, kept, info.size), options.signal);
         source = remote.source;
         if (kept > 0 && remote.offset === kept) {
           for await (const chunk of createReadStream(part, { start: 0, end: kept - 1 })) hash.update(chunk as Buffer);
@@ -492,6 +532,14 @@ export function createAppUpdateService(deps: AppUpdateDeps): AppUpdateService {
             ? await downloadTo(info, deps.cacheDir, {
                 signal: controller.signal,
                 openRemote: deps.openRemote,
+                wait: (ms, signal) =>
+                  new Promise<void>((resolve) => {
+                    if (signal.aborted) return resolve();
+                    const stop = deps.schedule(resolve, ms);
+                    signal.addEventListener('abort', () => (stop(), resolve()), { once: true });
+                  }),
+                // i18n-ignore: 诊断日志，只打到主进程的终端，不进界面
+                onRetry: (attempt, detail) => deps.log(`下载更新中断（${detail}），第 ${attempt} 次接着下`),
                 onProgress: (pct) => {
                   if (mine !== generation) return;
                   const at = deps.now();
