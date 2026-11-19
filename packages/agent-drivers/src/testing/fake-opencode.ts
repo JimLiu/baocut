@@ -48,8 +48,6 @@ export interface FakeOpenCodeScenario {
   providers: OpenCodeProvider[];
   /** 冷启动：前几次 `/api/plugin` 回空表。 */
   coldPluginCalls: number;
-  /** 最先几次 `/api/plugin` 回 500（在冷启动的空表之前）。 */
-  pluginErrors?: number;
   /** 最先几次 `/api/session/active` 回 500。 */
   activeErrors?: number;
   catalog: 'ok' | 'error';

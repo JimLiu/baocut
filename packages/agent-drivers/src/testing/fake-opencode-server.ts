@@ -222,15 +222,12 @@ const server = http.createServer(async (req, res) => {
       streams.add(res);
       req.on('close', () => streams.delete(res));
       return;
-    case 'GET /api/plugin': {
+    case 'GET /api/plugin':
       pluginCalls++;
-      const errors = scenario.pluginErrors ?? 0;
-      if (pluginCalls <= errors) return send(res, 500, { _tag: 'UnknownError', message: 'plugin registry busy' });
       return send(res, 200, {
         location: { directory: location },
-        data: pluginCalls <= errors + scenario.coldPluginCalls ? [] : [{ id: 'opencode.config.mcp', state: { status: 'active' } }],
+        data: pluginCalls <= scenario.coldPluginCalls ? [] : [{ id: 'opencode.config.mcp', state: { status: 'active' } }],
       });
-    }
     case 'GET /api/model':
       if (scenario.catalog === 'error') return send(res, 500, { _tag: 'UnknownError', message: 'catalog exploded' });
       return send(res, 200, { location: { directory: location }, data: scenario.models });

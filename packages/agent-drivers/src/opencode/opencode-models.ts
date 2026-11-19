@@ -2,7 +2,7 @@
  * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
  * packages/server/src/server/agent/providers/opencode/v2/mapping.ts 的 modelsFromV2 / modelRef（`provider/model` 的写法、
  * 只留 enabled 的模型、variants 当推理强度），v2/readiness.ts 的 waitForLocationReady（冷启动的目录先回空的插件表，
- * 轮询到非空才算就绪；单次请求超时或出错照样接着轮询），v2/agent.ts 的 fetchCatalog。
+ * 轮询到非空才算就绪；单次请求超时接着轮询，别的错误照常抛出），v2/agent.ts 的 fetchCatalog。
  * 改成 BaoCut 的 DriverModel；没有账号时不报错（OpenCode Zen 的免费模型不用登录），账号按已启用的 provider 报。
  */
 import type { DriverModel } from '@baocut/protocol';
@@ -42,11 +42,11 @@ export interface OpenCodeCatalog {
 export async function waitForLocation(server: OpenCodeServer, directory: string, timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
-    // 单次请求超时或出错不算定论：服务还在就接着等，直到总时限。
+    // 单次请求超时不算定论（冷启动时插件表可能半天才回）：接着等，直到总时限。别的错误照常抛出。
     const res = await server
       .request<{ data?: unknown[] }>('GET', '/api/plugin', { location: directory, timeoutMs: 5_000 })
       .catch((error: unknown) => {
-        if (server.hasExited) throw error;
+        if (server.hasExited || !(error instanceof Error && error.name === 'TimeoutError')) throw error;
         return null;
       });
     if (Array.isArray(res?.data) && res.data.length > 0) return;

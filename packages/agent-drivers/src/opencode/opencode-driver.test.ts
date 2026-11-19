@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { silentLogger } from '@baocut/harness';
 import { createFakeOpenCode, type FakeOpenCode } from '../testing/fake-opencode.ts';
 import { OpenCodeDriver } from './opencode-driver.ts';
+import { waitForLocation } from './opencode-models.ts';
+import type { OpenCodeServer } from './opencode-server.ts';
 
 /** OpenCode Driver 的探测，对着假 opencode：版本判定、模型表、账号说明、缓存与强制刷新。 */
 describe('OpenCodeDriver.probe（假 opencode）', () => {
@@ -47,13 +49,6 @@ describe('OpenCodeDriver.probe（假 opencode）', () => {
     expect(plugins[0]!.location).toBe(os.homedir());
     // 探测用的 serve 用完即关。
     await expect.poll(() => fake.log().filter((e) => e.kind === 'exit').length).toBe(1);
-  });
-
-  it('目录就绪的检查出错一两次（插件表还没登记好）：接着等，模型表照常', async () => {
-    fake.scenario({ pluginErrors: 2 });
-    const probe = await driver.probe();
-    expect(probe.state).toBe('ready');
-    expect(probe.models.map((m) => m.id)).toEqual(['opencode/big-pickle', 'opencode/fledge-alpha-free']);
   });
 
   it('接入了别的 provider 时报账号', async () => {
@@ -103,5 +98,33 @@ describe('OpenCodeDriver.probe（假 opencode）', () => {
     expect(serveStarts()).toBe(1);
     await driver.probe({ force: true });
     expect(serveStarts()).toBe(2);
+  });
+});
+
+describe('waitForLocation（目录就绪）', () => {
+  const timedOut = () => Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' });
+  const stub = (answers: Array<() => unknown>) => {
+    let calls = 0;
+    const server = {
+      hasExited: false,
+      request: async () => {
+        const answer = answers[Math.min(calls++, answers.length - 1)]!;
+        return answer();
+      },
+    };
+    return { server: server as unknown as OpenCodeServer, calls: () => calls };
+  };
+
+  it('单次请求超时：接着问，插件表非空就算就绪', async () => {
+    const s = stub([() => { throw timedOut(); }, () => ({ data: [] }), () => ({ data: [{ id: 'p' }] })]);
+    await waitForLocation(s.server, '/work', 5_000);
+    expect(s.calls()).toBe(3);
+  });
+
+  it('别的错误（例如 401）不当成「还没就绪」：照原样抛出', async () => {
+    const denied = new Error('unauthorized');
+    const s = stub([() => { throw denied; }]);
+    await expect(waitForLocation(s.server, '/work', 5_000)).rejects.toBe(denied);
+    expect(s.calls()).toBe(1);
   });
 });
