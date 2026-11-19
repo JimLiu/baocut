@@ -9,7 +9,7 @@ export const it: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause} ${tail}`,
   volume: (volume: string) => `Il file si trova su «${volume}». Collega quell’unità e verrà recuperato automaticamente.`,
   more: (count: number) => pluralForm('it', count, { one: `Anche ${count} altro materiale video o audio non può essere riprodotto.`, other: `Anche ${count} altri materiali video o audio non possono essere riprodotti.` }),
-  relinkHint: 'Scegli il file originale per recuperarlo. BaoCut verifica i contenuti e non può ricollegare un file con contenuti diversi.',
+  relinkHint: 'Scegli il file per recuperarlo. Va bene anche una versione modificata (ad esempio riesportata): tutte le clip che lo usano passano al nuovo file.',
   desktopOnly: 'Per recuperarlo, apri questo video nell’app desktop BaoCut e usa «Ricollega…» sull’area di lavoro per scegliere il file originale.',
   managed: 'Questo file era memorizzato nella cartella del video, quindi non può essere ricollegato a un’altra posizione.',
   oldRevision: 'La timeline usa una versione precedente di questo materiale; solo quella attuale può essere ricollegata.',

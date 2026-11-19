@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseReleaseTag, validateReleaseRef, validateTagVersion } from './desktop-release-rules.mjs';
+import { parseReleaseTag, pointsToRelease, releaseDownloadBase, validateReleaseRef, validateTagVersion } from './desktop-release-rules.mjs';
 
 test('accepts canonical stable desktop release tags and rejects unrelated or malformed tags', () => {
   assert.deepEqual(parseReleaseTag('baocut-v3.0.1-build.61'), { tag: 'baocut-v3.0.1-build.61', version: '3.0.1', build: 61 });
@@ -20,6 +20,23 @@ test('rejects version mismatches, reused builds on any platform and version regr
   assert.throws(() => validateTagVersion(tag, ['3.0.1', '3.0.0'], []), /version differs/);
   assert.throws(() => validateTagVersion(tag, ['3.0.1'], [{ version: '3.0.0', build: 60 }, { version: '3.0.1', build: 61 }]), /build must increase/);
   assert.throws(() => validateTagVersion(tag, ['3.0.1'], [{ version: '3.1.0', build: 60 }]), /go backwards/);
+});
+
+test('feeds point at the baocut.com mirror; checks accept it or the same GitHub release file', () => {
+  const tag = 'baocut-v3.0.1-build.61';
+  const file = 'BaoCut-3.0.1-build.61-aarch64-apple-darwin.zip';
+  assert.equal(releaseDownloadBase(tag), `https://baocut.com/releases/download/${tag}`);
+  assert.throws(() => releaseDownloadBase('skill-v1.0.0'));
+  for (const href of [`https://baocut.com/releases/download/${tag}/${file}`, `https://github.com/JimLiu/baocut/releases/download/${tag}/${file}`,
+    `https://github.com/jimliu/baocut/releases/download/${tag}/${file}`]) {
+    assert.equal(pointsToRelease(href, 'JimLiu/baocut', tag, file), true, href);
+  }
+  for (const href of [`https://baocut.com/releases/download/baocut-v3.0.0-build.60/${file}`, `https://baocut.com/download/${tag}/${file}`,
+    `https://www.baocut.com/releases/download/${tag}/${file}`, `https://baocut.com:8443/releases/download/${tag}/${file}`,
+    `https://baocut.com/releases/download/${tag}/${file}?x=1`, `http://baocut.com/releases/download/${tag}/${file}`,
+    `https://github.com/other/baocut/releases/download/${tag}/${file}`, `https://example.com/releases/download/${tag}/${file}`]) {
+    assert.equal(pointsToRelease(href, 'JimLiu/baocut', tag, file), false, href);
+  }
 });
 
 test('publication allows main or the exact release tag, never another branch or tag', () => {

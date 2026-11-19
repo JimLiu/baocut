@@ -8,15 +8,22 @@ const TARGET = 'aarch64-apple-darwin';
 const REPO = 'jimliu/baocut';
 const ensure = (ok, message) => { if (!ok) throw new Error(message); };
 
-/** Cask text for one published feed. The URL uses Homebrew's version interpolation and must equal the feed's. */
+/** Where release archives are served: GitHub Releases, or the baocut.com mirror of the same path (the feed uses the mirror). */
+const DOWNLOAD_BASES = [`https://github.com/${REPO}/releases/download`, 'https://baocut.com/releases/download'];
+
+/**
+ * Cask text for one published feed. The URL uses Homebrew's version interpolation and must equal the feed's, on whichever
+ * of the two download bases the feed uses.
+ */
 export function renderHomebrewCask(feed) {
   ensure(feed?.target === TARGET && feed.app?.format === 'zip', 'Homebrew cask needs the Apple Silicon zip feed');
   ensure(/^\d+\.\d+\.\d+$/.test(feed.version) && Number.isSafeInteger(feed.build) && feed.build > 0, 'Unexpected feed version or build');
   ensure(/^[a-f0-9]{64}$/.test(feed.app.sha256), 'Unexpected feed checksum');
-  const expand = (version, build) =>
-    `https://github.com/${REPO}/releases/download/baocut-v${version}-build.${build}/BaoCut-${version}-build.${build}-${TARGET}.zip`;
-  ensure(expand(feed.version, feed.build) === feed.app.url, 'Feed URL does not follow the release asset naming');
-  const url = expand('#{version.csv.first}', '#{version.csv.second}');
+  const expand = (base, version, build) =>
+    `${base}/baocut-v${version}-build.${build}/BaoCut-${version}-build.${build}-${TARGET}.zip`;
+  const base = DOWNLOAD_BASES.find((candidate) => expand(candidate, feed.version, feed.build) === feed.app.url);
+  ensure(base, 'Feed URL does not follow the release asset naming');
+  const url = expand(base, '#{version.csv.first}', '#{version.csv.second}');
   return `# Rendered from appcast-${TARGET}.json by apps/desktop/tools/homebrew-cask.mjs; the macOS release
 # flow rewrites it with the update feed. Copy it to Casks/baocut.rb in the BaoCut Homebrew tap.
 cask "baocut" do

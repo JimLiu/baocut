@@ -91,6 +91,7 @@ export const nl: RcExternalToolsMessages = {
 
   probeCannotStart: (p: { error: string }) => `Kan niet starten: ${p.error}`,
   probeTimeout: (p: { command: string; seconds: number }) => `${p.command} is niet voltooid binnen ${p.seconds} seconden`,
+  probeTimeoutRemedy: (p: { name: string }) => `De versiecontrole duurde te lang; de tool is misschien alleen traag gestart. Detecteer opnieuw met externalTools.detect (baocut external-tools detect ${p.name}) en probeer het daarna opnieuw; een al aangemaakte taak kan verder met pipelines.retry`,
   probeCannotStartCode: (p: { code: string }) => `Kan niet starten (${p.code})`,
   probeExited: (p: { code: string; detail: string }) => `Afgesloten met ${p.code}${p.detail ? `: ${p.detail}` : ""}`,
 

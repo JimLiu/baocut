@@ -181,9 +181,9 @@ describe('文本生成（经网关）', () => {
     side = await startSide({ openai });
     await side.client.request('models.configure', { providerId: 'openai', enabled: true, credential: OPENAI_KEY });
     const { default: ref } = await side.client.request('models.setDefault', { capability: 'generateText', providerId: 'openai' });
-    expect(ref).toEqual({ providerId: 'openai', modelId: 'gpt-6.1-sol' });
+    expect(ref).toEqual({ providerId: 'openai', modelId: 'gpt-6.2-sol' });
     const { capabilities } = await side.client.request('models.capabilities', {});
-    expect(capabilities.generateText.effective).toEqual({ providerId: 'openai', modelId: 'gpt-6.1-sol', source: 'user-default' });
+    expect(capabilities.generateText.effective).toEqual({ providerId: 'openai', modelId: 'gpt-6.2-sol', source: 'user-default' });
 
     const request = {
       messages: [
@@ -200,7 +200,7 @@ describe('文本生成（经网关）', () => {
       state: 'completed',
       kind: 'generateText',
       providerId: 'openai',
-      modelId: 'gpt-6.1-sol',
+      modelId: 'gpt-6.2-sol',
       generation: { capability: 'generateText', effort: 'high', requestedEffort: 'high', maxOutputTokens: 128_000 },
       result: {
         documentId: null,
@@ -208,7 +208,7 @@ describe('文本生成（经网关）', () => {
           mediaType: 'text/plain',
           preview: 'Hello from the fake model.',
           finishReason: 'stop',
-          modelVersion: 'gpt-6.1-sol-2026-09-01',
+          modelVersion: 'gpt-6.2-sol-2026-09-01',
           usage: { inputTokens: 12, outputTokens: 5 },
         },
       },
@@ -217,7 +217,7 @@ describe('文本生成（经网关）', () => {
     expect(artifact.text).toBe('Hello from the fake model.');
     expect(artifact.mimeType).toMatch(/^text\/plain/);
     expect(openai.requests.filter((r) => r.path === '/v1/chat/completions')).toHaveLength(1);
-    expect(openai.requests[0]!.json).toMatchObject({ model: 'gpt-6.1-sol', reasoning_effort: 'high' });
+    expect(openai.requests[0]!.json).toMatchObject({ model: 'gpt-6.2-sol', reasoning_effort: 'high' });
     expect(side.runtime.models.services.textStats()).toEqual({ openai: { calls: 1, retries: 0, failures: 0 } });
     await expectNoSecret(side, OPENAI_KEY);
   });
@@ -235,13 +235,13 @@ describe('文本生成（经网关）', () => {
         messages: [{ role: 'user', content: 'title please' }],
         responseFormat: { type: 'json', schema },
         provider: 'google',
-        temperature: 0.3,
-        seed: 42,
       });
     let job = await settled(side, (await submit()).jobId);
-    expect(job).toMatchObject({ state: 'completed', modelId: 'gemini-3.8-flash', result: { text: { mediaType: 'application/json' } } });
+    expect(job).toMatchObject({ state: 'completed', modelId: 'gemini-4-hydrogen', result: { text: { mediaType: 'application/json' } } });
     expect(JSON.parse((await readArtifact(side, job.result!.artifactId)).text)).toEqual({ title: 'Hi' });
     expect(google.requests[0]!.headers['x-goog-api-key']).toBe(GOOGLE_KEY);
+    expect(google.requests[0]!.path).toBe('/v1beta/models/gemini-4-hydrogen:generateContent');
+    expect(google.requests[0]!.json).toMatchObject({ generationConfig: { thinkingConfig: { thinkingLevel: 'low' } } });
 
     reply = '{"title":5}';
     job = await settled(side, (await submit()).jobId);
@@ -356,7 +356,7 @@ describe('文本生成（经网关）', () => {
     await side.client.request('models.setDefault', { capability: 'generateText', providerId: 'openai' });
     await side.client.request('models.configure', { providerId: 'openai', enabled: false });
     const { capabilities } = await side.client.request('models.capabilities', {});
-    expect(capabilities.generateText.default).toEqual({ providerId: 'openai', modelId: 'gpt-6.1-sol' });
+    expect(capabilities.generateText.default).toEqual({ providerId: 'openai', modelId: 'gpt-6.2-sol' });
     const error = await side.client.request('models.generateText', { messages: [{ role: 'user', content: 'x' }] }).catch((e: unknown) => e);
     expect(error).toMatchObject({ code: 'conflict', details: { code: 'CAPABILITY_NOT_CONFIGURED', capability: 'generateText' } });
     expect(openai.requests).toHaveLength(0);

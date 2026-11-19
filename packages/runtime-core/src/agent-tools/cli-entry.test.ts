@@ -8,12 +8,15 @@ import {
   CLI_ENTRY_RECORD_FILE,
   CliEntryInstaller,
   FORWARDER_MARK,
+  PATH_LINE_MARK,
   WINDOWS_USER_PATH_SCRIPT,
   encodedCommand,
   forwarderScript,
   isStandaloneLauncher,
   parseForwarder,
   parseWindowsPathProbe,
+  withPathLine,
+  withoutPathLine,
   type CommandRunner,
 } from './cli-entry.ts';
 
@@ -287,6 +290,80 @@ describe('cli entry installer', () => {
   it('shell 超时或失败时 PATH 查不出：shell 与 pathHint 都是 null，状态照常', async () => {
     shellPath = null;
     expect(await installer().status()).toMatchObject({ state: 'none', shell: null, pathHint: null });
+  });
+
+  describe('加进 shell 配置', () => {
+    const zshrc = () => path.join(user, '.zshrc');
+    const marked = `export PATH="$HOME/.local/bin:$PATH" ${PATH_LINE_MARK}`;
+
+    it('用户点了才追加带尾注的那一行，只加一次；装与首次启动都不改配置', async () => {
+      fs.writeFileSync(zshrc(), 'export ZSH="$HOME/.oh-my-zsh"\nsource $ZSH/oh-my-zsh.sh');
+      await installer().install();
+      await installer().installOnFirstLaunch();
+      expect(fs.readFileSync(zshrc(), 'utf8')).toBe('export ZSH="$HOME/.oh-my-zsh"\nsource $ZSH/oh-my-zsh.sh');
+
+      await installer().addToPath();
+      expect(fs.readFileSync(zshrc(), 'utf8')).toBe(`export ZSH="$HOME/.oh-my-zsh"\nsource $ZSH/oh-my-zsh.sh\n\n${marked}\n`);
+      await installer().addToPath();
+      expect(fs.readFileSync(zshrc(), 'utf8').split(marked)).toHaveLength(2);
+    });
+
+    it('终端的 PATH 上已经有这个目录时不写；没有配置文件时新建（fish 连同目录）', async () => {
+      shellPath = '/usr/bin:~/.local/bin';
+      await installer().addToPath();
+      expect(fs.existsSync(zshrc())).toBe(false);
+
+      shellPath = '/usr/bin';
+      await installer().addToPath();
+      expect(fs.readFileSync(zshrc(), 'utf8')).toBe(`${marked}\n`);
+
+      const fish = new CliEntryInstaller({ home, userHome: user, env: { BAOCUT_CLI_ENTRY: entry, SHELL: '/usr/local/bin/fish' }, platform: 'darwin', run });
+      await fish.addToPath();
+      expect(fs.readFileSync(path.join(user, '.config', 'fish', 'config.fish'), 'utf8')).toBe(`fish_add_path $HOME/.local/bin ${PATH_LINE_MARK}\n`);
+    });
+
+    it('配置文件是软链接时写进它指向的文件，链接不动', async () => {
+      const real = path.join(dir, 'dotfiles', 'zshrc');
+      fs.mkdirSync(path.dirname(real), { recursive: true });
+      fs.writeFileSync(real, 'alias ll="ls -l"\n');
+      fs.symlinkSync(real, zshrc());
+      await installer().addToPath();
+      expect(fs.lstatSync(zshrc()).isSymbolicLink()).toBe(true);
+      expect(fs.readFileSync(real, 'utf8')).toBe(`alias ll="ls -l"\n\n${marked}\n`);
+    });
+
+    it('认不出配置文件的 shell 与 Windows：CLI_ENTRY_SHELL_UNKNOWN，什么都不写', async () => {
+      const error = await rejection(() => installer({ BAOCUT_CLI_ENTRY: entry, SHELL: '/bin/tcsh' }).addToPath());
+      expect(error.code).toBe('unsupported');
+      expect(error.details).toMatchObject({ code: 'CLI_ENTRY_SHELL_UNKNOWN', path: path.join(user, '.local', 'bin') });
+      const win = new CliEntryInstaller({ home, userHome: user, env: { LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' }, platform: 'win32', run });
+      expect((await rejection(() => win.addToPath())).details).toMatchObject({ code: 'CLI_ENTRY_SHELL_UNKNOWN' });
+      expect(fs.readdirSync(user)).toEqual([]);
+    });
+
+    it('移除时 ~/.local/bin 里没有别的东西才删掉加的那一行；用户自己写的同一行不动', async () => {
+      fs.writeFileSync(zshrc(), 'export PATH="$HOME/.local/bin:$PATH"\n');
+      await installer().install();
+      await installer().addToPath();
+      fs.writeFileSync(path.join(user, '.local', 'bin', 'other-tool'), '');
+      await installer().remove();
+      expect(fs.readFileSync(zshrc(), 'utf8')).toContain(marked);
+
+      fs.rmSync(path.join(user, '.local', 'bin', 'other-tool'));
+      await installer().install();
+      await installer().remove();
+      expect(fs.readFileSync(zshrc(), 'utf8')).toBe('export PATH="$HOME/.local/bin:$PATH"\n');
+    });
+
+    it('加与删的文本规则', () => {
+      const line = 'export PATH="$HOME/.local/bin:$PATH"';
+      expect(withPathLine('', line)).toBe(`${line} ${PATH_LINE_MARK}\n`);
+      expect(withPathLine('a\n\n\n', line)).toBe(`a\n\n${line} ${PATH_LINE_MARK}\n`);
+      expect(withPathLine(`a\n  ${line} ${PATH_LINE_MARK}\n`, line)).toBeNull();
+      expect(withoutPathLine(withPathLine('a\n', line)!, line)).toBe('a\n');
+      expect(withoutPathLine(`a\r\n\r\n${line} ${PATH_LINE_MARK}\r\nb\r\n`, line)).toBe('a\r\nb\r\n');
+      expect(withoutPathLine(`a\n${line}\n`, line)).toBeNull();
+    });
   });
 });
 

@@ -31,8 +31,12 @@ From the repo root, use a new output directory:
 npm run package:mac -- \
   --build <BUILD> --sign-sha1 <CERTIFICATE_SHA1> \
   --out /absolute/path/to/new-release-directory \
-  --download-base-url 'https://github.com/jimliu/baocut/releases/download/baocut-v<VERSION>-build.<BUILD>'
+  --download-base-url 'https://baocut.com/releases/download/baocut-v<VERSION>-build.<BUILD>'
 ```
+
+The feed points at the baocut.com mirror of the same release path. The site copies
+the files from GitHub Releases within about 10 minutes and redirects to GitHub
+until then, so the feed works as soon as the GitHub assets are public.
 
 The builder packages default MLX/Core ML Workers and their release `mlx.metallib`.
 If several Metal libraries exist, pass `--metallib` from that same Worker build;

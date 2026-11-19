@@ -17,7 +17,7 @@ export const zhHant: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause}${tail}`,
   volume: (volume: string) => `檔案位於「${volume}」。連接該磁碟後就會自動回復。`,
   more: (count: number) => `還有 ${count} 個影片或音訊素材也無法播放。`,
-  relinkHint: '選擇原本的檔案即可回復。BaoCut 會核對內容，內容不同的檔案無法重新連結。',
+  relinkHint: '選擇原本的檔案即可回復；內容不同的檔案（例如重新匯出過）也可以，用到它的片段都會換成新檔案。',
   desktopOnly: '若要回復，請在 BaoCut 桌面應用程式中開啟這部影片，並使用畫布上的「重新連結…」選擇原本的檔案。',
   managed: '這個檔案原本存放在影片資料夾中，因此無法重新連結到其他位置。',
   oldRevision: '時間軸使用的是這個素材的舊版本；只有目前版本可以重新連結。',

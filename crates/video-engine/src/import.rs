@@ -412,6 +412,18 @@ pub fn prepare_import(
     mode: Option<StorageMode>,
     include: Option<&[String]>,
 ) -> EngineResult<PreparedAsset> {
+    prepare_import_hashed(video_dir, given, ffprobe, mode, include, None)
+}
+
+/// 同 [`prepare_import`]；链接一个文件、调用方已经算过它的摘要与长度时传 `hashed`，不再读一遍（重新链接）。
+pub fn prepare_import_hashed(
+    video_dir: &Path,
+    given: &Path,
+    ffprobe: &Path,
+    mode: Option<StorageMode>,
+    include: Option<&[String]>,
+    hashed: Option<(String, u64)>,
+) -> EngineResult<PreparedAsset> {
     let relative = !given.is_absolute();
     if relative && mode == Some(StorageMode::Managed) {
         return Err(ErrorBody::invalid_operation(msg!(
@@ -520,7 +532,10 @@ pub fn prepare_import(
     let ((content_hash, byte_length), storage) = match mode {
         StorageMode::Managed => (publish_blob(video_dir, source, media_type)?, AssetStorage::Managed),
         StorageMode::Linked => (
-            hash_file(source)?,
+            match hashed {
+                Some(known) => known,
+                None => hash_file(source)?,
+            },
             AssetStorage::Linked {
                 locator: link_locator(video_dir, given).0,
                 frozen: false,

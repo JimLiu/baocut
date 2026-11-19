@@ -5,6 +5,8 @@
  * - 页面：把带 `data-release` 的元素换成最新版本的版本号、构建号、日期与发布说明链接，不用为每次发版重新部署。
  * - `/download/<下载项>`：302 到最新版本里对应的文件；`/download` 按访客的系统挑一个。
  * - `/api/release`：最新版本与各个下载地址的 JSON。
+ * - `/releases/download/<tag>/<文件>`：安装包的镜像，R2 里有就给（支持断点续传），没有就 302 到 GitHub（mirror.ts）。
+ *   定时任务（wrangler.jsonc 的 `triggers.crons`）把最近的 Release 复制进 R2。
  *
  * 最新版本从 GitHub Releases 读（规则见 release.ts）。访客的请求从不等 GitHub：依次用本实例内存里的、本机房缓存里的、
  * 构建时的快照（dist/release.json），拿到的超过 5 分钟就在响应之后到后台重取一次。GitHub 限流或出错时继续用手上这份。
@@ -28,11 +30,14 @@ import {
   type FeedId,
   type ReleaseSet,
 } from './release.ts';
+import { mirrorReleases, parseMirrorPath, serveMirror, type MirrorBucket } from './mirror.ts';
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
   /** 可选的 GitHub token（`wrangler secret put GITHUB_TOKEN`），只用来读公开仓库的 Release 列表。 */
   GITHUB_TOKEN?: string;
+  /** 安装包镜像的 R2 桶（`baocut-portal-releases`）。没绑时镜像地址一律跳到 GitHub。 */
+  RELEASES?: MirrorBucket;
 }
 
 interface Context {
@@ -272,6 +277,12 @@ export default {
       return redirect(id ? `/download/${id}` : '/#download');
     }
 
+    if (url.pathname.startsWith('/releases/download/')) {
+      const file = parseMirrorPath(url.pathname);
+      if (!file) return env.ASSETS.fetch(new Request(`${url.origin}/404.html`)).then(notFound);
+      return serveMirror(request, env.RELEASES, file);
+    }
+
     if (url.pathname.startsWith('/download/')) {
       const id = url.pathname.slice('/download/'.length);
       if (!isDownloadId(id)) return env.ASSETS.fetch(new Request(`${url.origin}/404.html`)).then(notFound);
@@ -302,6 +313,29 @@ export default {
     }
 
     return servePage(env, ctx, url);
+  },
+
+  /** 定时任务：把最近的 Release 复制进镜像。结果记一条 `mirror` 日志。 */
+  async scheduled(_controller: unknown, env: Env): Promise<void> {
+    const bucket = env.RELEASES;
+    if (!bucket) return;
+    const Fixed = (globalThis as unknown as { FixedLengthStream?: new (length: number) => TransformStream<Uint8Array, Uint8Array> })
+      .FixedLengthStream;
+    await mirrorReleases({
+      bucket,
+      fetch: (input, init) => fetch(input, init),
+      ...(env.GITHUB_TOKEN ? { githubToken: env.GITHUB_TOKEN } : {}),
+      now: () => Date.now(),
+      fixedLength(body, size) {
+        if (!Fixed) return body;
+        const stream = new Fixed(size);
+        void body.pipeTo(stream.writable).catch(() => undefined);
+        return stream.readable;
+      },
+    }).then(
+      (summary) => console.log({ event: 'mirror', ...summary }),
+      (error: unknown) => console.warn({ event: 'mirror', error: String(error) }),
+    );
   },
 };
 

@@ -68,6 +68,7 @@ import {
 } from '../../model/agent-skill-install.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import {
+  addCliEntryToPath,
   agentSkillStatus,
   cliEntryStatus,
   installAgentSkill,
@@ -305,6 +306,7 @@ export function ExternalAgentsCard({ open, onOpenChange }: { open: boolean; onOp
   };
   const cliActions: CliActions = {
     install: () => void runCli(installCliEntry(runtime), (next) => (cliEntryRow(next).command ? C().cliInstalledAddLine : C().cliInstalled)),
+    addToPath: (file) => void runCli(addCliEntryToPath(runtime), () => C().cliPathAdded(file)),
     remove: () => void runCli(removeCliEntry(runtime), () => C().cliRemoved),
   };
 
@@ -504,6 +506,8 @@ interface RowActions {
 
 interface CliActions {
   install(): void;
+  /** 把那一行加进 `file`（`pathHint.file`，给人看的写法）。 */
+  addToPath(file: string): void;
   remove(): void;
 }
 
@@ -612,6 +616,7 @@ function CliRow({
       ? `${tildePath(onPath.path, home)}${onPath.target ? ` → ${tildePath(onPath.target, home)}` : ''}`
       : status.cli.entry && tildePath(status.cli.entry, home);
   const revealAt = placed && cli.state !== 'broken' ? cli.path : status.cli.entry;
+  const configFile = r?.kind === 'not-on-path' ? (cli?.pathHint?.file ?? null) : null;
   return (
     <>
       <div className={row}>
@@ -623,6 +628,11 @@ function CliRow({
         {r?.action && actions ? (
           <Button variant="secondary" size="S" isPending={busy} onPress={actions.install}>
             {r.action === 'repair' ? C().cliRepair : C().cliInstall}
+          </Button>
+        ) : null}
+        {configFile && actions ? (
+          <Button variant="secondary" size="S" isPending={busy} onPress={() => actions.addToPath(configFile)}>
+            {C().cliAddToPath(configFile)}
           </Button>
         ) : null}
         {r?.removable && actions && onReveal ? (

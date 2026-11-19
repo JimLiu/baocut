@@ -19,7 +19,7 @@ export const NSIS_UNINSTALLER = `Uninstall ${PRODUCT_NAME}.exe`;
 /** 标准版的变体名（打包脚本的 `--variant cpu`）；它的更新源文件名不带后缀。 */
 export const STANDARD_VARIANT = 'cpu';
 /** 下载页：自动安装走不通时打开它。 */
-export const DOWNLOAD_PAGE = 'https://github.com/jimliu/baocut/releases';
+export const DOWNLOAD_PAGE = 'https://baocut.com/#download';
 /** 启动后多久做第一次自动检查（秒）。 */
 export const FIRST_CHECK_DELAY_S = 15;
 /** 两次自动检查的间隔（秒）。 */
@@ -28,6 +28,8 @@ export const CHECK_INTERVAL_S = 6 * 3600;
 export const TICK_S = 30 * 60;
 /** 退出即安装最多等多久（毫秒）：只剩写换包脚本、记下安装器这类便宜的事，超时就照常退出，不让退出卡住。 */
 export const QUIT_INSTALL_DEADLINE_MS = 5000;
+/** 下载断了（打不开、读到一半出错）自动接着下：每次重试前等这么久（毫秒），用完了才报失败。 */
+export const DOWNLOAD_RETRY_DELAYS_MS: readonly number[] = [3_000, 10_000, 30_000];
 
 // ---- 更新源 ----
 
@@ -51,6 +53,31 @@ export function feedFileName(target: FeedTarget, variant: string | null): string
 
 export function feedUrl(target: FeedTarget, variant: string | null = null): string {
   return `https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/${feedFileName(target, variant)}`;
+}
+
+/**
+ * 官网上的安装包镜像（`apps/portal` 的 mirror.ts）与它镜像的 GitHub Releases 目录：路径相同，镜像上还没有的文件由官网
+ * 跳回 GitHub。更新源里的安装包地址指向镜像。
+ */
+export const MIRROR_DOWNLOAD_PREFIX = 'https://baocut.com/releases/download/';
+export const GITHUB_DOWNLOAD_PREFIX = 'https://github.com/jimliu/baocut/releases/download/';
+
+/** 下载安装包依次试哪些地址：镜像上的文件打不开时（官网连不上、出错），退回 GitHub 上的同一个文件。 */
+export function downloadCandidates(url: string): string[] {
+  if (!url.startsWith(MIRROR_DOWNLOAD_PREFIX)) return [url];
+  return [url, `${GITHUB_DOWNLOAD_PREFIX}${url.slice(MIRROR_DOWNLOAD_PREFIX.length)}`];
+}
+
+/** 断点续传的 206 响应头 `Content-Range: bytes <起>-<止>/<总长|*>`；读不懂为 null。 */
+export function parseContentRange(header: string | null): { start: number; end: number; total: number | null } | null {
+  const match = /^bytes (\d+)-(\d+)\/(\d+|\*)$/.exec((header ?? '').trim());
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  const total = match[3] === '*' ? null : Number(match[3]);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end < start) return null;
+  if (total !== null && (!Number.isSafeInteger(total) || end >= total)) return null;
+  return { start, end, total };
 }
 
 const WINDOWS_DRIVE_PATH = /^[A-Za-z]:[\\/]/;

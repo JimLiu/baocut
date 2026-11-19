@@ -37,7 +37,7 @@ const en = {
   body: (cause: string, tail: string) => `${cause} ${tail}`,
   volume: (volume: string) => `The file is on “${volume}”. Connect that drive and it will recover automatically.`,
   more: (count: number) => `${count} more video or audio ${count === 1 ? 'asset' : 'assets'} can’t be played either.`,
-  relinkHint: 'Choose the original file to recover it. BaoCut checks the contents, and a file with different contents can’t be relinked.',
+  relinkHint: 'Choose the file to recover it. A changed version, such as one exported again, also works: every clip that uses it switches to the new file.',
   desktopOnly: 'To recover it, open this video in the BaoCut desktop app and use “Relink…” on the canvas to choose the original file.',
   managed: 'This file was stored in the video folder, so it can’t be relinked to another location.',
   oldRevision: 'The timeline uses an older version of this asset; only the current version can be relinked.',

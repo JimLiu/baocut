@@ -89,6 +89,7 @@ export const ko: RcExternalToolsMessages = {
 
   probeCannotStart: (p) => `시작할 수 없습니다: ${p.error}`,
   probeTimeout: (p) => `${p.command} 명령이 ${p.seconds}초 안에 끝나지 않았습니다`,
+  probeTimeoutRemedy: (p) => `버전 확인 시간이 초과되었습니다. 도구 시작이 느렸을 뿐일 수 있습니다. externalTools.detect(baocut external-tools detect ${p.name})로 다시 감지한 뒤 다시 시도하세요. 이미 만든 작업은 pipelines.retry로 이어서 할 수 있습니다`,
   probeCannotStartCode: (p) => `시작할 수 없습니다(${p.code})`,
   probeExited: (p) => `종료됨(${p.code})${p.detail ? `: ${p.detail}` : ''}`,
 

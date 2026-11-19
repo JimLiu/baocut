@@ -663,6 +663,9 @@ struct RichShapeSpan {
     weight: u16,
     italic: bool,
     spacing_bits: u64,
+    /// The span is one Latin-context curly quote, shaped with `pwid`
+    /// (see [`latin_quote_ranges`]).
+    proportional: bool,
 }
 
 // ── 缓存限容 ────────────────────────────────────────────────────────────
@@ -1266,21 +1269,36 @@ impl TextEngine {
             }
             return out;
         }
+        // Context comes from the whole line, not just `range`.
+        let quotes: Vec<_> = if shaping == GlyphShaping::Advanced {
+            latin_quote_ranges(text)
+                .into_iter()
+                .filter(|quote| quote.start >= range.start && quote.end <= range.end)
+                .map(|quote| quote.start - range.start..quote.end - range.start)
+                .collect()
+        } else {
+            Vec::new()
+        };
         let mut spans = Vec::new();
         for (part, font) in scene_primitives::text_layout::font_runs(base, runs, range.clone()) {
             self.note_family(font.family, font.weight, font.italic);
             for (family, weight, subrange) in
                 self.plan_runs(&text[part.clone()], font.family, font.weight, font.italic)
             {
-                spans.push(RichShapeSpan {
-                    start: part.start + subrange.start - range.start,
-                    end: part.start + subrange.end - range.start,
-                    family,
-                    size_bits: font.size.to_bits(),
-                    weight,
-                    italic: font.italic,
-                    spacing_bits: font.spacing.to_bits(),
-                });
+                let start = part.start + subrange.start - range.start;
+                let end = part.start + subrange.end - range.start;
+                for (piece, proportional) in split_at_quotes(start..end, &quotes) {
+                    spans.push(RichShapeSpan {
+                        start: piece.start,
+                        end: piece.end,
+                        family: family.clone(),
+                        size_bits: font.size.to_bits(),
+                        weight,
+                        italic: font.italic,
+                        spacing_bits: font.spacing.to_bits(),
+                        proportional,
+                    });
+                }
             }
         }
         let key = ShapeKey {
@@ -1299,54 +1317,33 @@ impl TextEngine {
             let line = self.shape_nominal_spans(&key.text, &key.rich);
             self.shape_cache.insert(key, line.clone());
             line
+        } else if !key.rich.iter().any(|span| span.proportional) {
+            let line = self.shape_rich_buffer(&key.text, &key.rich, base.size, shaping);
+            self.shape_cache.insert(key, line.clone());
+            line
         } else {
-            let mut buffer = Buffer::new(
-                &mut self.font_system,
-                Metrics::new(base.size as f32, (base.size * 1.25) as f32),
-            );
-            buffer.set_size(None, None);
-            let default_attrs = Attrs::new();
-            buffer.set_rich_text(
-                key.rich.iter().map(|span| {
-                    let size = f64::from_bits(span.size_bits);
-                    let spacing = f64::from_bits(span.spacing_bits);
-                    let attrs = Attrs::new()
-                        .family(Family::Name(&span.family))
-                        .weight(Weight(span.weight))
-                        .style(font_style(span.italic))
-                        .metrics(Metrics::new(size as f32, (size * 1.25) as f32));
-                    let attrs = if spacing == 0.0 {
-                        attrs
-                    } else {
-                        attrs.letter_spacing((spacing / size) as f32)
-                    };
-                    (&key.text[span.start..span.end], attrs)
-                }),
-                &default_attrs,
-                shaping.cosmic(),
-                None,
-            );
-            buffer.shape_until_scroll(&mut self.font_system, false);
+            // cosmic-text takes a run's features from its first character and
+            // does not split runs on a feature change, so each proportional
+            // quote is shaped in a buffer of its own.
             let mut line = ShapedLine::default();
-            if let Some(run) = buffer.layout_runs().next() {
-                line.width = run.line_w as f64;
-                for glyph in run.glyphs {
-                    let key = glyph.physical((0.0, 0.0), 1.0).cache_key;
-                    line.glyphs.push(ShapedGlyph {
-                        cache_key: key,
-                        x: glyph.x as f64,
-                        y: (glyph.y + glyph.y_offset) as f64,
-                        cluster: glyph.start..glyph.end,
-                        rtl: glyph.level.is_rtl(),
-                    });
-                    if let Some(font) = self.font_system.get_font(glyph.font_id, glyph.font_weight)
-                    {
-                        let metrics = font.as_swash().metrics(&[]);
-                        let scale = f64::from(glyph.font_size) / f64::from(metrics.units_per_em);
-                        line.ascent = line.ascent.max(f64::from(metrics.ascent) * scale);
-                        line.descent = line.descent.max(f64::from(metrics.descent) * scale);
-                    }
+            let mut group: Vec<RichShapeSpan> = Vec::new();
+            let spans = key.rich.clone();
+            for (index, span) in spans.iter().enumerate() {
+                group.push(span.clone());
+                let last = index + 1 == spans.len();
+                if !(last || span.proportional || spans[index + 1].proportional) {
+                    continue;
                 }
+                let offset = group[0].start;
+                let end = group.last().expect("group").end;
+                for member in &mut group {
+                    member.start -= offset;
+                    member.end -= offset;
+                }
+                let segment =
+                    self.shape_rich_buffer(&key.text[offset..end], &group, base.size, shaping);
+                append_shaped_segment(&mut line, segment, offset);
+                group.clear();
             }
             self.shape_cache.insert(key, line.clone());
             line
@@ -1356,6 +1353,71 @@ impl TextEngine {
             glyph.cluster.end += range.start;
         }
         out
+    }
+
+    /// Shape attributed spans (offsets relative to `text`) in one cosmic-text
+    /// buffer. A `proportional` span turns on `pwid`; the caller gives it a
+    /// buffer of its own so the feature covers exactly that span.
+    fn shape_rich_buffer(
+        &mut self,
+        text: &str,
+        spans: &[RichShapeSpan],
+        base_size: f64,
+        shaping: GlyphShaping,
+    ) -> ShapedLine {
+        let mut buffer = Buffer::new(
+            &mut self.font_system,
+            Metrics::new(base_size as f32, (base_size * 1.25) as f32),
+        );
+        buffer.set_size(None, None);
+        let default_attrs = Attrs::new();
+        buffer.set_rich_text(
+            spans.iter().map(|span| {
+                let size = f64::from_bits(span.size_bits);
+                let spacing = f64::from_bits(span.spacing_bits);
+                let attrs = Attrs::new()
+                    .family(Family::Name(&span.family))
+                    .weight(Weight(span.weight))
+                    .style(font_style(span.italic))
+                    .metrics(Metrics::new(size as f32, (size * 1.25) as f32));
+                let attrs = if spacing == 0.0 {
+                    attrs
+                } else {
+                    attrs.letter_spacing((spacing / size) as f32)
+                };
+                let attrs = if span.proportional {
+                    attrs.font_features(proportional_width_features())
+                } else {
+                    attrs
+                };
+                (&text[span.start..span.end], attrs)
+            }),
+            &default_attrs,
+            shaping.cosmic(),
+            None,
+        );
+        buffer.shape_until_scroll(&mut self.font_system, false);
+        let mut line = ShapedLine::default();
+        if let Some(run) = buffer.layout_runs().next() {
+            line.width = run.line_w as f64;
+            for glyph in run.glyphs {
+                let key = glyph.physical((0.0, 0.0), 1.0).cache_key;
+                line.glyphs.push(ShapedGlyph {
+                    cache_key: key,
+                    x: glyph.x as f64,
+                    y: (glyph.y + glyph.y_offset) as f64,
+                    cluster: glyph.start..glyph.end,
+                    rtl: glyph.level.is_rtl(),
+                });
+                if let Some(font) = self.font_system.get_font(glyph.font_id, glyph.font_weight) {
+                    let metrics = font.as_swash().metrics(&[]);
+                    let scale = f64::from(glyph.font_size) / f64::from(metrics.units_per_em);
+                    line.ascent = line.ascent.max(f64::from(metrics.ascent) * scale);
+                    line.descent = line.descent.max(f64::from(metrics.descent) * scale);
+                }
+            }
+        }
+        line
     }
 
     /// 六个限容缓存当前的估算字节占用
@@ -1396,11 +1458,15 @@ impl TextEngine {
                     size_bits: font_size.to_bits(),
                     italic,
                     spacing_bits: spacing.to_bits(),
+                    proportional: false,
                 })
                 .collect();
             return self.shape_nominal_spans(text, &spans);
         }
-        if let [(only, only_weight, _)] = runs.as_slice() {
+        let quotes = latin_quote_ranges(text);
+        if quotes.is_empty()
+            && let [(only, only_weight, _)] = runs.as_slice()
+        {
             // 常见情形：整串一个族。走原路，字距与连字一个不少。
             return self.shape_family_uncached(
                 text,
@@ -1410,24 +1476,28 @@ impl TextEngine {
                 italic,
                 spacing,
                 shaping,
+                false,
             );
         }
         let mut output = ShapedLine::default();
         for (run_family, run_weight, range) in runs {
-            let start = range.start;
-            append_shaped_segment(
-                &mut output,
-                self.shape_family_uncached(
-                    &text[range],
-                    &run_family,
-                    font_size,
-                    run_weight,
-                    italic,
-                    spacing,
-                    shaping,
-                ),
-                start,
-            );
+            for (piece, proportional) in split_at_quotes(range, &quotes) {
+                let start = piece.start;
+                append_shaped_segment(
+                    &mut output,
+                    self.shape_family_uncached(
+                        &text[piece],
+                        &run_family,
+                        font_size,
+                        run_weight,
+                        italic,
+                        spacing,
+                        shaping,
+                        proportional,
+                    ),
+                    start,
+                );
+            }
         }
         output
     }
@@ -1641,6 +1711,7 @@ impl TextEngine {
                     span.italic,
                     f64::from_bits(span.spacing_bits),
                     GlyphShaping::Nominal,
+                    false,
                 );
                 line.ascent = line.ascent.max(segment.ascent);
                 line.descent = line.descent.max(segment.descent);
@@ -1677,6 +1748,7 @@ impl TextEngine {
         italic: bool,
         spacing: f64,
         shaping: GlyphShaping,
+        proportional: bool,
     ) -> ShapedLine {
         if text.is_empty() {
             return ShapedLine::default();
@@ -1700,6 +1772,11 @@ impl TextEngine {
             attrs
         } else {
             attrs.letter_spacing((spacing / font_size) as f32)
+        };
+        let attrs = if proportional {
+            attrs.font_features(proportional_width_features())
+        } else {
+            attrs
         };
         // A tab is one virtual space in Nominal, not a cmap lookup for U+0009
         // followed by cosmic-text's tab-stop logic. Replacement preserves bytes.
@@ -2223,6 +2300,82 @@ fn append_shaped_segment(output: &mut ShapedLine, mut segment: ShapedLine, byte_
     output.ascent = output.ascent.max(segment.ascent);
     output.descent = output.descent.max(segment.descent);
     output.glyphs.extend(segment.glyphs);
+}
+
+/// `pwid`: proportional widths for glyphs a CJK font draws full-width.
+fn proportional_width_features() -> cosmic_text::FontFeatures {
+    let mut features = cosmic_text::FontFeatures::new();
+    features.enable(cosmic_text::FeatureTag::new(b"pwid"));
+    features
+}
+
+/// Curly quotes (U+2018..U+201D) that sit in Latin-script text: a letter or
+/// digit on one side and no CJK character on either side. CJK fonts such as
+/// Noto Sans SC (the `system` caption family) draw these quotes full-width by
+/// default, so `we’ve` shows as `we’ ve`; such quotes are shaped with `pwid`.
+/// A quote touching a CJK character keeps the full-width glyph Chinese text uses.
+///
+/// Lines with right-to-left text are left alone: the quote pieces are appended
+/// left to right, which would break bidi order.
+fn latin_quote_ranges(text: &str) -> Vec<std::ops::Range<usize>> {
+    let is_quote = |c: char| matches!(c, '\u{2018}'..='\u{201D}');
+    if !text.contains(is_quote) || text.chars().any(is_rtl_character) {
+        return Vec::new();
+    }
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    let mut ranges = Vec::new();
+    for (index, &(at, character)) in chars.iter().enumerate() {
+        if !is_quote(character) {
+            continue;
+        }
+        let previous = index.checked_sub(1).map(|before| chars[before].1);
+        let next = chars.get(index + 1).map(|&(_, after)| after);
+        let neighbours = [previous, next];
+        if neighbours.iter().flatten().any(|&c| is_cjk_character(c)) {
+            continue;
+        }
+        if neighbours
+            .iter()
+            .flatten()
+            .any(|&c| is_spaced_alphabet_character(c))
+        {
+            ranges.push(at..at + character.len_utf8());
+        }
+    }
+    ranges
+}
+
+/// Letters and digits of Latin, Greek and Cyrillic text.
+fn is_spaced_alphabet_character(character: char) -> bool {
+    character.is_alphanumeric() && matches!(character as u32, 0x0030..=0x052F | 0x1E00..=0x1FFF)
+}
+
+/// Hebrew, Arabic, Syriac, Thaana, NKo and the presentation forms.
+fn is_rtl_character(character: char) -> bool {
+    matches!(character as u32, 0x0590..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF)
+}
+
+/// Split `range` at the quote ranges inside it; the flag marks quote pieces.
+fn split_at_quotes(
+    range: std::ops::Range<usize>,
+    quotes: &[std::ops::Range<usize>],
+) -> Vec<(std::ops::Range<usize>, bool)> {
+    let mut pieces = Vec::new();
+    let mut cursor = range.start;
+    for quote in quotes
+        .iter()
+        .filter(|quote| quote.start >= range.start && quote.end <= range.end)
+    {
+        if cursor < quote.start {
+            pieces.push((cursor..quote.start, false));
+        }
+        pieces.push((quote.clone(), true));
+        cursor = quote.end;
+    }
+    if cursor < range.end {
+        pieces.push((cursor..range.end, false));
+    }
+    pieces
 }
 
 fn is_cjk_character(character: char) -> bool {
@@ -3615,5 +3768,71 @@ mod tests {
             Weight::EXTRA_BOLD,
             "BaoCut 管理的同名 family 应覆盖 host 字体"
         );
+    }
+
+    /// Advance of the glyph whose cluster starts at byte `at`.
+    fn advance_at(line: &ShapedLine, at: usize) -> f64 {
+        let index = line
+            .glyphs
+            .iter()
+            .position(|g| g.cluster.start == at)
+            .unwrap_or_else(|| panic!("no glyph starts at byte {at}"));
+        line.glyphs.get(index + 1).map_or(line.width, |next| next.x) - line.glyphs[index].x
+    }
+
+    // 2026-11-18: English captions in the default `system` family (Noto Sans SC)
+    // showed `we’ ve`: the CJK font draws U+2019 a full em wide.
+    #[test]
+    fn latin_curly_quotes_take_proportional_width_in_cjk_fonts() {
+        use scene_primitives::text_layout::{FontStyle, Run};
+        let mut text = TextEngine::with_document_fonts(&[include_bytes!(
+            "../assets/fonts/NotoSansSC-Variable.ttf"
+        )
+        .to_vec()]);
+        let family = "Noto Sans SC";
+        let ascii = text.shape("we've", family, 100., 700);
+        let curly = text.shape("we’ve", family, 100., 700);
+        assert!(advance_at(&curly, 2) < 40., "{}", advance_at(&curly, 2));
+        assert!(
+            (curly.width - ascii.width).abs() < 10.,
+            "{} vs {}",
+            curly.width,
+            ascii.width
+        );
+        assert_eq!(curly.glyphs.len(), 5);
+        assert!(curly.glyphs.windows(2).all(|pair| pair[0].x < pair[1].x));
+
+        let quoted = text.shape("said “Hello” to students’ books", family, 100., 700);
+        for at in [5, 13, 28] {
+            assert!(
+                advance_at(&quoted, at) < 60.,
+                "byte {at}: {}",
+                advance_at(&quoted, at)
+            );
+        }
+
+        // Quotes in Chinese text keep the full-width glyph.
+        let chinese = text.shape("他说“你好”。", family, 100., 700);
+        assert!(advance_at(&chinese, 6) > 90.);
+        assert!(advance_at(&chinese, 15) > 90.);
+
+        // The rich path (styled runs) follows the same rule.
+        let content = "we’ve";
+        let runs = [0..2, 2..content.len()]
+            .map(|bytes| Run {
+                bytes,
+                style: json!({"fontSize": 100}).as_object().unwrap().clone(),
+            })
+            .to_vec();
+        let base = FontStyle {
+            family,
+            size: 100.,
+            weight: 700,
+            italic: false,
+            spacing: 0.,
+        };
+        let rich = text.shape_rich(content, 0..content.len(), base, &runs);
+        assert!(advance_at(&rich, 2) < 40., "{}", advance_at(&rich, 2));
+        assert!((rich.width - ascii.width).abs() < 10.);
     }
 }

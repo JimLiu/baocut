@@ -36,14 +36,14 @@ describe('next 按主体渲染（给 CLI）', () => {
 describe('cliEntry.* 的权限', () => {
   const principal = (kind: TrustedPrincipal['kind']): TrustedPrincipal => ({ connectionId: 'c1', kind, name: kind });
 
-  it('状态给 cli、desktop 与浏览器；装与移除只给 cli 与 desktop', async () => {
+  it('状态给 cli、desktop 与浏览器；装、加进 PATH 与移除只给 cli 与 desktop', async () => {
     const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-entry-methods-')));
     try {
       const methods = catalogMethods({} as ToolCatalog, { home: path.join(dir, 'home'), userHome: dir, env: { SHELL: '/nonexistent/shell' } });
       for (const kind of ['cli', 'desktop', 'web'] as const) {
         expect((await methods['cliEntry.status']({}, principal(kind))).state).toBe('none');
       }
-      for (const method of ['cliEntry.install', 'cliEntry.remove'] as const) {
+      for (const method of ['cliEntry.install', 'cliEntry.addToPath', 'cliEntry.remove'] as const) {
         for (const kind of ['web', 'agent', 'service'] as const) {
           const error = await Promise.resolve()
             .then(() => methods[method]({}, principal(kind)))

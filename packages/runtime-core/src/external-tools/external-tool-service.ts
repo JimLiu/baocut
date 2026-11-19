@@ -33,7 +33,7 @@ import {
   type ToolDataPack,
   type ToolManifest,
 } from './tool-manifests.ts';
-import { envValue, findOnPath, isExecutableFile, runVersionProbe, windowsScriptKind } from './tool-probe.ts';
+import { envValue, findOnPath, isExecutableFile, probeVersion, windowsScriptKind, type ProbeOutcome } from './tool-probe.ts';
 import { CommandOutput, runCommand } from './tool-command.ts';
 import { exitCodeText, toolUpdatePlan, updateSucceeded } from './tool-update-plan.ts';
 import { RcExternalTools } from '@baocut/protocol/messages/runtime-core';
@@ -48,7 +48,8 @@ import { remedyOf, taskFailure } from '../localized.ts';
  *   下载中的文件在 `<home>/tools/.staging/`（取消时保留，下次续传）。
  * - 下载是一个任务（`kind: 'toolInstall'`）：提交前查严格离线、清单与同意，任务里下载、核对 sha256 与大小、设可执行位、
  *   原子地改名发布，再执行一次 `--version` 确认能运行。清单把发布文件登记为压缩包（`archive`）时，核对之后先解开到 staging
- *   目录（只取包根目录的普通文件与登记的子目录，`@baocut/models` 的 `extractToolArchive`），整个目录改名发布；yt-dlp 是单个文件，
+ *   目录（只取包根目录的普通文件与登记的子目录，`@baocut/models` 的 `extractToolArchive`），整个目录改名发布；yt-dlp 在 Windows 与
+ *   Linux 上是单个文件，在 macOS 上是 PyInstaller 目录版的压缩包（可执行文件改名成 `yt-dlp`，旁边是整棵 `_internal/`），
  *   Real-ESRGAN 与 waifu2x 是压缩包（可执行文件与模型目录）。
  * - 数据包（`release.pack`，Upscayl 的超分权重）没有可执行文件：探测只看用户指定的目录或受管副本里文件齐不齐（受管副本另核对
  *   大小），不执行、不在 PATH 里找；下载时逐个文件下进 staging 里的目录（核对过的改成正式文件名，取消后再装时不重下），齐了再
@@ -114,6 +115,8 @@ export interface ExternalToolServiceOptions {
   manifests?: readonly ToolManifest[];
   platform?: string;
   download?: ToolDownloadOptions;
+  /** 测试注入的版本探测时限（依次尝试，只在超时后用下一个）；默认 15 秒、再 45 秒。 */
+  probeTimeoutsMs?: readonly number[];
 }
 
 /** 流程要用一个工具时拿到的：可执行文件、版本与来源。 */
@@ -179,6 +182,11 @@ export class ExternalToolService {
   readonly #manifests: Map<string, ToolManifest>;
   readonly #platform: string;
   readonly #status = new Map<string, ExternalToolStatus>();
+  /**
+   * 通过了的版本探测，按可执行文件与探测参数记：文件没变（设备、inode、大小、修改与变更时间都相同）时 `status`、`resolveForUse`
+   * 沿用上次的输出，不再执行一次 `--version`；`detect`、指定路径与安装总是重新执行。只在进程里，失败的不记。
+   */
+  readonly #probes = new Map<string, { fingerprint: string; output: string }>();
   #store: StoreFile | null = null;
   /** 记录文件是更新的版本写下的：不覆盖它。 */
   #readOnly = false;
@@ -196,19 +204,19 @@ export class ExternalToolService {
 
   /** 上次探测的结果；还没探测过的先探测。 */
   async list(): Promise<ExternalToolStatus[]> {
-    for (const name of this.#manifests.keys()) if (!this.#status.has(name)) await this.#detectOne(name);
+    for (const name of this.#manifests.keys()) if (!this.#status.has(name)) await this.#detectOne(name, true);
     return [...this.#manifests.keys()].map((name) => this.#decorate(this.#status.get(name)!));
   }
 
   async detect(name?: string): Promise<ExternalToolStatus[]> {
-    if (name !== undefined) await this.#detectOne(this.#manifest(name).name);
-    else for (const tool of this.#manifests.keys()) await this.#detectOne(tool);
+    if (name !== undefined) await this.#detectOne(this.#manifest(name).name, false);
+    else for (const tool of this.#manifests.keys()) await this.#detectOne(tool, false);
     return this.list();
   }
 
-  /** 一个工具此刻的状态（重新探测）。 */
+  /** 一个工具此刻的状态（重新解析；可执行文件没变时沿用上次通过的版本探测，见 `#probes`）。 */
   async status(name: string): Promise<ExternalToolStatus> {
-    return this.#decorate(await this.#detectOne(this.#manifest(name).name));
+    return this.#decorate(await this.#detectOne(this.#manifest(name).name, true));
   }
 
   /** 记下或撤回同意。 */
@@ -252,7 +260,7 @@ export class ExternalToolService {
           tool: manifest.name,
         });
       }
-      const probe = await runVersionProbe(params.path, manifest.versionArgs, await this.#options.env(), undefined, manifest.probeExitCodes);
+      const probe = await this.#probe(params.path, manifest, await this.#options.env(), false);
       const version = probe.ok ? manifest.parseVersion(probe.output, null) : null;
       if (!probe.ok || !version) {
         throw new RpcError(
@@ -440,7 +448,7 @@ export class ExternalToolService {
   }
 
   /**
-   * 流程要用一个工具：重新探测，要已安装、版本够、同意有效、不在更新，否则以 `conflict` 拒绝（`TOOL_NOT_INSTALLED`、
+   * 流程要用一个工具：重新解析（可执行文件没变时沿用上次通过的版本探测），要已安装、版本够、同意有效、不在更新，否则以 `conflict` 拒绝（`TOOL_NOT_INSTALLED`、
    * `TOOL_OUTDATED`、`TOOL_UNAVAILABLE`、`TOOL_CONSENT_REQUIRED`、`TOOL_UPDATING`），`details.remedy` 说怎么补救。
    */
   async resolveForUse(name: string): Promise<ResolvedTool> {
@@ -460,7 +468,8 @@ export class ExternalToolService {
 
   // ---- 探测 ----
 
-  async #detectOne(name: string): Promise<ExternalToolStatus> {
+  /** `reuse`：可执行文件没变时沿用上次通过的版本探测（`detect` 传 false，总是重新执行）。 */
+  async #detectOne(name: string, reuse: boolean): Promise<ExternalToolStatus> {
     const manifest = this.#manifest(name);
     const record = await this.#record(name);
     const base = this.#baseStatus(manifest, record);
@@ -531,7 +540,7 @@ export class ExternalToolService {
         status = { ...base, state: 'unavailable', path: candidate.file, source: candidate.source, ...said(unusable, manifest.missingRemedy) };
         break;
       }
-      const probe = await runVersionProbe(candidate.file, manifest.versionArgs, env, undefined, manifest.probeExitCodes);
+      const probe = await this.#probe(candidate.file, manifest, env, reuse);
       const version = probe.ok ? manifest.parseVersion(probe.output, candidate.known ?? null) : null;
       if (!probe.ok || !version) {
         status = {
@@ -539,7 +548,11 @@ export class ExternalToolService {
           state: 'unavailable',
           path: candidate.file,
           source: candidate.source,
-          ...said(probe.ok ? RcExternalTools.noVersion() : probe.reason, manifest.missingRemedy),
+          // 重试之后仍超时：文件在、只是启动太慢，补救是重新检测再试，不是重新安装。
+          ...said(
+            probe.ok ? RcExternalTools.noVersion() : probe.reason,
+            !probe.ok && probe.timedOut ? RcExternalTools.probeTimeoutRemedy({ name: manifest.name }) : manifest.missingRemedy,
+          ),
         };
         break;
       }
@@ -567,6 +580,19 @@ export class ExternalToolService {
     }
     this.#status.set(name, status);
     return status;
+  }
+
+  /** 执行版本探测（超时重试一次，见 `probeVersion`）；`reuse` 时文件没变就沿用上次通过的输出。通过的记下，失败的清掉。 */
+  async #probe(file: string, manifest: ToolManifest, env: NodeJS.ProcessEnv, reuse: boolean): Promise<ProbeOutcome> {
+    const key = [file, ...manifest.versionArgs].join('\0');
+    const fingerprint = await fileFingerprint(file);
+    const cached = this.#probes.get(key);
+    if (reuse && fingerprint !== null && cached?.fingerprint === fingerprint) return { ok: true, output: cached.output };
+    const probe = await probeVersion(file, manifest.versionArgs, env, manifest.probeExitCodes, this.#options.probeTimeoutsMs);
+    if (probe.ok && fingerprint !== null) this.#probes.set(key, { fingerprint, output: probe.output });
+    else this.#probes.delete(key);
+    if (!probe.ok && probe.timedOut) this.#options.log.warn('External tool version probe timed out after retry', { tool: manifest.name });
+    return probe;
   }
 
   /** 数据包：用户指定的目录（文件要齐）优先，其次受管副本（文件要齐、大小要对）。不执行，也不在 PATH 里找。 */
@@ -702,6 +728,14 @@ export class ExternalToolService {
       await fs.mkdir(unpacked, { recursive: true });
       try {
         files = await extractToolArchive(part, expected.archive, unpacked, run.signal);
+        // 包里的可执行文件另有名字（yt-dlp 目录版的 `yt-dlp_macos`）：改名成 `command`，受管副本的路径与单个文件时一样。
+        const packaged = expected.archive.executable;
+        if (packaged && packaged !== path.basename(final)) {
+          if (!files.includes(packaged)) throw new ToolArchiveError(`${packaged} is not in the archive`);
+          if (files.includes(path.basename(final))) throw new ToolArchiveError(`${path.basename(final)} is already in the archive`);
+          await fs.rename(path.join(unpacked, packaged), path.join(unpacked, path.basename(final)));
+          files = files.map((file) => (file === packaged ? path.basename(final) : file));
+        }
         if (!files.includes(path.basename(final))) throw new ToolArchiveError(`${path.basename(final)} is not in the archive`);
       } catch (error) {
         await fs.rm(unpacked, { recursive: true, force: true });
@@ -727,7 +761,7 @@ export class ExternalToolService {
       await fs.rename(part, final);
     }
     run.phase('validating', null);
-    const probe = await runVersionProbe(final, manifest.versionArgs, await this.#options.env(), undefined, manifest.probeExitCodes);
+    const probe = await this.#probe(final, manifest, await this.#options.env(), false);
     const actual = probe.ok ? manifest.parseVersion(probe.output, version) : null;
     if (!probe.ok || !actual) {
       await fs.rm(dir, { recursive: true, force: true });
@@ -835,7 +869,8 @@ export class ExternalToolService {
     for (const entry of await fs.readdir(path.join(this.#options.toolsDir, manifest.name)).catch(() => [] as string[])) {
       if (entry !== version) await fs.rm(path.join(this.#options.toolsDir, manifest.name, entry), { recursive: true, force: true });
     }
-    await this.#detectOne(manifest.name);
+    // 刚在 validating 里试跑过同一个文件：沿用那次的探测。
+    await this.#detectOne(manifest.name, true);
     const { artifactId } = await this.#options.jobs.artifacts.put(
       Buffer.from(canonicalJson({ schema: 'baocut.tool-install/1', tool: manifest.name, version, ...facts, installedAt })),
       'json',
@@ -889,7 +924,7 @@ export class ExternalToolService {
     const exitCode = outcome.kind === 'exited' ? outcome.exitCode : null;
     report(exitCode);
     run.phase('validating', null);
-    const after = await this.#detectOne(manifest.name);
+    const after = await this.#detectOne(manifest.name, false);
     const fields = {
       tool: manifest.name,
       method: plan.method,
@@ -1085,4 +1120,10 @@ function fileList(files: readonly string[]): string {
 
 async function fileSize(file: string): Promise<number> {
   return (await fs.stat(file).catch(() => null))?.size ?? -1;
+}
+
+/** 可执行文件（跟随符号链接）的身份：换了文件、改了内容或权限都会变；读不到时 null（不沿用探测结果）。 */
+async function fileFingerprint(file: string): Promise<string | null> {
+  const stat = await fs.stat(file, { bigint: true }).catch(() => null);
+  return stat ? [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':') : null;
 }

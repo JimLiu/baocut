@@ -14,8 +14,9 @@ import {
   installationBucket,
   type AppUpdateDeps,
   type AppUpdateService,
-  type ByteSource,
   type InstallOutcome,
+  type OpenRemote,
+  type RemoteBytes,
   type Prepared,
 } from './app-update-service.ts';
 
@@ -79,22 +80,47 @@ async function writeFeed(text: string): Promise<string> {
   return pathToFileURL(feed).href;
 }
 
-const noRemote = async (): Promise<ByteSource> => {
+const noRemote = async (): Promise<RemoteBytes> => {
   throw new Error('不该连网');
 };
 
 /** 一点点吐字节的远端；`gate` 放行前卡在第一块之后。 */
-function gatedRemote(gate: Promise<void>): (url: string, signal: AbortSignal) => Promise<ByteSource> {
-  return async () =>
-    (async function* () {
+function gatedRemote(gate: Promise<void>): OpenRemote {
+  return async () => ({
+    source: (async function* () {
       yield PAYLOAD.subarray(0, 100);
       await gate;
       yield PAYLOAD.subarray(100);
-    })();
+    })(),
+    offset: 0,
+  });
+}
+
+/**
+ * 认 Range 的远端：从请求的字节起给（`honorRange` 为假时总从头给），`breakAt` 给了时吐到那个字节就断网。记下每次请求。
+ */
+function rangedRemote(options: { breakAt?: number; honorRange?: boolean; payload?: Buffer } = {}) {
+  const calls: { url: string; offset: number }[] = [];
+  const payload = options.payload ?? PAYLOAD;
+  const open: OpenRemote = async (url, _signal, offset) => {
+    calls.push({ url, offset });
+    const start = options.honorRange === false ? 0 : offset;
+    const breakAt = options.breakAt;
+    return {
+      offset: start,
+      source: (async function* () {
+        const end = breakAt !== undefined && breakAt > start ? breakAt : payload.length;
+        yield payload.subarray(start, end);
+        if (end < payload.length) throw new Error('socket hang up');
+      })(),
+    };
+  };
+  return { open, calls };
 }
 
 describe('下载', () => {
-  const options = { signal: new AbortController().signal, onProgress: () => {}, openRemote: noRemote };
+  // 单次下载的行为：不自动重试（自动重试另有用例）。
+  const options = { signal: new AbortController().signal, onProgress: () => {}, openRemote: noRemote, retryDelaysMs: [] };
 
   it('流式落地、校验后改名，清掉别的安装包与残留的 .part', async () => {
     await fs.mkdir(cacheDir, { recursive: true });
@@ -136,9 +162,109 @@ describe('下载', () => {
     expect(await fs.readdir(cacheDir)).toEqual([]);
   });
 
+  it('断网留下 .part，下次从断开的字节接着下', async () => {
+    const info = infoFor({ url: 'https://example.invalid/BaoCut-2.3.0.zip' });
+    const first = rangedRemote({ breakAt: 1000 });
+    const broken = await downloadTo(info, cacheDir, { ...options, openRemote: first.open });
+    expect(broken).toMatchObject({ ok: false, cancelled: false, failure: 'download' });
+    expect((await fs.stat(path.join(cacheDir, 'BaoCut-2.3.0.zip.part'))).size).toBe(1000);
+
+    const second = rangedRemote();
+    const progress: number[] = [];
+    const resumed = await downloadTo(info, cacheDir, { ...options, openRemote: second.open, onProgress: (pct) => progress.push(pct) });
+    expect(resumed).toEqual({ ok: true, path: path.join(cacheDir, 'BaoCut-2.3.0.zip') });
+    expect(second.calls).toEqual([{ url: info.url, offset: 1000 }]);
+    expect(progress[0]).toBeGreaterThan(0);
+    expect(await fs.readFile(path.join(cacheDir, 'BaoCut-2.3.0.zip'))).toEqual(PAYLOAD);
+    expect(await fs.readdir(cacheDir)).toEqual(['BaoCut-2.3.0.zip']);
+  });
+
+  it('服务端不认 Range 就从头写', async () => {
+    const info = infoFor({ url: 'https://example.invalid/BaoCut-2.3.0.zip' });
+    await downloadTo(info, cacheDir, { ...options, openRemote: rangedRemote({ breakAt: 1000 }).open });
+    const full = rangedRemote({ honorRange: false });
+    expect(await downloadTo(info, cacheDir, { ...options, openRemote: full.open })).toMatchObject({ ok: true });
+    expect(full.calls[0]!.offset).toBe(1000);
+    expect(await fs.readFile(path.join(cacheDir, 'BaoCut-2.3.0.zip'))).toEqual(PAYLOAD);
+  });
+
+  it('接上的半截内容不对：校验失败、丢掉，下次从头下', async () => {
+    const info = infoFor({ url: 'https://example.invalid/BaoCut-2.3.0.zip' });
+    const other = Buffer.from(PAYLOAD);
+    other[10] = 0;
+    await downloadTo(info, cacheDir, { ...options, openRemote: rangedRemote({ breakAt: 1000, payload: other }).open });
+    const result = await downloadTo(info, cacheDir, { ...options, openRemote: rangedRemote().open });
+    expect(result).toMatchObject({ ok: false, cancelled: false, failure: 'verify' });
+    expect(await fs.readdir(cacheDir)).toEqual([]);
+    const fresh = rangedRemote();
+    expect(await downloadTo(info, cacheDir, { ...options, openRemote: fresh.open })).toMatchObject({ ok: true });
+    expect(fresh.calls[0]!.offset).toBe(0);
+  });
+
+  it('官网镜像打不开就退回 GitHub 上的同一个文件', async () => {
+    const tail = 'baocut-v2.3.0-build.57/BaoCut-2.3.0.zip';
+    const info = infoFor({ url: `https://baocut.com/releases/download/${tail}` });
+    const github = rangedRemote();
+    const tried: string[] = [];
+    const open: OpenRemote = async (url, signal, offset, size) => {
+      tried.push(url);
+      if (url.startsWith('https://baocut.com/')) throw new Error('HTTP 502');
+      return github.open(url, signal, offset, size);
+    };
+    expect(await downloadTo(info, cacheDir, { ...options, openRemote: open })).toMatchObject({ ok: true });
+    expect(tried).toEqual([info.url, `https://github.com/jimliu/baocut/releases/download/${tail}`]);
+  });
+
   it('打不开远端算下载失败', async () => {
     const result = await downloadTo(infoFor({ url: 'https://example.invalid/x.zip' }), cacheDir, options);
     expect(result).toMatchObject({ ok: false, cancelled: false, failure: 'download' });
+  });
+
+  it('网络断了隔一会儿自动从断开的字节接着下', async () => {
+    const info = infoFor({ url: 'https://example.invalid/BaoCut-2.3.0.zip' });
+    const remote = rangedRemote({ breakAt: 1000 });
+    const waits: number[] = [];
+    const retries: string[] = [];
+    const result = await downloadTo(info, cacheDir, {
+      ...options,
+      openRemote: remote.open,
+      retryDelaysMs: [7, 9],
+      wait: async (ms) => void waits.push(ms),
+      onRetry: (attempt, detail) => retries.push(`${attempt} ${detail}`),
+    });
+    expect(result).toEqual({ ok: true, path: path.join(cacheDir, 'BaoCut-2.3.0.zip') });
+    expect(remote.calls.map((call) => call.offset)).toEqual([0, 1000]);
+    expect(waits).toEqual([7]);
+    expect(retries).toEqual(['1 socket hang up']);
+    expect(await fs.readFile(path.join(cacheDir, 'BaoCut-2.3.0.zip'))).toEqual(PAYLOAD);
+  });
+
+  it('重试用完才报下载失败，留着 .part；等待中取消就是取消', async () => {
+    const info = infoFor({ url: 'https://example.invalid/BaoCut-2.3.0.zip' });
+    let opened = 0;
+    const flaky: OpenRemote = async (url, signal, offset, size) => {
+      opened++;
+      if (opened > 1) throw new Error('ECONNRESET');
+      return rangedRemote({ breakAt: 1000 }).open(url, signal, offset, size);
+    };
+    const waits: number[] = [];
+    const failed = await downloadTo(info, cacheDir, { ...options, openRemote: flaky, retryDelaysMs: [1, 2], wait: async (ms) => void waits.push(ms) });
+    expect(failed).toMatchObject({ ok: false, cancelled: false, failure: 'download', detail: 'ECONNRESET' });
+    expect(opened).toBe(3);
+    expect(waits).toEqual([1, 2]);
+    expect((await fs.stat(path.join(cacheDir, 'BaoCut-2.3.0.zip.part'))).size).toBe(1000);
+
+    const controller = new AbortController();
+    const cancelled = await downloadTo(info, cacheDir, {
+      ...options,
+      signal: controller.signal,
+      openRemote: async () => {
+        throw new Error('ENETUNREACH');
+      },
+      retryDelaysMs: [60_000],
+      wait: async () => controller.abort(),
+    });
+    expect(cancelled).toEqual({ ok: false, cancelled: true });
   });
 
   it('缓存里的文件被改过就不复用', async () => {
@@ -376,6 +502,25 @@ describe('服务', () => {
     release();
     await vi.waitFor(async () => expect(await fs.readdir(cacheDir)).toEqual([]));
     expect(h.state().k).toBe('available');
+  });
+
+  it('下载断了按节拍器自动重试，用完才报错；等待期间仍是下载中', async () => {
+    const logs: string[] = [];
+    const h = harness({
+      feed: { url: await writeFeed(manifestText({ url: 'https://example.invalid/BaoCut-2.3.0.zip' })), allowFileUrl: true },
+      openRemote: async () => {
+        throw new Error('ECONNRESET');
+      },
+      log: (message) => logs.push(message),
+    });
+    await h.service.check('manual');
+    h.service.download();
+    for (const ms of [3_000, 10_000, 30_000]) {
+      await vi.waitFor(() => expect(logs.filter((line) => line.includes('ECONNRESET')).length).toBeGreaterThan([3_000, 10_000, 30_000].indexOf(ms)));
+      expect(h.state().k).toBe('downloading');
+      h.advance(ms);
+    }
+    await vi.waitFor(() => expect(h.state()).toMatchObject({ k: 'error', failure: 'download' }));
   });
 
   it('安装前重新校验：被改过的包删掉并报告', async () => {

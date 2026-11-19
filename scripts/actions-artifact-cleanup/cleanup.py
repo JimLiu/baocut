@@ -161,8 +161,10 @@ def verify_release(api, run, release, assets):
         feed = json.loads(content[name])
         app = feed['app']
         file = urllib.parse.unquote(urllib.parse.urlparse(app['url']).path.rsplit('/', 1)[-1])
-        expected_url = f"https://github.com/{REPO}/releases/download/{release['tag_name']}/{file}"
-        require(app['url'].lower() == expected_url.lower() and file == feed_files[name] and
+        # Feeds point at GitHub Releases or at the baocut.com mirror of the same path.
+        expected_urls = (f"https://github.com/{REPO}/releases/download/{release['tag_name']}/{file}".lower(),
+                         f"https://baocut.com/releases/download/{release['tag_name']}/{file}".lower())
+        require(app['url'].lower() in expected_urls and file == feed_files[name] and
                 feed['version'] == version and feed['build'] == build and
                 app['sha256'] == hashes[file] and app['size'] == by_name[file]['size'],
                 'update feed mismatch')

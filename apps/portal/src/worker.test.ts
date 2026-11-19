@@ -75,7 +75,7 @@ describe('fetch', () => {
     const response = await call('/download/win-cuda-setup');
     expect(response.status).toBe(302);
     expect(response.headers.get('Location')).toMatch(
-      /^https:\/\/github\.com\/jimliu\/baocut\/releases\/download\/baocut-v[\d.]+-build\.\d+\/BaoCut-[\d.]+-build\.\d+-win-x64-cuda-setup\.exe$/,
+      /^https:\/\/baocut\.com\/releases\/download\/baocut-v[\d.]+-build\.\d+\/BaoCut-[\d.]+-build\.\d+-win-x64-cuda-setup\.exe$/,
     );
     const pick = await call('/download', { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' } });
     expect(pick.headers.get('Location')).toBe('/download/mac-dmg');
@@ -180,10 +180,10 @@ describe('release refresh', () => {
     const latest = await summary();
     expect(latest.version).toBe('9.9.9');
     expect(latest.downloads['mac-dmg']).toBe(
-      'https://github.com/jimliu/baocut/releases/download/baocut-v9.9.9-build.999/BaoCut-9.9.9-build.999-aarch64-apple-darwin.dmg',
+      'https://baocut.com/releases/download/baocut-v9.9.9-build.999/BaoCut-9.9.9-build.999-aarch64-apple-darwin.dmg',
     );
     expect(latest.downloads['win-vulkan-zip']).toBe(
-      'https://github.com/jimliu/baocut/releases/download/baocut-v9.9.8-build.998/BaoCut-9.9.8-build.998-win-x64-vulkan.zip',
+      'https://baocut.com/releases/download/baocut-v9.9.8-build.998/BaoCut-9.9.8-build.998-win-x64-vulkan.zip',
     );
     const download = await fresh.fetch(new Request('https://baocut.com/download/win-setup'), env, ctx);
     expect(download.headers.get('Location')).toMatch(/\/baocut-v9\.9\.8-build\.998\/BaoCut-9\.9\.8-build\.998-win-x64-setup\.exe$/);

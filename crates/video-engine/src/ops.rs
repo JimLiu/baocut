@@ -827,8 +827,8 @@ pub struct EditContext<'a> {
     /// 要写新版本的文档在库里存过的最大版本号（含撤销掉的）。撤销后快照里没有那个版本，
     /// 新版本仍要从这里之上编号，不复用已存过正文的号。
     pub document_revision_floor: &'a HashMap<Id, u64>,
-    /// 重新链接时在事务之外确认过的新定位（按操作序号）。
-    pub relinked: &'a HashMap<usize, FileLocator>,
+    /// 重新链接时在事务之外准备好的结果（按操作序号）。
+    pub relinked: &'a HashMap<usize, Relinked>,
     pub actor: &'a Actor,
     /// 这笔事务要改的剪口集合在事务开始时的正文（按文档 ID），在事务之外读出。
     pub cut_sets: &'a HashMap<Id, Value>,
@@ -4051,8 +4051,16 @@ fn collect_assets(state: &mut VideoState, asset_ids: &[Id]) -> EngineResult<()> 
     Ok(())
 }
 
+/// 重新链接在事务之外准备好的结果（视频格式规范 §4.2）。
+pub enum Relinked {
+    /// 新位置上是同样的 bytes：只换定位，不产生新版本。
+    Moved(FileLocator),
+    /// 新位置上是不同的 bytes（文件被覆盖或重新导出）：已探测过，给素材加一个版本。
+    Changed(Box<PreparedAsset>),
+}
+
 fn relink_asset(state: &mut VideoState, index: usize, asset_id: &str, ctx: &mut EditContext<'_>) -> EngineResult<()> {
-    let locator = ctx
+    let relinked = ctx
         .relinked
         .get(&index)
         .ok_or_else(|| ErrorBody::invalid_operation(msg!("engine.relinkNotPrepared", "The relinked file is not ready")))?;
@@ -4066,10 +4074,72 @@ fn relink_asset(state: &mut VideoState, index: usize, asset_id: &str, ctx: &mut 
         .get_mut(&current)
         .ok_or_else(|| ErrorBody::asset_missing(asset_id, msg!("engine.assetNoCurrentRevision", "The asset has no current revision")))?;
     let frozen = matches!(revision.storage, AssetStorage::Linked { frozen: true, .. });
-    revision.storage = AssetStorage::Linked {
-        locator: locator.clone(),
-        frozen,
+    let prepared = match relinked {
+        Relinked::Moved(locator) => {
+            revision.storage = AssetStorage::Linked {
+                locator: locator.clone(),
+                frozen,
+            };
+            return Ok(());
+        }
+        Relinked::Changed(prepared) => prepared,
     };
+    // 新内容是素材的新版本：版本写入后不再修改，所以另加一个；素材身份、名字与按素材 ID 记的文稿、剪口不变。
+    let mut storage = prepared.storage.clone();
+    if let AssetStorage::Linked { frozen: f, .. } = &mut storage {
+        *f = frozen;
+    }
+    let mut provenance = revision.provenance.clone();
+    provenance.imported_from = Some(ImportedFrom {
+        original_name: prepared.original_name.clone(),
+        imported_at: ctx.now.to_string(),
+    });
+    let latest = asset.revisions.keys().filter_map(|r| r.parse::<u64>().ok()).max().unwrap_or(0);
+    let next = (latest + 1).to_string();
+    asset.revisions.insert(
+        next.clone(),
+        AssetRevision {
+            revision: next.clone(),
+            content_hash: prepared.content_hash.clone(),
+            byte_length: prepared.byte_length,
+            media_type: prepared.media_type.clone(),
+            storage,
+            duration: prepared.probe.duration.clone(),
+            timebase: prepared.probe.timebase,
+            video: prepared.probe.video.clone(),
+            audio: prepared.probe.audio.clone(),
+            tree: None,
+            bundle: None,
+            provenance,
+        },
+    );
+    asset.current_revision = next.clone();
+    // 指着旧版本的实例一起改指新版本（含锁着的：重新链接是素材层面的事，不改实例的其余字段）。
+    // 不核对源区间：新内容更短时，超出的部分读不到，之后修剪这些实例时照常核对。
+    let previous = VersionRef {
+        id: asset_id.to_string(),
+        revision: current,
+    };
+    let target = VersionRef {
+        id: asset_id.to_string(),
+        revision: next,
+    };
+    for (id, placed) in state.items.iter_mut() {
+        let mut swapped = false;
+        for r in placed.value.asset_refs_mut() {
+            if *r == previous {
+                *r = target.clone();
+                swapped = true;
+            }
+        }
+        if swapped {
+            ctx.asset_swaps.push(crate::receipt::AssetSwap {
+                item_id: id.clone(),
+                previous_asset_ref: Some(previous.clone()),
+                asset_ref: target.clone(),
+            });
+        }
+    }
     Ok(())
 }
 

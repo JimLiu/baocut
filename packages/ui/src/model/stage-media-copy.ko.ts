@@ -20,7 +20,7 @@ export const ko: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause} ${tail}`,
   volume: (volume: string) => `파일이 “${volume}” 드라이브에 있습니다. 그 드라이브를 연결하면 자동으로 복구됩니다.`,
   more: (count: number) => `다른 영상 또는 오디오 소재 ${count}개도 재생할 수 없습니다.`,
-  relinkHint: '원본 파일을 선택하면 복구됩니다. BaoCut이 내용을 확인하며, 내용이 다른 파일은 다시 연결할 수 없습니다.',
+  relinkHint: '원본 파일을 선택하면 복구됩니다. 다시 내보내는 등 내용이 바뀐 파일도 선택할 수 있으며, 이를 쓰는 클립은 모두 새 파일로 바뀝니다.',
   desktopOnly: '복구하려면 BaoCut 데스크톱 앱에서 이 영상을 열고 캔버스의 “다시 연결…”로 원본 파일을 선택하세요.',
   managed: '이 파일은 영상 폴더에 저장되어 있어 다른 위치로 다시 연결할 수 없습니다.',
   oldRevision: '타임라인이 이 소재의 이전 버전을 사용합니다. 현재 버전만 다시 연결할 수 있습니다.',

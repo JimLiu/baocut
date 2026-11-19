@@ -129,4 +129,5 @@ export const ko: RcSkillsMessages = {
     `${p.path}은(는) 독립 실행형 BaoCut 명령줄 패키지(${p.target})의 것입니다. 앱은 이를 바꾸거나 삭제하지 않습니다. baocut update로 업데이트하거나 그 패키지의 baocut cli remove로 제거하세요`,
   cliEntryPathFailed: (p) => `baocut은 ${p.dir}에 있지만 BaoCut이 이 폴더를 사용자 PATH에 추가하지 못했습니다. 직접 추가하세요: 시작 메뉴에서 “계정의 환경 변수 편집”을 검색하세요`,
   cliEntryLocalOnly: 'baocut 명령 설치는 데스크톱 앱과 CLI에서만 할 수 있습니다',
+  cliEntryShellUnknown: (p) => `셸이 시작할 때 읽는 설정 파일을 BaoCut이 알아낼 수 없습니다. 셸 설정에서 ${p.dir}을(를) PATH에 직접 추가하세요`,
 };

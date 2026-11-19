@@ -1,17 +1,7 @@
-// OpenAI 文本模型（`generateText`，架构设计 §6.4）。2026-10-03 读过的文档：
-//   https://platform.openai.com/docs/models
-//   https://platform.openai.com/docs/models/gpt-6-astra
-//   https://platform.openai.com/docs/models/gpt-6.1-sol
-//   https://platform.openai.com/docs/models/gpt-6-luna
-//   https://platform.openai.com/docs/guides/reasoning
-// 2026-10-27 补读（旧地址 301 到 developers.openai.com）：
-//   https://developers.openai.com/api/docs/models/gpt-6.1-terra
-// 文档确认的：三个旗舰文本模型 gpt-6-astra（最强）、gpt-6.1-sol（均衡）、gpt-6-luna（高效），上下文 1,050,000 token、
-// 单次输出 128,000 token；`reasoning_effort` 取 none / minimal / low / medium / high / xhigh / max，默认 medium；astra 不接受
-// none，sol 不接受 none 与 minimal。gpt-6.1-terra（快而省，$1 / $5 每百万 token）上下文与输出上限相同，
-// `reasoning_effort` 取 none / low / medium / high / xhigh / max，默认 medium，不接受 minimal。我们的四档（minimal–high）按此声明。
-// 没能确认的：这几个推理模型是否接受 `temperature` 与 `seed`（旧的推理模型只接受默认的 temperature），按不接受声明；
-// 费用按 `unknown`。默认模型选均衡的 gpt-6.1-sol。
+// OpenAI text models (architecture §6.4). GPT-6.2 Sol and Astra support Chat Completions,
+// structured output, and low / medium / high within BaoCut's effort range.
+// https://developers.openai.com/api/docs/models/gpt-6.2-sol
+// https://developers.openai.com/api/docs/models/gpt-6.2-astra
 import { ProviderFailure, type TextReply } from '@baocut/models';
 import type { TextModelInfo } from '@baocut/protocol';
 import type { AdapterConfig, AdapterHttp, ModelLister, ProviderListing, TextAdapter, TextRequest } from '../adapter.ts';
@@ -39,10 +29,12 @@ function model(modelId: string, label: string, efforts: TextModelInfo['efforts']
 }
 
 const MODELS: TextModelInfo[] = [
-  model('gpt-6.1-sol', 'GPT-6.1 Sol', ['low', 'medium', 'high'], { default: true }),
+  model('gpt-6.2-sol', 'GPT-6.2 Sol', ['low', 'medium', 'high'], { default: true }),
   model('gpt-6.1-terra', 'GPT-6.1 Terra', ['low', 'medium', 'high']),
-  model('gpt-6-astra', 'GPT-6 Astra', ['minimal', 'low', 'medium', 'high']),
+  model('gpt-6.2-astra', 'GPT-6.2 Astra', ['low', 'medium', 'high']),
   model('gpt-6-luna', 'GPT-6 Luna', ['minimal', 'low', 'medium', 'high']),
+  model('gpt-6.1-sol', 'GPT-6.1 Sol', ['low', 'medium', 'high']),
+  model('gpt-6-astra', 'GPT-6 Astra', ['minimal', 'low', 'medium', 'high']),
 ];
 
 export class OpenAiTextAdapter implements TextAdapter, ModelLister {

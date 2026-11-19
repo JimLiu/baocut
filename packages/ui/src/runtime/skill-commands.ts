@@ -215,6 +215,11 @@ export function installCliEntry(session: Session): Promise<CliEntryStatus> {
   return session.client.request('cliEntry.install', {});
 }
 
+/** 把 `~/.local/bin` 加进用户 shell 的配置文件（追加 `pathHint` 那一行）。只有桌面应用与 CLI 能写。 */
+export function addCliEntryToPath(session: Session): Promise<CliEntryStatus> {
+  return session.client.request('cliEntry.addToPath', {});
+}
+
 /** 移除 BaoCut 放的入口。 */
 export function removeCliEntry(session: Session): Promise<CliEntryStatus> {
   return session.client.request('cliEntry.remove', {});

@@ -369,6 +369,8 @@ export const nl: SkillsPageMessages = {
     cliRemoveHint: 'Verwijdert alleen wat BaoCut er heeft neergezet; de app houdt zijn opdrachtregel',
     cliInstalled: 'Geïnstalleerd. Open een nieuwe terminal om baocut te gebruiken.',
     cliInstalledAddLine: 'Geïnstalleerd. Voeg de getoonde regel toe aan je shellconfiguratie en open daarna een nieuwe terminal.',
+    cliAddToPath: (file) => `Toevoegen aan ${file}`,
+    cliPathAdded: (file) => `Toegevoegd aan ${file}. Open een nieuwe terminal om baocut te gebruiken.`,
     cliRemoved: 'Verwijderd. Nieuwe terminals vinden de baocut van deze app niet meer.',
     mcpName: 'MCP-dienst',
     mcpBody: 'Geen Skill nodig: laat andere AI-apps verbinding maken met BaoCut en de tools direct aanroepen.',

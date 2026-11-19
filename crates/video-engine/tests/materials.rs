@@ -325,7 +325,7 @@ fn a_video_opens_even_when_a_linked_asset_is_missing() {
 }
 
 #[test]
-fn relinking_requires_the_same_bytes() {
+fn relinking_to_the_same_bytes_only_moves_the_locator() {
     let root = tempfile::tempdir().unwrap();
     let source = root.path().join("a.json");
     fs::write(&source, r#"{"v":1}"#).unwrap();
@@ -341,12 +341,13 @@ fn relinking_requires_the_same_bytes() {
     let moved = root.path().join("moved.json");
     fs::rename(&source, &moved).unwrap();
     assert_eq!(video.resolve_asset(&asset_id, None).unwrap_err().code, "ASSET_MISSING");
-    let other = root.path().join("other.json");
-    fs::write(&other, r#"{"v":2}"#).unwrap();
+    // 种类不同的文件不认作同一素材。
+    let svg = root.path().join("other.svg");
+    fs::write(&svg, "<svg xmlns='http://www.w3.org/2000/svg'/>").unwrap();
     let wrong = apply(
         &mut video,
         "cmd_wrong",
-        vec![json!({ "type": "relinkAsset", "assetId": asset_id, "path": other })],
+        vec![json!({ "type": "relinkAsset", "assetId": asset_id, "path": svg })],
     );
     assert_eq!(wrong.unwrap_err().code, "INVALID_OPERATION");
 
@@ -358,6 +359,71 @@ fn relinking_requires_the_same_bytes() {
     .unwrap();
     assert_eq!(video.resolve_asset(&asset_id, None).unwrap().path, moved);
     assert_eq!(video.state().assets[&asset_id].current_revision, "1", "换位置不是新版本");
+}
+
+/// 原位置的文件被覆盖或重新导出（bytes 不同）：重新链接给同一素材加一个版本，指着旧版本的片段一起改指过去；
+/// 素材身份不变，撤销回到旧版本。
+#[test]
+fn relinking_to_changed_bytes_adds_a_revision_and_moves_the_clips() {
+    if !has_ffprobe() {
+        return;
+    }
+    let root = tempfile::tempdir().unwrap();
+    let wav = root.path().join("vo.wav");
+    write_wav(&wav, 2);
+    let mut video = new_video(&root.path().join("m"));
+    let s = seq(&video);
+    apply(
+        &mut video,
+        "cmd_link",
+        vec![json!({ "type": "importAsset", "path": wav, "storage": "linked", "ref": "vo" })],
+    )
+    .unwrap();
+    let asset_id = only_asset(&video);
+    apply(
+        &mut video,
+        "cmd_add",
+        vec![json!({ "type": "addItem", "sequenceId": s, "asset": { "assetId": asset_id }, "alignment": "nearest-frame" })],
+    )
+    .unwrap();
+    let item_id = video.state().items.keys().next().unwrap().clone();
+    let old_hash = video.state().assets[&asset_id].revisions["1"].content_hash.clone();
+
+    // 同一路径上换成更长的一份。
+    write_wav(&wav, 3);
+    assert!(video.resolve_asset(&asset_id, None).is_err(), "原定位上的内容已经不是登记的那份");
+    let relinked = apply(
+        &mut video,
+        "cmd_relink",
+        vec![json!({ "type": "relinkAsset", "assetId": asset_id, "path": wav })],
+    )
+    .unwrap();
+    let asset = &video.state().assets[&asset_id];
+    assert_eq!(asset.current_revision, "2");
+    assert_eq!(asset.revisions["1"].content_hash, old_hash, "旧版本原样留着");
+    let new = &asset.revisions["2"];
+    assert_ne!(new.content_hash, old_hash);
+    assert_eq!(new.byte_length, fs::metadata(&wav).unwrap().len());
+    let duration = new.duration.as_ref().unwrap();
+    assert_eq!(duration.ticks.parse::<i64>().unwrap() / duration.timescale, 3, "时长按新文件重新探测");
+    assert_eq!(video.state().items[&item_id].value.asset_ref().unwrap().revision, "2");
+    let impact = serde_json::to_value(&relinked.receipt.impact).unwrap();
+    assert_eq!(
+        impact["assetSwaps"],
+        json!([{ "itemId": item_id, "previousAssetRef": { "id": asset_id, "revision": "1" }, "assetRef": { "id": asset_id, "revision": "2" } }])
+    );
+    assert_eq!(video.resolve_asset(&asset_id, None).unwrap().path, wav);
+
+    video
+        .undo(&UndoRequest {
+            command_id: "cmd_undo".into(),
+            target: UndoTarget::Transaction(relinked.receipt.transaction_id),
+            expected_revision: None,
+            actor: user(),
+        })
+        .unwrap();
+    assert_eq!(video.state().assets[&asset_id].current_revision, "1");
+    assert_eq!(video.state().items[&item_id].value.asset_ref().unwrap().revision, "1");
 }
 
 #[test]

@@ -38,6 +38,7 @@ export function catalogMethods(
   | 'agentSkill.remove'
   | 'cliEntry.status'
   | 'cliEntry.install'
+  | 'cliEntry.addToPath'
   | 'cliEntry.remove'
 > {
   const agentSkillsDir = options.agentSkillsDir ?? (() => resolveBuiltinAgentSkillsDir());
@@ -98,6 +99,7 @@ export function catalogMethods(
     'agentSkill.remove': (p, principal) => installs(principal, true).remove(p.targets),
     'cliEntry.status': (_p, principal) => entries(principal, false).status(),
     'cliEntry.install': (_p, principal) => entries(principal, true).install(),
+    'cliEntry.addToPath': (_p, principal) => entries(principal, true).addToPath(),
     'cliEntry.remove': (_p, principal) => entries(principal, true).remove(),
   };
 }

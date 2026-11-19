@@ -137,4 +137,5 @@ export const ja: RcSkillsMessages = {
     `${p.path} はスタンドアロンの BaoCut コマンドラインパッケージ（${p.target}）のものです。アプリは置き換えも削除もしません。baocut update で更新するか、そのパッケージの baocut cli remove で削除してください`,
   cliEntryPathFailed: (p) => `baocut は ${p.dir} にありますが、BaoCut はこのフォルダをユーザーの PATH に追加できませんでした。手動で追加してください：スタートメニューで「アカウントの環境変数を編集」を検索します`,
   cliEntryLocalOnly: 'baocut コマンドのインストールは、デスクトップアプリと CLI でのみ行えます',
+  cliEntryShellUnknown: (p) => `シェルが起動時に読む設定ファイルを BaoCut が特定できませんでした。シェルの設定で ${p.dir} を PATH に手動で追加してください`,
 };

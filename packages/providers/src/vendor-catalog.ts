@@ -180,8 +180,15 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     regions: { global: 'https://openrouter.ai/api/v1' },
     jsonMode: 'json_schema',
     models: [
-      // IDs and sampling support verified against https://openrouter.ai/api/v1/models on 2026-10-16.
+      // IDs verified against https://openrouter.ai/api/v1/models on 2026-11-19.
+      // Omit sampling overrides for Gemini 4, whose native API ignores custom values.
       text('anthropic/claude-sonnet-5.5', 'Claude Sonnet 5.5', true, { acceptsTemperature: false }),
+      text('anthropic/claude-fable-5.2', 'Claude Fable 5.2', false, { acceptsTemperature: false }),
+      text('openai/gpt-6.2-sol', 'GPT-6.2 Sol', false, { acceptsTemperature: false }),
+      text('openai/gpt-6.2-astra', 'GPT-6.2 Astra', false, { acceptsTemperature: false }),
+      text('google/gemini-4-hydrogen', 'Gemini 4 Hydrogen', false, { acceptsTemperature: false }),
+      text('google/gemini-4-neon', 'Gemini 4 Neon', false, { acceptsTemperature: false }),
+      text('google/gemini-4-carbon', 'Gemini 4 Carbon', false, { acceptsTemperature: false }),
       text('openai/gpt-6.1-sol', 'GPT-6.1 Sol', false, { acceptsTemperature: false }),
       text('google/gemini-4-argon', 'Gemini 4 Argon', false, { acceptsTemperature: false }),
       text('google/gemini-3.8-flash', 'Gemini 3.8 Flash'),

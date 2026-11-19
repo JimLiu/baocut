@@ -127,4 +127,5 @@ export const zhHans: RcSkillsMessages = {
     `${p.path} 属于独立的 BaoCut 命令行包（${p.target}）。App 不替换也不删除它：用 baocut update 更新，或用那个包的 baocut cli remove 移除`,
   cliEntryPathFailed: (p) => `baocut 已经放进 ${p.dir}，但没能把这个文件夹加进用户 PATH。请自己加：在开始菜单里搜索「编辑账户的环境变量」`,
   cliEntryLocalOnly: '只能在桌面应用或命令行里安装 baocut 命令',
+  cliEntryShellUnknown: (p) => `BaoCut 认不出你的 shell 启动时读哪个配置文件。请自己把 ${p.dir} 加进 shell 配置里的 PATH`,
 };

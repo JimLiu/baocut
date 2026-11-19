@@ -96,6 +96,7 @@ export const ja: RcExternalToolsMessages = {
 
   probeCannotStart: (p) => `起動できません：${p.error}`,
   probeTimeout: (p) => `${p.command} が ${p.seconds} 秒以内に終わりませんでした`,
+  probeTimeoutRemedy: (p) => `バージョン確認がタイムアウトしました。ツールの起動が遅いだけかもしれません。externalTools.detect（baocut external-tools detect ${p.name}）で再検出してからやり直してください。作成済みのタスクは pipelines.retry で続行できます`,
   probeCannotStartCode: (p) => `起動できません（${p.code}）`,
   probeExited: (p) => `${p.code} で終了しました${p.detail ? `：${p.detail}` : ''}`,
 

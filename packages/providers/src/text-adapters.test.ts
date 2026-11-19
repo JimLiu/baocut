@@ -96,9 +96,16 @@ async function failure(promise: Promise<unknown>): Promise<ProviderFailure> {
 }
 
 describe('OpenAI 文本（Chat Completions）', () => {
-  it('模型表：默认 gpt-6.1-sol；推理强度按模型；不接受 temperature 与 seed', () => {
+  it('defaults to GPT-6.2 Sol and declares supported reasoning efforts without sampling parameters', () => {
     const models = new OpenAiTextAdapter().models(config('x', null));
-    expect(models.find((m) => m.default)?.modelId).toBe('gpt-6.1-sol');
+    expect(models.find((m) => m.default)?.modelId).toBe('gpt-6.2-sol');
+    for (const modelId of ['gpt-6.2-sol', 'gpt-6.2-astra']) {
+      expect(models.find((m) => m.modelId === modelId)).toMatchObject({
+        efforts: ['low', 'medium', 'high'],
+        contextTokens: 1_050_000,
+        maxOutputTokens: 128_000,
+      });
+    }
     expect(models.find((m) => m.modelId === 'gpt-6.1-sol')!.efforts).toEqual(['low', 'medium', 'high']);
     expect(models.find((m) => m.modelId === 'gpt-6.1-terra')!.efforts).toEqual(['low', 'medium', 'high']);
     expect(models.every((m) => m.structuredOutput && !m.acceptsTemperature && !m.acceptsSeed)).toBe(true);
@@ -308,18 +315,28 @@ describe('Google 文本（generateContent）', () => {
     const cfg = config(`${server.origin}/v1beta`, GOOGLE_KEY);
     await call(new GoogleTextAdapter(), cfg, 'gemini-3.8-flash', params());
     await call(new GoogleTextAdapter(), cfg, 'gemini-3.5-flash-lite', params());
-    const argon = new GoogleTextAdapter().models(cfg).find((m) => m.modelId === 'gemini-4-argon')!;
-    expect(argon).toMatchObject({ maxOutputTokens: 65_536, acceptsTemperature: false, acceptsSeed: false });
-    await call(new GoogleTextAdapter(), cfg, argon.modelId, params());
+    const catalog = new GoogleTextAdapter().models(cfg);
+    expect(catalog.find((m) => m.default)?.modelId).toBe('gemini-4-hydrogen');
+    for (const [modelId, maxOutputTokens] of [
+      ['gemini-4-hydrogen', 65_536],
+      ['gemini-4-neon', 65_536],
+      ['gemini-4-carbon', 32_768],
+      ['gemini-4-argon', 32_768],
+    ] as const) {
+      expect(catalog.find((m) => m.modelId === modelId)).toMatchObject({
+        maxOutputTokens, efforts: ['low', 'medium', 'high'], acceptsTemperature: false, acceptsSeed: false,
+      });
+    }
+    await call(new GoogleTextAdapter(), cfg, 'gemini-4-carbon', params());
     const levels = server.requests.map(
       (r) => (r.json as { generationConfig: { thinkingConfig?: unknown } }).generationConfig.thinkingConfig,
     );
     expect(levels).toEqual([{ thinkingLevel: 'low' }, { thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }]);
-    expect(server.requests[2]!.path).toBe('/v1beta/models/gemini-4-argon:generateContent');
+    expect(server.requests[2]!.path).toBe('/v1beta/models/gemini-4-carbon:generateContent');
     expect(server.requests[2]!.json).toMatchObject({ generationConfig: { maxOutputTokens: 256 } });
     expect((server.requests[2]!.json as { generationConfig: Record<string, unknown> }).generationConfig).not.toHaveProperty('temperature');
     // 模型表的默认档就是下发的那档：每个模型都是最低一档，改回 API 默认档会让整页回写重新被思考截断。
-    for (const info of new GoogleTextAdapter().models(cfg)) expect(info.defaultEffort).toBe(info.efforts[0]);
+    for (const info of catalog) expect(info.defaultEffort).toBe(info.efforts[0]);
   });
 
   it('结束原因：MAX_TOKENS 是 length，SAFETY 与输入被拦下是 content-filter，其余是被拒绝', async () => {
@@ -683,7 +700,7 @@ describe('OnlineProviderSource 的文本能力与刷新', () => {
       await source.configure({ providerId: 'openai', enabled: true, credential: OPENAI_KEY });
       await source.refresh('openai');
       let models = (await source.describe('openai', 'view'))!.capabilities.generateText!.models;
-      expect(models.filter((m) => m.available === false).map((m) => m.modelId)).toEqual(['gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna']);
+      expect(models.filter((m) => m.available !== false).map((m) => m.modelId)).toEqual(['gpt-6.1-sol']);
       fail = true;
       expect(await source.refresh('openai')).toMatchObject({ ok: false });
       models = (await source.describe('openai', 'view'))!.capabilities.generateText!.models;

@@ -1,6 +1,6 @@
-// Anthropic 的文本模型（`generateText`，架构设计 §6.4）：Messages 原生适配器。2026-10-16 核对模型目录：
+// Anthropic 的文本模型（`generateText`，架构设计 §6.4）：Messages 原生适配器。2026-11-19 核对模型目录：
 //   https://platform.claude.com/docs/en/api/messages
-//   https://platform.claude.com/docs/en/about-claude/models/overview
+//   https://platform.claude.com/docs/en/models/overview
 //   https://platform.claude.com/docs/en/about-claude/pricing
 // 文档确认的：`POST {base}/v1/messages`（JSON；`x-api-key` 与 `anthropic-version: 2023-06-01` 请求头）；系统消息放顶层
 // `system`；`max_tokens` 必须给出；结构化输出是 `output_config.format: { type: 'json_schema', schema }`，推理强度是
@@ -8,7 +8,7 @@
 // 为 end_turn / stop_sequence / max_tokens / refusal；`usage.input_tokens` 不含缓存命中，另有 `cache_read_input_tokens`；
 // 错误体 `{ error: { type, message } }`；`GET {base}/v1/models` 返回 `data[].id`。
 // 模型：claude-opus-5-5 与 claude-sonnet-5-5 上下文 1M、单次输出至多 128K，不接受采样参数（temperature 等），推理强度默认
-// 分别是 medium 与 high；claude-haiku-5-5 与 claude-fable-5-1 同为 1M / 128K，默认强度分别为 medium / high，
+// 分别是 medium 与 high；claude-haiku-5-5 与 claude-fable-5-2 同为 1M / 128K，默认强度分别为 medium / high，
 // 均不接受采样参数。没有 `seed`。
 // 取舍：请求不用流式，单次输出按 64K 声明（更长的输出不流式容易超过请求的期限）；不开 extended thinking。默认模型选均衡的
 // claude-sonnet-5-5。模型 ID 不带日期后缀。
@@ -43,6 +43,7 @@ const MODELS: TextModelInfo[] = [
   model('claude-sonnet-5-5', 'Claude Sonnet 5.5', { default: true }),
   model('claude-opus-5-5', 'Claude Opus 5.5', { defaultEffort: 'medium' }),
   model('claude-haiku-5-5', 'Claude Haiku 5.5', { defaultEffort: 'medium' }),
+  model('claude-fable-5-2', 'Claude Fable 5.2', {}),
   model('claude-fable-5-1', 'Claude Fable 5.1', {}),
 ];
 

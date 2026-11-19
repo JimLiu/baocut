@@ -91,6 +91,7 @@ export const de: RcExternalToolsMessages = {
 
   probeCannotStart: (p: { error: string }) => `Start nicht möglich: ${p.error}`,
   probeTimeout: (p: { command: string; seconds: number }) => `${p.command} wurde nicht abgeschlossen innerhalb von ${p.seconds} Sekunden`,
+  probeTimeoutRemedy: (p: { name: string }) => `Die Versionsprüfung hat das Zeitlimit überschritten; das Tool ist vielleicht nur langsam gestartet. Erneut erkennen mit externalTools.detect (baocut external-tools detect ${p.name}) und dann erneut versuchen; eine bereits erstellte Aufgabe kann mit pipelines.retry fortgesetzt werden`,
   probeCannotStartCode: (p: { code: string }) => `Start nicht möglich (${p.code})`,
   probeExited: (p: { code: string; detail: string }) => `Beendet mit ${p.code}${p.detail ? `: ${p.detail}` : ""}`,
 

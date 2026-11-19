@@ -362,6 +362,8 @@ export const ptBR: SkillsPageMessages = {
     cliRemoveHint: 'Apaga só o que o BaoCut colocou ali; o aplicativo mantém sua linha de comando',
     cliInstalled: 'Instalada. Abra um novo terminal para usar baocut.',
     cliInstalledAddLine: 'Instalada. Adicione a linha mostrada à configuração do seu shell e abra um novo terminal.',
+    cliAddToPath: (file) => `Adicionar a ${file}`,
+    cliPathAdded: (file) => `Adicionado a ${file}. Abra um novo terminal para usar o baocut.`,
     cliRemoved: 'Removida. Novos terminais não vão encontrar o baocut deste aplicativo.',
     mcpName: 'Serviço MCP',
     mcpBody: 'Sem precisar de skill: deixe outros aplicativos de IA se conectarem ao BaoCut e chamarem as ferramentas dele diretamente.',

@@ -81,6 +81,7 @@ export const ru: RcExternalToolsMessages = {
 
   probeCannotStart: (p) => `Не удалось запустить: ${p.error}`,
   probeTimeout: (p) => `${p.command} не завершил за ${p.seconds} с`,
+  probeTimeoutRemedy: (p) => `Проверка версии не уложилась во время; возможно, инструмент просто долго запускался. Обнаружьте его заново через externalTools.detect (baocut external-tools detect ${p.name}) и повторите; уже созданную задачу можно продолжить через pipelines.retry`,
   probeCannotStartCode: (p) => `Не удалось запустить (${p.code})`,
   probeExited: (p) => `Завершено с кодом ${p.code}${p.detail ? `: ${p.detail}` : ""}`,
 

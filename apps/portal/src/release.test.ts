@@ -47,6 +47,12 @@ describe('parseFeed', () => {
     expect(parseFeed(feed({}, url))?.tag).toBe('baocut-v3.2.0-build.65');
   });
 
+  it('accepts the same file on the baocut.com mirror', () => {
+    const url = 'https://baocut.com/releases/download/baocut-v3.2.0-build.65/BaoCut-3.2.0-build.65-aarch64-apple-darwin.zip';
+    expect(parseFeed(feed({}, url))?.tag).toBe('baocut-v3.2.0-build.65');
+    expect(parseFeed(feed({}, 'https://baocut.com/download/baocut-v3.2.0-build.65/BaoCut-3.2.0-build.65-x.zip'))).toBeNull();
+  });
+
   it('rejects URLs outside this repository or for another release', () => {
     expect(parseFeed(feed({}, 'https://example.com/releases/download/baocut-v3.2.0-build.65/BaoCut-3.2.0-build.65-x.zip'))).toBeNull();
     expect(
@@ -153,7 +159,7 @@ describe('downloads', () => {
   const set: ReleaseSet = { mac: release, win: release, 'win-cuda': release, 'win-vulkan': release };
 
   it('derives every asset name of a release', () => {
-    const base = 'https://github.com/jimliu/baocut/releases/download/baocut-v3.2.0-build.65/BaoCut-3.2.0-build.65';
+    const base = 'https://baocut.com/releases/download/baocut-v3.2.0-build.65/BaoCut-3.2.0-build.65';
     expect(Object.fromEntries(DOWNLOAD_IDS.map((id) => [id, downloadUrl(set, id)]))).toEqual({
       'mac-dmg': `${base}-aarch64-apple-darwin.dmg`,
       'mac-zip': `${base}-aarch64-apple-darwin.zip`,

@@ -18,7 +18,7 @@ export const pl: StageMediaMessages = {
   body: (cause: string, tail: string) => `${cause} ${tail}`,
   volume: (volume: string) => `Plik jest na dysku „${volume}”. Podłącz ten dysk, aby przywrócić automatycznie.`,
   more: (count: number) => pluralForm('pl', count, { one: `Jeszcze ${count} materiał wideo lub audio nie może być odtworzony.`, few: `Jeszcze ${count} materiały wideo lub audio nie mogą być odtworzone.`, many: `Jeszcze ${count} materiałów wideo lub audio nie może być odtworzonych.`, other: `Jeszcze ${count} materiału wideo lub audio nie może być odtworzone.` }),
-  relinkHint: "Wybierz plik oryginalny, aby przywrócić. BaoCut sprawdza zawartość; nie można ponownie powiązać pliku z inną zawartością.",
+  relinkHint: "Wybierz plik, aby go przywrócić. Zmieniona wersja (np. ponownie wyeksportowana) też zadziała: wszystkie klipy, które go używają, przejdą na nowy plik.",
   desktopOnly: "Aby przywrócić, otwórz wideo w aplikacji komputerowej BaoCut i użyj „Powiąż ponownie…” na płótnie, aby wybrać plik oryginalny.",
   managed: "Ten plik był w folderze wideo, więc nie można powiązać go z inną lokalizacją.",
   oldRevision: "Oś czasu używa starszej wersji materiału; ponownie powiązać można tylko obecną.",
