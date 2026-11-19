@@ -2,21 +2,21 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "cpu",
-  "version": "3.19.2",
-  "build": 97,
-  "date": "2026-11-15",
-  "notes": "Subtitle translation: Agents now write long translations into the video in batches instead of one very large write, and continue until every sentence is covered. A partly written translation stays listed as running and is reported as unfinished instead of ending silently.\nTranslation progress: While an agent translates in batches, the subtitle panel, video card, video status and task list show how many sentences are translated, with a percentage.\nVideo engine tools: When the login shell environment cannot be read (for example when BaoCut starts from Finder or the Dock), BaoCut now retries later instead of keeping the failure, and also looks for ffmpeg and ffprobe in the standard Homebrew folders that exist on the machine. BAOCUT_FFMPEG and BAOCUT_FFPROBE still take priority.\nPrivacy: Download error details now also redact links that sit directly next to each other.\nRequirements and verification limits: macOS requires Apple Silicon and macOS 14+. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable; GPU variants require compatible drivers. ffmpeg/ffprobe and an agent engine remain external dependencies. Automated release checks do not cover full UI/export workflows, live model or GPU inference, or paid agent calls.",
+  "version": "3.20.0",
+  "build": 98,
+  "date": "2026-11-19",
+  "notes": "macOS screen recording: Capture a display, window or region with optional system audio, microphone and camera. Pick the source on screen, then use the countdown, floating controls, menu bar or configurable shortcuts to pause, resume, restart or stop. The recording opens in the editor when it is saved.\nRecording controls and recovery: Screen and region capture exclude BaoCut by default. Keyboard capture is off by default. BaoCut warns when disk space is low, pauses on system sleep and can recover unfinished recordings from Home.\nEdit recordings on desktop and Web: Trim and split linked tracks together, or ungroup to edit them separately. Adjust automatic zooms, cursor behavior, framing and camera layouts. The CLI and agent can also work with recording sessions when the local desktop app is available.\nVideo format 4: Existing format 3 videos still open and upgrade on the first committed edit. Format 3 snapshots and packages still restore or import. Use BaoCut 3.20 or newer to open format 4 videos.\nRelink missing media to a newer file of the same media type. Existing clips switch to the new revision while transcripts, captions and cut sets stay attached to the asset. Undo restores the previous revision.\nSubtitle preview and export use proportional curly quotes and apostrophes in Latin text rendered with CJK fonts.\nFrom the Skills page on macOS, you can add the BaoCut CLI directory to PATH in supported shells. This requires an explicit click.\nDesktop updates use the system proxy and the baocut.com mirror with GitHub fallback. Interrupted downloads retry and resume when possible, and the final file is checked against its published size and checksum.\nScreen capture is enabled on macOS. Windows supports editing recordings, and Windows capture remains disabled by default. The Web editor can edit recordings.\nThe macOS package requires Apple Silicon and macOS 14 or later. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable. CUDA and Vulkan variants require compatible GPU drivers.",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://baocut.com/releases/download/baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-win-x64-setup.exe",
-    "size": 226125742,
-    "sha256": "80b0e5f17f6704f53e9bdfcc7fa0c7b7ddafb7a81936bc37d19522c6bbb91126"
+    "url": "https://baocut.com/releases/download/baocut-v3.20.0-build.98/BaoCut-3.20.0-build.98-win-x64-setup.exe",
+    "size": 226989677,
+    "sha256": "a5959309bed5b8e51363903e84183f9c6512da907d63d2713341dc62b42004f3"
   },
   "cli": {
     "format": "zip",
-    "url": "https://baocut.com/releases/download/baocut-v3.19.2-build.97/BaoCut-CLI-3.19.2-build.97-x86_64-pc-windows-msvc.zip",
-    "size": 182068722,
-    "sha256": "b325dff8e8686bc30374784008b3196f028fef7b6ffa3475be33ffdabffbfeeb"
+    "url": "https://baocut.com/releases/download/baocut-v3.20.0-build.98/BaoCut-CLI-3.20.0-build.98-x86_64-pc-windows-msvc.zip",
+    "size": 183113643,
+    "sha256": "912fac168898ed71ef4ac0f7a5b8f389eef764db34a36f58b28d0971d775f5e5"
   }
 }
