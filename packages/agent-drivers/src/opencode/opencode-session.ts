@@ -3,7 +3,7 @@
  * packages/server/src/server/agent/providers/opencode/v2/session.ts（先订阅事件流、等 `server.connected`；按 sessionID
  * 过滤事件；`mcp.add` 远程 MCP 后轮询 `mcp.list` 到 connected；开发者指令写进会话的 instructions 条目；恢复时
  * `session.get`），v2/turns.ts（回合由 `session.execution.*` 收尾、`session.active` 确认不再运行、steer 用
- * `delivery: 'steer'`、中断用 `session.interrupt`），v2/permissions.ts（`permission.asked` / `permission.replied`、
+ * `delivery: 'steer'`、中断用 `session.interrupt`、scheduleRecovery：读不到状态时稍后再读），v2/permissions.ts（`permission.asked` / `permission.replied`、
  * 以 once / reject 作答；提问表单 `form.created` / `form.replied` / `form.cancelled`，以 form reply / cancel 作答），
  * v2/timeline.ts（文字与推理按 assistantMessageID 与 ordinal 分段）。
  * 改成 BaoCut 的 AgentSession 事件：一个会话一个 serve 进程；「本会话放行」由 Driver 自己记，从不回原生的 always；
@@ -65,6 +65,8 @@ export const OPENCODE_DRIVER_ID: DriverId = 'opencode';
 
 /** 执行结束之后等多久再确认会话不再运行（排在后面的插话会立即开始下一次执行）。 */
 const SETTLE_MS = 150;
+/** 查会话状态出错时重试几次，再按已知的结束事件收尾。 */
+const SETTLE_RETRIES = 3;
 
 interface OpenMessage {
   id: string;
@@ -84,6 +86,8 @@ interface Turn {
   /** 最近一次执行的结局；新的执行开始时清掉。 */
   ending: { kind: 'succeeded' | 'failed' | 'interrupted'; error: string | null; reason: string | null } | null;
   settleTimer: NodeJS.Timeout | null;
+  /** 这一轮里查会话状态出错的次数。 */
+  settleErrors: number;
   /** 这一轮的提示词送到了（成功与否都算结束）：插话与中断等它，免得插话排到正文前面、中断落在执行开始之前。 */
   submitted: Promise<void>;
 }
@@ -279,6 +283,7 @@ export class OpenCodeSession implements AgentSession {
       declined: new Set(),
       ending: null,
       settleTimer: null,
+      settleErrors: 0,
       submitted: Promise.resolve(),
     };
     this.#turn = turn;
@@ -659,7 +664,13 @@ export class OpenCodeSession implements AgentSession {
       }
     } catch (error) {
       if (this.#server.hasExited) return;
-      this.#log.warn('Querying OpenCode session status failed', { error: message(error) });
+      this.#log.warn('Querying OpenCode session status failed', { error: message(error), attempt: turn.settleErrors + 1 });
+      // 说不清还在不在运行：先别收尾，稍后再问；还在运行时收尾会让之后的事件没有回合可归。
+      if (this.#turn === turn && !turn.settleTimer && ++turn.settleErrors <= SETTLE_RETRIES) {
+        this.#scheduleSettle(turn, SETTLE_MS * 4);
+        return;
+      }
+      if (this.#turn !== turn || turn.settleTimer) return;
     }
     const ending = turn.ending;
     if (turn.cancelled) return this.#finishTurn(turn, 'interrupted', null, null);

@@ -94,6 +94,13 @@ describe('OpenCodeSession（假 opencode serve）', () => {
     expect(session.describePersistence()).toEqual({ driverId: 'opencode', data: { sessionId: expect.stringMatching(/^ses_/) } });
   });
 
+  it('查会话状态出错：稍后再问，不凭一次出错就收尾', async () => {
+    const { session, completed } = await start({ activeErrors: 2, turn: { reply: 'ok', end: 'succeeded' } });
+    const { turnId } = await session.startTurn({ text: 'hi' }, settings());
+    expect((await completed(turnId)).outcome).toBe('completed');
+    expect(fake.requests('GET', '/api/session/active').length).toBeGreaterThanOrEqual(3);
+  });
+
   it('压缩：session.compaction.ended 发 context.compacted；开始与失败不发', async () => {
     const { session, events, completed } = await start({
       turn: {

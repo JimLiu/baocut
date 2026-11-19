@@ -49,6 +49,13 @@ describe('OpenCodeDriver.probe（假 opencode）', () => {
     await expect.poll(() => fake.log().filter((e) => e.kind === 'exit').length).toBe(1);
   });
 
+  it('目录就绪的检查出错一两次（插件表还没登记好）：接着等，模型表照常', async () => {
+    fake.scenario({ pluginErrors: 2 });
+    const probe = await driver.probe();
+    expect(probe.state).toBe('ready');
+    expect(probe.models.map((m) => m.id)).toEqual(['opencode/big-pickle', 'opencode/fledge-alpha-free']);
+  });
+
   it('接入了别的 provider 时报账号', async () => {
     fake.scenario({
       providers: [

@@ -58,6 +58,7 @@ const streams = new Set<http.ServerResponse>();
 const active = new Set<string>();
 const mcp = new Map<string, string>();
 let pluginCalls = 0;
+let activeCalls = 0;
 let seq = 0;
 let nextId = 1;
 const id = (prefix: string) => `${prefix}_fake${process.pid}x${nextId++}`;
@@ -221,12 +222,15 @@ const server = http.createServer(async (req, res) => {
       streams.add(res);
       req.on('close', () => streams.delete(res));
       return;
-    case 'GET /api/plugin':
+    case 'GET /api/plugin': {
       pluginCalls++;
+      const errors = scenario.pluginErrors ?? 0;
+      if (pluginCalls <= errors) return send(res, 500, { _tag: 'UnknownError', message: 'plugin registry busy' });
       return send(res, 200, {
         location: { directory: location },
-        data: pluginCalls <= scenario.coldPluginCalls ? [] : [{ id: 'opencode.config.mcp', state: { status: 'active' } }],
+        data: pluginCalls <= errors + scenario.coldPluginCalls ? [] : [{ id: 'opencode.config.mcp', state: { status: 'active' } }],
       });
+    }
     case 'GET /api/model':
       if (scenario.catalog === 'error') return send(res, 500, { _tag: 'UnknownError', message: 'catalog exploded' });
       return send(res, 200, { location: { directory: location }, data: scenario.models });
@@ -299,6 +303,8 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { interrupted: true });
     }
     case 'GET /api/session/active':
+      activeCalls++;
+      if (activeCalls <= (scenario.activeErrors ?? 0)) return send(res, 500, { _tag: 'UnknownError', message: 'status unavailable' });
       return send(res, 200, { data: Object.fromEntries([...active].map((s) => [s, { type: 'running' }])) });
     case `POST /api/session/:id/permission/${parts[4]}/reply`: {
       const waiter = permissionWaiters.get(parts[4]!);
