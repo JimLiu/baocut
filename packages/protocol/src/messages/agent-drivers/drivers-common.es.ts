@@ -9,6 +9,6 @@ export const es: DriversCommonMessages = {
  resumeFailed: (p) => `No se pudo reanudar la sesión nativa de ${p.name}${p.error ? ` (${p.error})` : ''}. Se inició una sesión nueva; el agente no puede ver la conversación anterior.`,
  sessionClosed: (p) => `La sesión de ${p.name} está cerrada`, sessionNotReady: (p) => `La sesión de ${p.name} aún no está lista`, turnInProgress: 'El turno anterior aún no ha terminado',
  modelSwitchFailed: (p) => `${p.name} no pudo cambiar al modelo ${p.model}: ${p.error}`, timedOut: (p) => `${p.label} agotó el tiempo (${p.seconds} s)`,
- unknownError: 'Error desconocido', unknownReason: 'motivo desconocido', imagePlaceholder: '[Imagen]', officialScript: 'Script oficial',
+ unknownError: 'Error desconocido', unknownReason: 'motivo desconocido', outputLineTooLong: (p) => `${p.name} escribió una línea de salida de más de ${p.mb} MB, así que BaoCut lo detuvo.`, imagePlaceholder: '[Imagen]', officialScript: 'Script oficial',
   nativeSessionNotFound: (p) => `No se encontró la sesión local ${p.id}. Puede que se haya eliminado.`,
 };

@@ -19,6 +19,7 @@ export const ko: DriversCommonMessages = {
   timedOut: (p) => `${p.label} 시간 초과(${p.seconds}초)`,
   unknownError: '알 수 없는 오류',
   unknownReason: '알 수 없는 이유',
+  outputLineTooLong: (p) => `${p.name}이(가) ${p.mb}MB를 넘는 한 줄을 출력해 BaoCut이 중지했습니다.`,
   imagePlaceholder: '[이미지]',
   officialScript: '공식 스크립트',
   nativeSessionNotFound: (p) => `로컬 세션 ${p.id}을(를) 찾지 못했습니다. 삭제되었을 수 있습니다.`,

@@ -164,6 +164,15 @@ describe('CodexSession（假 codex）', () => {
     }
   });
 
+  it('回复里含 U+2028 / U+2029：消息不被切断，回合照常结束', async () => {
+    const text = 'line\u2028sep\u2029end';
+    const { session, events, completed } = await start({ turn: { status: 'completed', reply: text } });
+    const { turnId } = await session.startTurn({ text: 'hi' }, { accessMode: 'ask', model: 'fake-sol', effort: 'high' });
+    await completed(turnId);
+    const reply = events.find((e) => e.type === 'item.completed' && e.item.kind === 'agent-message');
+    expect(reply?.type === 'item.completed' && reply.item.kind === 'agent-message' && reply.item.text).toBe(text);
+  });
+
   it('插话：正在跑的回合 accepted（带 expectedTurnId）；别的回合、已经结束的回合 unavailable，不发请求', async () => {
     const { session, events, completed } = await start({ turn: { status: 'hang' } });
     const { turnId } = await session.startTurn({ text: '开始' }, { accessMode: 'ask', model: null, effort: null });

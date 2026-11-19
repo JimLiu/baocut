@@ -1,14 +1,16 @@
 /*
  * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
  * packages/server/src/server/agent/providers/jsonl-rpc-process.ts 的 JsonlRpcProcess（`req_N` 请求号、挂起表、逐请求超时、
- * requestStopWork、stderr 尾部、关闭时 stdin end → SIGTERM → SIGKILL）与 jsonl-frame-decoder.ts 的分行（只按 LF 切、去掉行尾 CR）。
+ * requestStopWork、stderr 尾部、关闭时 stdin end → SIGTERM → SIGKILL、单行超限时结束进程）与 jsonl-frame-decoder.ts 的分行
+ * （只按 LF 切、去掉行尾 CR，见 ../jsonl-lines.ts）。
  * 改成 BaoCut 的 Logger 与 Node 自带的 spawn；去掉 rpc_chunk 分片（v2）与进程树清理。
  */
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Localized } from '@baocut/protocol';
-import { DriversPi } from '@baocut/protocol/messages/agent-drivers';
+import { DriversCommon, DriversPi } from '@baocut/protocol/messages/agent-drivers';
 import type { Logger } from '@baocut/harness';
 import { LocalizedError } from '../driver-text.ts';
+import { JSONL_MAX_LINE_CHARS, JsonlLineReader } from '../jsonl-lines.ts';
 import { piCommand } from './pi-binary.ts';
 
 const STDERR_LIMIT = 8192;
@@ -41,7 +43,9 @@ export class PiRpcProcess {
   readonly #log: Logger;
   readonly #pending = new Map<string, Pending>();
   readonly #listeners = new Set<(message: Record<string, unknown>) => void>();
-  #buffer = '';
+  readonly #lines: JsonlLineReader;
+  /** 不是自己退出、而是 BaoCut 因为输出超限结束它时的说明，替代退出码那句。 */
+  #stopReason: Localized | null = null;
   #stderr = '';
   #nextId = 1;
   #disposed = false;
@@ -57,7 +61,15 @@ export class PiRpcProcess {
     this.#child = spawn(exec.file, exec.args, { cwd: launch.cwd, env: launch.env, stdio: ['pipe', 'pipe', 'pipe'] });
     this.#child.stdout.setEncoding('utf8');
     this.#child.stderr.setEncoding('utf8');
-    this.#child.stdout.on('data', (chunk: string) => this.#read(chunk));
+    this.#lines = new JsonlLineReader({
+      onLine: (line) => this.#line(line),
+      onOverflow: () => {
+        this.#log.error('Pi wrote an output line over the limit; stopping it');
+        this.#stopReason = DriversCommon.outputLineTooLong({ name: 'Pi', mb: JSONL_MAX_LINE_CHARS / (1024 * 1024) });
+        void this.close();
+      },
+    });
+    this.#child.stdout.on('data', (chunk: string) => this.#lines.push(chunk));
     this.#child.stderr.on('data', (chunk: string) => {
       this.#stderr = (this.#stderr + chunk).slice(-STDERR_LIMIT);
     });
@@ -74,7 +86,7 @@ export class PiRpcProcess {
       this.#child.on('error', (error) => done(DriversPi.processStartFailed({ error: error.message })));
       this.#child.on('exit', (code, signal) => {
         const tail = this.stderrTail();
-        done(DriversPi.processExited({ code: String(code ?? 'null'), signal: String(signal ?? 'null'), tail }));
+        done(this.#stopReason ?? DriversPi.processExited({ code: String(code ?? 'null'), signal: String(signal ?? 'null'), tail }));
       });
     });
   }
@@ -163,17 +175,6 @@ export class PiRpcProcess {
     this.#log.warn('Pi process did not exit after SIGTERM; sending SIGKILL');
     this.#child.kill('SIGKILL');
     if (!(await wait(FORCE_MS))) this.#log.warn('Pi process still has not reported exit after SIGKILL');
-  }
-
-  #read(chunk: string): void {
-    this.#buffer += chunk;
-    let newline = this.#buffer.indexOf('\n');
-    while (newline !== -1) {
-      const line = this.#buffer.slice(0, newline).replace(/\r$/, '');
-      this.#buffer = this.#buffer.slice(newline + 1);
-      if (line.trim()) this.#line(line);
-      newline = this.#buffer.indexOf('\n');
-    }
   }
 
   #line(line: string): void {

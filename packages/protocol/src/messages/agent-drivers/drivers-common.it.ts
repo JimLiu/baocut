@@ -18,6 +18,7 @@ export const it: DriversCommonMessages = {
   timedOut: (p) => `${p.label} è scaduto (${p.seconds} s)`,
   unknownError: "Errore sconosciuto",
   unknownReason: "motivo sconosciuto",
+  outputLineTooLong: (p) => `${p.name} ha scritto una riga di output superiore a ${p.mb} MB, quindi BaoCut l’ha arrestato.`,
   imagePlaceholder: "[Immagine]",
   officialScript: "Script ufficiale",
   nativeSessionNotFound: (p) => `Impossibile trovare la sessione locale ${p.id}. Potrebbe essere stata eliminata.`,

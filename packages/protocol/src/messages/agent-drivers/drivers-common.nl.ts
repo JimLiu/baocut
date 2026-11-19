@@ -20,6 +20,7 @@ export const nl: DriversCommonMessages = {
   timedOut: (p: { label: string; seconds: number }) => `${p.label} heeft de tijdslimiet overschreden (${p.seconds} s)`,
   unknownError: "Onbekende fout",
   unknownReason: "onbekende reden",
+  outputLineTooLong: (p) => `${p.name} schreef één uitvoerregel van meer dan ${p.mb} MB, dus BaoCut heeft het gestopt.`,
 
   imagePlaceholder: "[Afbeelding]",
 

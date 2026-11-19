@@ -18,6 +18,7 @@ export const zhHans: DriversCommonMessages = {
   timedOut: (p) => `${p.label} 超时（${p.seconds} 秒）`,
   unknownError: '未知错误',
   unknownReason: '原因不明',
+  outputLineTooLong: (p) => `${p.name} 输出的一行超过 ${p.mb} MB，BaoCut 已停止它。`,
   imagePlaceholder: '[图片]',
   officialScript: '官方脚本',
   nativeSessionNotFound: (p) => `没有找到本机会话 ${p.id}，可能已经删掉了。`,

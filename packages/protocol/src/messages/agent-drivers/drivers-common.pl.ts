@@ -18,6 +18,7 @@ export const pl: DriversCommonMessages = {
   timedOut: (p) => `${p.label} – upłynął limit czasu (${p.seconds} s)`,
   unknownError: "Nieznany błąd",
   unknownReason: "nieznana przyczyna",
+  outputLineTooLong: (p) => `${p.name} wypisał jedną linię wyjścia większą niż ${p.mb} MB, więc BaoCut go zatrzymał.`,
   imagePlaceholder: "[Obraz]",
   officialScript: "Oficjalny skrypt",
   nativeSessionNotFound: (p) => `Nie znaleziono lokalnej sesji ${p.id}. Mogła zostać usunięta.`,

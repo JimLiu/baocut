@@ -19,6 +19,7 @@ export const ja: DriversCommonMessages = {
   timedOut: (p) => `${p.label} がタイムアウトしました（${p.seconds} 秒）`,
   unknownError: '不明なエラー',
   unknownReason: '不明な理由',
+  outputLineTooLong: (p) => `${p.name} が ${p.mb} MB を超える 1 行を出力したため、BaoCut が停止しました。`,
   imagePlaceholder: '[画像]',
   officialScript: '公式スクリプト',
   nativeSessionNotFound: (p) => `ローカルのセッション ${p.id} が見つかりません。削除された可能性があります。`,

@@ -1,8 +1,8 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
-import readline from 'node:readline';
 import type { Logger } from '@baocut/harness';
 import { DriversCodex, DriversCommon } from '@baocut/protocol/messages/agent-drivers';
 import { LocalizedError } from '../driver-text.ts';
+import { JSONL_MAX_LINE_CHARS, JsonlLineReader } from '../jsonl-lines.ts';
 
 /**
  * `codex app-server` 的 stdio 传输：每行一个 JSON 对象，JSON-RPC 形状但不带 `"jsonrpc"` 字段。
@@ -54,8 +54,17 @@ export class CodexRpcConnection {
   constructor(child: ChildProcessWithoutNullStreams, log: Logger) {
     this.#child = child;
     this.#log = log;
-    const rl = readline.createInterface({ input: child.stdout });
-    rl.on('line', (line) => this.#handleLine(line));
+    // 只按 LF 分行（见 JsonlLineReader）：readline 会在 JSON 字符串里的 U+2028 / U+2029 处切开，丢掉含它们的消息。
+    const lines = new JsonlLineReader({
+      onLine: (line) => this.#handleLine(line),
+      onOverflow: () => {
+        this.#log.error('codex app-server wrote an output line over the limit; stopping it');
+        this.#terminate(new LocalizedError(DriversCommon.outputLineTooLong({ name: 'Codex', mb: JSONL_MAX_LINE_CHARS / (1024 * 1024) })));
+        void this.close();
+      },
+    });
+    child.stdout.on('data', (chunk: Buffer | string) => lines.push(chunk));
+    child.stdout.on('end', () => lines.end());
     child.stderr.on('data', (chunk: Buffer) => {
       this.#stderr = (this.#stderr + chunk.toString()).slice(-STDERR_LIMIT);
     });

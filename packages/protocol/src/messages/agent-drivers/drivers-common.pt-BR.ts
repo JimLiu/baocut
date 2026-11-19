@@ -18,6 +18,7 @@ export const ptBR: DriversCommonMessages = {
   timedOut: (p) => `${p.label} expirou (${p.seconds} s)`,
   unknownError: "Erro desconhecido",
   unknownReason: "motivo desconhecido",
+  outputLineTooLong: (p) => `${p.name} escreveu uma linha de saída com mais de ${p.mb} MB, então o BaoCut o interrompeu.`,
   imagePlaceholder: "[Imagem]",
   officialScript: "Script oficial",
   nativeSessionNotFound: (p) => `Não foi possível encontrar a sessão local ${p.id}. Ela pode ter sido excluída.`,

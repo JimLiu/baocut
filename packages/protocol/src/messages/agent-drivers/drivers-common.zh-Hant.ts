@@ -18,6 +18,7 @@ export const zhHant: DriversCommonMessages = {
   timedOut: (p) => `${p.label} 逾時（${p.seconds} 秒）`,
   unknownError: '未知的錯誤',
   unknownReason: '原因不明',
+  outputLineTooLong: (p) => `${p.name} 輸出的一行超過 ${p.mb} MB，BaoCut 已停止它。`,
   imagePlaceholder: '[圖片]',
   officialScript: '官方指令碼',
   nativeSessionNotFound: (p) => `找不到本機工作階段 ${p.id}，可能已經刪除。`,

@@ -20,6 +20,7 @@ export const de: DriversCommonMessages = {
   timedOut: (p: { label: string; seconds: number }) => `${p.label} hat das Zeitlimit überschritten (${p.seconds} s)`,
   unknownError: "Unbekannter Fehler",
   unknownReason: "unbekannter Grund",
+  outputLineTooLong: (p) => `${p.name} hat eine einzelne Ausgabezeile über ${p.mb} MB geschrieben; BaoCut hat es beendet.`,
 
   imagePlaceholder: "[Bild]",
 

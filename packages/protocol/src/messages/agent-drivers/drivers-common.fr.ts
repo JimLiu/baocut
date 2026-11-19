@@ -20,6 +20,7 @@ export const fr: DriversCommonMessages = {
   timedOut: (p: { label: string; seconds: number }) => `${p.label} a dépassé le délai (${p.seconds} s)`,
   unknownError: "Erreur inconnue",
   unknownReason: "motif inconnu",
+  outputLineTooLong: (p) => `${p.name} a écrit une ligne de sortie de plus de ${p.mb} Mo ; BaoCut l’a arrêté.`,
 
   imagePlaceholder: "[Image]",
 

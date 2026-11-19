@@ -18,6 +18,7 @@ export const ru: DriversCommonMessages = {
   timedOut: (p) => `${p.label} — время ожидания истекло (${p.seconds} с)`,
   unknownError: "Неизвестная ошибка",
   unknownReason: "неизвестная причина",
+  outputLineTooLong: (p) => `${p.name} вывел строку больше ${p.mb} МБ, поэтому BaoCut остановил его.`,
   imagePlaceholder: "[Изображение]",
   officialScript: "Официальный скрипт",
   nativeSessionNotFound: (p) => `Локальный сеанс ${p.id} не найден. Возможно, он был удалён.`,

@@ -35,6 +35,8 @@ const en = {
   timedOut: (p: { label: string; seconds: number }) => `${p.label} timed out (${p.seconds} s)`,
   unknownError: 'Unknown error',
   unknownReason: 'unknown reason',
+  /** 子进程的一行输出超过上限，BaoCut 结束了它。`mb` 是上限。 */
+  outputLineTooLong: (p: { name: string; mb: number }) => `${p.name} wrote a single output line over ${p.mb} MB, so BaoCut stopped it.`,
   /** 工具输出里图片的占位。 */
   imagePlaceholder: '[Image]',
   /** 安装方式的名字。 */
