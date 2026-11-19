@@ -397,6 +397,8 @@ export class CodexSession implements AgentSession {
   }
 
   async interrupt(turnId: string): Promise<InterruptReceipt> {
+    // 已经结束的回合：不再发 turn/interrupt（Codex 会回错，回执成了 unknown）。
+    if (turnId === this.#lastCompletedTurnId && this.#activeTurnId !== turnId) return { status: 'not-running' };
     try {
       await this.#conn.request('turn/interrupt', { threadId: this.#requireThread(), turnId }, 15_000);
       return { status: 'requested' };

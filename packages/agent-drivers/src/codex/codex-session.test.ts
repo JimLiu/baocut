@@ -108,6 +108,14 @@ describe('CodexSession（假 codex）', () => {
     ]);
   });
 
+  it('中断已经结束的回合：not-running，不发 turn/interrupt', async () => {
+    const { session, completed } = await start();
+    const { turnId } = await session.startTurn({ text: 'hi' }, { accessMode: 'ask', model: null, effort: null });
+    await completed(turnId);
+    expect(await session.interrupt(turnId)).toEqual({ status: 'not-running' });
+    expect(fake.requests('turn/interrupt')).toHaveLength(0);
+  });
+
   it('图片按 localImage 给路径，文字在前；只有图片时不发空文字', async () => {
     const { session, completed } = await start();
     expect(session.capabilities).toMatchObject({ images: true, steer: true });
