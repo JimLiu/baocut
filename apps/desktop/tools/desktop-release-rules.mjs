@@ -24,6 +24,30 @@ export function validateTagVersion(tag, versions, feeds) {
   return identity;
 }
 
+/**
+ * 更新源里的安装包地址目录：官网的镜像（apps/portal 的 mirror.ts）。路径与 GitHub Releases 相同，文件从那里复制过去，
+ * 还没复制到时官网再跳回 GitHub，所以发布当时就可以写进更新源。
+ */
+export const MIRROR_DOWNLOAD_ORIGIN = 'https://baocut.com';
+export function releaseDownloadBase(tag) {
+  return `${MIRROR_DOWNLOAD_ORIGIN}/releases/download/${parseReleaseTag(tag).tag}`;
+}
+
+/**
+ * `href` 是不是这次发布（`tag`）里的 `file`：GitHub 上本仓库的地址（owner 与仓库名不分大小写），或官网镜像的同一路径。
+ */
+export function pointsToRelease(href, repo, tag, file) {
+  const url = new URL(href);
+  if (url.protocol !== 'https:' || url.search || url.hash || url.port) return false;
+  const parts = url.pathname.split('/').filter(Boolean);
+  if (url.hostname === 'github.com') {
+    return parts.length === 6 && `${parts[0]}/${parts[1]}`.toLowerCase() === repo.toLowerCase() &&
+      parts[2] === 'releases' && parts[3] === 'download' && parts[4] === tag && decodeURIComponent(parts[5]) === file;
+  }
+  return `https://${url.hostname}` === MIRROR_DOWNLOAD_ORIGIN && parts.length === 4 && parts[0] === 'releases' &&
+    parts[1] === 'download' && parts[2] === tag && decodeURIComponent(parts[3]) === file;
+}
+
 export function validateReleaseRef(ref, tag) {
   parseReleaseTag(tag);
   ensure(ref === 'refs/heads/main' || ref === `refs/tags/${tag}`, 'Release ref differs from the candidate tag');
@@ -53,7 +77,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       .map((name) => JSON.parse(git(['show', `origin/main:apps/desktop/releases/${name}`])));
     const identity = validateTagVersion(tag, [root.version, desktop.version, lock.version, lock.packages[''].version, lock.packages['apps/desktop'].version], feeds);
     ensure(source === process.env.GITHUB_SHA, 'Workflow and product source differ');
-    const download = `https://github.com/jimliu/baocut/releases/download/${tag}`;
+    const download = releaseDownloadBase(tag);
     appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\nversion=${identity.version}\nbuild=${identity.build}\nsource_commit=${source}\ndownload_base_url=${download}\n`);
     console.log(`Validated ${tag} at ${source}; all platform builds must pass before publication.`);
   } catch (error) { console.error(error.message); process.exitCode = 1; }

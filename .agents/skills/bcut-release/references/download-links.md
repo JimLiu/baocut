@@ -3,7 +3,11 @@
 A release needs no download-link edits. Both READMEs ("Download and install" and
 「下载与安装」) and baocut.com link to `https://baocut.com/download/<id>`. The
 `baocut-portal` Worker redirects each id to the newest published release that has
-that platform's files. Do not edit the READMEs, rebuild or redeploy the site for a
+that platform's files, on the site's mirror
+(`https://baocut.com/releases/download/<tag>/<file>`, the same path as on GitHub).
+The update feeds point at the same mirror. A cron trigger copies the newest two
+releases from GitHub into R2 every 10 minutes; until a file is copied, the mirror
+redirects to GitHub, so nothing breaks right after publishing. Do not edit the READMEs, rebuild or redeploy the site for a
 release. Only verify that the site picked it up.
 
 ## How the site picks a release
@@ -42,6 +46,10 @@ curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://baocut.com/down
 - `/api/release` must report the new version and build.
 - Every published download id must redirect to this release's file and return
   200 after redirects.
+- About 10 minutes after the assets are public, the mirror serves them itself:
+  `curl -sI https://baocut.com/releases/download/<tag>/<file>` returns 200 with
+  `Accept-Ranges: bytes`, not 302. If it still redirects, read the Worker's
+  `mirror` log entries (`failed`, `deferred`).
 - Unpublished variants must still redirect to their previous, working release.
 
 The site normally follows within about 5 minutes. The first request after that

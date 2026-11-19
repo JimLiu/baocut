@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { AppUpdateInfo, AppUpdateState } from '@baocut/ui';
 import {
+  downloadCandidates,
+  parseContentRange,
   CHECK_INTERVAL_S,
   appBundleFromExecutable,
   availability,
@@ -79,6 +81,25 @@ describe('更新源', () => {
     expect(feedTarget('linux', 'x64')).toBeNull();
     expect(feedUrl('aarch64-apple-darwin')).toBe('https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/appcast-aarch64-apple-darwin.json');
     expect(feedUrl('x86_64-pc-windows-msvc')).toBe('https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/appcast-x86_64-pc-windows-msvc.json');
+  });
+
+  it('镜像上的安装包打不开时退回 GitHub 上的同一个文件，别的地址只有自己', () => {
+    const tail = 'baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-aarch64-apple-darwin.zip';
+    expect(downloadCandidates(`https://baocut.com/releases/download/${tail}`)).toEqual([
+      `https://baocut.com/releases/download/${tail}`,
+      `https://github.com/jimliu/baocut/releases/download/${tail}`,
+    ]);
+    expect(downloadCandidates(`https://github.com/jimliu/baocut/releases/download/${tail}`)).toHaveLength(1);
+    expect(downloadCandidates('https://example.com/releases/download/x.zip')).toHaveLength(1);
+  });
+
+  it('读续传响应的 Content-Range', () => {
+    expect(parseContentRange('bytes 100-199/200')).toEqual({ start: 100, end: 199, total: 200 });
+    expect(parseContentRange('bytes 100-199/*')).toEqual({ start: 100, end: 199, total: null });
+    expect(parseContentRange('bytes 100-200/200')).toBeNull();
+    expect(parseContentRange('bytes 9-3/20')).toBeNull();
+    expect(parseContentRange('bytes */200')).toBeNull();
+    expect(parseContentRange(null)).toBeNull();
   });
 
   it('Windows 的 CUDA、Vulkan 版各读自己的更新源，标准版不带后缀', () => {

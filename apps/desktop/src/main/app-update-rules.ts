@@ -53,6 +53,31 @@ export function feedUrl(target: FeedTarget, variant: string | null = null): stri
   return `https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/${feedFileName(target, variant)}`;
 }
 
+/**
+ * 官网上的安装包镜像（`apps/portal` 的 mirror.ts）与它镜像的 GitHub Releases 目录：路径相同，镜像上还没有的文件由官网
+ * 跳回 GitHub。更新源里的安装包地址指向镜像。
+ */
+export const MIRROR_DOWNLOAD_PREFIX = 'https://baocut.com/releases/download/';
+export const GITHUB_DOWNLOAD_PREFIX = 'https://github.com/jimliu/baocut/releases/download/';
+
+/** 下载安装包依次试哪些地址：镜像上的文件打不开时（官网连不上、出错），退回 GitHub 上的同一个文件。 */
+export function downloadCandidates(url: string): string[] {
+  if (!url.startsWith(MIRROR_DOWNLOAD_PREFIX)) return [url];
+  return [url, `${GITHUB_DOWNLOAD_PREFIX}${url.slice(MIRROR_DOWNLOAD_PREFIX.length)}`];
+}
+
+/** 断点续传的 206 响应头 `Content-Range: bytes <起>-<止>/<总长|*>`；读不懂为 null。 */
+export function parseContentRange(header: string | null): { start: number; end: number; total: number | null } | null {
+  const match = /^bytes (\d+)-(\d+)\/(\d+|\*)$/.exec((header ?? '').trim());
+  if (!match) return null;
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  const total = match[3] === '*' ? null : Number(match[3]);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end < start) return null;
+  if (total !== null && (!Number.isSafeInteger(total) || end >= total)) return null;
+  return { start, end, total };
+}
+
 const WINDOWS_DRIVE_PATH = /^[A-Za-z]:[\\/]/;
 
 /** 本地文件：`file://…`、绝对路径或 Windows 的盘符路径。只有更新源被环境变量覆盖时，清单里的安装包地址才允许是它。 */

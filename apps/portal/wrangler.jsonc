@@ -1,5 +1,6 @@
 // baocut.com：静态页面（dist/，由 `npm run build` 生成）加一个 Worker。
-// Worker 只接管下面 run_worker_first 列出的路径：首页按语言跳转、页面里的版本号、/download/* 跳到 GitHub Releases 上的最新版本、/api/release。
+// Worker 只接管下面 run_worker_first 列出的路径：首页按语言跳转、页面里的版本号、/download/* 跳到最新版本的安装包、/api/release、
+// /releases/download/*（安装包镜像，文件在 R2 桶 baocut-portal-releases，定时任务从 GitHub Releases 复制过来）。
 // 其余文件（图片、样式、模板预览）由静态资源直接返回。部署见 README.md。
 {
   "name": "baocut-portal",
@@ -10,12 +11,14 @@
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/", "/index.html", "/zh-hans", "/zh-hans/", "/zh-hans/index.html", "/download", "/download/*", "/api/*"]
+    "run_worker_first": ["/", "/index.html", "/zh-hans", "/zh-hans/", "/zh-hans/index.html", "/download", "/download/*", "/api/*", "/releases/*"]
   },
   "routes": [
     { "pattern": "baocut.com", "custom_domain": true },
     { "pattern": "www.baocut.com", "custom_domain": true }
   ],
+  "r2_buckets": [{ "binding": "RELEASES", "bucket_name": "baocut-portal-releases" }],
+  "triggers": { "crons": ["*/10 * * * *"] },
   "workers_dev": true,
   "observability": { "enabled": true }
 }

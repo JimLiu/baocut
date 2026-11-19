@@ -7,7 +7,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { BUNDLE_ID, feedFileName, parseManifest } from '../src/main/app-update-rules.ts';
 import { parseStandaloneFeed, standaloneArchiveName } from '../../../packages/protocol/src/standalone-cli.ts';
-import { parseReleaseTag } from './desktop-release-rules.mjs';
+import { parseReleaseTag, pointsToRelease } from './desktop-release-rules.mjs';
 import { validateReleaseNotes } from './release-notes.mjs';
 
 const TARGET = 'x86_64-pc-windows-msvc';
@@ -82,15 +82,6 @@ export async function validatePackage(directory, mac, tag, variant, repo, run) {
     'Appcast points to another standalone CLI archive');
   } else invariant(feed.cli === undefined, 'Appcast lists a standalone CLI archive the candidate does not have');
   return { report, reportFile, feed, feedName, directory };
-}
-
-/** Whether `href` is the download of `file` from this repository's `tag` release (the owner and repository compare without case). */
-function pointsToRelease(href, repo, tag, file) {
-  const url = new URL(href);
-  const parts = url.pathname.split('/').filter(Boolean);
-  return url.protocol === 'https:' && url.hostname === 'github.com' && !url.search && !url.hash && parts.length === 6 &&
-    `${parts[0]}/${parts[1]}`.toLowerCase() === repo.toLowerCase() && parts[2] === 'releases' && parts[3] === 'download' && parts[4] === tag &&
-    decodeURIComponent(parts[5]) === file;
 }
 
 /** Archives a validated package publishes: installer, portable ZIP and, when built, the standalone CLI archive. */

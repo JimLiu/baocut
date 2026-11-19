@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { BUNDLE_ID, feedFileName, parseManifest } from '../src/main/app-update-rules.ts';
 import { fileHash } from './windows-release.mjs';
 import { runMac, verifyMacIdentity } from './macos-distribution.mjs';
-import { validateReleaseRef } from './desktop-release-rules.mjs';
+import { pointsToRelease, validateReleaseRef } from './desktop-release-rules.mjs';
 import { validateReleaseNotes } from './release-notes.mjs';
 import { CASK_FILE, renderHomebrewCask } from './homebrew-cask.mjs';
 import { STANDALONE_APP_NAME, parseStandaloneFeed, standaloneArchiveName } from '../../../packages/protocol/src/standalone-cli.ts';
@@ -107,11 +107,11 @@ export async function validateMacPackage(directory, expected) {
   ensure(parseManifest(feedText, TARGET, false).ok, 'Mac feed rejected by the App parser');
   ensure(feed.version === report.version && feed.build === report.build && feed.app.format === 'zip' &&
     feed.app.size === report.portable.size && feed.app.sha256 === report.portable.sha256 &&
-    feed.app.url === `https://github.com/jimliu/baocut/releases/download/${tag}/${report.portable.file}`, 'Mac feed points to another release or archive');
+    pointsToRelease(feed.app.url, 'JimLiu/baocut', tag, report.portable.file), 'Mac feed points to another release or archive');
   if (cli) {
     const parsed = parseStandaloneFeed(feedText, TARGET, 'cpu');
     ensure(parsed.ok && parsed.version === report.version && parsed.build === report.build && parsed.cli.size === cli.size &&
-      parsed.cli.sha256 === cli.sha256 && parsed.cli.url === `https://github.com/jimliu/baocut/releases/download/${tag}/${cli.file}`,
+      parsed.cli.sha256 === cli.sha256 && pointsToRelease(parsed.cli.url, 'JimLiu/baocut', tag, cli.file),
     'Mac feed points to another standalone CLI archive');
   } else ensure(feed.cli === undefined, 'Mac feed lists a standalone CLI archive the candidate does not have');
   return { report, tag, feed, feedText, names: [report.portable.file, report.installer.file,

@@ -3,7 +3,7 @@ import { constants as fsConstants, closeSync, openSync, readFileSync } from 'nod
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { BrowserWindow, app, ipcMain, shell } from 'electron';
+import { BrowserWindow, app, ipcMain, net, shell } from 'electron';
 import {
   createPendingLaunch,
   installMac,
@@ -23,6 +23,7 @@ import {
   feedTarget,
   feedUrl,
   isFileUrl,
+  parseContentRange,
 } from './app-update-rules.ts';
 import {
   createAppUpdateService,
@@ -30,6 +31,7 @@ import {
   installationBucket,
   type AppUpdateService,
   type ByteSource,
+  type RemoteBytes,
 } from './app-update-service.ts';
 
 /*
@@ -103,8 +105,12 @@ function userAgent(): string {
   return `BaoCut/${app.getVersion()} (build ${currentBuild()})`;
 }
 
+/*
+ * 清单与安装包都经 Electron 的 `net.fetch`（Chromium 的网络栈）取：跟随系统的代理设置（含 PAC 与系统证书），
+ * 与浏览器一样；Node 的全局 `fetch` 不读系统代理，在要走代理的网络里下载慢或连不上。
+ */
 async function fetchText(url: string): Promise<string> {
-  const response = await fetch(url, {
+  const response = await net.fetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': userAgent() },
     signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
   });
@@ -129,7 +135,11 @@ async function* readBody(body: ReadableStream<Uint8Array>, onChunk: () => void):
   }
 }
 
-async function openRemote(url: string, signal: AbortSignal): Promise<ByteSource> {
+/**
+ * 打开安装包。`offset` 大于 0 时带 `Range: bytes=<offset>-` 续传：206 必须正好从 `offset` 起；服务端不认 Range（200）
+ * 就从头给；416（本地的半截比服务端的文件还长）不带 Range 重来一次。
+ */
+async function openRemote(url: string, signal: AbortSignal, offset: number): Promise<RemoteBytes> {
   const stall = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const arm = () => {
@@ -137,19 +147,37 @@ async function openRemote(url: string, signal: AbortSignal): Promise<ByteSource>
     timer = setTimeout(() => stall.abort(new Error('download stalled')), STALL_TIMEOUT_MS);
   };
   arm();
-  const response = await fetch(url, { headers: { 'User-Agent': userAgent() }, signal: AbortSignal.any([signal, stall.signal]) });
+  const headers: Record<string, string> = { 'User-Agent': userAgent() };
+  if (offset > 0) headers.Range = `bytes=${offset}-`;
+  const response = await net.fetch(url, { headers, signal: AbortSignal.any([signal, stall.signal]) });
+  if (offset > 0 && response.status === 416) {
+    clearTimeout(timer);
+    await response.body?.cancel();
+    return openRemote(url, signal, 0);
+  }
   if (!response.ok || !response.body) {
     clearTimeout(timer);
     throw new Error(`HTTP ${response.status}`);
   }
+  let start = 0;
+  if (response.status === 206) {
+    const range = parseContentRange(response.headers.get('Content-Range'));
+    if (!range || range.start !== offset) {
+      clearTimeout(timer);
+      await response.body.cancel();
+      throw new Error(`unexpected Content-Range ${response.headers.get('Content-Range')} for byte ${offset}`);
+    }
+    start = range.start;
+  }
   const body = response.body;
-  return (async function* () {
+  const source: ByteSource = (async function* () {
     try {
       yield* readBody(body, arm);
     } finally {
       clearTimeout(timer);
     }
   })();
+  return { source, offset: start };
 }
 
 async function writable(dir: string): Promise<boolean> {

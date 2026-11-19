@@ -56,7 +56,7 @@ Apple Silicon、macOS 14+、Node 22.18+、Rust 与 Xcode 命令行工具上，�
 npm run package:mac -- --build 60 \
   --sign-sha1 <Developer-ID-证书完整-SHA1> \
   --out /仓库外/全新产物目录 \
-  --download-base-url https://github.com/jimliu/baocut/releases/download/baocut-v3.0.0-build.60
+  --download-base-url https://baocut.com/releases/download/baocut-v3.0.0-build.60
 ```
 
 版本从 `apps/desktop/package.json` 读取，App ID 为 `com.baocut.app`。build 号接着既有发布递增；上面的 60 是首个 3.0.0 候选，后续发布不复用。签名与加密备份见[签名说明](../../docs/macos-signing.md)，开发代理使用[发布 skill](../../.agents/skills/bcut-release/SKILL.md)。公证 profile 默认 `baocut-notary`，可用 `--notary-profile` 或 `BAOCUT_NOTARY_PROFILE` 覆盖；CI 独立钥匙串传 `--sign-keychain`。
@@ -75,7 +75,7 @@ Electron-builder 先装成 `BaoCut.app`；签名脚本用完整证书指纹选�
 
 共享字体与 WASM 的产物检查用 `node apps/desktop/tools/check-file-fonts.mjs --out=/路径/BaoCut.app/Contents/Resources/app.asar/out`：隐藏 Electron 窗口读取最终 ASAR 中的页面和字体 URL，核对清单中的字体与两份 WASM 全部加载、字体注入预览内核、编辑语义能分句；不启动 Runtime，也不读取用户数据。
 
-发布通过 GitHub Releases，归档文件名与内容不可变。`--download-base-url` 生成 App 自己的解析器验证过的 ZIP 更新清单；公开归档读回通过后才更新 `apps/desktop/releases/` 的版本钉；Mac 的版本钉与 Homebrew cask 在同一个 commit 里更新（`node --test apps/desktop/tools/homebrew-cask.test.mjs` 核对两者一致）。新版使用独立 ID，不将旧版官网的更新源直接换成新包；全部选定平台发布与验证完成后，将最新稳定桌面版本标记为 GitHub Latest，步骤见[发布 skill](../../.agents/skills/bcut-release/SKILL.md#complete-public-release)。
+发布通过 GitHub Releases，归档文件名与内容不可变。`--download-base-url` 生成 App 自己的解析器验证过的 ZIP 更新清单，地址指向官网镜像 `https://baocut.com/releases/download/<tag>/`（与 GitHub Releases 同一路径，官网定时从 GitHub 复制，没复制到时跳回 GitHub，见 [apps/portal](../portal/README.md#安装包镜像)）；公开归档读回通过后才更新 `apps/desktop/releases/` 的版本钉；Mac 的版本钉与 Homebrew cask 在同一个 commit 里更新（`node --test apps/desktop/tools/homebrew-cask.test.mjs` 核对两者一致）。新版使用独立 ID，不将旧版官网的更新源直接换成新包；全部选定平台发布与验证完成后，将最新稳定桌面版本标记为 GitHub Latest，步骤见[发布 skill](../../.agents/skills/bcut-release/SKILL.md#complete-public-release)。
 
 **GitHub Actions**：推送 `baocut-v<VERSION>-build.<BUILD>` release tag 自动触发 `desktop-release`，从 tag 的同一提交并行构建 Mac Apple Silicon 与 Windows x64 CPU、CUDA、Vulkan。Mac 原生检查通过后立即发布并更新 Mac appcast，不等待 CUDA；Windows 原生检查通过且 Mac Release 已公开后，追加到同一个 Release 并更新 Windows appcast。Mac 发布后先写入完整日志、交付已验证的下载；全部选定平台完成后再更新 Latest。Git tag 与源码 SHA 保持不变。tag 版本必须与 package.json / lockfile 一致、build 递增、提交已在 `main` 上；不能复用 Build 60。签名材料放在允许 `main` 和 release tag 的 `macos-release` Environment。`desktop-macos` 保留默认 `mode=validate` 的手动凭据验证入口。Secrets、命令和完整规则见[签名说明 §5](../../docs/macos-signing.md#5-github-actions-配置)；UI/导出与真实模型推理未由流水线验证，报告会明确标注。
 
@@ -140,7 +140,7 @@ Windows 同样启用上述字体与 WASM 共享：Export Worker 用 `external-fo
 ```sh
 gh workflow run desktop-windows.yml --ref baocut-v3.0.0-build.60 \
   -f include_cuda=true -f include_vulkan=true -f build=60 \
-  -f download_base_url=https://github.com/jimliu/baocut/releases/download/baocut-v3.0.0-build.60
+  -f download_base_url=https://baocut.com/releases/download/baocut-v3.0.0-build.60
 
 # 原生 job 通过且 artifact 已上传后，用实际 run ID；只选择验证通过的变体。
 gh workflow run desktop-windows-publish.yml --ref main \

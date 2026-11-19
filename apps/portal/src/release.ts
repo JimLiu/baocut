@@ -5,10 +5,15 @@
  * GitHub 上标成 Latest 的 Release 可能是历史上的 Skill 发布，不能用；这里按 `baocut-v<版本>-build.<构建号>` 的 tag 自己挑。
  * macOS 先发布、Windows 的文件之后才追加进同一个 Release，所以每个平台变体各取「它的文件已经传完」的最新一版。
  * 文件名按发布产物的命名规则：`https://github.com/jimliu/baocut/releases/download/<tag>/BaoCut-<版本>-build.<构建号>-<平台后缀>`。
+ * 给访客的下载地址是官网镜像上的同一路径（`https://baocut.com/releases/download/…`，见 mirror.ts），没镜像到时它再跳回 GitHub。
  */
 
 export const REPOSITORY_URL = 'https://github.com/jimliu/baocut';
 export const RELEASES_URL = `${REPOSITORY_URL}/releases`;
+/** GitHub Releases 上的文件目录。 */
+export const GITHUB_DOWNLOAD_PREFIX = `${RELEASES_URL}/download/`;
+/** 官网镜像上的同一目录（mirror.ts）：更新源与下载按钮都指向这里。 */
+export const MIRROR_DOWNLOAD_PREFIX = 'https://baocut.com/releases/download/';
 /**
  * Worker 读的 Release 列表，新的在前。只要最近几次：每次发布都带全部平台，某个平台变体连着几次没发布时由构建快照兜底；
  * 每个 Release 带二十多个文件，响应体随条数涨得很快（一条约 30 KB）。
@@ -66,16 +71,15 @@ export type ReleaseSet = Partial<Record<FeedId, FeedRelease>>;
 
 const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const TAG = /^baocut-v(\d{1,4}\.\d{1,4}\.\d{1,4})-build\.(\d{1,7})$/;
-const DOWNLOAD_PREFIX = `${REPOSITORY_URL}/releases/download/`;
+export const TAG = /^baocut-v(\d{1,4}\.\d{1,4}\.\d{1,4})-build\.(\d{1,7})$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
- * 读一份 schema 1 的更新源。安装包地址必须在本仓库的发布目录里、文件名带着同一个版本与构建号，否则当作读不懂：
- * Worker 会照它重定向，不能让更新源把访客带到别处。
+ * 读一份 schema 1 的更新源。安装包地址必须在本仓库的发布目录里（GitHub 上的，或官网镜像的同一路径）、文件名带着同一个
+ * 版本与构建号，否则当作读不懂：Worker 会照它重定向，不能让更新源把访客带到别处。
  */
 export function parseFeed(raw: unknown): FeedRelease | null {
   if (!isRecord(raw) || raw.schema !== 1) return null;
@@ -86,8 +90,9 @@ export function parseFeed(raw: unknown): FeedRelease | null {
   if (!isRecord(app) || typeof app.url !== 'string') return null;
   // 仓库地址在不同地方大小写不同（`JimLiu/baocut`），只比较小写。
   const url = app.url;
-  if (!url.toLowerCase().startsWith(DOWNLOAD_PREFIX)) return null;
-  const [tag, file, ...rest] = url.slice(DOWNLOAD_PREFIX.length).split('/');
+  const prefix = [GITHUB_DOWNLOAD_PREFIX, MIRROR_DOWNLOAD_PREFIX].find((candidate) => url.toLowerCase().startsWith(candidate));
+  if (!prefix) return null;
+  const [tag, file, ...rest] = url.slice(prefix.length).split('/');
   if (!tag || !file || rest.length > 0 || !TAG.test(tag)) return null;
   if (tag !== `baocut-v${version}-build.${build}`) return null;
   if (!file.startsWith(`${releasePrefix({ version, build })}-`)) return null;
@@ -119,7 +124,7 @@ export function parseReleases(raw: unknown): ReleaseSet {
       const { name, browser_download_url: url } = asset;
       if (typeof name !== 'string' || typeof url !== 'string') continue;
       // 仓库地址在不同地方大小写不同（`JimLiu/baocut`），只比较小写。
-      if (url.toLowerCase() === `${DOWNLOAD_PREFIX}${tag}/${name}`.toLowerCase()) uploaded.add(name);
+      if (url.toLowerCase() === `${GITHUB_DOWNLOAD_PREFIX}${tag}/${name}`.toLowerCase()) uploaded.add(name);
     }
     for (const id of FEED_IDS) {
       const current = releases[id];
@@ -133,12 +138,12 @@ export function parseReleases(raw: unknown): ReleaseSet {
   return releases;
 }
 
-/** 某个下载项在这组发布里的地址；对应平台变体没有可用的发布时为 null。 */
+/** 某个下载项在这组发布里的地址（官网镜像上的）；对应平台变体没有可用的发布时为 null。 */
 export function downloadUrl(set: ReleaseSet, id: DownloadId): string | null {
   const { feed, suffix } = DOWNLOADS[id];
   const release = set[feed];
   if (!release) return null;
-  return `${DOWNLOAD_PREFIX}${release.tag}/${releasePrefix(release)}${suffix}`;
+  return `${MIRROR_DOWNLOAD_PREFIX}${release.tag}/${releasePrefix(release)}${suffix}`;
 }
 
 /** 发布说明页。 */

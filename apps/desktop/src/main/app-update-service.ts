@@ -9,6 +9,7 @@ import {
   TICK_S,
   bucketFromId,
   checkPending,
+  downloadCandidates,
   fileName,
   fileUrlPath,
   followup,
@@ -47,6 +48,15 @@ import {
 /** 一段字节流（本地文件的读流，或网络响应体）。 */
 export type ByteSource = AsyncIterable<Uint8Array>;
 
+/** 打开的远端：字节流，与它从文件的第几个字节开始（要求续传而服务端给了整个文件时是 0）。 */
+export interface RemoteBytes {
+  source: ByteSource;
+  offset: number;
+}
+
+/** 打开 https 安装包：`offset` 大于 0 时请服务端从那个字节接着给（断点续传）。 */
+export type OpenRemote = (url: string, signal: AbortSignal, offset: number) => Promise<RemoteBytes>;
+
 export type DownloadResult =
   | { ok: true; path: string }
   | { ok: false; cancelled: true }
@@ -61,12 +71,36 @@ export interface DownloadOptions {
   /** 0–100，调用方自己节流。 */
   onProgress(pct: number): void;
   /** 打开 https 安装包的字节流（本地文件不经它）。 */
-  openRemote(url: string, signal: AbortSignal): Promise<ByteSource>;
+  openRemote: OpenRemote;
+}
+
+/** 依次打开候选地址（镜像打不开时退回 GitHub），返回第一个打开的；都打不开时抛最后一个错误。 */
+async function openFirst(urls: string[], open: (url: string) => Promise<RemoteBytes>, signal: AbortSignal): Promise<RemoteBytes> {
+  let last: unknown = new Error('no download address');
+  for (const url of urls) {
+    if (signal.aborted) break;
+    try {
+      return await open(url);
+    } catch (error) {
+      last = error;
+    }
+  }
+  throw last;
+}
+
+/** 已经下了一部分的 `.part` 有多少字节可以接着用：比清单小、大于 0 才算，否则从头下。 */
+async function resumableBytes(part: string, size: number): Promise<number> {
+  const stat = await fs.stat(part).catch(() => null);
+  return stat?.isFile() && stat.size > 0 && stat.size < size ? stat.size : 0;
 }
 
 /**
  * 流式下载到 `dir/<文件名>.part`，边写边算 SHA-256；大小、摘要都对才改名成正式文件名。超出清单大小立即中止，
- * `signal` 一停即中止。任何失败都删掉 `.part`；成功后清掉缓存目录里别的安装包。
+ * `signal` 一停即中止。成功后清掉缓存目录里别的安装包。
+ *
+ * 断点续传：网络断了（打不开、读到一半出错）时留着 `.part`，下次下载同一个文件（文件名带版本与构建号）时先把它算进摘要，
+ * 再请服务端从它的末尾接着给；服务端给了整个文件就从头写。取消与校验失败照旧删掉 `.part`；接上的内容不对，
+ * 最后的大小或摘要对不上，删掉后下次从头下。地址是官网镜像时，打不开就退回 GitHub 上的同一个文件。
  */
 export async function downloadTo(info: AppUpdateInfo, dir: string, options: DownloadOptions): Promise<DownloadResult> {
   const name = fileName(info);
@@ -81,16 +115,35 @@ export async function downloadTo(info: AppUpdateInfo, dir: string, options: Down
   const open: { handle: FileHandle | null } = { handle: null };
   const result = await (async (): Promise<DownloadResult> => {
     let source: ByteSource;
+    let hash = createHash('sha256');
+    let received = 0;
     try {
       const local = isFileUrl(info.url) ? fileUrlPath(info.url) : null;
-      source = local !== null ? createReadStream(local) : await options.openRemote(info.url, options.signal);
-      open.handle = await fs.open(part, 'w');
+      if (local !== null) {
+        source = createReadStream(local);
+      } else {
+        const kept = await resumableBytes(part, info.size);
+        const remote = await openFirst(downloadCandidates(info.url), (url) => options.openRemote(url, options.signal, kept), options.signal);
+        source = remote.source;
+        if (kept > 0 && remote.offset === kept) {
+          for await (const chunk of createReadStream(part, { start: 0, end: kept - 1 })) hash.update(chunk as Buffer);
+          received = kept;
+        } else if (remote.offset !== 0) {
+          await fs.rm(part, { force: true });
+          throw new Error(`resumed at byte ${remote.offset}, expected ${kept}`);
+        }
+      }
+      if (received > 0) {
+        await fs.truncate(part, received);
+        open.handle = await fs.open(part, 'a');
+      } else {
+        hash = createHash('sha256');
+        open.handle = await fs.open(part, 'w');
+      }
     } catch (error) {
       return options.signal.aborted ? CANCELLED : failed('download', errorText(error));
     }
-    const hash = createHash('sha256');
-    let received = 0;
-    options.onProgress(0);
+    options.onProgress(percent(received, info.size));
     try {
       for await (const chunk of source) {
         if (options.signal.aborted) return CANCELLED;
@@ -124,7 +177,8 @@ export async function downloadTo(info: AppUpdateInfo, dir: string, options: Down
   })();
   await open.handle?.close().catch(() => undefined);
   if (result.ok) await prune(dir, destination);
-  else await fs.rm(part, { force: true }).catch(() => undefined);
+  // 网络断了留着 `.part`，下次接着下；取消与校验失败（含接上的内容不对）删掉。
+  else if (result.cancelled || result.failure !== 'download') await fs.rm(part, { force: true }).catch(() => undefined);
   return result;
 }
 
@@ -227,7 +281,7 @@ export interface AppUpdateDeps {
   cacheDir: string | null;
   /** 取 https 清单的正文（本地文件不经它）。 */
   fetchText(url: string): Promise<string>;
-  openRemote(url: string, signal: AbortSignal): Promise<ByteSource>;
+  openRemote: OpenRemote;
   /** 这台机器能不能不经用户手动地换包。 */
   canAutoInstall(): Promise<boolean>;
   /** 下载（或在缓存里找到）、核对过摘要之后的校验与就位（macOS 解开并验签）。`signal` 停了就结束。 */

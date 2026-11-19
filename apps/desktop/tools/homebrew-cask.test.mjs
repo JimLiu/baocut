@@ -24,9 +24,19 @@ test('the cask links the bundled command line entry and leaves updates to the Ap
   assert.equal(url, feed.app.url);
 });
 
+test('the cask follows a feed on either GitHub Releases or the baocut.com mirror', () => {
+  const feed = pinned();
+  const file = feed.app.url.split('/').slice(-2).join('/');
+  for (const base of ['https://github.com/jimliu/baocut/releases/download', 'https://baocut.com/releases/download']) {
+    const text = renderHomebrewCask({ ...feed, app: { ...feed.app, url: `${base}/${file}` } });
+    assert.match(text, new RegExp(`url "${base.replaceAll('.', '\\.')}/baocut-v#\\{version`));
+  }
+});
+
 test('the cask refuses a feed that points elsewhere', () => {
   const feed = pinned();
   assert.throws(() => renderHomebrewCask({ ...feed, app: { ...feed.app, url: feed.app.url.replace('jimliu/baocut', 'someone/else') } }), /asset naming/);
+  assert.throws(() => renderHomebrewCask({ ...feed, app: { ...feed.app, url: feed.app.url.replace(/^https:\/\/[^/]+/, 'https://example.com') } }), /asset naming/);
   assert.throws(() => renderHomebrewCask({ ...feed, target: 'x86_64-pc-windows-msvc' }), /Apple Silicon/);
   assert.throws(() => renderHomebrewCask({ ...feed, app: { ...feed.app, sha256: 'nope' } }), /checksum/);
 });
