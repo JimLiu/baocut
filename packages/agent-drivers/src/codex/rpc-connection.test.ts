@@ -73,4 +73,14 @@ describe('CodexRpcConnection pipe failures', () => {
     expect(await pending).toBeInstanceOf(Error);
     expect(child.exitCode).toBe(0);
   });
+
+  it('a request sent after an unclean exit, while stderr is still open, fails with the exit reason, not EPIPE', async () => {
+    // The grandchild keeps stderr open and writes the reason after the child itself has exited.
+    const child = spawn('/bin/sh', ['-c', '(sleep 0.2; echo "Please log in first" >&2) & exit 1'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    children.push(child);
+    const conn = new CodexRpcConnection(child, silentLogger);
+    await once(child, 'exit');
+    await expect(conn.request('thread/start', {}, 5_000)).rejects.toThrow(/Please log in first/);
+  });
 });
+
