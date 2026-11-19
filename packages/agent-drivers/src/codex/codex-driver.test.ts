@@ -230,6 +230,15 @@ describe('CodexDriver（假 codex）', () => {
     expect(fake.log().filter((e) => e.kind === 'start')).toEqual([]);
   });
 
+  it('app-server 起来就退出：报错带上之后才写到 stderr 的原因（启动器先退出、它的工作进程后写）', async () => {
+    const wrapped = await wrapperDriver('case "$1" in app-server) (sleep 0.15; echo "Please log in first" >&2) & exit 1 ;; esac\nexec "$CODEX" "$@"');
+    const failed = await wrapped
+      .createSession({ cwd: dir, accessMode: 'fullAccess', model: null, effort: null, resume: null })
+      .catch((error: unknown) => error);
+    expect(failed).toBeInstanceOf(Error);
+    expect(JSON.stringify(failed) + String(failed)).toContain('Please log in first');
+  });
+
   it('普通会话不受影响：按访问模式给策略，带上 MCP 服务与放宽的工具时限，没有沙箱的细项', async () => {
     const cwd = path.join(dir, 'project');
     await fs.mkdir(cwd);

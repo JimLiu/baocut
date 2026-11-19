@@ -209,6 +209,20 @@ describe('AcpSession（假 ACP 智能体）', () => {
     }
   });
 
+  it('审批：智能体不等答复就结束了这次工具调用，挂着的卡片随之收起', async () => {
+    const { session, events, completed, approval } = await start({
+      turn: { tool: { kind: 'execute', title: 'run' }, ask: 1, abandonApproval: true },
+    });
+    const { turnId } = await session.startTurn({ text: 'x' }, settings());
+    const asked = await approval();
+    await completed(turnId);
+    // 工具调用一结束就收起，不拖到回合结束。
+    const resolvedAt = events.findIndex((e) => e.type === 'approval.resolved' && e.approvalId === asked.approvalId);
+    const toolDoneAt = events.findIndex((e) => e.type === 'item.completed' && e.item.kind !== 'agent-message');
+    expect(resolvedAt).toBeGreaterThan(-1);
+    expect(resolvedAt).toBeLessThan(toolDoneAt);
+  });
+
   it('审批：cancel 以 cancelled 作答并取消回合', async () => {
     const s = await start({ turn: { tool: { kind: 'edit', title: 'Edit a.txt', locations: ['/p/a.txt'] }, ask: 1, reply: 'ok' } });
     const { turnId } = await s.session.startTurn({ text: 'go' }, settings());
@@ -398,6 +412,24 @@ describe('AcpSession（假 ACP 智能体）', () => {
       ['mode', 'plan'],
       ['model', 'fake-flash'],
     ]);
+  });
+
+  it('智能体自己换了模式（config_option_update）：下一轮按实际模式重设，不按比 BaoCut 更宽的模式运行', async () => {
+    const { session, completed } = await start({ modesVia: 'config', turn: { selfMode: 'yolo', reply: 'ok' } });
+    let { turnId } = await session.startTurn({ text: 'a' }, settings('ask'));
+    await completed(turnId);
+    // 当前就是 default：第一轮不设；回合里智能体自己切到 yolo。
+    expect(fake.requests('session/set_config_option')).toEqual([]);
+    ({ turnId } = await session.startTurn({ text: 'b' }, settings('ask')));
+    await completed(turnId);
+    expect(fake.requests('session/set_config_option').map((r) => [r.params.configId, r.params.value])).toEqual([['mode', 'default']]);
+  });
+
+  it('session/new 应答之前推来的模式更新：知道会话号后照样生效', async () => {
+    const { session, completed } = await start({ earlyMode: 'yolo' });
+    const { turnId } = await session.startTurn({ text: 'a' }, settings('ask'));
+    await completed(turnId);
+    expect(fake.requests('session/set_mode').map((r) => r.params.modeId)).toEqual(['default']);
   });
 
   it('Copilot：URL 形式的模式 id，完全访问是 #agent 加 allow_all=on，离开时先关掉', async () => {

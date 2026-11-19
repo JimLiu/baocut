@@ -89,4 +89,9 @@ describe.skipIf(process.platform === 'win32')('AcpProcess 结束时不留下智�
     expect(helper).toBeDefined();
     expect(alive(helper!)).toBe(false);
   });
+
+  it('initialize 之前就退出：失败原因带上之后才写到 stderr 的那句话（启动器先退出、它的工作进程后写）', async () => {
+    fake.scenario({ exitOnInitialize: true, exitStderr: 'Please log in first\n' });
+    await expect(start()).rejects.toThrow(/Please log in first/);
+  });
 });

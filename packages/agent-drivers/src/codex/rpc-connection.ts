@@ -3,6 +3,7 @@ import type { Logger } from '@baocut/harness';
 import { DriversCodex, DriversCommon } from '@baocut/protocol/messages/agent-drivers';
 import { LocalizedError } from '../driver-text.ts';
 import { JSONL_MAX_LINE_CHARS, JsonlLineReader } from '../jsonl-lines.ts';
+import { streamEnded } from '../stream-end.ts';
 
 /**
  * `codex app-server` 的 stdio 传输：每行一个 JSON 对象，JSON-RPC 形状但不带 `"jsonrpc"` 字段。
@@ -77,12 +78,17 @@ export class CodexRpcConnection {
     child.on('error', (error) => this.#terminate(error));
     child.on('exit', (code, signal) => {
       const clean = this.#closed || (code === 0 && !signal);
-      this.#terminate(
-        clean
-          ? null
-          : new LocalizedError(
-              DriversCodex.appServerExited({ code: String(code ?? 'null'), signal: String(signal ?? 'null'), stderr: this.#stderr.trim() }),
-            ),
+      if (clean) {
+        this.#terminate(null);
+        return;
+      }
+      // 等 stderr 读完再报：启动失败的原因常是退出前写下的最后几行。
+      void streamEnded(child.stderr).then(() =>
+        this.#terminate(
+          new LocalizedError(
+            DriversCodex.appServerExited({ code: String(code ?? 'null'), signal: String(signal ?? 'null'), stderr: this.#stderr.trim() }),
+          ),
+        ),
       );
     });
   }

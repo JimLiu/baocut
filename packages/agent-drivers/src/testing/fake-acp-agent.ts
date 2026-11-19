@@ -58,6 +58,7 @@ process.stdout.write('fake-acp: starting up\n');
 let nextId = 5000;
 let sessionCount = 0;
 let allowAll = 'off';
+let mode = 'default';
 const pending = new Map<number | string, (message: Message) => void>();
 let cancel: (() => void) | null = null;
 
@@ -94,7 +95,7 @@ function sessionState(): Record<string, unknown> {
   const state: Record<string, unknown> = {};
   const configOptions: unknown[] = [];
   if (scenario.modes && scenario.modesVia === 'modes') {
-    state.modes = { availableModes: scenario.modes.map((id) => ({ id, name: id })), currentModeId: 'default' };
+    state.modes = { availableModes: scenario.modes.map((id) => ({ id, name: id })), currentModeId: mode };
   }
   if (scenario.modes && scenario.modesVia === 'config') {
     configOptions.push({
@@ -102,7 +103,7 @@ function sessionState(): Record<string, unknown> {
       name: 'Mode',
       type: 'select',
       category: 'mode',
-      currentValue: 'default',
+      currentValue: mode,
       options: scenario.modes.map((value) => ({ value, name: value })),
     });
   }
@@ -154,7 +155,19 @@ async function handleRequest(message: Message): Promise<void> {
   const fail = (error: unknown) => send({ id, error });
   switch (message.method) {
     case 'initialize':
-      if (scenario.exitOnInitialize) process.exit(1);
+      if (scenario.exitOnInitialize) {
+        if (scenario.exitStderr) {
+          // 像一个启动器：自己先退出，留下的工作进程（另起进程组，不随它被结束）稍后才把原因写到同一个 stderr。
+          const writer = spawn(
+            process.execPath,
+            ['-e', `setTimeout(() => process.stderr.write(${JSON.stringify(scenario.exitStderr)}), 150)`],
+            { detached: true, stdio: ['ignore', 'ignore', 'inherit'] },
+          );
+          writer.unref();
+        }
+        process.exit(1);
+        return;
+      }
       return reply({
         protocolVersion: 1,
         agentCapabilities: {
@@ -168,6 +181,11 @@ async function handleRequest(message: Message): Promise<void> {
     case 'session/new':
       if (!scenario.loggedIn) return fail(AUTH_REQUIRED);
       sessionCount += 1;
+      if (scenario.earlyMode) {
+        const state = sessionState();
+        switchMode(`sess-${process.pid}-${sessionCount}`, scenario.earlyMode);
+        return reply({ sessionId: `sess-${process.pid}-${sessionCount}`, ...state });
+      }
       return reply({ sessionId: `sess-${process.pid}-${sessionCount}`, ...sessionState() });
     case 'session/load': {
       if (!scenario.loggedIn) return fail(AUTH_REQUIRED);
@@ -179,11 +197,14 @@ async function handleRequest(message: Message): Promise<void> {
     case 'session/resume':
       return reply(sessionState());
     case 'session/set_mode':
+      mode = String(params.modeId);
+      return reply({});
     case 'session/set_model':
     case 'session/close':
       return reply({});
     case 'session/set_config_option':
       if (params.configId === 'allow_all') allowAll = String(params.value);
+      if (params.configId === 'mode') mode = String(params.value);
       return reply({ configOptions: sessionState().configOptions ?? [] });
     case 'cursor/list_available_models':
       if (!scenario.cursorModels) return fail({ code: -32601, message: 'Method not found' });
@@ -200,6 +221,13 @@ async function handleRequest(message: Message): Promise<void> {
   }
 }
 
+/** 智能体自己换模式：按 `modesVia` 推一条更新。 */
+function switchMode(sessionId: string, next: string): void {
+  mode = next;
+  if (scenario.modesVia === 'config') update(sessionId, { sessionUpdate: 'config_option_update', configOptions: sessionState().configOptions });
+  else update(sessionId, { sessionUpdate: 'current_mode_update', currentModeId: next });
+}
+
 function handleNotification(message: Message): void {
   if (message.method === 'session/cancel') cancel?.();
 }
@@ -214,6 +242,7 @@ async function runTurn(sessionId: string, reply: (result: unknown) => void, fail
     };
   });
   if (turn.error) return fail(turn.error);
+  if (turn.selfMode) switchMode(sessionId, turn.selfMode);
   if (turn.thought) update(sessionId, { sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: turn.thought } });
   if (turn.plan) {
     update(sessionId, {
@@ -257,6 +286,16 @@ async function runTurn(sessionId: string, reply: (result: unknown) => void, fail
       };
       update(sessionId, { sessionUpdate: 'tool_call', ...toolCall });
       let allowed = true;
+      if (asks > 0 && turn.abandonApproval) {
+        void request('session/request_permission', {
+          sessionId,
+          toolCall: { toolCallId, title: turn.tool.title, kind: turn.tool.kind, rawInput: turn.tool.rawInput },
+          options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' }],
+        });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId, status: 'failed' });
+        return reply({ stopReason: 'end_turn' });
+      }
       if (asks > 0) {
         const answer = await request('session/request_permission', {
           sessionId,

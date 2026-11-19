@@ -3,7 +3,8 @@
  * packages/server/src/server/agent/providers/acp-agent.ts 的 ACPAgentSession：initializeResumedSession（先 session/load，
  * 再 session/resume；恢复时不丢 cwd 与 mcpServers）、replayingHistory（加载时回放的历史不当成新内容）、
  * handlePromptResponse（stopReason → 回合结果）、requestPermission 的挂起表（选择请求不自动放行）、setMode / setModel
- * （session/set_model）、closeSession；generic-acp-agent.ts 的通用会话装配。
+ * （session/set_model）、closeSession、earlySessionUpdates（session/new 应答之前到的更新先存着）、handleConfigOptionUpdate
+ * （智能体自己改了模式或模型）、工具调用结束时 cancelPendingPermissions；generic-acp-agent.ts 的通用会话装配。
  * 改成 BaoCut 的 AgentSession 事件；「本会话放行」由 Driver 自己记，从不选原生的「总是允许」；访问模式按更严的一方映射；
  * 选择请求转成 BaoCut 的提问。
  */
@@ -28,6 +29,7 @@ import type {
   PermissionOption,
   RequestPermissionRequest,
   RequestPermissionResponse,
+  SessionConfigOption,
   SessionNotification,
   SessionUpdate,
 } from '@agentclientprotocol/sdk';
@@ -125,6 +127,8 @@ export class AcpSession implements AgentSession {
   #turn: Turn | null = null;
   #closed = false;
   #early: AgentEvent[] | null = [];
+  /** `session/new` / `session/resume` 应答之前到达的更新（会话号还不知道），`#adopt` 之后按会话号放出。 */
+  #earlyUpdates: SessionNotification[] = [];
 
   private constructor(preset: AcpPreset, options: CreateSessionOptions, log: Logger) {
     this.#preset = preset;
@@ -222,6 +226,8 @@ export class AcpSession implements AgentSession {
     this.#state = { modes: state.modes ?? null, models: state.models ?? null, configOptions: state.configOptions ?? null };
     this.#modeId = state.modes?.currentModeId ?? findSelectOption(state.configOptions, 'mode')?.currentValue ?? null;
     this.#modelId = state.models?.currentModelId ?? findSelectOption(state.configOptions, 'model')?.currentValue ?? null;
+    const early = this.#earlyUpdates.splice(0);
+    for (const notification of early) if (notification.sessionId === sessionId) this.#onUpdate(notification);
   }
 
   async startTurn(input: AgentInput, settings: TurnSettings): Promise<{ turnId: string }> {
@@ -485,14 +491,20 @@ export class AcpSession implements AgentSession {
   }
 
   #onUpdate(notification: SessionNotification): void {
-    if (this.#replaying || notification.sessionId !== this.#sessionId) return;
+    if (this.#replaying) return;
+    if (this.#sessionId === null) {
+      // 智能体可能在开会话的应答之前就推来当前模式、配置项：先存着，知道会话号后再处理。
+      this.#earlyUpdates.push(notification);
+      return;
+    }
+    if (notification.sessionId !== this.#sessionId) return;
     const update: SessionUpdate = notification.update;
     switch (update.sessionUpdate) {
       case 'current_mode_update':
         this.#modeId = update.currentModeId;
         return;
       case 'config_option_update':
-        this.#state.configOptions = update.configOptions;
+        this.#adoptConfigOptions(update.configOptions);
         return;
       case 'available_commands_update':
         // 斜杠命令：BaoCut 的界面暂不列出。
@@ -520,6 +532,8 @@ export class AcpSession implements AgentSession {
         const terminal = snapshot.status === 'completed' || snapshot.status === 'failed';
         if (terminal && !turn.finished.has(id)) {
           turn.finished.add(id);
+          // 智能体不等答复就结束了这次工具调用（自己取消了审批请求）：收起对应的卡片。
+          this.#settleToolApprovals(id);
           const status = turn.declined.has(id) && snapshot.status === 'failed' ? 'declined' : undefined;
           this.#emit({ type: 'item.completed', turnId: turn.id, item: toolItem(snapshot, status, this.#cwd) });
         } else if (!terminal && (!previous || update.sessionUpdate === 'tool_call')) {
@@ -580,6 +594,31 @@ export class AcpSession implements AgentSession {
 
   #dropTurn(turn: Turn): void {
     if (this.#turn === turn) this.#turn = null;
+  }
+
+  /**
+   * 智能体推来的配置项（`config_option_update`，或智能体自己换了模式、模型，例如退出计划模式、额度回退换模型）：
+   * 同时更新当前模式与模型，下一轮才不会拿旧值跳过设置、按比 BaoCut 更宽的模式运行。有 `modes` 时只采纳落在
+   * `modes.availableModes` 里的值：配置项的模式值可能是另一套命名，与 `session/set_mode` 的 id 对不上。
+   */
+  #adoptConfigOptions(configOptions: SessionConfigOption[]): void {
+    this.#state.configOptions = configOptions;
+    const mode = findSelectOption(configOptions, 'mode')?.currentValue;
+    if (mode != null) {
+      const known = this.#state.modes?.availableModes;
+      if (!known?.length || known.some((m) => m.id === mode)) this.#modeId = mode;
+    }
+    const model = findSelectOption(configOptions, 'model')?.currentValue;
+    if (model != null) this.#modelId = model;
+  }
+
+  #settleToolApprovals(toolCallId: string): void {
+    for (const [approvalId, pending] of this.#approvals) {
+      if (pending.toolCallId !== toolCallId) continue;
+      this.#approvals.delete(approvalId);
+      pending.resolve(CANCELLED);
+      this.#emit({ type: 'approval.resolved', approvalId });
+    }
   }
 
   /** 挂着的审批以 cancelled 作答，界面上的卡片收起。`turnId` 为 null 时全部。 */

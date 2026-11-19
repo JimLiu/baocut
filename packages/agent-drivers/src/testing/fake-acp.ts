@@ -39,6 +39,10 @@ export interface FakeAcpTurn {
   hang?: boolean;
   /** `session/prompt` 回这个错误。 */
   error?: { code: number; message: string };
+  /** 回合里智能体自己换到这个模式（退出计划模式、切到 yolo 之类），按 `modesVia` 推 `current_mode_update` 或 `config_option_update`。 */
+  selfMode?: string;
+  /** 和 `tool` + `ask` 一起用：发出审批请求后不等答复，直接把这次工具调用标为 failed 并结束回合（智能体自己放弃了审批）。 */
+  abandonApproval?: boolean;
 }
 
 export interface FakeAcpScenario {
@@ -70,6 +74,10 @@ export interface FakeAcpScenario {
   helper: boolean;
   /** 收到 `initialize` 时不应答，直接以退出码 1 退出。 */
   exitOnInitialize: boolean;
+  /** 和 `exitOnInitialize` 一起用：它自己先退出，留下的进程约 150 ms 后往同一个 stderr 写这些（例如「请先登录」）。 */
+  exitStderr?: string;
+  /** `session/new` 应答之前先推一条更新，把当前模式换成这个（BaoCut 这时还不知道会话号）。 */
+  earlyMode?: string;
   turn: FakeAcpTurn;
 }
 

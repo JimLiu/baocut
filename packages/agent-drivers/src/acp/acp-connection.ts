@@ -2,7 +2,8 @@
  * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
  * packages/server/src/server/agent/providers/acp-agent.ts 的 createLoggedNdJsonStream / normalizeACPIncomingMessage
  * （容忍非 JSON 行的 NDJSON 流）、summarizeACPRequestError / extractACPErrorDataMessage（错误原文）、
- * buildACPClientCapabilities（不提供文件读写与终端）、rejectOnSpawnError、terminateChildProcess。
+ * buildACPClientCapabilities（不提供文件读写与终端）、rejectOnSpawnError、rejectOnProcessFailure（等 stderr 读完再报退出原因）、
+ * terminateChildProcess。
  * 改成 BaoCut 的 Logger 与中文说明，去掉诊断表与导入历史。
  */
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
@@ -19,6 +20,7 @@ import { RUNTIME_VERSION, type Localized } from '@baocut/protocol';
 import { DriversAcp, DriversCommon } from '@baocut/protocol/messages/agent-drivers';
 import type { Logger } from '@baocut/harness';
 import { resolveCliCommand } from '../cli-command.ts';
+import { streamEnded } from '../stream-end.ts';
 
 /** ACP 的「需要登录」（`RequestError.authRequired`）。 */
 export const ACP_AUTH_REQUIRED = -32000;
@@ -215,7 +217,8 @@ export class AcpProcess {
         if (this.#closing || code === 0) resolve(null);
         else {
           const status = signal ?? DriversAcp.exitCode({ code: String(code) });
-          resolve(DriversAcp.exited({ name: this.#label, status, tail: this.stderrTail() }));
+          // 等 stderr 读完再取结尾：「请先登录」这类原因常是退出前写下的最后一句。
+          void streamEnded(this.child.stderr).then(() => resolve(DriversAcp.exited({ name: this.#label, status, tail: this.stderrTail() })));
         }
       });
     });
@@ -251,7 +254,7 @@ export class AcpProcess {
     } catch (error) {
       exitedEarly.catch(() => undefined);
       // 连接先断、退出事件后到：等一下退出原因（带 stderr 的结尾），比「connection closed」有用。
-      const reason = await withTimeout(proc.exited, 500, 'alive').catch(() => null);
+      const reason = await withTimeout(proc.exited, 1000, 'alive').catch(() => null);
       await proc.close();
       throw reason ? new Error(String(reason)) : error;
     }
