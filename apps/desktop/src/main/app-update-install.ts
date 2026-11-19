@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { AppUpdateFailure, AppUpdateInfo } from '@baocut/ui';
 import { BUNDLE_ID, NSIS_UNINSTALLER, installerScript, mountPath, teamIdentifier } from './app-update-rules.ts';
+import { removeTree } from './remove-tree.ts';
 import type { InstallOutcome, Prepared, StagedApp } from './app-update-service.ts';
 
 /*
@@ -73,11 +74,11 @@ async function stage(exec: Exec, info: AppUpdateInfo, archive: string, cacheDir:
   if (info.format !== 'zip' && info.format !== 'dmg') return { ok: false, detail: `${info.format} is not a macOS artifact` };
   const dir = path.join(cacheDir, `unpack-${info.build}`);
   const fail = async (detail: string): Promise<StageResult> => {
-    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    await removeTree(dir).catch(() => undefined);
     return { ok: false, detail };
   };
   try {
-    await fs.rm(dir, { recursive: true, force: true });
+    await removeTree(dir);
     await fs.mkdir(dir, { recursive: true });
   } catch (error) {
     return fail(errorText(error));
@@ -172,7 +173,7 @@ export async function prepareMac(info: AppUpdateInfo, archive: string, deps: Mac
   const { staged } = staging;
   const problem = await validate(deps.exec, staged.app, info, team, signal);
   if (problem) {
-    await fs.rm(staged.dir, { recursive: true, force: true }).catch(() => undefined);
+    await removeTree(staged.dir).catch(() => undefined);
     return problem;
   }
   return { type: 'staged', staged };

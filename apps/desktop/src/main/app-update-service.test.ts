@@ -201,18 +201,29 @@ describe('下载', () => {
     expect(fresh.calls[0]!.offset).toBe(0);
   });
 
-  it('官网镜像打不开就退回 GitHub 上的同一个文件', async () => {
+  it('先下 GitHub 上的文件，打不开再试官网镜像上的同一个文件', async () => {
     const tail = 'baocut-v2.3.0-build.57/BaoCut-2.3.0.zip';
+    const githubUrl = `https://github.com/jimliu/baocut/releases/download/${tail}`;
     const info = infoFor({ url: `https://baocut.com/releases/download/${tail}` });
-    const github = rangedRemote();
+    const mirror = rangedRemote();
     const tried: string[] = [];
     const open: OpenRemote = async (url, signal, offset, size) => {
       tried.push(url);
-      if (url.startsWith('https://baocut.com/')) throw new Error('HTTP 502');
-      return github.open(url, signal, offset, size);
+      if (url.startsWith('https://github.com/')) throw new Error('HTTP 502');
+      return mirror.open(url, signal, offset, size);
     };
     expect(await downloadTo(info, cacheDir, { ...options, openRemote: open })).toMatchObject({ ok: true });
-    expect(tried).toEqual([info.url, `https://github.com/jimliu/baocut/releases/download/${tail}`]);
+    expect(tried).toEqual([githubUrl, info.url]);
+    // GitHub 打得开时不碰镜像。
+    await fs.rm(cacheDir, { recursive: true, force: true });
+    const github = rangedRemote();
+    const first: string[] = [];
+    const direct: OpenRemote = async (url, signal, offset, size) => {
+      first.push(url);
+      return github.open(url, signal, offset, size);
+    };
+    expect(await downloadTo(info, cacheDir, { ...options, openRemote: direct })).toMatchObject({ ok: true });
+    expect(first).toEqual([githubUrl]);
   });
 
   it('打不开远端算下载失败', async () => {

@@ -33,6 +33,7 @@ import {
   type Rollout,
   type UpdateEvent,
 } from './app-update-rules.ts';
+import { removeTree } from './remove-tree.ts';
 
 /*
  * 应用自动更新的主进程服务（架构设计 §2.6）：拉清单、流式下载并边收边算 SHA-256、校验、缓存与清理、
@@ -97,7 +98,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/** 依次打开候选地址（镜像打不开时退回 GitHub），返回第一个打开的；都打不开时抛最后一个错误。 */
+/** 依次打开候选地址（GitHub 打不开时再试镜像），返回第一个打开的；都打不开时抛最后一个错误。 */
 async function openFirst(urls: string[], open: (url: string) => Promise<RemoteBytes>, signal: AbortSignal): Promise<RemoteBytes> {
   let last: unknown = new Error('no download address');
   for (const url of urls) {
@@ -140,7 +141,7 @@ export async function downloadTo(info: AppUpdateInfo, dir: string, options: Down
  *
  * 断点续传：网络断了（打不开、读到一半出错）时留着 `.part`，下次下载同一个文件（文件名带版本与构建号）时先把它算进摘要，
  * 再请服务端从它的末尾接着给；服务端给了整个文件就从头写。取消与校验失败照旧删掉 `.part`；接上的内容不对，
- * 最后的大小或摘要对不上，删掉后下次从头下。地址是官网镜像时，打不开就退回 GitHub 上的同一个文件。
+ * 最后的大小或摘要对不上，删掉后下次从头下。GitHub Releases 的文件先试 GitHub，打不开再试官网镜像上的同一个文件。
  */
 async function downloadOnce(info: AppUpdateInfo, dir: string, options: DownloadOptions): Promise<DownloadResult> {
   const name = fileName(info);
@@ -230,7 +231,7 @@ async function prune(dir: string, keep: string): Promise<void> {
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
   for (const entry of entries) {
     const file = path.join(dir, entry.name);
-    if (entry.isDirectory() && entry.name.startsWith('unpack-')) await fs.rm(file, { recursive: true, force: true }).catch(() => undefined);
+    if (entry.isDirectory() && entry.name.startsWith('unpack-')) await removeTree(file).catch(() => undefined);
     if (!entry.isFile() || file === keep) continue;
     if (/\.(zip|dmg|exe|part)$/i.test(entry.name)) await fs.rm(file, { force: true }).catch(() => undefined);
   }
@@ -427,7 +428,7 @@ export function createAppUpdateService(deps: AppUpdateDeps): AppUpdateService {
     const staged = prepared?.build === build ? prepared.staged : null;
     if (prepared?.build === build) prepared = null;
     await fs.rm(archive, { force: true }).catch(() => undefined);
-    if (staged) await fs.rm(staged.dir, { recursive: true, force: true }).catch(() => undefined);
+    if (staged) await removeTree(staged.dir).catch(() => undefined);
   }
 
   /**
@@ -579,7 +580,7 @@ export function createAppUpdateService(deps: AppUpdateDeps): AppUpdateService {
     if (disposed) return;
     if (mine !== generation) {
       // 校验段里取消了：丢掉解开的目录；又开了一轮下载时安装包由它覆盖，不删。
-      if (outcome.type === 'staged') await fs.rm(outcome.staged.dir, { recursive: true, force: true }).catch(() => undefined);
+      if (outcome.type === 'staged') await removeTree(outcome.staged.dir).catch(() => undefined);
       if (!active) await fs.rm(archive, { force: true }).catch(() => undefined);
       return;
     }

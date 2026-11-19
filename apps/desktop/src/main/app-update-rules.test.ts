@@ -83,14 +83,12 @@ describe('更新源', () => {
     expect(feedUrl('x86_64-pc-windows-msvc')).toBe('https://raw.githubusercontent.com/jimliu/baocut/main/apps/desktop/releases/appcast-x86_64-pc-windows-msvc.json');
   });
 
-  it('镜像上的安装包打不开时退回 GitHub 上的同一个文件，别的地址只有自己', () => {
+  it('先试 GitHub 上的安装包，打不开时再试镜像上的同一个文件，别的地址只有自己', () => {
     const tail = 'baocut-v3.19.2-build.97/BaoCut-3.19.2-build.97-aarch64-apple-darwin.zip';
-    expect(downloadCandidates(`https://baocut.com/releases/download/${tail}`)).toEqual([
-      `https://baocut.com/releases/download/${tail}`,
-      `https://github.com/jimliu/baocut/releases/download/${tail}`,
-    ]);
-    expect(downloadCandidates(`https://github.com/jimliu/baocut/releases/download/${tail}`)).toHaveLength(1);
-    expect(downloadCandidates('https://example.com/releases/download/x.zip')).toHaveLength(1);
+    const both = [`https://github.com/jimliu/baocut/releases/download/${tail}`, `https://baocut.com/releases/download/${tail}`];
+    expect(downloadCandidates(`https://baocut.com/releases/download/${tail}`)).toEqual(both);
+    expect(downloadCandidates(`https://github.com/jimliu/baocut/releases/download/${tail}`)).toEqual(both);
+    expect(downloadCandidates('https://example.com/releases/download/x.zip')).toEqual(['https://example.com/releases/download/x.zip']);
   });
 
   it('读续传响应的 Content-Range', () => {

@@ -57,15 +57,20 @@ export function feedUrl(target: FeedTarget, variant: string | null = null): stri
 
 /**
  * 官网上的安装包镜像（`apps/portal` 的 mirror.ts）与它镜像的 GitHub Releases 目录：路径相同，镜像上还没有的文件由官网
- * 跳回 GitHub。更新源里的安装包地址指向镜像。
+ * 跳回 GitHub。更新源里的安装包地址可以是两者之一。
  */
 export const MIRROR_DOWNLOAD_PREFIX = 'https://baocut.com/releases/download/';
 export const GITHUB_DOWNLOAD_PREFIX = 'https://github.com/jimliu/baocut/releases/download/';
 
-/** 下载安装包依次试哪些地址：镜像上的文件打不开时（官网连不上、出错），退回 GitHub 上的同一个文件。 */
+/**
+ * 下载安装包依次试哪些地址：不管更新源写的是 GitHub 还是镜像，都先试 GitHub 上的文件，打不开时（连不上、出错）
+ * 再试镜像上的同一个文件。别的地址只有自己。
+ */
 export function downloadCandidates(url: string): string[] {
-  if (!url.startsWith(MIRROR_DOWNLOAD_PREFIX)) return [url];
-  return [url, `${GITHUB_DOWNLOAD_PREFIX}${url.slice(MIRROR_DOWNLOAD_PREFIX.length)}`];
+  const prefix = [GITHUB_DOWNLOAD_PREFIX, MIRROR_DOWNLOAD_PREFIX].find((candidate) => url.startsWith(candidate));
+  if (!prefix) return [url];
+  const tail = url.slice(prefix.length);
+  return [`${GITHUB_DOWNLOAD_PREFIX}${tail}`, `${MIRROR_DOWNLOAD_PREFIX}${tail}`];
 }
 
 /** 断点续传的 206 响应头 `Content-Range: bytes <起>-<止>/<总长|*>`；读不懂为 null。 */
