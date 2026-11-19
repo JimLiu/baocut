@@ -91,6 +91,7 @@ export const ptBR: RcExternalToolsMessages = {
 
   probeCannotStart: (p: { error: string }) => `Não foi possível iniciar: ${p.error}`,
   probeTimeout: (p: { command: string; seconds: number }) => `${p.command} não terminou em ${p.seconds} segundos`,
+  probeTimeoutRemedy: (p: { name: string }) => `A verificação de versão expirou; talvez a ferramenta só tenha demorado para iniciar. Detecte de novo com externalTools.detect (baocut external-tools detect ${p.name}) e tente novamente; uma tarefa já criada pode continuar com pipelines.retry`,
   probeCannotStartCode: (p: { code: string }) => `Não foi possível iniciar (${p.code})`,
   probeExited: (p: { code: string; detail: string }) => `Encerrou com ${p.code}${p.detail ? `: ${p.detail}` : ""}`,
 

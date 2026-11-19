@@ -11,6 +11,12 @@ import { RcExternalTools } from '@baocut/protocol/messages/runtime-core';
  */
 
 const PROBE_TIMEOUT_MS = 15_000;
+/**
+ * 第一次超时后再试一次的时限。macOS 上 yt-dlp 的独立可执行文件（PyInstaller 单文件）每次启动都把自带的 Python 与动态库
+ * 解到新的临时目录，系统要逐个检查这些新写出的文件：平时 `--version` 就要十秒以上，冷启动（开机后、长时间没用、系统忙）
+ * 会超过 15 秒，紧接着再跑一次通常就快了。
+ */
+const PROBE_RETRY_TIMEOUT_MS = 45_000;
 const OUTPUT_LIMIT = 8_000;
 
 /** Windows 上 `PATHEXT` 没有设置时的取值。 */
@@ -78,7 +84,27 @@ export async function isExecutableFile(file: string): Promise<boolean> {
   );
 }
 
-export type ProbeOutcome = { ok: true; output: string } | { ok: false; reason: Localized };
+/** `timedOut`：没有在时限内结束（被杀掉），不是启动失败或非零退出。 */
+export type ProbeOutcome = { ok: true; output: string } | { ok: false; reason: Localized; timedOut?: boolean };
+
+/**
+ * 探测一次版本，超时时用更长的时限再试一次（只重试超时，启动失败与非零退出不重试）：工具冷启动偶尔超过第一次的时限，
+ * 不该因此被当成不能运行。两次都超时时返回第二次的结果（`timedOut: true`）。
+ */
+export async function probeVersion(
+  file: string,
+  args: readonly string[],
+  env: NodeJS.ProcessEnv,
+  okExitCodes: readonly number[] = [],
+  timeoutsMs: readonly number[] = [PROBE_TIMEOUT_MS, PROBE_RETRY_TIMEOUT_MS],
+): Promise<ProbeOutcome> {
+  let outcome: ProbeOutcome = { ok: false, reason: RcExternalTools.noVersion() };
+  for (const timeoutMs of timeoutsMs) {
+    outcome = await runVersionProbe(file, args, env, timeoutMs, okExitCodes);
+    if (outcome.ok || !outcome.timedOut) return outcome;
+  }
+  return outcome;
+}
 
 /**
  * 执行 `file args…`，返回标准输出（不够时连同标准错误）。非零退出（`okExitCodes` 里的除外）、超时、启动失败都是 `ok: false`
@@ -110,7 +136,11 @@ export async function runVersionProbe(
     };
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      finish({ ok: false, reason: RcExternalTools.probeTimeout({ command: args.join(' '), seconds: Math.round(timeoutMs / 1000) }) });
+      finish({
+        ok: false,
+        timedOut: true,
+        reason: RcExternalTools.probeTimeout({ command: args.join(' '), seconds: Math.round(timeoutMs / 1000) }),
+      });
     }, timeoutMs);
     child.stdout!.setEncoding('utf8');
     child.stderr!.setEncoding('utf8');

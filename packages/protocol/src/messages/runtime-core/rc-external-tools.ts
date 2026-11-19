@@ -113,6 +113,7 @@ const en = {
   // 探测命令（tool-probe）
   probeCannotStart: (p: { error: string }) => `Can't start: ${p.error}`,
   probeTimeout: (p: { command: string; seconds: number }) => `${p.command} didn't finish within ${p.seconds} seconds`,
+  probeTimeoutRemedy: (p: { name: string }) => `The version check timed out; the tool may just have started slowly. Check again with externalTools.detect (baocut external-tools detect ${p.name}), then try again; a task that was already created can continue with pipelines.retry`,
   probeCannotStartCode: (p: { code: string }) => `Can't start (${p.code})`,
   probeExited: (p: { code: string; detail: string }) => `Exited with ${p.code}${p.detail ? `: ${p.detail}` : ''}`,
 

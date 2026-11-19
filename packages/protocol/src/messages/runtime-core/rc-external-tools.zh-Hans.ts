@@ -83,6 +83,7 @@ export const zhHans: RcExternalToolsMessages = {
 
   probeCannotStart: (p) => `不能启动：${p.error}`,
   probeTimeout: (p) => `执行 ${p.command} 超过 ${p.seconds} 秒没有结束`,
+  probeTimeoutRemedy: (p) => `版本检查超时，可能只是工具启动得慢：用 externalTools.detect（baocut external-tools detect ${p.name}）重新检测后再试；已经创建的任务可以用 pipelines.retry 接着做`,
   probeCannotStartCode: (p) => `不能启动（${p.code}）`,
   probeExited: (p) => `以 ${p.code} 退出${p.detail ? `：${p.detail}` : ''}`,
 
