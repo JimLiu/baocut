@@ -94,10 +94,12 @@ function handle(message: Msg): void {
       const found = scenario.models.find((m) => m.provider === message.provider && m.id === message.modelId);
       if (!found) return fail(id, type, `Model not found: ${String(message.provider)}/${String(message.modelId)}`);
       model = found;
+      if (scenario.modelThinkingLevel !== undefined) setThinking(scenario.modelThinkingLevel);
       return respond(id, type, found);
     }
     case 'set_thinking_level':
-      thinkingLevel = String(message.level);
+      if (scenario.modelThinkingLevel !== undefined) setThinking(String(message.level));
+      else thinkingLevel = String(message.level);
       return respond(id, type);
     case 'prompt':
       if (streaming) return fail(id, type, 'Agent is already processing.');
@@ -126,6 +128,12 @@ function handle(message: Msg): void {
     default:
       return fail(id, type, `Unknown command: ${type}`);
   }
+}
+
+function setThinking(level: string): void {
+  if (level === thinkingLevel) return;
+  thinkingLevel = level;
+  send({ type: 'thinking_level_changed', level });
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
@@ -246,7 +254,12 @@ async function runTurn(text: string): Promise<void> {
   send({ type: 'turn_end' });
   if (sessionFile && !fs.existsSync(sessionFile)) fs.writeFileSync(sessionFile, `${JSON.stringify({ type: 'session', id: sessionId })}\n`);
   streaming = false;
-  // 1.0.4 的 agent_end 不带 willRetry。
-  send({ type: 'agent_end', messages: [] });
+  // 1.0.4 的 agent_end 不带 willRetry；0.85.1 带。
+  send({ type: 'agent_end', messages: [], ...(scenario.agentEndWillRetry ? { willRetry: false } : {}) });
+  if (scenario.postAgentCompactionMs !== undefined) {
+    send({ type: 'compaction_start', reason: 'threshold' });
+    await new Promise((resolve) => setTimeout(resolve, scenario.postAgentCompactionMs));
+    send({ type: 'compaction_end', reason: 'threshold', result: { summary: 'compacted' }, aborted: false, willRetry: false });
+  }
   if (scenario.settled) send({ type: 'agent_settled' });
 }

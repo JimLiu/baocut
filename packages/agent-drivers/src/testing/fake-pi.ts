@@ -61,6 +61,15 @@ export interface FakePiScenario {
   settled: boolean;
   /** get_state 之前就退出（启动失败）。 */
   crashOnStart: boolean;
+  /**
+   * 照 pi 0.85.1 发 `thinking_level_changed`（档位真的变了时，先于应答）：set_thinking_level 之外，set_model 还把档位
+   * 换成这里给的值（pi 换模型时取该模型的单独设置或默认档位）。不给时不发这个事件，换模型也不动档位。
+   */
+  modelThinkingLevel?: string;
+  /** 照 pi 0.85.1：`agent_end` 带 `willRetry: false`。 */
+  agentEndWillRetry?: boolean;
+  /** `agent_end` 之后、`agent_settled` 之前先做一次阈值压缩，压缩耗时这么多毫秒。 */
+  postAgentCompactionMs?: number;
   turn: FakePiTurn;
 }
 

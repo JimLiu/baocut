@@ -200,6 +200,20 @@ describe('PiSession（假 pi）', () => {
     });
   });
 
+  it('换模型后 pi 把推理档位换掉（thinking_level_changed）：下一轮照常重设，不拿旧值跳过', async () => {
+    const { session, completed } = await start({ modelThinkingLevel: 'medium' });
+    let { turnId } = await session.startTurn({ text: 'a' }, settings('fullAccess', 'anthropic/claude-sonnet-5', 'high'));
+    await completed(turnId);
+    expect(fake.commands('set_thinking_level')).toMatchObject([{ level: 'high' }]);
+    // set_model 让 pi 回到 medium：同样要 high 也得再发一次。
+    ({ turnId } = await session.startTurn({ text: 'b' }, settings('fullAccess', 'openai/gpt-mini', 'high')));
+    await completed(turnId);
+    expect(fake.commands('set_thinking_level')).toMatchObject([{ level: 'high' }, { level: 'high' }]);
+    ({ turnId } = await session.startTurn({ text: 'c' }, settings('fullAccess', 'openai/gpt-mini', 'high')));
+    await completed(turnId);
+    expect(fake.commands('set_thinking_level')).toHaveLength(2);
+  });
+
   it('图片：模型收图片时 base64 随 prompt 发，不收时附上本机路径', async () => {
     const image = path.join(dir, 'a.png');
     await fs.writeFile(image, Buffer.from([1, 2, 3]));
@@ -286,6 +300,18 @@ describe('PiSession（假 pi）', () => {
       { type: 'context.compacted', turnId },
       { type: 'context.compacted', turnId },
     ]);
+  });
+
+  it('agent_end 之后的阈值压缩：等压缩结束、agent_settled 再收尾，不按兜底计时提前结束', async () => {
+    for (const agentEndWillRetry of [false, true]) {
+      const { session, events, completed } = await start({ postAgentCompactionMs: 2_500, agentEndWillRetry });
+      const { turnId } = await session.startTurn({ text: 'x' }, settings());
+      await completed(turnId);
+      const at = (type: string) => events.findIndex((e) => e.type === type);
+      expect(at('context.compacted'), String(agentEndWillRetry)).toBeGreaterThan(-1);
+      expect(at('turn.completed'), String(agentEndWillRetry)).toBeGreaterThan(at('context.compacted'));
+      await session.close();
+    }
   });
 
   it('旧版没有 agent_settled：agent_end 之后没有动静就收尾', async () => {

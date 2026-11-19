@@ -3,7 +3,8 @@
  * packages/server/src/server/agent/providers/pi/agent.ts 的回合生命周期（一次 prompt 到 agent_settled 为一轮，旧版没有
  * agent_settled 时以 agent_end 收尾；失败原因取最后一条助手消息的 errorMessage；中断先 clear_queue 再 abort；
  * steer 回「Unknown command: steer」时视为不支持；图片只在模型的 input 含 image 时随消息发；扩展提问 extension_ui_request 的
- * select / confirm / input / editor 转成提问、确认是「是 / 否」两项、填空是没有选项的题、跳过答 cancelled）与 cli-runtime.ts 的启动参数。
+ * select / confirm / input / editor 转成提问、确认是「是 / 否」两项、填空是没有选项的题、跳过答 cancelled；跟随 thinking_level_changed
+ * 记下实际推理档位；带 willRetry 的 agent_end 说明会有 agent_settled，不按兜底计时收尾）与 cli-runtime.ts 的启动参数。
  * 改成 BaoCut 的 AgentSession：开发者指令经 --append-system-prompt 文件、BaoCut 的 MCP 服务经临时扩展 registerMcpServer 注入，
  * 扩展提问成为 BaoCut 的提问卡（给了 timeout 的到时收起），恢复句柄是 pi 的会话文件。
  */
@@ -72,6 +73,8 @@ interface Turn {
   started: boolean;
   stopReason: string | null;
   errorMessage: string | null;
+  /** 收到过不再重试的 agent_end，在等 agent_settled（或旧版的兜底计时）。 */
+  agentEnded: boolean;
   settleTimer: NodeJS.Timeout | null;
 }
 
@@ -125,6 +128,8 @@ export class PiSession implements AgentSession {
   readonly #questions = new Map<Id, PendingUiQuestion>();
   /** 这个进程发过 agent_settled：之后 agent_end 不再算收尾。 */
   #settles = false;
+  /** 收到过几次 thinking_level_changed：#applyEffort 用它判断应答前是否已报回实际档位。 */
+  #thinkingChanges = 0;
   #mcpExtension: string | null = null;
 
   private constructor(cwd: string, tempDir: string, log: Logger) {
@@ -238,6 +243,7 @@ export class PiSession implements AgentSession {
       started: false,
       stopReason: null,
       errorMessage: null,
+      agentEnded: false,
       settleTimer: null,
     };
     this.#turn = turn;
@@ -348,6 +354,8 @@ export class PiSession implements AgentSession {
     const ref = parseModelReference(settings.model);
     const provider = ref.provider ?? (current && current.provider !== 'unknown' ? current.provider : null);
     if (!provider) throw agentError('driver-failed', DriversPi.modelFormat({ model: settings.model }), 'AGENT_MODEL_UNAVAILABLE');
+    // pi 换模型时把推理档位换成该模型的单独设置或默认档位，变了会在应答之前发 thinking_level_changed（#onEvent 记下），
+    // 下一次 #applyEffort 就按实际档位判断。
     try {
       const model = (await this.#proc.request({ type: 'set_model', provider, modelId: ref.id })) as PiModel | null;
       this.#state.model = model ?? { provider, id: ref.id };
@@ -363,9 +371,11 @@ export class PiSession implements AgentSession {
       this.#warn(DriversPi.effortUnsupported({ level }));
       return;
     }
+    // pi 会把档位收紧到模型支持的范围，实际档位由 thinking_level_changed 报回；期间没有这个事件时记下请求的档位。
+    const seen = this.#thinkingChanges;
     try {
       await this.#proc.request({ type: 'set_thinking_level', level });
-      this.#state.thinkingLevel = level;
+      if (this.#thinkingChanges === seen) this.#state.thinkingLevel = level;
     } catch (error) {
       this.#warn(DriversPi.effortFailed({ error: piErrorMessage(error) }));
     }
@@ -420,10 +430,24 @@ export class PiSession implements AgentSession {
       case 'auto_retry_end':
         if (event.success === false && this.#turn && typeof event.finalError === 'string') this.#turn.errorMessage = event.finalError;
         return;
+      case 'thinking_level_changed':
+        // 换模型、扩展或 pi 自己改了档位：记下实际档位，下一轮按它判断要不要重设。
+        if (typeof event.level === 'string') {
+          this.#state.thinkingLevel = event.level;
+          this.#thinkingChanges++;
+        }
+        return;
+      case 'auto_compaction_start':
+      case 'compaction_start':
+        // 压缩可能在 agent_end 之后、agent_settled 之前（阈值压缩要调一次模型）：压缩期间不按兜底计时收尾。
+        if (this.#turn?.settleTimer) clearTimeout(this.#turn.settleTimer);
+        if (this.#turn) this.#turn.settleTimer = null;
+        return;
       case 'auto_compaction_end':
       case 'compaction_end':
-        // 中止或失败时 `result` 为空。未验证：`compaction_end` 是新版的名字（别的 Pi 衍生版这样发），没有用真实会话复现过。
+        // 中止或失败时 `result` 为空。0.85.1 的 dist 发的是 `compaction_start` / `compaction_end`。
         if (event.result != null && event.aborted !== true) this.#emit({ type: 'context.compacted', turnId: this.#turn?.id ?? null });
+        if (this.#turn?.agentEnded) this.#armSettleFallback(this.#turn);
         return;
     }
     const turn = this.#turn;
@@ -431,6 +455,7 @@ export class PiSession implements AgentSession {
     switch (event.type) {
       case 'agent_start':
         turn.started = true;
+        turn.agentEnded = false;
         if (turn.settleTimer) clearTimeout(turn.settleTimer);
         turn.settleTimer = null;
         break;
@@ -443,12 +468,11 @@ export class PiSession implements AgentSession {
         break;
       }
       case 'agent_end':
-        // 后面还可能有自动重试、压缩后重来、排队的 steer：以 agent_settled 为准。旧版不发 agent_settled，过一会儿没动静就收尾。
-        if (event.willRetry !== true && !this.#settles) {
-          if (turn.settleTimer) clearTimeout(turn.settleTimer);
-          turn.settleTimer = setTimeout(() => this.#finish(turn), SETTLE_FALLBACK_MS);
-          turn.settleTimer.unref?.();
-        }
+        // 后面还可能有自动重试、压缩后重来、排队的 steer：以 agent_settled 为准。带 willRetry 的版本（0.75 起）都发
+        // agent_settled（0.80.4 起），不用等第一个 agent_settled 才知道。旧版不发，过一会儿没动静就收尾。
+        if (typeof event.willRetry === 'boolean') this.#settles = true;
+        turn.agentEnded = event.willRetry !== true;
+        if (turn.agentEnded) this.#armSettleFallback(turn);
         break;
       case 'agent_settled':
         this.#settles = true;
@@ -456,6 +480,14 @@ export class PiSession implements AgentSession {
         return;
     }
     for (const mapped of turn.mapper.map(event)) this.#emit(mapped);
+  }
+
+  /** 不发 agent_settled 的旧版：agent_end 之后过一会儿没有新动静就收尾。 */
+  #armSettleFallback(turn: Turn): void {
+    if (this.#settles) return;
+    if (turn.settleTimer) clearTimeout(turn.settleTimer);
+    turn.settleTimer = setTimeout(() => this.#finish(turn), SETTLE_FALLBACK_MS);
+    turn.settleTimer.unref?.();
   }
 
   /**
