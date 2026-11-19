@@ -70,6 +70,12 @@ export interface FakePiScenario {
   agentEndWillRetry?: boolean;
   /** `agent_end` 之后、`agent_settled` 之前先做一次阈值压缩，压缩耗时这么多毫秒。 */
   postAgentCompactionMs?: number;
+  /**
+   * 照 pi 0.85.1（Node 24、auth.json 里有过期的 OAuth 凭据）：RPC 模式启动后的后台刷新拿着 `auth.json.lock`（这里放在假目录下），
+   * 拿 `holdMs` 毫秒；这期间 stdin 结束，进程直接退出，锁留下。启动时见到未过期（`staleMs`）的锁就不应答命令，等它过期。
+   * 设了 `PI_OFFLINE` 的进程不做后台刷新，不拿锁（仍会等别人留下的锁）。
+   */
+  backgroundRefreshLock?: { staleMs: number; holdMs: number };
   turn: FakePiTurn;
 }
 

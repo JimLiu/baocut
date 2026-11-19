@@ -71,11 +71,11 @@ describe('PiDriver.probe（假 pi）', () => {
         defaultEffort: null,
       },
     ]);
-    // 探测进程：RPC 模式、不写会话文件、在主目录、不查新版本。
+    // 探测进程：RPC 模式、不写会话文件、在主目录、不查新版本、不做后台联网刷新。
     const start = fake.log().find((e) => e.kind === 'start')!;
     expect(start.args).toEqual(['--mode', 'rpc', '--no-session']);
     expect(start.cwd).toBe(await fs.realpath(os.homedir()));
-    expect(start.env).toEqual({ PI_SKIP_VERSION_CHECK: '1' });
+    expect(start.env).toEqual({ PI_SKIP_VERSION_CHECK: '1', PI_OFFLINE: '1' });
     expect(fake.commands('prompt')).toEqual([]);
   });
 
@@ -107,6 +107,23 @@ describe('PiDriver.probe（假 pi）', () => {
     expect(broken.state).toBe('error');
     expect(broken.detail).toContain('fake pi failed to start');
   });
+
+  it('探测离线起 pi（PI_OFFLINE），不留后台刷新的 auth 锁：探测完立刻开会话，get_state 照常应答', async () => {
+    // 锁的过期时间远长于本测试的时限：探测要是留下锁，会话的 get_state 就等不到，测试超时失败。
+    fake.scenario({ backgroundRefreshLock: { staleMs: 120_000, holdMs: 60_000 } });
+    expect((await driver.probe()).state).toBe('ready');
+    await expect(fs.stat(path.join(fake.dir, 'auth.json.lock'))).rejects.toThrow();
+    const cwd = path.join(dir, 'project');
+    await fs.mkdir(cwd);
+    const session = await driver.createSession({ cwd, accessMode: 'fullAccess', model: null, effort: null, resume: null });
+    try {
+      const starts = fake.log().filter((e) => e.kind === 'start');
+      expect(starts.map((e) => e.env?.PI_OFFLINE)).toEqual(['1', undefined]);
+      expect(fake.commands('get_state')).toHaveLength(2);
+    } finally {
+      await session.close();
+    }
+  }, 10_000);
 
   it('手动指定的可执行文件不存在：not-installed', async () => {
     const probe = await driver.probe({ executable: path.join(dir, 'nope', 'pi') });

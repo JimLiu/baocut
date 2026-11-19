@@ -22,6 +22,18 @@ const CATALOG_TTL_MS = 10 * 60_000;
 const CATALOG_RETRY_MS = 60_000;
 
 /**
+ * 只给探测进程的环境：`PI_OFFLINE=1`（pi 0.55.1 起有，同 `--offline`）关掉 RPC 模式启动后的后台联网刷新（pi 0.85.1
+ * `dist/main.js`「RPC refreshes catalogs here in the background」）。探测要的模型表与当前模型不靠它：启动时的模型目录本来就
+ * 不联网（`ModelRuntime.create({ allowModelNetwork: false })`），探测的应答也在后台刷新做完之前就回来了。
+ *
+ * 不关它会留锁：auth.json 里有过期的 OAuth 凭据时，后台刷新经 `resolveRefreshCredential → credentials.modify` 去拿
+ * `~/.pi/agent/auth.json.lock`（proper-lockfile 的异步锁，stale 30 秒）。探测一拿到应答就结束 stdin，pi 的 shutdown 直接
+ * `process.exit`；赶上锁目录的 mkdir 已发出、回调还没回来，proper-lockfile 不知道自己持有它，退出时不删。下一个 pi 启动时
+ * 等这把锁过期，get_state 要 30 秒才应答（在 Node 24 上稳定复现）。会话进程照常联网刷新，不加这个。
+ */
+const PROBE_ENV: Record<string, string> = { PI_OFFLINE: '1' };
+
+/**
  * 最低版本。用到的命令里最晚出现的是 clear_queue（pi 0.84.4，见 paseo 的兼容说明）；steer、agent_settled 另有退路
  * （回「Unknown command」时报不支持、没有 agent_settled 时以 agent_end 收尾）。只在 1.0.4 上实测过。
  * 原型里的 0.62.0 是演示值，没有采用。
@@ -156,7 +168,8 @@ export class PiDriver implements AgentDriver {
   }
 
   /**
-   * 起一个临时的 `pi --mode rpc --no-session`（在主目录，不写会话文件）：get_available_models 与 get_state，然后关掉。不调模型。
+   * 起一个临时的 `pi --mode rpc --no-session`（在主目录，不写会话文件，`PI_OFFLINE` 见 `PROBE_ENV`）：get_available_models 与
+   * get_state，然后关掉。不调模型。
    *
    * 登录状态：pi 的 get_available_models 只列出有可用凭据的模型（`/login` 的订阅登录、auth.json 里的密钥、环境变量里的
    * API 密钥、models.json 自定义的服务都算），一个都没有就是没登录。不看 `~/.pi/agent/auth.json` 在不在：pi 每次启动都会建一个
@@ -164,7 +177,7 @@ export class PiDriver implements AgentDriver {
    */
   async #readCatalog(install: PiInstall): Promise<PiCatalog> {
     const proc = new PiRpcProcess(
-      { command: install.command, args: ['--mode', 'rpc', '--no-session'], cwd: os.homedir(), env: { ...install.env, ...PI_ENV } },
+      { command: install.command, args: ['--mode', 'rpc', '--no-session'], cwd: os.homedir(), env: { ...install.env, ...PI_ENV, ...PROBE_ENV } },
       this.#log,
     );
     const timeout = this.#probeTimeoutMs;

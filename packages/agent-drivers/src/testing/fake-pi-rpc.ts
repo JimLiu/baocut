@@ -33,7 +33,7 @@ log({
   kind: 'start',
   cwd: process.cwd(),
   args,
-  env: { PI_SKIP_VERSION_CHECK: process.env.PI_SKIP_VERSION_CHECK },
+  env: { PI_SKIP_VERSION_CHECK: process.env.PI_SKIP_VERSION_CHECK, PI_OFFLINE: process.env.PI_OFFLINE },
   extension: read(flag('--extension')),
   instructions: read(flag('--append-system-prompt')),
 });
@@ -66,7 +66,34 @@ let streaming = false;
 let abort: (() => void) | null = null;
 const pendingUi = new Map<string, (answer: Msg) => void>();
 
+// 照 pi 0.85.1 的后台刷新锁（见 FakePiScenario.backgroundRefreshLock）：先等别人留下的、还没过期的锁，再在不离线时拿自己的。
+let blockedUntil = 0;
+if (scenario.backgroundRefreshLock) {
+  const lockDir = path.join(dir, 'auth.json.lock');
+  const { staleMs, holdMs } = scenario.backgroundRefreshLock;
+  try {
+    blockedUntil = fs.statSync(lockDir).mtimeMs + staleMs;
+  } catch {
+    // 没有锁。
+  }
+  const takeOwn = () => {
+    if (process.env.PI_OFFLINE) return;
+    fs.mkdirSync(lockDir, { recursive: true });
+    // 刷新做完才放锁；在那之前 stdin 结束就直接退出，锁留在原地。
+    setTimeout(() => fs.rmSync(lockDir, { recursive: true, force: true }), holdMs).unref();
+  };
+  if (blockedUntil > Date.now()) {
+    setTimeout(() => {
+      fs.rmSync(lockDir, { recursive: true, force: true });
+      takeOwn();
+    }, blockedUntil - Date.now()).unref();
+  } else {
+    takeOwn();
+  }
+}
+
 let buffer = '';
+const queued: Msg[] = [];
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk: string) => {
   buffer += chunk;
@@ -74,10 +101,18 @@ process.stdin.on('data', (chunk: string) => {
   while (nl !== -1) {
     const line = buffer.slice(0, nl);
     buffer = buffer.slice(nl + 1);
-    if (line.trim()) handle(JSON.parse(line) as Msg);
+    if (line.trim()) dispatch(JSON.parse(line) as Msg);
     nl = buffer.indexOf('\n');
   }
 });
+
+/** 启动还卡在别人的锁上时先攒着命令，锁过期后再依次处理（与 pi 一样，这段时间不应答）。 */
+function dispatch(message: Msg): void {
+  const wait = blockedUntil - Date.now();
+  if (wait <= 0 && !queued.length) return handle(message);
+  queued.push(message);
+  if (queued.length === 1) setTimeout(() => queued.splice(0).forEach(handle), Math.max(wait, 0));
+}
 process.stdin.on('end', () => process.exit(0));
 // 混进一行不是 JSON 的输出：BaoCut 应该忽略它。
 process.stdout.write('pi: starting up\n');
