@@ -112,7 +112,7 @@ export interface ProbeOptions {
 /**
  * 每一轮的设置（架构设计 §3.11、§3.12）。会话上的模型、强度、访问模式改了，下一轮按新的跑，不重开原生会话：
  * Codex 在 `turn/start` 上带 approvalPolicy / sandboxPolicy / model / effort；Claude 用 `setPermissionMode`、`setModel`，
- * 强度变了由 Driver 自己带着恢复句柄重启 Query。
+ * 强度变了由 Driver 自己带着恢复句柄重启 Query；这个进程里还有后台任务在跑时先不重启（重启会结束它们），跑完之后的第一轮再换。
  *
  * 访问模式到原生策略的映射（两边取更严的）。原生侧来问的动作由 Harness 按风险等级与模式查表（`decideApproval`）：
  *
