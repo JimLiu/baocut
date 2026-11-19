@@ -48,7 +48,8 @@ import { remedyOf, taskFailure } from '../localized.ts';
  *   下载中的文件在 `<home>/tools/.staging/`（取消时保留，下次续传）。
  * - 下载是一个任务（`kind: 'toolInstall'`）：提交前查严格离线、清单与同意，任务里下载、核对 sha256 与大小、设可执行位、
  *   原子地改名发布，再执行一次 `--version` 确认能运行。清单把发布文件登记为压缩包（`archive`）时，核对之后先解开到 staging
- *   目录（只取包根目录的普通文件与登记的子目录，`@baocut/models` 的 `extractToolArchive`），整个目录改名发布；yt-dlp 是单个文件，
+ *   目录（只取包根目录的普通文件与登记的子目录，`@baocut/models` 的 `extractToolArchive`），整个目录改名发布；yt-dlp 在 Windows 与
+ *   Linux 上是单个文件，在 macOS 上是 PyInstaller 目录版的压缩包（可执行文件改名成 `yt-dlp`，旁边是整棵 `_internal/`），
  *   Real-ESRGAN 与 waifu2x 是压缩包（可执行文件与模型目录）。
  * - 数据包（`release.pack`，Upscayl 的超分权重）没有可执行文件：探测只看用户指定的目录或受管副本里文件齐不齐（受管副本另核对
  *   大小），不执行、不在 PATH 里找；下载时逐个文件下进 staging 里的目录（核对过的改成正式文件名，取消后再装时不重下），齐了再
@@ -727,6 +728,14 @@ export class ExternalToolService {
       await fs.mkdir(unpacked, { recursive: true });
       try {
         files = await extractToolArchive(part, expected.archive, unpacked, run.signal);
+        // 包里的可执行文件另有名字（yt-dlp 目录版的 `yt-dlp_macos`）：改名成 `command`，受管副本的路径与单个文件时一样。
+        const packaged = expected.archive.executable;
+        if (packaged && packaged !== path.basename(final)) {
+          if (!files.includes(packaged)) throw new ToolArchiveError(`${packaged} is not in the archive`);
+          if (files.includes(path.basename(final))) throw new ToolArchiveError(`${path.basename(final)} is already in the archive`);
+          await fs.rename(path.join(unpacked, packaged), path.join(unpacked, path.basename(final)));
+          files = files.map((file) => (file === packaged ? path.basename(final) : file));
+        }
         if (!files.includes(path.basename(final))) throw new ToolArchiveError(`${path.basename(final)} is not in the archive`);
       } catch (error) {
         await fs.rm(unpacked, { recursive: true, force: true });

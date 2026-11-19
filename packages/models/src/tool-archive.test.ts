@@ -241,6 +241,36 @@ describe('extractToolArchive', () => {
     expect(await fs.readFile(path.join(tarDest, 'models', 'a.bin'), 'utf8')).toBe('a');
   });
 
+  it('trees：根目录下指定子目录整棵解开（PyInstaller 目录版的 _internal/），每段路径都要安全', async () => {
+    expect(rootEntryName('_internal/a/b/c.so', undefined, [], ['_internal'])).toBe('_internal/a/b/c.so');
+    expect(rootEntryName('./_internal/Python', undefined, [], ['_internal'])).toBe('_internal/Python');
+    for (const raw of ['_internal/a/../../evil', '_internal/a//b', '_internal/a/._x', '_internal/a\\b', '_internal/', 'other/deep/x']) {
+      expect(rootEntryName(raw, undefined, [], ['_internal'])).toBeNull();
+    }
+    expect(rootEntryName('_internal/a/b.so')).toBeNull();
+    const archive = path.join(dir, 'onedir.zip');
+    await fs.writeFile(
+      archive,
+      zip([
+        { name: '_internal/', unixMode: 0o040755 },
+        { name: '_internal/lib-dynload/_ssl.so', body: 's'.repeat(80), deflate: true, unixMode: 0o100755 },
+        { name: '_internal/certifi/cacert.pem', body: 'pem' },
+        { name: '_internal/link', body: 'target', unixMode: 0o120777 },
+        { name: 'yt-dlp_macos', body: 'exe', unixMode: 0o100755 },
+      ]),
+    );
+    const names = await extractToolArchive(archive, { format: 'zip', skip: [], trees: ['_internal'] }, dest);
+    expect(names).toEqual(['_internal/lib-dynload/_ssl.so', '_internal/certifi/cacert.pem', 'yt-dlp_macos']);
+    expect(await fs.readFile(path.join(dest, '_internal', 'lib-dynload', '_ssl.so'), 'utf8')).toBe('s'.repeat(80));
+    expect((await fs.stat(path.join(dest, '_internal', 'lib-dynload', '_ssl.so'))).mode & 0o111).not.toBe(0);
+    expect((await fs.stat(path.join(dest, '_internal', 'certifi', 'cacert.pem'))).mode & 0o111).toBe(0);
+    const tarArchive = path.join(dir, 'onedir.tar.gz');
+    await fs.writeFile(tarArchive, tarGz([{ name: './tool', body: 't', mode: 0o755 }, { name: './_internal/a/b/c.py', body: 'c' }]));
+    const tarDest = path.join(dir, 'onedir-tar');
+    await fs.mkdir(tarDest);
+    expect(await extractToolArchive(tarArchive, { format: 'tar.gz', skip: [], trees: ['_internal'] }, tarDest)).toEqual(['tool', '_internal/a/b/c.py']);
+  });
+
   it('zip：不是 zip、或根目录没有文件时报错', async () => {
     await fs.writeFile(path.join(dir, 'n.zip'), 'not a zip at all, definitely not');
     await expect(extractToolArchive(path.join(dir, 'n.zip'), { format: 'zip', skip: [] }, dest)).rejects.toBeInstanceOf(ToolArchiveError);

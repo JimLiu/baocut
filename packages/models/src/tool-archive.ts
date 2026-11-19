@@ -14,6 +14,8 @@ import { createGunzip, inflateRawSync } from 'node:zlib';
  *   动态库在 xcframework 的 `CLiteRTLM_mac.xcframework/macos-arm64_x86_64/` 里）。
  * - 给了 `dirs`（根目录下的子目录名）时，这些子目录里直接的普通文件也解开，放进 `dest` 下的同名子目录（Real-ESRGAN 的权重在
  *   可执行文件旁边的 `models/` 里）；只认一层，更深的照旧略过。`skip` 按相对根目录的名字（`models/x.bin`）比较。
+ * - 给了 `trees`（根目录下的子目录名）时，这些子目录连同其下各层的普通文件整棵解开（PyInstaller 目录版 yt-dlp 的 `_internal/`），
+ *   每一段路径都按上面的规则检查，有一段不安全就略过这个文件。
  * - tar 按流解开，不整包读进内存；保留可执行位（没有的按 0644）。zip 读中央目录，只支持「不压缩」与 deflate，不支持 ZIP64 与加密。
  */
 
@@ -24,6 +26,8 @@ export interface ToolArchiveSpec {
   root?: string;
   /** 一并解开的子目录（根目录下的目录名，只认一层）。 */
   dirs?: readonly string[];
+  /** 整棵解开的子目录（根目录下的目录名，各层都解开）。 */
+  trees?: readonly string[];
 }
 
 export class ToolArchiveError extends Error {
@@ -33,20 +37,20 @@ export class ToolArchiveError extends Error {
   }
 }
 
-/** 把 `archive` 根目录（与 `dirs` 里的子目录）里的普通文件解开到 `dest`（已存在的空目录）；返回解开的文件名（子目录里的带 `目录/` 前缀）。 */
+/** 把 `archive` 根目录（与 `dirs`、`trees` 里的子目录）里的普通文件解开到 `dest`（已存在的空目录）；返回解开的文件名（子目录里的带 `目录/` 前缀）。 */
 export async function extractToolArchive(archive: string, spec: ToolArchiveSpec, dest: string, signal?: AbortSignal): Promise<string[]> {
   const skip = new Set(spec.skip);
-  const entry = (raw: string) => rootEntryName(raw, spec.root, spec.dirs);
+  const entry = (raw: string) => rootEntryName(raw, spec.root, spec.dirs, spec.trees);
   const names = spec.format === 'zip' ? await extractZip(archive, dest, skip, entry, signal) : await extractTarGz(archive, dest, skip, entry, signal);
   if (names.length === 0) throw new ToolArchiveError('archive has no files at its root');
   return names;
 }
 
 /**
- * 包里的名字 → 根目录（给了 `root` 时是这个包内目录）里的文件名；`dirs` 里的子目录下直接的文件是 `目录/文件名`。不在根目录或
- * 这些子目录里、或名字不安全时 null。
+ * 包里的名字 → 根目录（给了 `root` 时是这个包内目录）里的文件名；`dirs` 里的子目录下直接的文件是 `目录/文件名`，`trees` 里的
+ * 子目录下各层的文件是 `目录/…/文件名`。不在根目录或这些子目录里、或名字不安全时 null。
  */
-export function rootEntryName(raw: string, root?: string, dirs: readonly string[] = []): string | null {
+export function rootEntryName(raw: string, root?: string, dirs: readonly string[] = [], trees: readonly string[] = []): string | null {
   let name = raw.replace(/^(\.\/)+/, '');
   if (root) {
     const prefix = `${root.replace(/^\/+|\/+$/g, '')}/`;
@@ -54,6 +58,10 @@ export function rootEntryName(raw: string, root?: string, dirs: readonly string[
     name = name.slice(prefix.length);
   }
   const slash = name.indexOf('/');
+  if (slash > 0 && trees.includes(name.slice(0, slash))) {
+    const parts = name.split('/');
+    return parts.every((part) => safeName(part) !== null) ? parts.join('/') : null;
+  }
   if (slash > 0 && dirs.includes(name.slice(0, slash))) {
     const file = safeName(name.slice(slash + 1));
     return file === null ? null : `${name.slice(0, slash)}/${file}`;

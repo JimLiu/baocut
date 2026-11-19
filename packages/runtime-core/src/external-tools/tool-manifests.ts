@@ -23,9 +23,18 @@ export interface ToolAsset {
   sha256: string | null;
   /**
    * 发布文件是压缩包时的格式：核对之后只解开包根目录里的普通文件到 `tools/<工具>/<版本>/`（`skip` 里的不解开；`dirs` 里的子目录
-   * 连同其中直接的文件一并解开，例如可执行文件旁边的模型），可执行文件是其中的 `command`。没有时发布文件本身就是可执行文件。
+   * 连同其中直接的文件一并解开，例如可执行文件旁边的模型；`trees` 里的子目录整棵解开，例如 PyInstaller 目录版的 `_internal/`），
+   * 可执行文件是其中的 `command`。包里的可执行文件叫别的名字时写在 `executable`，解开后改名成 `command`（受管副本的路径不随
+   * 发布文件变）。没有 `archive` 时发布文件本身就是可执行文件。
    */
-  archive?: { format: 'tar.gz' | 'zip'; skip: readonly string[]; root?: string; dirs?: readonly string[] };
+  archive?: {
+    format: 'tar.gz' | 'zip';
+    skip: readonly string[];
+    root?: string;
+    dirs?: readonly string[];
+    trees?: readonly string[];
+    executable?: string;
+  };
 }
 
 /** 数据包里的一个文件。 */
@@ -112,15 +121,24 @@ export const MATTE_MODELS = 'matte-models';
 export const MATTE_MODELS_ISNET = 'matte-models-isnet';
 
 /**
- * yt-dlp 的发布：上游 2026.10.26 稳定版（2026-11-02 核对过的最新版）。sha256 取自发布里的 `SHA2-256SUMS`，与 GitHub 发布接口
- * 给的摘要与大小逐个对过；macOS 的文件另按这个版本下载后在本机计算过、实际跑过（universal2，两种 Mac 共用一份）。换版本时
- * 这几个值要一起换。Windows ARM64 的 `yt-dlp_arm64.exe` 按上游发布页从 2025.08.20 起才有（之前 ARM64 的 Windows 只能跑 x64 版）。
+ * yt-dlp 的发布：上游 2026.10.26 稳定版（2026-11-02 核对过的最新版，2026-11-19 再核对仍是最新）。sha256 取自发布里的
+ * `SHA2-256SUMS`，与 GitHub 发布接口给的摘要与大小逐个对过；macOS 的文件另按这个版本下载后在本机计算过、实际跑过（universal2，
+ * 两种 Mac 共用一份）。换版本时这几个值要一起换。Windows ARM64 的 `yt-dlp_arm64.exe` 按上游发布页从 2025.08.20 起才有（之前
+ * ARM64 的 Windows 只能跑 x64 版）。
+ *
+ * macOS 用目录版 `yt-dlp_macos.zip`（可执行文件 `yt-dlp_macos` 加 `_internal/` 里的 Python 运行时与扩展模块，包里没有链接），
+ * 不用单文件的 `yt-dlp_macos`：单文件版每次启动都把自带的 Python 解到临时目录，macOS 又要扫描这些新文件，每次调用（探测、
+ * 解析、下载）白等几秒到十几秒（#142）；目录版只在装好后第一次启动时扫描一次。2026-11-19 在 Apple Silicon（macOS 27.2）上
+ * 实测 `--version`：单文件版每次 2.2–2.6 秒，目录版第一次 2.4 秒、之后 0.16 秒。代价是占用约 124 MB（单文件版 37 MB）。
+ * 目录版不支持 `yt-dlp -U`，受管副本本来就由 BaoCut 按清单换版本，不用它。
+ *
  * 许可：源码是 Unlicense；按上游 README，PyInstaller 打包的独立可执行文件含 GPLv3+ 代码，整体按 GPLv3+ 发布。
  */
 const YT_DLP_MAC: ToolAsset = {
-  fileName: 'yt-dlp_macos',
-  size: 37466304,
-  sha256: '0f922c15ccc0b83eefa1c8bc9104e434318c4bf16e408e1ee93b7745a6efe0aa',
+  fileName: 'yt-dlp_macos.zip',
+  size: 54165284,
+  sha256: '20d98fa608998eff87d1d35a6e9fb65e4b874639a6cc89addc19da3becde3ef1',
+  archive: { format: 'zip', skip: [], trees: ['_internal'], executable: 'yt-dlp_macos' },
 };
 const YT_DLP_RELEASE: ToolRelease = {
   version: '2026.10.26',

@@ -404,6 +404,66 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
     }
   });
 
+  it('PyInstaller 目录版（macOS 的 yt-dlp_macos.zip）：可执行文件改名成 yt-dlp，整棵 _internal/ 解开在它旁边', async () => {
+    const s = side!;
+    // 假的目录版：可执行文件找不到旁边的 _internal/ 时启动失败，就像真的 PyInstaller 引导程序。
+    const script = (await fs.readFile(s.fake.command, 'utf8')).replace(
+      '#!/bin/sh\n',
+      '#!/bin/sh\n[ -f "${0%/*}/_internal/python3.14/lib-dynload/_ssl.so" ] || exit 3\n',
+    );
+    const archive = windowsZip([
+      { name: '_internal/', data: Buffer.alloc(0) },
+      { name: '_internal/base_library.zip', data: Buffer.from('stdlib') },
+      { name: '_internal/python3.14/lib-dynload/_ssl.so', data: Buffer.from('ssl') },
+      { name: '_internal/._junk', data: Buffer.from('no') },
+      { name: 'yt-dlp_macos', data: Buffer.from(script) },
+    ]);
+    const fileName = 'yt-dlp_macos.zip';
+    const source = await startFakeSource(archive, fileName);
+    try {
+      const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;
+      const service = new ExternalToolService({
+        toolsDir: path.join(s.dir, 'onedir-tools'),
+        storeFile: path.join(s.dir, 'onedir-store', 'external-tools.json'),
+        jobs: s.runtime.models.jobs,
+        log: s.runtime.log,
+        env: async () => ({ PATH: s.emptyPath }),
+        settings: () => ({ downloadEndpoint: null, offlineStrict: false }),
+        overrides: { BAOCUT_TOOLS_ENDPOINT: source.endpoint },
+        download: { backoffMs: () => 5, retries: 1 },
+        manifests: [
+          {
+            ...builtin,
+            release: {
+              ...builtin.release!,
+              version: VERSION,
+              assets: {
+                [platformKey()]: {
+                  fileName,
+                  size: archive.length,
+                  sha256: createHash('sha256').update(archive).digest('hex'),
+                  archive: { format: 'zip', skip: [], trees: ['_internal'], executable: 'yt-dlp_macos' },
+                },
+              },
+            },
+          },
+        ],
+      });
+      const { jobId } = await service.install({ name: YT_DLP, consent: true }, { kind: 'connection', id: 'conn_x' });
+      await s.runtime.models.jobs.settled(jobId);
+      expect(s.runtime.models.jobs.inspect(jobId).state).toBe('completed');
+      const status = await service.status(YT_DLP);
+      expect(status).toMatchObject({ state: 'installed', source: 'managed' });
+      const dir = path.dirname(status.path!);
+      expect(path.basename(status.path!)).toBe('yt-dlp');
+      expect((await fs.readdir(dir)).sort()).toEqual(['_internal', 'yt-dlp']);
+      expect((await fs.readdir(path.join(dir, '_internal'))).sort()).toEqual(['base_library.zip', 'python3.14']);
+      expect((await fs.stat(status.path!)).mode & 0o111).not.toBe(0);
+    } finally {
+      await source.close();
+    }
+  });
+
   it('数据包（Upscayl 的权重）：逐个文件下载、已下完的不重下；探测只看文件，指定目录要文件齐、路径带 models', async () => {
     const s = side!;
     const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === UPSCAYL_MODELS)!;
@@ -499,6 +559,13 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
       expect(offer.sha256, platform).toMatch(/^[0-9a-f]{64}$/);
       expect(offer.sizeBytes, platform).toBeGreaterThan(1024 * 1024);
       expect(offer.url, platform).toBe(`https://github.com/yt-dlp/yt-dlp/releases/download/${builtin.release!.version}/${offer.fileName}`);
+    }
+    // macOS 用 PyInstaller 目录版：单文件版每次启动都要把 Python 解到临时目录（#142）。
+    for (const platform of ['darwin-arm64', 'darwin-x64']) {
+      expect(builtin.release!.assets[platform], platform).toMatchObject({
+        fileName: 'yt-dlp_macos.zip',
+        archive: { format: 'zip', trees: ['_internal'], executable: 'yt-dlp_macos' },
+      });
     }
   });
 
