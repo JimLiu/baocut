@@ -7,7 +7,6 @@ import {
   CodexDriver,
   OpenCodeDriver,
   PiDriver,
-  AntigravityDriver,
   acpDrivers,
   createCustomAcpDriver,
   onLoginShellProbeFailure,
@@ -488,7 +487,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const drivers = new DriverRegistry();
     // 内置 Driver 按 `BUILTIN_DRIVER_IDS` 的顺序注册（注册顺序就是 `agents.list` 的顺序）。
     const builtin = () =>
-      [new ClaudeDriver(log), new CodexDriver(log), new PiDriver(log), new OpenCodeDriver(log), new AntigravityDriver(log), ...acpDrivers(log)].sort(
+      [new ClaudeDriver(log), new CodexDriver(log), new PiDriver(log), new OpenCodeDriver(log), ...acpDrivers(log)].sort(
         (a, b) => (BUILTIN_DRIVER_IDS as readonly string[]).indexOf(a.id) - (BUILTIN_DRIVER_IDS as readonly string[]).indexOf(b.id),
       );
     for (const driver of options.drivers?.(log) ?? builtin()) drivers.register(driver);

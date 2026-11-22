@@ -182,7 +182,7 @@ export class AcpSession implements AgentSession {
     this.capabilities = acpCapabilities(caps);
     const conn = this.#proc.connection;
     let mcpServers = acpMcpServers(options.mcpServers);
-    if (mcpServers.length > 0 && caps?.mcpCapabilities?.http !== true) {
+    if (mcpServers.length > 0 && caps?.mcpCapabilities?.http !== true && !this.#preset.assumeMcpHttp) {
       // 已知限制：BaoCut 的工具通道只有 Streamable HTTP，没有给只认 stdio 的智能体做转接。
       mcpServers = [];
       this.#warn(DriversAcp.mcpHttpUnsupported({ name: this.#preset.name }));
@@ -190,7 +190,7 @@ export class AcpSession implements AgentSession {
     this.#mcpServerNames = new Set(mcpServers.map((server) => server.name));
     const params = { cwd: options.cwd, mcpServers };
 
-    const resumeId = readSessionId(options.resume, this.#preset.id);
+    const resumeId = readSessionId(options.resume, this.#preset);
     if (resumeId) {
       try {
         if (caps?.loadSession) {
@@ -216,9 +216,16 @@ export class AcpSession implements AgentSession {
         this.#warn(DriversCommon.resumeFailed({ name: this.#preset.name, error: acpErrorMessage(error) }));
       }
     }
+    const instructions = options.developerInstructions?.trim() || null;
+    if (instructions && appendsSystemPrompt(caps)) {
+      // Antigravity：指令进系统提示，随原生会话保存，恢复后仍在；恢复时不再传（会与保存的叠成两份，agy 1.5.14 实测）。
+      const res = await conn.newSession({ ...params, _meta: { antigravity: { systemPrompt: { append: instructions } } } });
+      this.#adopt(res.sessionId, res as AcpSessionState);
+      return;
+    }
     const res = await conn.newSession(params);
     this.#adopt(res.sessionId, res as AcpSessionState);
-    this.#instructions = options.developerInstructions?.trim() || null;
+    this.#instructions = instructions;
   }
 
   #adopt(sessionId: string, state: AcpSessionState): void {
@@ -418,13 +425,20 @@ export class AcpSession implements AgentSession {
     this.#warn(message ?? DriversAcp.noMatchingMode({ name: this.#preset.name }));
   }
 
+  /**
+   * 模型表取自哪里就从哪里切（`deriveModels` 先取旧版 `models`）：两处都有时 id 可能是两套（Antigravity 的 `models`
+   * 带推理档位 `gemini-4-neon-high`，配置项只有 `gemini-4-neon`），落在旧版表里的走 `session/set_model`。
+   */
   async #applyModel(settings: TurnSettings): Promise<void> {
     const model = settings.model;
     if (!model || model === this.#modelId) return;
     const sessionId = this.#requireSession();
     const option = findSelectOption(this.#state.configOptions, 'model');
+    const legacy = this.#state.models?.availableModels?.some((m) => m.modelId === model) === true;
     try {
-      if (option) {
+      if (legacy) {
+        await this.#proc.connection.extMethod('session/set_model', { sessionId, modelId: model });
+      } else if (option) {
         const res = await this.#proc.connection.setSessionConfigOption({ sessionId, configId: option.id, value: model });
         if (res?.configOptions?.length) this.#state.configOptions = res.configOptions;
       } else if (this.#state.models) {
@@ -608,8 +622,12 @@ export class AcpSession implements AgentSession {
       const known = this.#state.modes?.availableModes;
       if (!known?.length || known.some((m) => m.id === mode)) this.#modeId = mode;
     }
+    // 有旧版模型表时只认表里的 id：配置项的值可能是另一套（不带推理档位），记下来会让下一轮又切一次。
     const model = findSelectOption(configOptions, 'model')?.currentValue;
-    if (model != null) this.#modelId = model;
+    if (model != null) {
+      const known = this.#state.models?.availableModels;
+      if (!known?.length || known.some((m) => m.modelId === model)) this.#modelId = model;
+    }
   }
 
   #settleToolApprovals(toolCallId: string): void {
@@ -663,8 +681,15 @@ export class AcpSession implements AgentSession {
   }
 }
 
-function readSessionId(handle: AgentPersistenceHandle | null, driverId: string): string | null {
-  if (!handle || handle.driverId !== driverId) return null;
+function readSessionId(handle: AgentPersistenceHandle | null, preset: AcpPreset): string | null {
+  if (!handle || handle.driverId !== preset.id) return null;
   const data = handle.data as { sessionId?: unknown } | null;
-  return typeof data?.sessionId === 'string' ? data.sessionId : null;
+  if (typeof data?.sessionId === 'string') return data.sessionId;
+  return preset.legacySessionId?.(handle.data) ?? null;
+}
+
+/** 智能体在 `initialize` 的 `_meta` 里声明可以往系统提示追加（Antigravity：`_meta.antigravity.systemPrompt.append`）。 */
+function appendsSystemPrompt(caps: AgentCapabilities | null | undefined): boolean {
+  const meta = caps?._meta as { antigravity?: { systemPrompt?: { append?: unknown } } } | null | undefined;
+  return meta?.antigravity?.systemPrompt?.append === true;
 }

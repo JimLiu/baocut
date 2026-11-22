@@ -34,6 +34,19 @@ describe('AcpDriver.probe（假 ACP 智能体）', () => {
     expect(await driver.probe({ force: true })).toMatchObject({ state: 'ready', models: [] });
   });
 
+  it('Antigravity CLI：按 agy acp 启动，Flash 档标为推荐，官方脚本安装与 agy update 升级', async () => {
+    fake.scenario({ version: '1.5.14', models: 'both', mcpHttp: 'undeclared' });
+    const driver = new AcpDriver('antigravity', silentLogger, { locate: fake.locate });
+    const probe = await driver.probe();
+    expect(probe).toMatchObject({ id: 'antigravity', name: 'Antigravity CLI', state: 'ready', loginCommand: 'agy', minVersion: '1.5.10' });
+    expect(probe.capabilities).toEqual({ steer: false, approvals: true, resume: true, images: true });
+    expect(probe.models.map((m) => [m.id, m.tier])).toEqual([['fake-pro-high', null], ['fake-flash-low', 'balanced']]);
+    expect(fake.log().find((e) => e.kind === 'start')?.args).toEqual(['acp']);
+    expect(probe.install.map((i) => [i.kind, i.upgrade])).toEqual([['script', 'agy update']]);
+    fake.scenario({ version: '1.5.9' });
+    expect(await driver.probe({ force: true })).toMatchObject({ state: 'outdated' });
+  });
+
   it('Qwen Code：版本过旧时提示升级；未登录时给出 qwen 登录入口', async () => {
     fake.scenario({ version: '0.0.1' });
     const driver = new AcpDriver('qwen', silentLogger, { locate: fake.locate });
@@ -152,9 +165,10 @@ describe('AcpDriver.probe（假 ACP 智能体）', () => {
 
 describe('ACP 预设', () => {
   it('内置预设：启动参数、安装方式、覆盖变量', () => {
-    expect(acpDrivers(silentLogger).map((d) => d.id)).toEqual(['copilot', 'qwen', 'gemini', 'cursor', 'grok', 'kimi']);
+    expect(acpDrivers(silentLogger).map((d) => d.id)).toEqual(['copilot', 'antigravity', 'qwen', 'gemini', 'cursor', 'grok', 'kimi']);
     expect(Object.values(ACP_PRESETS).map((p) => [p.id, p.command, p.args.join(' ')])).toEqual([
       ['copilot', 'copilot', '--acp'],
+      ['antigravity', 'agy', 'acp'],
       ['qwen', 'qwen', '--acp'],
       ['gemini', 'gemini', '--acp'],
       ['cursor', 'cursor-agent', 'acp'],
@@ -179,6 +193,7 @@ describe('ACP 预设', () => {
     // 共享实现已验证：都能开会话；各家都还没以自家智能体在 BaoCut 上实测过。
     expect(acpDrivers(silentLogger).map((d) => [d.id, d.verified, d.slowProbe, d.preset.tested])).toEqual([
       ['copilot', true, true, false],
+      ['antigravity', true, true, false],
       ['qwen', true, true, false],
       ['gemini', true, true, false],
       ['cursor', true, true, false],

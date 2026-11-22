@@ -2299,14 +2299,14 @@
        [{id: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5', dflt: true, tier: 'balanced'}, {id: 'openai/gpt-5.6-sol', name: 'GPT-5.6 Sol'}],
        {extra: false, minVer: '2.0.10', reinstall: {below: '2.0.0', from: '官方脚本或 opencode-ai 包', pkg: '@opencode/cli'},
         bin: '/opt/homebrew/bin/opencode', realBin: '/opt/homebrew/lib/node_modules/@opencode/cli/bin/opencode.js'}),
-    /* Antigravity 原生 stream-json 接入（issue #56）；模型 ID 按本机 agy 1.4.0 目录核对（2026-10-16）。
-       没有逐次审批通道，只能使用完全访问；模型列表由 agy models 发现，不与 Gemini API 提供方混用。 */
-    harnessPreset('antigravity', 'Antigravity CLI', 'agy', 'Google', 'Google 账号', '1.2.13',
+    /* Antigravity 经 ACP 接入（`agy acp`，至少 1.5.10）：有逐次审批，BaoCut 的工具通道可用；模型 ID 按本机 agy 目录核对，
+       与 `agy models` 一致，推理档位在 ID 里；不与 Gemini API 提供方混用。 */
+    harnessPreset('antigravity', 'Antigravity CLI', 'agy', 'Google', 'Google 账号', '1.5.14',
       [{k: 'script', label: '官方脚本（macOS / Linux）', cmd: 'curl -fsSL https://antigravity.google/cli/install.sh | bash', upgrade: 'agy update'}],
       [{id: 'gemini-3.8-flash-high', name: 'Gemini 3.8 Flash (High)', dflt: true, tier: 'balanced'},
        {id: 'gemini-4-argon-medium', name: 'Gemini 4 Argon (Medium)', tier: 'max'},
        {id: 'gemini-4-argon-high', name: 'Gemini 4 Argon (High)', tier: 'max'}],
-      {extra: false, minVer: '1.1.15', caveat: FULL_ONLY, bin: '~/.local/bin/agy', realBin: '~/.local/opt/agy/1.2.13/agy',
+      {extra: false, minVer: '1.5.10', launch: ['agy', 'acp'], bin: '~/.local/bin/agy', realBin: '~/.local/opt/agy/1.5.14/agy',
        docs: 'https://antigravity.google/docs/cli/install/',
        loginHint: '装好后在终端里运行 agy，按提示用 Google 账号登录。Windows 请按官方说明在 PowerShell 中安装。'}),
   ];

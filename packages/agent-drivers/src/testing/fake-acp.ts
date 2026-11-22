@@ -56,15 +56,18 @@ export interface FakeAcpScenario {
   resume: boolean;
   /** `session/load` 回错误。 */
   loadFails: boolean;
-  mcpHttp: boolean;
+  /** `mcpCapabilities.http`；`undeclared`：不给 `mcpCapabilities`（agy 1.5.x 那样）。 */
+  mcpHttp: boolean | 'undeclared';
+  /** `initialize` 的 `agentCapabilities._meta` 声明能往系统提示追加（`antigravity.systemPrompt.append`）。 */
+  systemPromptMeta?: boolean;
   image: boolean;
   /** 会话模式；null 不给 `modes`。`config`：改用分类为 mode 的配置项。 */
   modes: string[] | null;
   modesVia: 'modes' | 'config';
   /** 给一个 Copilot 那样的「全部放行」配置项（`allow_all`，on / off，初始 off）。 */
   allowAll: boolean;
-  /** 模型表的来源：旧版 `models`、分类为 model 的配置项，或没有。 */
-  models: 'legacy' | 'config' | 'none';
+  /** 模型表的来源：旧版 `models`、分类为 model 的配置项、两处都有且 id 是两套（Antigravity 那样），或没有。 */
+  models: 'legacy' | 'config' | 'both' | 'none';
   /** 回答 `cursor/list_available_models`。 */
   cursorModels: boolean;
   /**

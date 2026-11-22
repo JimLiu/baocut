@@ -5,12 +5,12 @@
  * `copilot --acp`、URL 形式的模式 id 与经 `allow_all` 配置项实现的「全部放行」。
  * 改成 BaoCut 的预设表：名称、订阅、安装方式照原型 designs/baocut/app/data.js 的 MORE_HARNESSES。
  */
-import type { DriverId, DriverInstallOption, Localized } from '@baocut/protocol';
+import type { DriverId, DriverInstallOption, Localized, ModelTier } from '@baocut/protocol';
 import { DriversAcp } from '@baocut/protocol/messages/agent-drivers';
 import { officialScript } from '../driver-text.ts';
 
-/** 内置的 ACP 预设（`BUILTIN_DRIVER_IDS` 里经 ACP 接入的六个）。 */
-export type BuiltinAcpDriverId = 'copilot' | 'qwen' | 'gemini' | 'cursor' | 'grok' | 'kimi';
+/** 内置的 ACP 预设（`BUILTIN_DRIVER_IDS` 里经 ACP 接入的七个）。 */
+export type BuiltinAcpDriverId = 'copilot' | 'antigravity' | 'qwen' | 'gemini' | 'cursor' | 'grok' | 'kimi';
 /** 经 ACP 接入的 Driver：内置预设，或用户添加的智能体（`agents.addProvider`）。 */
 export type AcpDriverId = DriverId;
 
@@ -57,6 +57,15 @@ export interface AcpPreset {
   knownLocations?: string[];
   /** 模型表从哪来：`session` 读 `session/new` 应答里的模型（`models` 或分类为 model 的配置项）；`cursor` 另走扩展方法。 */
   models: 'session' | 'cursor';
+  /** 按模型 id 标档位（推荐模型取第一个 `balanced`，`recommendedDriverModel`）；不给或返回 null 时不标。 */
+  modelTier?: (modelId: string) => ModelTier | null;
+  /**
+   * 智能体接受 Streamable HTTP 的 MCP 服务，但 `initialize` 没有声明 `mcpCapabilities.http`（实测过才写）。
+   * 不给时按声明：没声明就不传 BaoCut 的工具通道并提示。
+   */
+  assumeMcpHttp?: boolean;
+  /** 迁移来的旧恢复句柄（同一个 Driver id 以前的原生接入存的 `data`）→ ACP 会话号；认不出时返回 null。 */
+  legacySessionId?: (data: unknown) => string | null;
   /**
    * 访问模式 → ACP 会话模式（`session/set_mode`）的候选，按顺序取智能体有的第一个；都没有就不设并提示一次。
    * 只放不比 BaoCut 的模式更宽的原生模式（架构设计 §3.12：两边取更严的）。
@@ -100,6 +109,17 @@ export const ACP_MODES: AcpPreset['modes'] = {
 
 const LOCAL_BIN = (command: string) => [`~/.local/bin/${command}`, `/opt/homebrew/bin/${command}`, `/usr/local/bin/${command}`];
 
+/** Antigravity CLI 的官方安装脚本：Windows 用 PowerShell，其余用 bash。 */
+export function antigravityInstallCommand(platform: NodeJS.Platform): string {
+  return platform === 'win32' ? 'irm https://antigravity.google/cli/install.ps1 | iex' : 'curl -fsSL https://antigravity.google/cli/install.sh | bash';
+}
+
+/** 旧的原生 stream-json 接入存的恢复句柄（`{ version: 1, conversationId }`）：会话号就是 ACP 的 sessionId（agy 1.5.14 实测 `session/load` 载入）。 */
+export function antigravityLegacySessionId(data: unknown): string | null {
+  const legacy = data as { version?: unknown; conversationId?: unknown } | null;
+  return legacy?.version === 1 && typeof legacy.conversationId === 'string' && legacy.conversationId ? legacy.conversationId : null;
+}
+
 /** Copilot 的会话模式 id 是 URL 形式（`copilot --acp` 1.0.92 实测）。 */
 const COPILOT_MODE = (name: 'agent' | 'plan') => `https://agentclientprotocol.com/protocol/session-modes#${name}`;
 
@@ -142,6 +162,34 @@ export const ACP_PRESETS: Record<BuiltinAcpDriverId, AcpPreset> = {
       fullAccess: [COPILOT_MODE('agent'), 'default'],
     },
     permissionOption: { configId: 'allow_all', on: 'on', off: 'off' },
+    tested: false,
+  },
+  antigravity: {
+    id: 'antigravity',
+    name: 'Antigravity CLI',
+    command: 'agy',
+    args: ['acp'],
+    // `agy acp` 1.5.0 起正式提供；1.5.4 修了第二次审批卡住回合，1.5.10 修了取消后子智能体与后台任务还在跑。
+    // 本机用 1.5.14 实测 MCP、审批、取消、图片、模式与模型切换、session/load 与 session/resume。
+    minVersion: '1.5.10',
+    get plan() {
+      return DriversAcp.geminiPlan();
+    },
+    // 在终端里运行 agy，按提示用 Google 账号登录，或用 CLI 自己配置的 Gemini API key。
+    loginCommand: 'agy',
+    get install() {
+      return [officialScript(antigravityInstallCommand(process.platform), 'agy update')];
+    },
+    knownLocations: [...LOCAL_BIN('agy'), '%LOCALAPPDATA%/agy/bin/agy.exe'],
+    models: 'session',
+    // 推理强度在模型 id 里（`-low` / `-high`）；Flash 档作为推荐，不按 CLI 自己的当前模型推断。
+    modelTier: (id) => (/flash/i.test(id) ? 'balanced' : null),
+    // 会话模式只有 default / accept-edits / plan（还有按账号出现的 auto）。accept-edits 与 auto 会放过 BaoCut 模式要问的动作，不用；
+    // 完全访问也留在 default，由 Harness 的决策表放行，换模式不必重启进程，也不传 `--dangerously-skip-permissions`。
+    modes: { plan: ['plan', 'default'], ask: ['default'], fullAccess: ['default'] },
+    // 1.5.14 的 initialize 不声明 mcpCapabilities，但 session/new 的 HTTP 服务（带请求头）实测连上并把工具交给模型。
+    assumeMcpHttp: true,
+    legacySessionId: antigravityLegacySessionId,
     tested: false,
   },
   qwen: {

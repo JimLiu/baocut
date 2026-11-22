@@ -134,6 +134,43 @@ describe('AcpSession（假 ACP 智能体）', () => {
     expect((warning as { message: string }).message).toContain('BaoCut 的工具');
   });
 
+  it('Antigravity：没声明 HTTP MCP 也传 BaoCut 的工具通道，开发者指令经 _meta 进系统提示，不附在第一句话前', async () => {
+    driver = new AcpDriver('antigravity', silentLogger, { locate: fake.locate });
+    const { session, events, completed } = await start(
+      { mcpHttp: 'undeclared', systemPromptMeta: true, modes: ['default', 'accept-edits', 'plan'] },
+      { mcpServers: { baocut: { url: 'http://127.0.0.1:9/mcp', headers: { Authorization: 'Bearer t' } } }, developerInstructions: 'Use bcut.' },
+    );
+    const created = fake.requests('session/new').at(-1)!.params;
+    expect(created.mcpServers).toEqual([
+      { type: 'http', name: 'baocut', url: 'http://127.0.0.1:9/mcp', headers: [{ name: 'Authorization', value: 'Bearer t' }] },
+    ]);
+    expect(created._meta).toEqual({ antigravity: { systemPrompt: { append: 'Use bcut.' } } });
+    const { turnId } = await session.startTurn({ text: 'hi' }, settings('fullAccess'));
+    await completed(turnId);
+    expect(fake.requests('session/prompt').at(-1)!.params.prompt).toEqual([{ type: 'text', text: 'hi' }]);
+    expect(events.some((e) => e.type === 'session.warning')).toBe(false);
+    // 完全访问留在 default（由 Harness 放行），不发 set_mode；计划模式用 plan。
+    expect(fake.requests('session/set_mode')).toEqual([]);
+    const plan = await session.startTurn({ text: 'plan' }, settings('plan'));
+    await completed(plan.turnId);
+    expect(fake.requests('session/set_mode').map((r) => r.params.modeId)).toEqual(['plan']);
+  });
+
+  it('Antigravity：恢复时不再传 _meta 指令；旧的原生句柄（version 1 + conversationId）经 session/load 载入', async () => {
+    driver = new AcpDriver('antigravity', silentLogger, { locate: fake.locate });
+    const first = await start({ systemPromptMeta: true }, { developerInstructions: 'Use bcut.' });
+    const handle = first.session.describePersistence()!;
+    await start({ systemPromptMeta: true }, { resume: handle, developerInstructions: 'Use bcut.' });
+    expect(fake.requests('session/load').at(-1)!.params).not.toHaveProperty('_meta');
+    const legacy = { driverId: 'antigravity', data: { version: 1, conversationId: 'conv-legacy' } };
+    const migrated = await start({ systemPromptMeta: true }, { resume: legacy });
+    expect(fake.requests('session/load').at(-1)!.params.sessionId).toBe('conv-legacy');
+    expect(migrated.session.describePersistence()).toEqual({ driverId: 'antigravity', data: { sessionId: 'conv-legacy' } });
+    // 别的预设不认这种句柄。
+    await start({}, { resume: { driverId: 'gemini', data: { version: 1, conversationId: 'conv-legacy' } } });
+    expect(fake.requests('session/load')).toHaveLength(2);
+  });
+
   it('恢复：支持 session/load 时加载，回放的历史不当成新内容', async () => {
     const first = await start();
     const handle = first.session.describePersistence() as AgentPersistenceHandle;
@@ -340,7 +377,7 @@ describe('AcpSession（假 ACP 智能体）', () => {
 
   it('BaoCut 自己的 MCP 工具：原生审批直接放行（由工具通道按访问模式把关），不出审批卡；别的 MCP 服务照常询问', async () => {
     const mcpServers = { baocut: { url: 'http://127.0.0.1:9/mcp', headers: {} } };
-    for (const title of ['mcp__baocut__videos_list', 'videos_list (baocut MCP Server)']) {
+    for (const title of ['mcp__baocut__videos_list', 'videos_list (baocut MCP Server)', 'Run mcp_baocut_videos_list']) {
       const s = await start({ turn: { tool: { kind: 'other', title }, ask: 1, reply: 'ok' } }, { mcpServers });
       const before = fake.permissionAnswers().length;
       const { turnId } = await s.session.startTurn({ text: 'go' }, settings());
@@ -357,6 +394,13 @@ describe('AcpSession（假 ACP 智能体）', () => {
     expect(approval.request).toMatchObject({ kind: 'tool', tool: 'create_issue', server: 'github' });
     await other.session.respondToApproval(approval.approvalId, { decision: 'accept' });
     await other.completed(turnId);
+    // agy 的命名：别的服务照常询问，服务名与工具名分开显示。
+    const agy = await start({ turn: { tool: { kind: 'other', title: 'Run mcp_github_create_issue' }, ask: 1, reply: 'ok' } }, { mcpServers });
+    const agyTurn = await agy.session.startTurn({ text: 'go' }, settings());
+    const asked = await agy.approval();
+    expect(asked.request).toMatchObject({ kind: 'tool', tool: 'create_issue', server: 'github' });
+    await agy.session.respondToApproval(asked.approvalId, { decision: 'accept' });
+    await agy.completed(agyTurn.turnId);
   });
 
   it('中断：session/cancel，回合以 interrupted 结束；没在跑的回合报 not-running', async () => {
@@ -412,6 +456,16 @@ describe('AcpSession（假 ACP 智能体）', () => {
       ['mode', 'plan'],
       ['model', 'fake-flash'],
     ]);
+  });
+
+  it('旧版模型表与配置项两套 id：表里的模型走 session/set_model，配置项报回的基础 id 不让下一轮再切', async () => {
+    const s = await start({ models: 'both' });
+    for (let i = 0; i < 2; i++) {
+      const { turnId } = await s.session.startTurn({ text: `t${i}` }, settings('ask', 'fake-flash-low'));
+      expect(await s.completed(turnId)).toMatchObject({ outcome: 'completed' });
+    }
+    expect(fake.requests('session/set_model').map((r) => r.params.modelId)).toEqual(['fake-flash-low']);
+    expect(fake.requests('session/set_config_option').filter((r) => r.params.configId === 'model')).toEqual([]);
   });
 
   it('智能体自己换了模式（config_option_update）：下一轮按实际模式重设，不按比 BaoCut 更宽的模式运行', async () => {

@@ -16,10 +16,21 @@ export interface AcpInstall {
 
 const located = new Map<string, { at: number; result: Promise<AcpInstall | null> }>();
 
-/** Windows 同时支持独立 exe 与 npm cmd shim；macOS / Linux 使用原命令与预设安装位置。 */
+const LOCALAPPDATA = '%LOCALAPPDATA%/';
+
+/**
+ * Windows 同时支持独立 exe 与 npm cmd shim；macOS / Linux 使用原命令与预设安装位置。
+ * 已知位置里 `~/` 开头的相对于用户主目录；`%LOCALAPPDATA%/` 开头的只在 Windows 上用（没有这个变量时取 `~\AppData\Local`）。
+ */
 export function acpSearch(preset: Pick<AcpPreset, 'command' | 'knownLocations'>, platform: NodeJS.Platform, env: NodeJS.ProcessEnv, home: string): { names: string[]; locations: string[] } {
   const paths = platform === 'win32' ? path.win32 : path.posix;
-  const locations = (preset.knownLocations ?? []).map((file) => file.startsWith('~/') ? paths.join(home, file.slice(2)) : file);
+  const locations = (preset.knownLocations ?? []).flatMap((file) => {
+    if (file.startsWith(LOCALAPPDATA)) {
+      if (platform !== 'win32') return [];
+      return [path.win32.join(env.LOCALAPPDATA || path.win32.join(home, 'AppData', 'Local'), ...file.slice(LOCALAPPDATA.length).split('/'))];
+    }
+    return [file.startsWith('~/') ? paths.join(home, file.slice(2)) : file];
+  });
   if (platform !== 'win32') return { names: [preset.command], locations };
   const win = path.win32;
   return {

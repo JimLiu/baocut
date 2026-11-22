@@ -26,3 +26,19 @@ describe('Qwen CLI discovery and launch', () => {
     expect(nodeCliCommand('C:\\Qwen Code\\qwen.exe')).toEqual({ file: 'C:\\Qwen Code\\qwen.exe', args: [] });
   });
 });
+
+describe('Antigravity CLI discovery', () => {
+  it('finds the native installer location under LOCALAPPDATA on Windows, including relocated and non-ASCII profiles', () => {
+    const search = acpSearch(ACP_PRESETS.antigravity, 'win32', { LOCALAPPDATA: 'D:\\账户 甲\\Local' }, 'C:\\Users\\用户');
+    expect(search.names).toEqual(['agy.exe', 'agy.cmd']);
+    expect(search.locations).toContain('D:\\账户 甲\\Local\\agy\\bin\\agy.exe');
+    expect(acpSearch(ACP_PRESETS.antigravity, 'win32', {}, 'C:\\Users\\用户').locations).toContain('C:\\Users\\用户\\AppData\\Local\\agy\\bin\\agy.exe');
+    expect(acpPathVariable(ACP_PRESETS.antigravity)).toBe('BAOCUT_ANTIGRAVITY_PATH');
+  });
+
+  it('uses ~/.local/bin on macOS/Linux and never a Windows-only location', () => {
+    const search = acpSearch(ACP_PRESETS.antigravity, 'darwin', { LOCALAPPDATA: 'C:\\x' }, '/Users/用户');
+    expect(search.names).toEqual(['agy']);
+    expect(search.locations).toEqual(['/Users/用户/.local/bin/agy', '/opt/homebrew/bin/agy', '/usr/local/bin/agy']);
+  });
+});

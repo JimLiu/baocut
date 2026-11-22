@@ -51,7 +51,7 @@ export interface AcpDriverOptions {
 }
 
 /**
- * 经 Agent Client Protocol 接入的 Driver（架构设计 §3.1）：一份实现，按预设（GitHub Copilot、Gemini CLI、Cursor Agent、Grok、Kimi Code，
+ * 经 Agent Client Protocol 接入的 Driver（架构设计 §3.1）：一份实现，按预设（GitHub Copilot、Antigravity CLI、Qwen Code、Gemini CLI、Cursor Agent、Grok、Kimi Code，
  * 以及用户添加的智能体）区分怎么找、怎么启动、怎么登录。每个会话一个智能体进程。
  *
  * 共享实现经 claude-code-acp 适配器在真机上跑通了完整会话（新建、审批、追问、中断、恢复，§3.11 的 D08，`ACP_SHARED_VERIFIED`）：
@@ -218,6 +218,8 @@ export class AcpDriver implements AgentDriver {
       const session = await proc.connection.newSession({ cwd: os.homedir(), mcpServers: [] });
       let models = deriveModels(session as AcpSessionState);
       if (preset.models === 'cursor') models = (await this.#cursorModels(proc, models)) ?? models;
+      const tier = preset.modelTier;
+      if (tier) models = models.map((m) => ({ ...m, tier: tier(m.id) ?? m.tier }));
       if (caps?.sessionCapabilities?.close) {
         await withTimeout(proc.connection.closeSession({ sessionId: session.sessionId }), 2000, 'session/close timed out').catch(
           () => undefined,
@@ -273,5 +275,5 @@ export class AcpDriver implements AgentDriver {
 
 /** 内置 ACP 预设各一个 Driver，按 `BUILTIN_DRIVER_IDS` 的顺序。 */
 export function acpDrivers(log: Logger): AcpDriver[] {
-  return (['copilot', 'qwen', 'gemini', 'cursor', 'grok', 'kimi'] as const).map((id) => new AcpDriver(id, log));
+  return (['copilot', 'antigravity', 'qwen', 'gemini', 'cursor', 'grok', 'kimi'] as const).map((id) => new AcpDriver(id, log));
 }

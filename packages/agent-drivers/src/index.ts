@@ -18,4 +18,3 @@ export { OPENCODE_PRESET } from './opencode/opencode-preset.ts';
 export { type OpenCodeInstall } from './opencode/opencode-binary.ts';
 export { agentEnv, compareVersions, onLoginShellProbeFailure, resolveToolSearchPath, type LoginShellFailure } from './login-shell.ts';
 export { commandRule } from './approval-rule.ts';
-export { AntigravityDriver, ANTIGRAVITY_MIN_VERSION, type AntigravityDriverOptions } from './antigravity/antigravity-driver.ts';

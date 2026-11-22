@@ -241,14 +241,22 @@ export function approvalOf(snapshot: ToolSnapshot, cwd: string): { request: Appr
 const STABLE_KINDS = new Set<ToolKind>(['read', 'search', 'fetch', 'think', 'switch_mode']);
 
 /**
- * 标题里认出的 MCP 工具：`mcp__<服务>__<工具>`（claude-code-acp 等沿用 Claude Code 的命名）或
- * `<工具> (<服务> MCP Server)`（Gemini CLI 的显示名；未验证：按 Gemini CLI 0.46.0 的源码推断，没跑真实回合核对）。认不出时为 null。
+ * 标题里认出的 MCP 工具：`mcp__<服务>__<工具>`（claude-code-acp 等沿用 Claude Code 的命名）、
+ * `<工具> (<服务> MCP Server)`（Gemini CLI 的显示名；未验证：按 Gemini CLI 0.46.0 的源码推断，没跑真实回合核对）或
+ * `Run mcp_<服务>_<工具>`（agy 1.5.14 实测）。agy 的分隔符只有一个下划线：给了 `servers` 时按其中的服务名前缀切，
+ * 否则在第一个下划线处切（服务名本身带下划线时只影响显示）。认不出时为 null。
  */
-export function mcpToolOf(title: string): { server: string; tool: string } | null {
+export function mcpToolOf(title: string, servers?: ReadonlySet<string>): { server: string; tool: string } | null {
   const claude = /^mcp__([^_]+(?:_[^_]+)*?)__(.+)$/.exec(title);
   if (claude) return { server: claude[1]!, tool: claude[2]! };
   const gemini = /^(.+) \((.+) MCP Server\)$/.exec(title);
   if (gemini) return { server: gemini[2]!, tool: gemini[1]! };
+  const agy = /^(?:Run )?mcp_([^_\s]+_.+)$/.exec(title)?.[1];
+  if (agy) {
+    const server = [...(servers ?? [])].find((name) => agy.startsWith(`${name}_`)) ?? agy.slice(0, agy.indexOf('_'));
+    const tool = agy.slice(server.length + 1);
+    return tool ? { server, tool } : null;
+  }
   return null;
 }
 
@@ -259,7 +267,7 @@ export function mcpToolOf(title: string): { server: string; tool: string } | nul
  */
 export function isOwnMcpTool(snapshot: ToolSnapshot, servers: ReadonlySet<string>): boolean {
   if (servers.size === 0 || (snapshot.kind !== null && snapshot.kind !== 'other')) return false;
-  const mcp = mcpToolOf(snapshot.title);
+  const mcp = mcpToolOf(snapshot.title, servers);
   return mcp !== null && servers.has(mcp.server);
 }
 

@@ -138,7 +138,7 @@ export interface SpaceEntryReference {
 /**
  * 内置的智能体引擎（架构设计 §3.1）。顺序就是设置页与选择器里的顺序：前六个（Claude、Codex、Copilot、Pi、OpenCode、Antigravity）常驻主列表，
  * 后五个（Qwen Code、Gemini CLI、Cursor Agent、Grok、Kimi Code）没检测到时在「更多」折叠段里（主列表与折叠段的划分由界面静态持有）。
- * Copilot 与后五个经 Agent Client Protocol（ACP）的同一份实现接入。
+ * Copilot、Antigravity 与后五个经 Agent Client Protocol（ACP）的同一份实现接入。
  * 表里有不等于这一版已经注册了它：`agents.list` 只列 Runtime 注册了的 Driver。
  */
 export const BUILTIN_DRIVER_IDS = ['claude', 'codex', 'copilot', 'pi', 'opencode', 'antigravity', 'qwen', 'gemini', 'cursor', 'grok', 'kimi'] as const;

@@ -59,6 +59,8 @@ let nextId = 5000;
 let sessionCount = 0;
 let allowAll = 'off';
 let mode = 'default';
+/** `models: 'both'` 时配置项的当前值（不带档位的另一套 id）。 */
+let configModel = 'fake-pro';
 const pending = new Map<number | string, (message: Message) => void>();
 let cancel: (() => void) | null = null;
 
@@ -105,6 +107,24 @@ function sessionState(): Record<string, unknown> {
       category: 'mode',
       currentValue: mode,
       options: scenario.modes.map((value) => ({ value, name: value })),
+    });
+  }
+  if (scenario.models === 'both') {
+    // Antigravity 那样：旧版表带推理档位，配置项只有基础 id。
+    state.models = {
+      availableModels: [
+        { modelId: 'fake-pro-high', name: 'Fake Pro (High)' },
+        { modelId: 'fake-flash-low', name: 'Fake Flash (Low)' },
+      ],
+      currentModelId: 'fake-pro-high',
+    };
+    configOptions.push({
+      id: 'model',
+      name: 'Model',
+      type: 'select',
+      category: 'model',
+      currentValue: configModel,
+      options: [{ value: 'fake-pro', name: 'Fake Pro' }, { value: 'fake-flash', name: 'Fake Flash' }],
     });
   }
   if (scenario.models === 'legacy') {
@@ -173,8 +193,10 @@ async function handleRequest(message: Message): Promise<void> {
         agentCapabilities: {
           loadSession: scenario.loadSession,
           promptCapabilities: { image: scenario.image },
-          mcpCapabilities: { http: scenario.mcpHttp },
+          // agy 那样完全不声明 mcpCapabilities。
+          ...(scenario.mcpHttp === 'undeclared' ? {} : { mcpCapabilities: { http: scenario.mcpHttp } }),
           sessionCapabilities: { ...(scenario.resume ? { resume: {} } : {}), close: {} },
+          ...(scenario.systemPromptMeta ? { _meta: { antigravity: { systemPrompt: { append: true } } } } : {}),
         },
         authMethods: [],
       });
@@ -200,11 +222,20 @@ async function handleRequest(message: Message): Promise<void> {
       mode = String(params.modeId);
       return reply({});
     case 'session/set_model':
+      if (scenario.models === 'both') {
+        // 切了带档位的模型之后，配置项报出不带档位的基础 id。
+        configModel = String(params.modelId).replace(/-(high|low)$/, '');
+        update(String(params.sessionId), { sessionUpdate: 'config_option_update', configOptions: sessionState().configOptions });
+      }
+      return reply({});
     case 'session/close':
       return reply({});
     case 'session/set_config_option':
       if (params.configId === 'allow_all') allowAll = String(params.value);
       if (params.configId === 'mode') mode = String(params.value);
+      if (params.configId === 'model' && scenario.models === 'both' && !['fake-pro', 'fake-flash'].includes(String(params.value))) {
+        return fail({ code: -32602, message: `Invalid model: ${String(params.value)}` });
+      }
       return reply({ configOptions: sessionState().configOptions ?? [] });
     case 'cursor/list_available_models':
       if (!scenario.cursorModels) return fail({ code: -32601, message: 'Method not found' });
