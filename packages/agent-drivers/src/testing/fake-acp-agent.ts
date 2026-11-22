@@ -357,6 +357,28 @@ async function runTurn(sessionId: string, reply: (result: unknown) => void, fail
     await cancelledPromise;
     return reply({ stopReason: 'cancelled' });
   }
+  const background = turn.background;
+  if (background) {
+    const toolCallId = 'bg-1';
+    update(sessionId, { sessionUpdate: 'tool_call', toolCallId, title: background.title, kind: 'execute', status: 'in_progress', rawInput: background.rawInput });
+    let stopped = false;
+    cancel = () => {
+      if (stopped) return;
+      stopped = true;
+      update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId, status: 'failed' });
+    };
+    setTimeout(() => {
+      if (stopped) return;
+      stopped = true;
+      update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId, status: 'completed' });
+      const half = Math.ceil(background.followUp.length / 2);
+      const usage = () => update(sessionId, { sessionUpdate: 'usage_update', used: 100, size: 1000 });
+      if (background.usageFirst) usage();
+      update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: background.followUp.slice(0, half) } });
+      update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: background.followUp.slice(half) } });
+      if (!background.usageFirst) usage();
+    }, background.afterMs);
+  }
   if (turn.reply) {
     const half = Math.ceil(turn.reply.length / 2);
     update(sessionId, { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: turn.reply.slice(0, half) } });

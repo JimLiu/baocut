@@ -4,7 +4,9 @@
  * 再 session/resume；恢复时不丢 cwd 与 mcpServers）、replayingHistory（加载时回放的历史不当成新内容）、
  * handlePromptResponse（stopReason → 回合结果）、requestPermission 的挂起表（选择请求不自动放行）、setMode / setModel
  * （session/set_model）、closeSession、earlySessionUpdates（session/new 应答之前到的更新先存着）、handleConfigOptionUpdate
- * （智能体自己改了模式或模型）、工具调用结束时 cancelPendingPermissions；generic-acp-agent.ts 的通用会话装配。
+ * （智能体自己改了模式或模型）、工具调用结束时 cancelPendingPermissions；generic-acp-agent.ts 的通用会话装配；
+ * packages/plugin/src/server/acp-internal/connection.ts 的 deferTurnOnRunningTools（end_turn 后还有后台工具时延后结束回合，
+ * 续写以 usage_update 为界）。
  * 改成 BaoCut 的 AgentSession 事件；「本会话放行」由 Driver 自己记，从不选原生的「总是允许」；访问模式按更严的一方映射；
  * 选择请求转成 BaoCut 的提问。
  */
@@ -87,7 +89,19 @@ interface Turn {
   finished: Set<string>;
   declined: Set<string>;
   planId: string | null;
+  /** 智能体已经回了 `end_turn`，还有留住回合的工具在跑（预设的 `keepsTurnOpen`）：回合等它们结束、续写说完再结束。 */
+  deferred: DeferredEnd | null;
 }
+
+interface DeferredEnd {
+  timer: ReturnType<typeof setTimeout> | null;
+  /** 最近一次工具变化之后收到过 `usage_update`（一次模型应答说完了）。 */
+  replied: boolean;
+}
+
+/** 延后结束的回合：续写说完（`usage_update`）后安静这么久就结束；一直没有续写时，最后的工具结束后最多等这么久。 */
+const DEFERRED_SETTLE_MS = 500;
+const DEFERRED_QUIET_LIMIT_MS = 120_000;
 
 interface PendingApproval {
   turnId: string;
@@ -253,12 +267,16 @@ export class AcpSession implements AgentSession {
       finished: new Set(),
       declined: new Set(),
       planId: null,
+      deferred: null,
     };
     this.#turn = turn;
     this.#instructions = null;
     this.#emit({ type: 'turn.started', turnId });
     this.#proc.connection.prompt({ sessionId, prompt }).then(
-      (res) => this.#finishTurn(turn, res.stopReason === 'cancelled' || turn.cancelled ? 'interrupted' : 'completed', null, null),
+      (res) => {
+        if (res.stopReason === 'end_turn' && !turn.cancelled && this.#deferEnd(turn)) return;
+        this.#finishTurn(turn, res.stopReason === 'cancelled' || turn.cancelled ? 'interrupted' : 'completed', null, null);
+      },
       async (error: unknown) => {
         // 进程退了：交给 session.exited（Harness 记成 AGENT_EXITED），这里不再报一遍。
         const exited = await withTimeout(
@@ -283,9 +301,12 @@ export class AcpSession implements AgentSession {
     this.#settleApprovals(turn.id);
     try {
       await withTimeout(this.#proc.connection.cancel({ sessionId: this.#requireSession() }), 15_000, 'session/cancel timed out');
+      // 延后结束的回合已经没有 session/prompt 在等应答：取消发出去就由这里结束（agy 随后把后台工具报成 failed）。
+      if (turn.deferred) this.#finishTurn(turn, 'interrupted', null, null);
       return { status: 'requested' };
     } catch (error) {
       this.#log.warn('ACP interrupt request failed', { error: acpErrorMessage(error) });
+      if (turn.deferred) this.#finishTurn(turn, 'interrupted', null, null);
       return { status: 'unknown' };
     }
   }
@@ -294,6 +315,7 @@ export class AcpSession implements AgentSession {
     const pending = this.#approvals.get(approvalId);
     if (!pending) return;
     this.#approvals.delete(approvalId);
+    if (this.#turn?.id === pending.turnId) this.#scheduleDeferredEnd(this.#turn);
     if (pending.chooser) {
       // 选择请求：回答选中对应的候选；跳过（与用户直接发消息）选拒绝的选项；取消同普通审批。
       const option = response.decision === 'accept' ? chooserOption(pending.options, response.answers?.[CHOOSER_QUESTION_ID]?.[0]) : null;
@@ -351,6 +373,7 @@ export class AcpSession implements AgentSession {
     if (this.#closed) return;
     this.#closed = true;
     this.#settleApprovals(null);
+    if (this.#turn?.deferred?.timer) clearTimeout(this.#turn.deferred.timer);
     const caps = this.#proc.init.agentCapabilities;
     if (this.#sessionId && caps?.sessionCapabilities?.close && !this.#proc.hasExited) {
       await withTimeout(this.#proc.connection.closeSession({ sessionId: this.#sessionId }), 2000, 'session/close timed out').catch(
@@ -501,6 +524,7 @@ export class AcpSession implements AgentSession {
       const approvalId = newId('appr');
       this.#approvals.set(approvalId, { turnId: turn.id, toolCallId: id, options: params.options, grantKey, resolve });
       this.#emit({ type: 'approval.requested', turnId: turn.id, approvalId, request });
+      this.#scheduleDeferredEnd(turn);
     });
   }
 
@@ -532,9 +556,11 @@ export class AcpSession implements AgentSession {
     switch (update.sessionUpdate) {
       case 'agent_message_chunk':
         this.#append(turn, 'agent-message', contentText(update.content));
+        this.#scheduleDeferredEnd(turn);
         return;
       case 'agent_thought_chunk':
         this.#append(turn, 'reasoning', contentText(update.content));
+        this.#scheduleDeferredEnd(turn);
         return;
       case 'tool_call':
       case 'tool_call_update': {
@@ -553,8 +579,19 @@ export class AcpSession implements AgentSession {
         } else if (!terminal && (!previous || update.sessionUpdate === 'tool_call')) {
           this.#emit({ type: 'item.started', turnId: turn.id, item: toolItem(snapshot, undefined, this.#cwd) });
         }
+        if (turn.deferred) {
+          turn.deferred.replied = false;
+          this.#scheduleDeferredEnd(turn);
+        }
         return;
       }
+      case 'usage_update':
+        // 一次模型应答说完了；agy 只在用量变了时发，所以文字块可能在它前后。
+        if (turn.deferred) {
+          if (!this.#keepsTurnOpen(turn)) turn.deferred.replied = true;
+          this.#scheduleDeferredEnd(turn);
+        }
+        return;
       case 'plan': {
         this.#closeMessage(turn);
         turn.planId ??= newId('item');
@@ -588,8 +625,49 @@ export class AcpSession implements AgentSession {
     this.#emit({ type: 'item.completed', turnId: turn.id, item: { kind: message.kind, id: message.id, text: message.text } });
   }
 
+  /**
+   * `end_turn` 时还有留住回合的工具在跑：先不结束（agy 把长命令转到后台后立刻 end_turn，命令跑完再自己续写一段）。
+   * 之后的更新照常记进这一轮；工具都结束、续写说完后由 `#scheduleDeferredEnd` 结束。没有要等的返回 false。
+   */
+  #deferEnd(turn: Turn): boolean {
+    if (!this.#preset.keepsTurnOpen || !this.#keepsTurnOpen(turn)) return false;
+    // 第一段回复到此为止；续写另起一条消息。
+    this.#closeMessage(turn);
+    turn.deferred = { timer: null, replied: false };
+    this.#log.debug('ACP turn ended with running tools; waiting for them', { tools: turn.tools.size - turn.finished.size });
+    this.#scheduleDeferredEnd(turn);
+    return true;
+  }
+
+  /** 还有没结束、按预设要留住回合的工具，或挂着的审批。 */
+  #keepsTurnOpen(turn: Turn): boolean {
+    const keeps = this.#preset.keepsTurnOpen;
+    if (!keeps) return false;
+    for (const [id, snapshot] of turn.tools) if (!turn.finished.has(id) && keeps(snapshot)) return true;
+    for (const pending of this.#approvals.values()) if (pending.turnId === turn.id) return true;
+    return false;
+  }
+
+  /** 延后结束的回合：有活动就重新计时；没有要等的工具时，续写说完后短等，否则等到上限。 */
+  #scheduleDeferredEnd(turn: Turn): void {
+    const deferred = turn.deferred;
+    if (!deferred || this.#turn !== turn) return;
+    if (deferred.timer) clearTimeout(deferred.timer);
+    deferred.timer = null;
+    if (this.#keepsTurnOpen(turn)) return;
+    deferred.timer = setTimeout(
+      () => {
+        deferred.timer = null;
+        if (this.#turn === turn && turn.deferred === deferred && !this.#keepsTurnOpen(turn)) this.#finishTurn(turn, 'completed', null, null);
+      },
+      deferred.replied ? DEFERRED_SETTLE_MS : DEFERRED_QUIET_LIMIT_MS,
+    );
+  }
+
   #finishTurn(turn: Turn, outcome: 'completed' | 'interrupted' | 'failed', error: DriverText | null, code: AgentErrorCode | null): void {
     if (this.#turn !== turn) return;
+    if (turn.deferred?.timer) clearTimeout(turn.deferred.timer);
+    turn.deferred = null;
     this.#closeMessage(turn);
     // 回合结束时还没有终态的步骤：被拒的记成 declined，别的不能当成完成。
     for (const [id, snapshot] of turn.tools) {
@@ -651,6 +729,7 @@ export class AcpSession implements AgentSession {
 
   #onExit(reason: Localized | null): void {
     this.#settleApprovals(null);
+    if (this.#turn?.deferred?.timer) clearTimeout(this.#turn.deferred.timer);
     this.#turn = null;
     const error = this.#closed ? null : reason;
     this.#emit({ type: 'session.exited', error: textOf(error), ...refField('errorRef', error) });

@@ -24,7 +24,7 @@ const waitFor = async <T>(read: () => Promise<T | undefined> | T | undefined, ms
   throw new Error('Antigravity ACP test timed out');
 };
 
-it.skipIf(!binary || process.platform === 'win32')('real agy acp: MCP channel, system prompt, approvals, image, interrupt, resume, and legacy handles', async () => {
+it.skipIf(!binary || process.platform === 'win32')('real agy acp: MCP channel, system prompt, approvals, image, interrupt, background command, resume, and legacy handles', async () => {
   const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-agy-acp-test-')));
   const home = path.join(dir, 'home');
   const cwd = path.join(dir, 'workspace');
@@ -35,7 +35,7 @@ it.skipIf(!binary || process.platform === 'win32')('real agy acp: MCP channel, s
   await fs.writeFile(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jYQAAAABJRU5ErkJggg==', 'base64'));
   const pidFile = path.join(cwd, 'child.pid');
 
-  // 回环模型服务：带工具的请求按 plan 依次回 functionCall，其余回文字。
+  // 回环模型服务：带工具的请求按 plan 依次回 functionCall，其余回文字。用量逐次增加：agy 只在用量变了时推 usage_update。
   let plan: Array<{ name: string; args: Record<string, unknown> }> = [];
   const seen: Array<{ system: string; contents: string; body: string; tools: string[] }> = [];
   const model = http.createServer(async (req, res) => {
@@ -47,7 +47,7 @@ it.skipIf(!binary || process.platform === 'win32')('real agy acp: MCP channel, s
     seen.push({ system: JSON.stringify(body.systemInstruction ?? ''), contents: JSON.stringify(body.contents ?? []), body: source, tools });
     const call = body.tools ? plan.shift() : undefined;
     const parts = call ? [{ functionCall: call }] : [{ text: 'BAOCUT_ACP_OK' }];
-    const data = { candidates: [{ content: { role: 'model', parts }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 3, totalTokenCount: 13 } };
+    const data = { candidates: [{ content: { role: 'model', parts }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 10 * seen.length, candidatesTokenCount: 3, totalTokenCount: 10 * seen.length + 3 } };
     const stream = req.url?.includes('streamGenerateContent');
     res.writeHead(200, { 'Content-Type': stream ? 'text/event-stream' : 'application/json' });
     res.end(stream ? `data: ${JSON.stringify(data)}\n\n` : JSON.stringify(data));
@@ -160,6 +160,18 @@ it.skipIf(!binary || process.platform === 'win32')('real agy acp: MCP channel, s
     plan = [];
     const after = await a.session.startTurn({ text: 'Continue after interruption.' }, settings);
     expect(await a.completed(after.turnId)).toMatchObject({ outcome: 'completed' });
+
+    // 后台命令：超过 WaitMsBeforeAsync 时 agy 把它转到后台并 end_turn；回合等命令跑完、agy 带着输出续写之后才结束。
+    plan = [{ name: 'run_command', args: { CommandLine: "sleep 2; printf 'BG_%s' DONE", WaitMsBeforeAsync: 500, toolSummary: 'BaoCut background test' } }];
+    const before = a.events.filter((e) => e.type === 'approval.requested').length;
+    const requests = seen.length;
+    const bg = await a.session.startTurn({ text: 'Start the background test.' }, settings);
+    await a.approved(before + 1);
+    expect(await a.completed(bg.turnId)).toMatchObject({ outcome: 'completed' });
+    expect(seen.slice(requests).some((s) => s.contents.includes('BG_DONE'))).toBe(true);
+    expect(a.events.find((e) => e.type === 'item.completed' && e.turnId === bg.turnId && e.item.kind === 'tool-call')).toMatchObject({ item: { status: 'completed' } });
+    expect(a.events.filter((e) => e.type === 'item.completed' && e.turnId === bg.turnId && e.item.kind === 'agent-message')).toHaveLength(2);
+
     const handle = a.session.describePersistence();
     await a.session.close();
 

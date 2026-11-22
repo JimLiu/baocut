@@ -37,6 +37,11 @@ export interface FakeAcpTurn {
   reply?: string;
   /** 一直不结束，直到收到 `session/cancel`。 */
   hang?: boolean;
+  /**
+   * agy 那样的后台工具：`tool_call` 以 in_progress 发出，回复与 `end_turn` 照常；`afterMs` 之后推 completed，再续写
+   * `followUp`（两段）与一条 `usage_update`。回合结束后收到 `session/cancel` 时改推 failed，不再续写。
+   */
+  background?: { title: string; rawInput?: unknown; afterMs: number; followUp: string; usageFirst?: boolean };
   /** `session/prompt` 回这个错误。 */
   error?: { code: number; message: string };
   /** 回合里智能体自己换到这个模式（退出计划模式、切到 yolo 之类），按 `modesVia` 推 `current_mode_update` 或 `config_option_update`。 */

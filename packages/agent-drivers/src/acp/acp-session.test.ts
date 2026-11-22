@@ -412,6 +412,53 @@ describe('AcpSession（假 ACP 智能体）', () => {
     expect(await s.session.interrupt(turnId)).toEqual({ status: 'not-running' });
   });
 
+  it('Antigravity：end_turn 时还有后台命令在跑，回合等它结束、续写说完再结束；续写另起一条消息', async () => {
+    driver = new AcpDriver('antigravity', silentLogger, { locate: fake.locate });
+    for (const usageFirst of [false, true]) {
+      const s = await start({ turn: { reply: 'started', background: { title: 'sleep 1', rawInput: { CommandLine: 'sleep 1' }, afterMs: 400, followUp: 'build finished', usageFirst } } });
+      const { turnId } = await s.session.startTurn({ text: 'go' }, settings('fullAccess'));
+      const messages = () => s.events.filter((e) => e.type === 'item.completed' && e.item.kind === 'agent-message').map((e) => (e as { item: { text: string } }).item.text);
+      await until(() => messages().includes('started'));
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(s.events.some((e) => e.type === 'turn.completed')).toBe(false);
+      expect((await s.completed(turnId)).outcome).toBe('completed');
+      expect(messages()).toEqual(['started', 'build finished']);
+      const tool = s.events.find((e) => e.type === 'item.completed' && e.item.kind === 'tool-call');
+      expect(tool).toMatchObject({ turnId, item: { status: 'completed' } });
+    }
+  });
+
+  it('Antigravity：常驻服务（IsDaemon）与定时任务不留回合；别的 ACP 智能体也不延后', async () => {
+    const cases: Array<['antigravity' | 'gemini', unknown]> = [
+      ['antigravity', { CommandLine: 'npm run dev', IsDaemon: true }],
+      ['antigravity', { CronExpression: '0 * * * *', Prompt: 'check' }],
+      ['gemini', { CommandLine: 'sleep 1' }],
+    ];
+    for (const [id, rawInput] of cases) {
+      driver = new AcpDriver(id, silentLogger, { locate: fake.locate });
+      const s = await start({ turn: { reply: 'started', background: { title: 'bg', rawInput, afterMs: 3000, followUp: 'late' } } });
+      const started = Date.now();
+      const { turnId } = await s.session.startTurn({ text: 'go' }, settings('fullAccess'));
+      expect((await s.completed(turnId)).outcome).toBe('completed');
+      expect(Date.now() - started).toBeLessThan(2000);
+      expect(s.events.find((e) => e.type === 'item.completed' && e.item.kind === 'tool-call')).toMatchObject({ item: { status: 'interrupted' } });
+    }
+  });
+
+  it('Antigravity：等后台命令时中断，发 session/cancel 并以 interrupted 结束，不等智能体再回', async () => {
+    driver = new AcpDriver('antigravity', silentLogger, { locate: fake.locate });
+    const s = await start({ turn: { reply: 'started', background: { title: 'sleep 30', rawInput: { CommandLine: 'sleep 30' }, afterMs: 30_000, followUp: 'never' } } });
+    const { turnId } = await s.session.startTurn({ text: 'go' }, settings('fullAccess'));
+    await until(() => s.events.some((e) => e.type === 'item.completed' && e.item.kind === 'agent-message'));
+    expect(await s.session.interrupt(turnId)).toEqual({ status: 'requested' });
+    expect((await s.completed(turnId)).outcome).toBe('interrupted');
+    expect(fake.requests('session/cancel')).toHaveLength(1);
+    expect(s.events.find((e) => e.type === 'item.completed' && e.item.kind === 'tool-call')).toMatchObject({ item: { status: 'interrupted' } });
+    // 智能体随后报的 failed 不会再开一轮或改写结果。
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(s.events.filter((e) => e.type === 'turn.completed')).toHaveLength(1);
+  });
+
   it('回合失败：需要登录的错误带 AGENT_AUTH_REQUIRED', async () => {
     const s = await start({ turn: { error: { code: -32000, message: 'Authentication required' } } });
     const { turnId } = await s.session.startTurn({ text: 'go' }, settings());

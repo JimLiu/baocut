@@ -8,6 +8,7 @@
 import type { DriverId, DriverInstallOption, Localized, ModelTier } from '@baocut/protocol';
 import { DriversAcp } from '@baocut/protocol/messages/agent-drivers';
 import { officialScript } from '../driver-text.ts';
+import type { ToolSnapshot } from './acp-items.ts';
 
 /** 内置的 ACP 预设（`BUILTIN_DRIVER_IDS` 里经 ACP 接入的七个）。 */
 export type BuiltinAcpDriverId = 'copilot' | 'antigravity' | 'qwen' | 'gemini' | 'cursor' | 'grok' | 'kimi';
@@ -67,6 +68,11 @@ export interface AcpPreset {
   /** 迁移来的旧恢复句柄（同一个 Driver id 以前的原生接入存的 `data`）→ ACP 会话号；认不出时返回 null。 */
   legacySessionId?: (data: unknown) => string | null;
   /**
+   * 智能体回了 `end_turn`，但还有工具在后台跑，跑完后它自己接着说（agy 把超过 `WaitMsBeforeAsync` 的命令转到后台）：
+   * 回合先不结束，等这些工具结束、续写说完（见 `AcpSession` 的延后结束）。返回 false 的工具不留回合（常驻服务、定时任务）。
+   */
+  keepsTurnOpen?: (tool: ToolSnapshot) => boolean;
+  /**
    * 访问模式 → ACP 会话模式（`session/set_mode`）的候选，按顺序取智能体有的第一个；都没有就不设并提示一次。
    * 只放不比 BaoCut 的模式更宽的原生模式（架构设计 §3.12：两边取更严的）。
    */
@@ -118,6 +124,18 @@ export function antigravityInstallCommand(platform: NodeJS.Platform): string {
 export function antigravityLegacySessionId(data: unknown): string | null {
   const legacy = data as { version?: unknown; conversationId?: unknown } | null;
   return legacy?.version === 1 && typeof legacy.conversationId === 'string' && legacy.conversationId ? legacy.conversationId : null;
+}
+
+/**
+ * agy 在后台跑的工具留住回合（agy 1.5.14 实测：end_turn 时命令还是 in_progress，跑完后推 completed 并自己续写一段）。
+ * `IsDaemon` 的命令（开发服务器之类）与带 `CronExpression` 的定时任务一直不结束，不留回合。
+ */
+export function antigravityKeepsTurnOpen(tool: ToolSnapshot): boolean {
+  const input = tool.rawInput;
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) return true;
+  const fields = input as { IsDaemon?: unknown; CronExpression?: unknown };
+  if (fields.IsDaemon === true) return false;
+  return !(typeof fields.CronExpression === 'string' && fields.CronExpression.trim().length > 0);
 }
 
 /** Copilot 的会话模式 id 是 URL 形式（`copilot --acp` 1.0.92 实测）。 */
@@ -190,6 +208,7 @@ export const ACP_PRESETS: Record<BuiltinAcpDriverId, AcpPreset> = {
     // 1.5.14 的 initialize 不声明 mcpCapabilities，但 session/new 的 HTTP 服务（带请求头）实测连上并把工具交给模型。
     assumeMcpHttp: true,
     legacySessionId: antigravityLegacySessionId,
+    keepsTurnOpen: antigravityKeepsTurnOpen,
     tested: false,
   },
   qwen: {
