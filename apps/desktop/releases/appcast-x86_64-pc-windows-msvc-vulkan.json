@@ -2,21 +2,21 @@
   "schema": 1,
   "target": "x86_64-pc-windows-msvc",
   "variant": "vulkan",
-  "version": "3.20.1",
-  "build": 99,
-  "date": "2026-11-19",
-  "notes": "Updates: Fixed a macOS update that failed every time with \"The downloaded file didn't pass verification\" after a downloaded update was left uninstalled across a restart. Update downloads now try GitHub Releases first and fall back to the baocut.com mirror.\nLink import on macOS: The managed yt-dlp now uses the unpacked build, so after its first launch it starts in a fraction of a second instead of over 2 seconds each time. A tool check that times out is retried once, and a passing check is reused while the tool is unchanged, so a slow start no longer marks yt-dlp as unavailable.\nModels: OpenAI now defaults to GPT-6.2 Sol and Google to Gemini 4 Hydrogen. Astra, Neon, Carbon and Fable 5.2 are added to the direct and OpenRouter catalogs; existing model choices are kept.\nCodex and Pi: Replies that contain Unicode line or paragraph separators are no longer dropped, and a process whose output line passes 64 MB is stopped with a stated reason. Interrupting a Codex turn that already finished reports that it is not running.\nPi: BaoCut follows the thinking level Pi reports after a model change, a context compaction no longer ends a turn early, and a session opened right after a model check no longer times out.\nACP agents keep BaoCut's mode after changing it themselves, and an approval card closes as soon as the agent ends that tool call. When an agent exits, a reason it writes late is still shown.\nClaude: Model discovery no longer cuts off a sign-in token refresh. Changing effort while background tasks run applies after they finish instead of ending them.\nOpenCode: Status and readiness checks retry after a single failure, so a running session is not marked done and real errors are reported instead of \"directory not ready\".\nThe macOS package requires Apple Silicon and macOS 14 or later. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable. CUDA and Vulkan variants require compatible GPU drivers.",
+  "version": "3.20.2",
+  "build": 100,
+  "date": "2026-11-23",
+  "notes": "Antigravity: BaoCut now connects through agy acp, enabling BaoCut tools and action approvals in Plan, Ask and Full Access modes. BaoCut tools no longer trigger a second native approval. Requires Antigravity CLI 1.5.10 or later; update with agy update.\nAntigravity sessions: Existing native conversations can resume through ACP. Developer instructions are added to the system prompt for new native sessions without duplication on resume. Model changes preserve reasoning-level model IDs, Flash models are recommended, and Windows discovery recognizes the official installer location.\nBackground commands: Antigravity turns now stay open until background commands finish and the agent follows up, preserving command results and replies. Interrupting the waiting turn cancels it. Daemon commands and scheduled tasks do not keep a turn open.\nKnown limits: Messages sent while a background command runs remain queued until the turn ends; interrupt to send them sooner. When the follow-up has no usage update, the turn can wait up to two minutes after its last activity. Changes to developer instructions take effect in a new native session. Real Google-account end-to-end use has not been verified.\nThe macOS package requires Apple Silicon and macOS 14 or later. Windows packages are unsigned and require AVX2 and the Microsoft Visual C++ v14 x64 Redistributable. CUDA and Vulkan variants require compatible GPU drivers.",
   "notesLocalized": {},
   "app": {
     "format": "exe",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.1-build.99/BaoCut-3.20.1-build.99-win-x64-vulkan-setup.exe",
-    "size": 243329895,
-    "sha256": "310e9e39d4e3988fe2d859b005097df5adf69b21cef5f9715a8feb730e1e35b7"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.2-build.100/BaoCut-3.20.2-build.100-win-x64-vulkan-setup.exe",
+    "size": 243321763,
+    "sha256": "79fdfbbcdf4a0778bf3db680365d0fbe8a8ab43bf0a3b2a0432cf7464e9cc1d8"
   },
   "cli": {
     "format": "zip",
-    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.1-build.99/BaoCut-CLI-3.20.1-build.99-x86_64-pc-windows-msvc-vulkan.zip",
-    "size": 233936244,
-    "sha256": "25bc4d65380800ff839f4319c862ded52682458fefc7cbd479cd0a0c2aafe392"
+    "url": "https://github.com/jimliu/baocut/releases/download/baocut-v3.20.2-build.100/BaoCut-CLI-3.20.2-build.100-x86_64-pc-windows-msvc-vulkan.zip",
+    "size": 233926016,
+    "sha256": "f46ebe5b9027526466d98fa7b617b3a72e26ec108953a1e712504f80d7fde428"
   }
 }
