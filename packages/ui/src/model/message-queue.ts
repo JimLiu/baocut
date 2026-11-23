@@ -5,7 +5,7 @@
  * packages/app/src/composer/actions.ts（`sendQueuedComposerMessageNow`、`editQueuedComposerMessage`），modified：
  * 立即发送先走 `conversations.steer`，按它的结果决定移出、留在队列还是改走 `conversations.send`；队列按会话存在 shell-store。
  */
-import { sendSkillRefs, type AttachmentRef, type EditorContext, type Id, type SkillSendRef, type SlideAnnotation, type DesignAnnotation, type DesignSystemAnnotation, type VideoAnnotation, type DocsAnnotation } from '@baocut/protocol';
+import { sendSkillRefs, type AttachmentRef, type EditorContext, type Id, type SkillSendRef, type VideoAnnotation } from '@baocut/protocol';
 
 export interface QueuedMessage {
   id: Id;
@@ -16,16 +16,8 @@ export interface QueuedMessage {
   context?: EditorContext;
   /** 点选的 skill，按挂上的顺序；走 `conversations.send` 时带上（`steer` 不收 skill，带 skill 的不插话，等这一轮结束再发）。 */
   skills?: SkillSendRef[];
-  /** 加进对话的幻灯片标注（docs/design/slides §8.2）；`send` 与 `steer` 都带上。 */
-  slideAnnotations?: SlideAnnotation[];
-  /** 加进对话的设计稿标注（docs/design/canvas §8.2）；同幻灯片标注。 */
-  designAnnotations?: DesignAnnotation[];
-  /** 加进对话的设计系统标注（docs/design/canvas §10.6）；同幻灯片标注。 */
-  designSystemAnnotations?: DesignSystemAnnotation[];
-  /** 加进对话的视频标注（产品设计 §3.2.3「视频标注」）；同幻灯片标注。 */
+  /** 加进对话的视频标注（产品设计 §3.2.3「视频标注」）；`send` 与 `steer` 都带上。 */
   videoAnnotations?: VideoAnnotation[];
-  /** 发给智能体的协作文档评论与请求（docs/design/docs §8）；同幻灯片标注。 */
-  docsAnnotations?: DocsAnnotation[];
   /** 用户点掉了「品牌：BRAND.md」：走 `conversations.send` 时不带项目的 `BRAND.md`（`steer` 不收，带它的不插话）。 */
   skipProjectBrand?: boolean;
   /** Bot 频道：这条是回复哪张线程卡的（BOT-EX-09）。走 `conversations.send` 时带上；`steer` 不收，带它的不插话。 */
@@ -54,56 +46,9 @@ function isSkillRef(value: unknown): value is SkillSendRef {
   return !!value && typeof value === 'object' && typeof (value as SkillSendRef).id === 'string';
 }
 
-/** 持久化的一条幻灯片标注：只核对形状，长度与条数由 Runtime 的 schema 把关。 */
-function isSlideAnnotation(value: unknown): value is SlideAnnotation {
-  if (!value || typeof value !== 'object') return false;
-  const a = value as Record<string, unknown>;
-  return (
-    !!a.deck &&
-    typeof a.deck === 'object' &&
-    typeof a.anchor === 'string' &&
-    typeof a.label === 'string' &&
-    typeof a.text === 'string' &&
-    (a.slideId === undefined || typeof a.slideId === 'string') &&
-    (a.detail === undefined || typeof a.detail === 'string') &&
-    (a.area === undefined || typeof a.area === 'boolean')
-  );
-}
-
-/** 持久化的一条设计稿标注：同幻灯片标注，只核对形状。 */
-function isDesignAnnotation(value: unknown): value is DesignAnnotation {
-  if (!value || typeof value !== 'object') return false;
-  const a = value as Record<string, unknown>;
-  return (
-    !!a.canvas &&
-    typeof a.canvas === 'object' &&
-    typeof a.anchor === 'string' &&
-    typeof a.label === 'string' &&
-    typeof a.text === 'string' &&
-    (a.board === undefined || typeof a.board === 'string') &&
-    (a.detail === undefined || typeof a.detail === 'string') &&
-    (a.area === undefined || typeof a.area === 'boolean')
-  );
-}
-
-/** 持久化的一条设计系统标注：同幻灯片标注，只核对形状。 */
-function isDesignSystemAnnotation(value: unknown): value is DesignSystemAnnotation {
-  if (!value || typeof value !== 'object') return false;
-  const a = value as Record<string, unknown>;
-  return (
-    !!a.system &&
-    typeof a.system === 'object' &&
-    typeof a.anchor === 'string' &&
-    typeof a.label === 'string' &&
-    typeof a.text === 'string' &&
-    (a.section === undefined || typeof a.section === 'string') &&
-    (a.detail === undefined || typeof a.detail === 'string')
-  );
-}
-
 const isUnit = (v: unknown) => typeof v === 'number' && v >= 0 && v <= 1;
 
-/** 持久化的一条视频标注：同幻灯片标注，只核对形状。 */
+/** 持久化的一条视频标注：只核对形状，长度与条数由 Runtime 的 schema 把关。 */
 function isVideoAnnotation(value: unknown): value is VideoAnnotation {
   if (!value || typeof value !== 'object') return false;
   const a = value as Record<string, unknown>;
@@ -127,21 +72,6 @@ function isVideoAnnotation(value: unknown): value is VideoAnnotation {
   );
 }
 
-/** 持久化的一条协作文档标注：同幻灯片标注，只核对形状。 */
-function isDocsAnnotation(value: unknown): value is DocsAnnotation {
-  if (!value || typeof value !== 'object') return false;
-  const a = value as Record<string, unknown>;
-  return (
-    !!a.doc &&
-    typeof a.doc === 'object' &&
-    (a.kind === 'comment' || a.kind === 'ask') &&
-    typeof a.path === 'string' &&
-    typeof a.label === 'string' &&
-    typeof a.text === 'string' &&
-    (a.quote === undefined || typeof a.quote === 'string')
-  );
-}
-
 /** 读回持久化的一条：形状不对的不要。只能点一个 skill 时存的 `skill` 也认（`readQueuedMessage` 把它换成 `skills`）。 */
 export function isQueuedMessage(value: unknown): value is QueuedMessage {
   if (!value || typeof value !== 'object') return false;
@@ -155,20 +85,19 @@ export function isQueuedMessage(value: unknown): value is QueuedMessage {
     (m.context === undefined || (!!m.context && typeof m.context === 'object')) &&
     (m.skill === undefined || isSkillRef(m.skill)) &&
     (m.skills === undefined || (Array.isArray(m.skills) && m.skills.every(isSkillRef))) &&
-    (m.slideAnnotations === undefined || (Array.isArray(m.slideAnnotations) && m.slideAnnotations.every(isSlideAnnotation))) &&
-    (m.designAnnotations === undefined || (Array.isArray(m.designAnnotations) && m.designAnnotations.every(isDesignAnnotation))) &&
-    (m.designSystemAnnotations === undefined ||
-      (Array.isArray(m.designSystemAnnotations) && m.designSystemAnnotations.every(isDesignSystemAnnotation))) &&
     (m.videoAnnotations === undefined || (Array.isArray(m.videoAnnotations) && m.videoAnnotations.every(isVideoAnnotation))) &&
-    (m.docsAnnotations === undefined || (Array.isArray(m.docsAnnotations) && m.docsAnnotations.every(isDocsAnnotation))) &&
     (m.replyToItemId === undefined || typeof m.replyToItemId === 'string')
   );
 }
 
-/** 读回持久化的一条，旧的单个 `skill` 换成 `skills`；形状不对时为 null。 */
+/** 不再发的旧标注（幻灯片、设计稿、设计系统、协作文档；这些编辑器已换成 Open Artifact，docs/design/artifacts）。 */
+const RETIRED_ANNOTATIONS = ['slideAnnotations', 'designAnnotations', 'designSystemAnnotations', 'docsAnnotations'] as const;
+
+/** 读回持久化的一条，旧的单个 `skill` 换成 `skills`，不再发的旧标注丢掉；形状不对时为 null。 */
 export function readQueuedMessage(value: unknown): QueuedMessage | null {
   if (!isQueuedMessage(value)) return null;
-  const { skill, skills, ...base } = value as QueuedMessage & { skill?: SkillSendRef };
+  const { skill, skills, ...rest } = value as QueuedMessage & { skill?: SkillSendRef };
+  const base = Object.fromEntries(Object.entries(rest).filter(([key]) => !(RETIRED_ANNOTATIONS as readonly string[]).includes(key))) as Omit<QueuedMessage, 'skills'>;
   const refs = sendSkillRefs({ ...(skill ? { skill } : {}), ...(skills ? { skills } : {}) });
   return refs.length ? { ...base, skills: refs } : base;
 }

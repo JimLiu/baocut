@@ -21,7 +21,7 @@ export interface SpaceToolsDeps {
   jobs: { list(): JobRecord[] };
 }
 
-const KINDS = ['video', 'export', 'video-file', 'image', 'audio', 'subtitle', 'document', 'slides', 'design', 'design-system', 'docs', 'package', 'template'] as const;
+const KINDS = ['video', 'export', 'video-file', 'image', 'audio', 'subtitle', 'document', 'package', 'template'] as const;
 const STATUSES = ['generating', 'candidate', 'applied', 'published', 'source-changed', 'missing', 'failed', 'none'] as const;
 
 /** 用户说了不要找的项目与视频（检索类工具共用，架构设计 §5.7「权限」）：只缩小范围，不放宽。 */
@@ -46,7 +46,7 @@ const schemas = {
       .max(KINDS.length)
       .optional()
       .describe(
-        '可选。只列这些种类：video（可编辑的视频）、export（导出的文件）、video-file、image、audio、subtitle、document、slides（幻灯片目录）、design（设计稿目录）、design-system（设计系统目录）、docs（文档目录）、package（便携包）、template（模板）',
+        '可选。只列这些种类：video（可编辑的视频）、export（导出的文件）、video-file、image、audio、subtitle、document、package（便携包）、template（模板）',
       ),
     status: z
       .array(z.enum(STATUSES))
@@ -218,8 +218,6 @@ function entryOf(entry: SpaceEntry) {
     videoId: videoOf(entry),
     ...(entry.source.projectId || entry.source.conversationId ? { path: entry.relPath } : {}),
     size: entry.size,
-    ...(entry.deck ? { slideCount: entry.deck.slideCount } : {}),
-    ...(entry.canvas ? { boardCount: entry.canvas.boardCount } : {}),
     lastActivityAt: entry.lastActivityAt,
     ...(entry.origin ? { origin: { source: entry.origin.source, ...(entry.origin.jobId ? { jobId: entry.origin.jobId } : {}) } } : {}),
     ...(entry.user.favorite ? { favorite: true } : {}),

@@ -1,9 +1,8 @@
 /* 视频标注（product-design §3.2.3「视频标注」、§5.3）：编辑器预览画面上框、箭头、文字与编号标记的草稿，composer 上的引用标签，
    多帧标注的候选区间，以及发送时拼给智能体的那段文字。window.BC_STAGE_NOTES。纯函数，无 React、无 DOM；只在 App 入口加载。
 
-   做法与幻灯片、设计稿、设计系统标注（model-home-slides.js、model-home-design.js、model-home-design-system-notes.js）同一家，
-   差别只有草稿的归属：那三种挂在会话上，这里按**视频**挂在 store 上（`videoNotes[videoId]`），因为编辑器的快聊会话常常还没建；
-   composer 按会话的 `project` 读它，发送后随消息记入会话（`videoAnnotations`），草稿清空。编号与另外三种各自从 1 起。
+   草稿按**视频**挂在 store 上（`videoNotes[videoId]`），因为编辑器的快聊会话常常还没建；
+   composer 按会话的 `project` 读它，发送后随消息记入会话（`videoAnnotations`），草稿清空。
    **同一帧的标记算一条**（lite-editor §4.1）：草稿与消息里仍是一处标记一项（几何、颜色、批注各自带），给人看的列表、条数、画面上的编号
    与给模型的块都按「视频 + 那一帧」（`shot.timeMs`，没有截图时取 `timeMs`）归成一条——那一帧本来就共一张截图。
    一条标注：{id, video, revision, timeMs, kind, region: {x, y, w, h}, to?: {x, y}, label, text}。
@@ -161,7 +160,7 @@
     return `at (${r.x}, ${r.y})`;
   }
 
-  /** product-design §3.2.3、协议 `conversations`：Harness 追加在给智能体的文字后面的块，一部视频一块，排在设计系统标注段之后。
+  /** product-design §3.2.3、协议 `conversations`：Harness 追加在给智能体的文字后面的块，一部视频一块。
       `pathOf(videoId)` 给出视频相对会话工作目录的路径；`revision` 取这组标注里最大的（都是同一版本时就是那一个）。
       一帧一条（编号从 1 起）：首行时刻与几处标记，下面是落点与那一帧的截图（画着这一帧的标记），再逐处列出 a. b. …（种类、几何、颜色、元素、批注）。 */
   function promptText(notes, pathOf) {

@@ -79,6 +79,7 @@ export const ja: CopyMessages = {
     desc: { label: '説明文を書く', sub: 'チャプターのタイムコードとタグ付き' },
     cover: { label: 'サムネイルを作る', sub: 'キーフレームをもとに候補をいくつか' },
     export: { label: '書き出し', sub: 'SRT / 字幕焼き込みの MP4' },
+    artifacts: { label: 'アーティファクトを作成', sub: 'スライド、ドキュメント、デザイン、表などをタブで開く' },
   },
   composerMenu: {
     insert: '挿入',

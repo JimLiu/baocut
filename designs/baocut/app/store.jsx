@@ -480,38 +480,24 @@
 
     /** 发一句话：写入 user 消息，按脚本推进。 */
     /* `reference`：输入框里的 Space 条目引用（product-design §4.7），随这条消息发出
-       `slideAnnotations`：幻灯片标签页里加进草稿的标注（docs/design/slides §8.2），随这条消息记入会话
-       `designAnnotations`：设计稿标签页里加进草稿的标注（docs/design/canvas §8.2），同上
-       `designSystemAnnotations`：设计系统标签里加进草稿的标注（docs/design/canvas §10.6），同上
-       `videoAnnotations`：编辑器预览画面上加进草稿的标注（product-design §3.2.3「视频标注」），同上
-       `docsAnnotations`：协作文档标签页里「发给智能体」的评论与请求（docs/design/docs §8），同上 */
-    const sendAgent = useCallback((sid, text, fresh, attachments = [], reference = null, artifactIds = [], slideAnnotations = [], designAnnotations = [], designSystemAnnotations = [], videoAnnotations = [], docsAnnotations = []) => {
+       `videoAnnotations`：编辑器预览画面上加进草稿的标注（product-design §3.2.3「视频标注」），随这条消息记入会话 */
+    const sendAgent = useCallback((sid, text, fresh, attachments = [], reference = null, artifactIds = [], videoAnnotations = []) => {
       const t = String(text || '').trim();
-      if (!t && !attachments.length && !reference && !slideAnnotations.length && !designAnnotations.length && !designSystemAnnotations.length && !videoAnnotations.length && !docsAnnotations.length) return;
+      if (!t && !attachments.length && !reference && !videoAnnotations.length) return;
       const sess = sessionsRef.current.find((x) => x.id === sid) || fresh;
       if (!sess) return;
-      const title = sess.title || AG.sessionTitle(t || attachments[0]?.name || (reference && reference.name) || (slideAnnotations.length ? '幻灯片标注'
-        : designAnnotations.length ? '设计稿标注' : designSystemAnnotations.length ? '设计系统标注' : videoAnnotations.length ? '视频标注' : docsAnnotations.length ? '协作文档标注' : '图片'));
-      /* 带着幻灯片、设计稿、设计系统或协作文档标注发出去：原型按标注模拟逐页、逐块画板、逐个文件修改，协作文档是在线程里回复、把请求写进文档
-         （model-home-slides.js、model-home-design.js、model-home-design-system-notes.js、model-home-docs.js；Web 入口没有这几个模块） */
-      const SL = window.BC_HOME_SLIDES, DG = window.BC_HOME_DESIGN, DS = window.BC_HOME_DSYS_NOTES, DOC = window.BC_HOME_DOCS, VN = window.BC_STAGE_NOTES;
-      const plan = slideAnnotations.length && SL ? SL.replyPlan(slideAnnotations)
-        : designAnnotations.length && DG ? DG.replyPlan(designAnnotations)
-        : designSystemAnnotations.length && DS ? DS.replyPlan(designSystemAnnotations)
-        : videoAnnotations.length && VN ? VN.replyPlan(videoAnnotations, (id) => (projects.find((p) => p.id === id) || {}).title || id)
-        : docsAnnotations.length && DOC ? DOC.replyPlan(docsAnnotations) : agentSim.planFor(t, !!sess.project, sess);
-      /* 只带标注、没写话时正文是固定的一句（docs/design/slides §8.2、canvas §8.2 与 §10.6、docs §8；原型只写中文） */
-      const said = t || (attachments.length || reference ? '' : slideAnnotations.length ? '请按这些幻灯片标注修改。'
-        : designAnnotations.length ? '请按这些设计稿标注修改。' : designSystemAnnotations.length ? '请按这些设计系统标注修改。'
-        : videoAnnotations.length ? '请按这些视频标注修改。'
-        : docsAnnotations.length ? (DOC ? DOC.fallbackText() : '请处理这些协作文档里的评论和请求。') : '');
+      const title = sess.title || AG.sessionTitle(t || attachments[0]?.name || (reference && reference.name) || (videoAnnotations.length ? '视频标注' : '图片'));
+      /* 带着视频标注发出去：原型按标注模拟逐处修改（model-stage-notes.js）；以 `/artifacts` 开头的消息模拟做一份作品
+         （docs/design/artifacts §6，model-home-artifacts.js）。这两个模块只在 App 入口 */
+      const VN = window.BC_STAGE_NOTES, ART = window.BC_HOME_ARTIFACTS;
+      const plan = videoAnnotations.length && VN ? VN.replyPlan(videoAnnotations, (id) => (projects.find((p) => p.id === id) || {}).title || id)
+        : ART && ART.isCommand(t) ? ART.replyPlan(t, sessionsRef.current) : agentSim.planFor(t, !!sess.project, sess);
+      /* 只带标注、没写话时正文是固定的一句（原型只写中文） */
+      const said = t || (attachments.length || reference ? '' : videoAnnotations.length ? '请按这些视频标注修改。' : '');
       /* 提问卡或方案卡还在等：这句话就是回复（product-design §6.6），卡片记成「已在输入框回复」「已用消息回复」 */
       mapMsgs(sid, (ms) => ms.map((m) => ((m.role === 'question' || m.role === 'plan') && m.state === 'pending' ? {...m, state: 'byMessage'} : m)));
       appendMsg(sid, {role: 'user', text: said, attachments, ...(reference ? {reference} : {}),
-        ...(artifactIds.length ? {artifactIds} : {}), ...(slideAnnotations.length ? {slideAnnotations} : {}),
-        ...(designAnnotations.length ? {designAnnotations} : {}), ...(designSystemAnnotations.length ? {designSystemAnnotations} : {}),
-        ...(videoAnnotations.length ? {videoAnnotations} : {}),
-        ...(docsAnnotations.length ? {docsAnnotations} : {}), startedAt: Date.now()});
+        ...(artifactIds.length ? {artifactIds} : {}), ...(videoAnnotations.length ? {videoAnnotations} : {}), startedAt: Date.now()});
       patchSession(sid, {title, status: 'running', draft: '', activeModel: null});
       // 原型用 fixture 模拟 CLI 握手：只在回报模型后展示具体名字，目录默认不冒充运行值。
       const h = harnessList.find((item) => item.id === sess.harness);
@@ -530,6 +516,8 @@
           ? {...m, ...done, status: window.BC_AGENT_TURN.nextToolStatus(m.status, done.status)} : m))));
         at += 900;
       });
+      /* 作品回执（docs/design/artifacts §4）：daemon 报告作品建好或改了，时间线上记一条，界面画成产物卡 */
+      if (plan.artifact) later(sid, at, () => appendMsg(sid, {role: 'artifact', ...plan.artifact}));
       /* 边转边问：等那件还在跑的转录（store-agent-sim.jsx 的 runWait） */
       if (plan.wait) { later(sid, at, () => agentSim.runWait(sid, plan, sess)); return; }
       if (!plan.write) {

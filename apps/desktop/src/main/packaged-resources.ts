@@ -29,14 +29,11 @@ export const RESOURCE_DIRS = {
   modelAssets: 'model-assets',
   /** Web 客户端的构建产物（`apps/web/dist`）。 */
   web: 'web',
-  /** 幻灯片编辑器的构建产物（`apps/slides-editor/dist`）：编辑器页面与 slides_check 用的编译器。 */
-  slidesEditor: 'slides-editor',
-  /** 设计稿编辑器的构建产物（`apps/design-editor/dist`）：编辑器页面、画板运行时与快速编辑 Worker。 */
-  designEditor: 'design-editor',
-  /** 设计系统编辑器的构建产物（`apps/design-system-editor/dist`）：编辑器页面、预览页 run.html 与预览用的 React UMD。 */
-  designSystemEditor: 'design-system-editor',
-  /** 文档编辑器的构建产物（`apps/docs-editor/dist`）：编辑器页面与它的运行时、字体。 */
-  docsEditor: 'docs-editor',
+  /**
+   * Open Artifact 的运行时（`@open-artifact/cli` 的包目录：`scripts/open-artifact.mjs` 与 `vendor/`，docs/design/artifacts §2）：
+   * 本机没有 Open Artifact 的 daemon 时 Runtime 用它起一个。
+   */
+  openArtifact: 'open-artifact',
 } as const;
 
 /**
@@ -66,10 +63,7 @@ export interface PackagedResources {
   agentSkillDir: string;
   modelAssetsDir: string;
   webDist: string;
-  slidesEditorDist: string;
-  designEditorDist: string;
-  designSystemEditorDist: string;
-  docsEditorDist: string;
+  openArtifactDir: string;
 }
 
 /** 由资源目录算出各个位置。`pathApi` 让检查脚本在别的平台上按 Windows 的写法算。 */
@@ -84,10 +78,7 @@ export function packagedResources(resourcesPath: string, pathApi: path.PlatformP
     agentSkillDir: pathApi.join(resourcesPath, RESOURCE_DIRS.agentSkill, 'baocut'),
     modelAssetsDir: pathApi.join(resourcesPath, RESOURCE_DIRS.modelAssets),
     webDist: pathApi.join(resourcesPath, RESOURCE_DIRS.web),
-    slidesEditorDist: pathApi.join(resourcesPath, RESOURCE_DIRS.slidesEditor),
-    designEditorDist: pathApi.join(resourcesPath, RESOURCE_DIRS.designEditor),
-    designSystemEditorDist: pathApi.join(resourcesPath, RESOURCE_DIRS.designSystemEditor),
-    docsEditorDist: pathApi.join(resourcesPath, RESOURCE_DIRS.docsEditor),
+    openArtifactDir: pathApi.join(resourcesPath, RESOURCE_DIRS.openArtifact),
   };
 }
 
@@ -114,10 +105,7 @@ export function packagedResourceEnv(resources: PackagedResources, platform: Node
     ...(cliEntry ? { BAOCUT_CLI_ENTRY: cliEntry } : {}),
     BAOCUT_MODEL_ASSETS_DIR: resources.modelAssetsDir,
     BAOCUT_WEB_DIST: resources.webDist,
-    BAOCUT_SLIDES_EDITOR_DIST: resources.slidesEditorDist,
-    BAOCUT_DESIGN_EDITOR_DIST: resources.designEditorDist,
-    BAOCUT_DESIGN_SYSTEM_EDITOR_DIST: resources.designSystemEditorDist,
-    BAOCUT_DOCS_EDITOR_DIST: resources.docsEditorDist,
+    BAOCUT_OPEN_ARTIFACT_DIR: resources.openArtifactDir,
     ...(platform === 'darwin' ? { PMETAL_METALLIB_PATH: path.join(resources.binDir, 'mlx.metallib') } : {}),
   };
 }

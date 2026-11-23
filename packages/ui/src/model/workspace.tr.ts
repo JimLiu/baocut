@@ -1,3 +1,3 @@
 import type { WorkspaceMessages } from './workspace.ts';
 
-export const tr: WorkspaceMessages = { newTab: 'Yeni sekme', projectFiles: 'Proje dosyaları', videoUnavailable: 'Video kullanılamıyor', fileUnavailable: 'Dosya kullanılamıyor', slidesUnavailable: 'Slaytlar kullanılamıyor', designUnavailable: 'Tasarım kullanılamıyor', designSystemUnavailable: 'Tasarım sistemi kullanılamıyor', docsUnavailable: 'Ortak belge kullanılamıyor' };
+export const tr: WorkspaceMessages = { newTab: 'Yeni sekme', projectFiles: 'Proje dosyaları', videoUnavailable: 'Video kullanılamıyor', fileUnavailable: 'Dosya kullanılamıyor', artifactUntitled: 'Adsız yapıt' };

@@ -9,9 +9,7 @@ import { Button as RACButton } from 'react-aria-components';
 import { OUTPUT_COPY, VIDEO_CARD_COPY } from '../../copy.ts';
 import { outputSourceMissing, posterFrame, type ConversationOutput } from '../../model/conversation-outputs.ts';
 import { formatClock } from '../../model/format.ts';
-import { DESIGN } from '../../model/design-copy.ts';
-import { DOCS } from '../../model/docs-copy.ts';
-import { SLIDES } from '../../model/slides-copy.ts';
+import { artifactTypeLabel } from '../../model/artifacts-copy.ts';
 import { formatBytes, isPlayable, KIND_LABEL } from '../../model/space.ts';
 import { videoStatus } from '../../model/video-cards.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -22,6 +20,7 @@ import { useSpace } from '../../state/space-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { CompactPlayer } from '../media/compact-player.tsx';
 import { KIND_ICON } from '../space/space-list.tsx';
+import { artifactIcon } from '../workspace/artifact-icon.tsx';
 import { useEntryThumbnail } from '../use-entry-thumbnail.ts';
 import { useBotThreadExtras } from './bot-items.ts';
 import { cardVars, VideoJobRows, VideoStatusBadge } from './video-card-rows.tsx';
@@ -210,25 +209,18 @@ export function OutputCard({
     : null;
   const missing = useSpace((s) => outputSourceMissing(output, s));
   const poster = usePoster(output);
-  const Icon = KIND_ICON[output.kind];
+  const artifact = output.artifact;
+  const Icon = output.kind === 'artifact' ? artifactIcon(artifact?.type) : KIND_ICON[output.kind];
   const playable = !output.video && output.entry !== null && isPlayable(output.entry.fileName);
   const isVideo = output.kind === 'video';
-  const slides = output.slides;
-  const design = output.design;
-  const designSystem = output.designSystem;
-  const docs = output.docs;
   const words = (
     isVideo
       ? [KIND_LABEL.video, output.durationSeconds ? formatClock(output.durationSeconds) : null]
-      : slides
-        ? [KIND_LABEL.slides, slides.slideCount === null ? null : SLIDES.pages(slides.slideCount)]
-        : design
-          ? [KIND_LABEL.design, design.boardCount === null ? null : DESIGN.boards(design.boardCount)]
-          : designSystem
-            ? [KIND_LABEL['design-system']]
-            : docs
-              ? [KIND_LABEL.docs, docs.tabCount === null ? null : DOCS.tabs(docs.tabCount)]
-              : [KIND_LABEL[output.kind], output.entry ? formatBytes(output.entry.size) : null, playable ? OUTPUT_COPY.playHere : output.entry ? OUTPUT_COPY.previewHere : null]
+      : artifact
+        ? [artifactTypeLabel(artifact.type)]
+        : output.kind === 'artifact'
+          ? []
+          : [KIND_LABEL[output.kind], output.entry ? formatBytes(output.entry.size) : null, playable ? OUTPUT_COPY.playHere : output.entry ? OUTPUT_COPY.previewHere : null]
   )
     .filter(Boolean)
     .join(' · ');
@@ -254,14 +246,9 @@ export function OutputCard({
     // 原型 home-session.jsx `SessionArtifactCard`：非视频的产物都在功能区的单文件标签里打开；
     // 那里视频与音频用播放器，其余用查看器，预览不了的如实说明并给「在文件夹中显示」。
     if (output.video) shell.openVideo(output.video);
-    // 幻灯片在功能区的幻灯片标签里预览、编辑与标注（docs/design/slides §8.1）。
-    else if (slides) shell.openPane({ kind: 'slides', target: slides.target });
-    // 设计稿同样在功能区的设计稿标签里打开（docs/design/canvas §8.1）。
-    else if (design) shell.openPane({ kind: 'design', target: design.target });
-    // 设计系统在功能区的设计系统标签里打开（docs/design/canvas §10.6）。
-    else if (designSystem) shell.openPane({ kind: 'design-system', target: designSystem.target });
-    // 协作文档在功能区的协作文档标签里打开，智能体的改动实时出现在里面（docs/design/docs §8）。
-    else if (docs) shell.openPane({ kind: 'docs', target: docs.target });
+    // 作品在功能区的作品标签里看、改、评论（docs/design/artifacts §5）。
+    else if (artifact)
+      shell.openPane({ kind: 'artifact', url: artifact.url, title: artifact.title, type: artifact.type, conversationId }, { conversationId });
     else if (!isVideo && output.file) shell.openPane({ kind: 'file', target: output.file.target });
     else if (!isVideo && output.entry) shell.openPane({ kind: 'file', target: { conversationId, path: output.entry.relPath } });
   };

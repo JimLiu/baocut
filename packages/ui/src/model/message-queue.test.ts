@@ -55,25 +55,7 @@ describe('排队的增删改', () => {
     expect(isQueuedMessage({ ...msg('a'), skills: [{ id: 'a' }, { id: 'b' }] })).toBe(true);
     expect(isQueuedMessage({ ...msg('a'), skills: [{ id: 'a' }, {}] })).toBe(false);
     expect(isQueuedMessage({ ...msg('a'), skills: { id: 'a' } })).toBe(false);
-    // 加进对话的幻灯片标注也随排队消息存。
-    const note = { deck: { conversationId: 'c1', path: 'talk/deck.json' }, anchor: 's1#title', slideId: 's1', label: 'Slide 1 › Title', text: '改短' };
-    expect(isQueuedMessage({ ...msg('a'), slideAnnotations: [note, { ...note, detail: 'Slide 1 #s1', area: true }] })).toBe(true);
-    expect(isQueuedMessage({ ...msg('a'), slideAnnotations: [{ ...note, text: 1 }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), slideAnnotations: [{ ...note, deck: 'talk/deck.json' }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), slideAnnotations: note })).toBe(false);
-    // 设计稿标注同样。
-    const design = { canvas: { conversationId: 'c1', path: 'designs/landing' }, anchor: 'a:Main.dc.html#0.1', board: 'Main.dc.html', label: 'Main › Button', text: '大一点' };
-    expect(isQueuedMessage({ ...msg('a'), designAnnotations: [design, { ...design, detail: 'Main.dc.html: #0.1 button', area: true }] })).toBe(true);
-    expect(isQueuedMessage({ ...msg('a'), designAnnotations: [{ ...design, board: 1 }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), designAnnotations: [{ ...design, canvas: 'designs/landing' }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), designAnnotations: design })).toBe(false);
-    // 设计系统标注同样。
-    const system = { system: { conversationId: 'c1', path: 'spectrum-2' }, anchor: 'comp-Button', section: 'components', label: 'Components › Button', text: '圆角改小' };
-    expect(isQueuedMessage({ ...msg('a'), designSystemAnnotations: [system, { ...system, section: undefined, detail: 'Component "Button"' }] })).toBe(true);
-    expect(isQueuedMessage({ ...msg('a'), designSystemAnnotations: [{ ...system, section: 1 }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), designSystemAnnotations: [{ ...system, system: 'spectrum-2' }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), designSystemAnnotations: system })).toBe(false);
-    // 视频标注同样。
+    // 加进对话的视频标注也随排队消息存。
     const video = {
       video: { conversationId: 'c1', path: 'videos/demo' },
       revision: '3',
@@ -89,13 +71,6 @@ describe('排队的增删改', () => {
     expect(isQueuedMessage({ ...msg('a'), videoAnnotations: [{ ...video, kind: 'circle' }] })).toBe(false);
     expect(isQueuedMessage({ ...msg('a'), videoAnnotations: [{ ...video, region: { x: 2, y: 0, w: 0, h: 0 } }] })).toBe(false);
     expect(isQueuedMessage({ ...msg('a'), videoAnnotations: video })).toBe(false);
-    // 协作文档标注同样。
-    const docNote = { doc: { conversationId: 'c1', path: 'launch-plan' }, kind: 'comment', path: 'f-t1#body/b3;thread=c9', label: '计划', quote: '原文', text: '有出处吗' };
-    expect(isQueuedMessage({ ...msg('a'), docsAnnotations: [docNote, { kind: 'ask', doc: docNote.doc, path: 'f-t1#body/b7', label: '计划', text: '补一段' }] })).toBe(true);
-    expect(isQueuedMessage({ ...msg('a'), docsAnnotations: [{ ...docNote, kind: 'note' }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), docsAnnotations: [{ ...docNote, quote: 1 }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), docsAnnotations: [{ ...docNote, doc: 'launch-plan' }] })).toBe(false);
-    expect(isQueuedMessage({ ...msg('a'), docsAnnotations: docNote })).toBe(false);
   });
 
   it('读回时把只能点一个 skill 时存的 skill 换成 skills', () => {
@@ -103,6 +78,8 @@ describe('排队的增删改', () => {
     expect(readQueuedMessage({ ...msg('a'), skills: [{ id: 'x' }, { id: 'y' }] })).toEqual({ ...msg('a'), skills: [{ id: 'x' }, { id: 'y' }] });
     expect(readQueuedMessage({ ...msg('a'), skill: { id: 'x' }, skills: [{ id: 'x' }, { id: 'y' }] })?.skills).toEqual([{ id: 'x' }, { id: 'y' }]);
     expect(readQueuedMessage(msg('a'))).toEqual(msg('a'));
+    // 幻灯片、设计稿、设计系统与协作文档的标注不再发（这几种编辑器换成了 Open Artifact）：旧队列里存着的丢掉，消息照留。
+    expect(readQueuedMessage({ ...msg('a'), slideAnnotations: [{}], docsAnnotations: 'x' })).toEqual(msg('a'));
     expect(readQueuedMessage({ id: 'a' })).toBeNull();
   });
 });

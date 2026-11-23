@@ -1267,7 +1267,7 @@ describe('回复线程卡（BOT-EX-09）', () => {
     useShell.getState().setQueue('conv_c1', () => [queued]);
     expect(await sendQueuedMessageNow(runtime, 'conv_c1', 'q1')).toEqual({ status: 'sent' });
     expect(steer).not.toHaveBeenCalled();
-    expect(send.mock.calls[0]).toEqual(['conv_c1', '加上英文', undefined, [], undefined, undefined, undefined, undefined, undefined, undefined, undefined, { replyToItemId: 'card1' }]);
+    expect(send.mock.calls[0]).toEqual(['conv_c1', '加上英文', undefined, [], undefined, undefined, undefined, { replyToItemId: 'card1' }]);
     useShell.getState().setQueue('conv_c1', () => [queued]);
     await drainQueue(runtime, 'conv_c1');
     expect(send.mock.calls[1]!.at(-1)).toEqual({ replyToItemId: 'card1' });

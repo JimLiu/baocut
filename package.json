@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "doctor": "node tools/dev-check.mjs",
-    "setup": "npm run doctor && npm run build:engine && npm run build:audiocpp && npm run build:litertlm-runtime && npm run build:wasm && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor",
+    "setup": "npm run doctor && npm run build:engine && npm run build:audiocpp && npm run build:litertlm-runtime && npm run build:wasm",
     "predev": "npm run setup",
     "dev": "npm run dev --workspace=@baocut/desktop",
     "predev:lite": "node tools/dev-check.mjs --lite",
@@ -35,16 +35,12 @@
     "build:audiocpp-catalog": "node --experimental-strip-types tools/audio-cpp-catalog.ts",
     "build:litertlm-runtime": "node --experimental-strip-types tools/fetch-litertlm-runtime.ts",
     "build:web": "npm run build --workspace=@baocut/web",
-    "build:slides-editor": "npm run build --workspace=@baocut/slides-editor",
-    "build:design-editor": "npm run build --workspace=@baocut/design-editor",
-    "build:design-system-editor": "npm run build --workspace=@baocut/design-system-editor",
-    "build:docs-editor": "npm run build --workspace=@baocut/docs-editor",
     "build:catalog": "node --experimental-strip-types tools/catalog-snapshot.ts",
     "build:agent-skill": "node --experimental-strip-types tools/sync-agent-skill.ts",
     "stage:online-assets": "node tools/stage-online-assets.mjs",
-    "package:win": "npm run build && npm run build:web && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor && node apps/desktop/tools/package-desktop.mjs --variant cpu",
-    "package:win:cuda": "npm run build && npm run build:web && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor && node apps/desktop/tools/package-desktop.mjs --variant cuda",
-    "package:win:vulkan": "npm run build && npm run build:web && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor && node apps/desktop/tools/package-desktop.mjs --variant vulkan",
+    "package:win": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant cpu",
+    "package:win:cuda": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant cuda",
+    "package:win:vulkan": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --variant vulkan",
     "check:file-fonts": "npm run build && node apps/desktop/tools/check-file-fonts.mjs",
     "check:model-assets": "npm run build && node apps/desktop/tools/check-model-assets.mjs",
     "bench:preview": "npm run build && node apps/desktop/tools/preview-bench.mjs",
@@ -52,10 +48,10 @@
     "icons": "node tools/app-icon/render.mjs",
     "precli": "npm run build:catalog",
     "cli": "node --experimental-strip-types apps/cli/src/main.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p packages/design-system-runtime/tsconfig.json --noEmit && tsc -p packages/docs-runtime/tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "npm run build:catalog && npm run build:agent-skill",
     "test": "vitest run",
-    "package:mac": "npm run build && npm run build:web && npm run build:slides-editor && npm run build:design-editor && npm run build:design-system-editor && npm run build:docs-editor && node apps/desktop/tools/package-desktop.mjs --platform mac"
+    "package:mac": "npm run build && npm run build:web && node apps/desktop/tools/package-desktop.mjs --platform mac"
   },
   "engines": {
     "node": "^22.23.4 || ^24.22.1 || ^26.12.1"

@@ -14,10 +14,6 @@ import {
   type TasksEvent,
   type VideoChange,
   type VideoCreated,
-  type SlidesCreated,
-  type DesignCreated,
-  type DesignSystemCreated,
-  type DocsCreated,
   type VideoOpenResult,
 } from '@baocut/protocol';
 import { engineProtections, type Harness } from '@baocut/harness';
@@ -325,26 +321,6 @@ export class AgentScope implements ToolScope<AgentAccess> {
         ? { ...created.target, conversationId: access.conversation.folderOf ?? access.conversation.id }
         : created.target;
     this.#harness.recordVideoCreated(access.conversation.id, access.taskId, { ...created, target });
-  }
-
-  /** `slides_check` 校验通过的 deck 在会话里记一条，界面的幻灯片卡片从它出现（docs/design/slides §7.3）。 */
-  recordSlides(access: AgentAccess, created: SlidesCreated): void {
-    this.#harness.recordSlidesCreated(access.conversation.id, access.taskId, created);
-  }
-
-  /** `design_check` 没有问题的设计稿在会话里记一条，界面的设计稿卡片从它出现（docs/design/canvas §7.3）。 */
-  recordDesign(access: AgentAccess, created: DesignCreated): void {
-    this.#harness.recordDesignCreated(access.conversation.id, access.taskId, created);
-  }
-
-  /** `design_system_check` 没有问题的设计系统在会话里记一条，界面的设计系统卡片从它出现（docs/design/canvas §10.5）。 */
-  recordDesignSystem(access: AgentAccess, created: DesignSystemCreated): void {
-    this.#harness.recordDesignSystemCreated(access.conversation.id, access.taskId, created);
-  }
-
-  /** `docs_*` 新建或改过的文档在会话里记一条，界面的文档卡片从它出现（docs/design/docs §7.3）。 */
-  recordDocs(access: AgentAccess, created: DocsCreated, onlyExisting: boolean): void {
-    this.#harness.recordDocsCreated(access.conversation.id, access.taskId, created, onlyExisting);
   }
 
   /**

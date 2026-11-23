@@ -12,31 +12,13 @@ BaoCut 的部分代码与资源移植、改写或复制自下列开源项目。�
 
 构建从安装包原文收集这些声明，随 Electron 与 Web 输出到 `assets/file-preview-licenses.txt`（`tools/pdf-licenses.ts`）。
 
-## 幻灯片编辑器
+## Open Artifact
 
-编辑器页面与 `slides_check` 用的编译器（`apps/slides-editor`）打进了 React、Base UI、Floating UI、TanStack Virtual、class-variance-authority（Apache-2.0）、clsx、tailwind-merge、JSZip（MIT/GPL-3.0 双许可，取 MIT）及其内联的 pako（MIT 与 Zlib）等 npm 包。构建按实际打进的模块从安装包原文收集许可，输出到 `third-party-licenses.txt`（页面）与 `node/third-party-licenses.txt`（编译器），随应用的 `slides-editor/` 资源分发（`apps/slides-editor/licenses.mjs`）。
+- 来源：Open Artifact（`@open-artifact/cli`、`@open-artifact/harness-kit`、`@open-artifact/protocol`）
+- Copyright 2026 Jim Liu 宝玉
+- 许可：Apache License, Version 2.0（全文见下文「Paseo」一节）
 
-- PptxGenJS 3.12.0（Brent Ely，MIT）：构建时按 `packages/slides-runtime/patches/pptxgenjs-3.12.0.json` 加了 25 处扩展（渐变、平铺填充、图片圆角、占位符继承、自定义主题与母版等），不改安装包。
-- mediabunny 1.27.3（Vanilagy and contributors，MPL-2.0）：`packages/slides-runtime/src/media/video-worker.ts` 以字符串原样内嵌它的编译产物，作为重新编码超大视频的 Worker；各段保留原有的 MPL 许可头。完整源码见 https://github.com/Vanilagy/mediabunny，许可全文在 `packages/slides-runtime/licenses/MPL-2.0.txt`，也写进上面两份许可文件。
-
-## 设计稿编辑器
-
-编辑器页面（`apps/design-editor`）打进了 React 19、Base UI、Floating UI、TanStack Virtual、class-variance-authority（Apache-2.0）、clsx、tailwind-merge、reselect、usehooks-ts 等 npm 包。构建按实际打进的模块与内嵌文件从安装包原文收集许可，输出到 `third-party-licenses.txt`，随应用的 `design-editor/` 资源分发（`apps/design-editor/licenses.mjs`）。
-
-- React 18.3.1 与 ReactDOM 18.3.1（Meta，MIT）：画板运行时 `artifact-type/dc-runtime.js` 打进了它们，与编辑器界面的 React 19 分开；两者的 `umd/*.production.min.js` 原样内嵌在页面里，导出画板时与 `support.js` 一起写进导出文件（`vendor/react.js`、`vendor/react-dom.js`）。
-- Babel standalone 7.29.0（MIT）：npm 包里的 `babel.min.js` 原样随编辑器分发为 `artifact-type/babel.min.js`，画板 x-import 了 JSX 时才加载，在浏览器里编译 JSX；整份设计稿的 HTML 导出只在用到时内嵌一份。
-- dom-to-svg 0.12.2（MIT）及其依赖 postcss、postcss-value-parser、gradient-parser、nanoid、picocolors：注入画板、把画板截成 SVG 的脚本。
-- happy-dom 20.9.0（MIT）、jQuery 4.0.0（MIT）及其依赖 entities（BSD-2-Clause）、whatwg-mimetype：快速编辑的 Worker `artifact-type/fast-edit-worker.js`。
-
-## 设计系统编辑器
-
-编辑器页面（`apps/design-system-editor`）打进了 React 19、Base UI、Floating UI、TanStack Virtual、class-variance-authority（Apache-2.0）、clsx、tailwind-merge、reselect、use-sync-external-store 等 npm 包。构建按实际打进的模块与随页面提供的文件从安装包原文收集许可，输出到 `third-party-licenses.txt`，随应用的 `design-system-editor/` 资源分发（`apps/design-system-editor/licenses.mjs`）。
-
-- React 18.3.1 与 ReactDOM 18.3.1（Meta，MIT）：两者的 `umd/*.production.min.js` 原样放在页面的 `artifact-type/vendor/` 下，组件预览按需加载，与编辑器界面的 React 19 分开。
-
-## 协作文档编辑器
-
-编辑器页面（`apps/docs-editor`）打进了 React 19、TipTap 与 ProseMirror、CodeMirror、Shiki、highlight.js（BSD-3-Clause）与 lowlight、KaTeX、mdast / micromark 系列、streamdown 与 remend（Apache-2.0）、Base UI、Floating UI、TanStack Virtual、class-variance-authority（Apache-2.0）、clsx、wouter（Unlicense）、entities（BSD-2-Clause）等 npm 包。构建按实际打进的模块（含原工程资源插件用 esbuild 打的 lfile 运行时）从安装包原文收集许可，输出到 `third-party-licenses.txt`，随应用的 `docs-editor/` 资源分发（`apps/docs-editor/licenses.mjs`）。
+作品（幻灯片、文档、设计稿等，[作品设计](docs/design/artifacts/artifacts-design.md)）由 Open Artifact 提供。桌面安装包在 `resources/open-artifact/` 原样附带 `@open-artifact/cli` 的运行时（`scripts/`、`vendor/`）及其 `LICENSE` 与 `NOTICE`，那份运行时里打进的第三方组件的声明随它分发；Runtime 与界面打进了 `@open-artifact/harness-kit` 与 `@open-artifact/protocol`，没有修改。
 
 ## Paseo
 

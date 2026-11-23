@@ -44,6 +44,8 @@ describe('登记类工具', () => {
       engineHost: null,
       modelWorker: null,
       skillsDir: builtin,
+      // 不写 Open Artifact 的 `/artifacts` skill：这里只看登记的 skill。
+      artifacts: null,
       initiator: { discoverer: null },
       nodes: { host: '127.0.0.1', advertiser: null },
     });

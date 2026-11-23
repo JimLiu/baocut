@@ -51,6 +51,7 @@ describe('斜杠命令', () => {
       '/desc',
       '/cover',
       '/export',
+      '/artifacts',
     ]);
     expect(slashMatches('tr').map((c) => c.cmd)).toEqual(['/translate']);
     expect(slashMatches('re').map((c) => c.cmd)).toEqual(['/retranscribe', '/refresh']);

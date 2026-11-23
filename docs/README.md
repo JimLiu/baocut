@@ -27,9 +27,7 @@ BaoCut 是一个源码可用（source-available）的、给 Agent 用的视频�
 | [`design/brand/app-icon.md`](design/brand/app-icon.md) | **App 图标设计**：图形组成、三色配色与备选变体、外形模板、否决过的方向；绘制源码在 `tools/app-icon/` |
 | [`design/timeline/`](design/timeline/README.md) | **时间线语义与元素模型（移植自 v2）**：v2 元素模型与 v3 视频格式的逐项对照（接线各批的输入），以及剪辑域、剪口播、元素几何、`timeline.json` 的设计记录；实现在 `crates/timeline`，文中的数据模型名指 v2 |
 | [`design/agent-surface/`](design/agent-surface/README.md) | **面向外部 Agent 的能力面（方案稿）**：CLI、MCP 服务与 BaoCut skill 共用工具目录的设计，Agent 面的命令目录、CLI 与 MCP 约定、skill 的结构与实施顺序；不开桌面端只用 CLI 与 CLI 独立发布的方案 |
-| [`design/slides/`](design/slides/README.md) | **会话里的幻灯片（实施中）**：智能体在会话里做 deck、功能区的 Slides 编辑器、标注作为附件发回会话；宿主能力的重新实现、Runtime 路由、标注协议与分阶段实施 |
-| [`design/canvas/`](design/canvas/README.md) | **会话里的设计稿**：智能体在会话里做设计稿（画板）与设计系统、功能区的编辑器、标注作为附件发回会话；目录页指向这些行为在产品、架构、协议文档与运行时包里的位置 |
-| [`design/docs/`](design/docs/README.md) | **会话里的协作文档**：智能体用 `docs_*` 工具写文档、功能区的文档编辑器（标签页、富文本、表格、评论）、评论与请求发回会话；存储与 door 协议、Runtime 路由、skill 与工具、标注协议 |
+| [`design/artifacts/`](design/artifacts/README.md) | **作品（Open Artifact）**：幻灯片、文档、设计稿、表格等交给 Open Artifact 做成作品；Runtime 作为它的适配器：daemon 与随应用带的运行时、三个作品工具与审批、作品回执与评论唤醒、作品标签与宿主桥、`/artifacts` 命令 |
 | [`design/embedding/`](design/embedding/README.md) | **本地语义能力（方案稿）**：EmbeddingGemma 2 的检索集成方案，以及用同一套本地索引改善写作选材与出处、章节、术语、翻译记忆、重录候选与智能体取材的产品与技术设计 |
 | [`design/motion-video/`](design/motion-video/README.md) | **章节化代码动画片（方案稿）**：HTML / JS + Canvas 或 HyperFrames 的讲解片与 MV 进 AI 编辑器：章节表与按章重做、旁白与配乐按角色分轨、代码包在播放器里实时播放、章节页看改脚本、后台烘焙与导出；从 baoyu-design 的做法借鉴什么 |
 | [`design/lite-editor/`](design/lite-editor/README.md) | **轻量编辑器（方案稿）**：同一编辑器的另一种视图，给看一遍、指出哪里要改的人：画面 + 按段分格的播放条 + 当前段的脚本与逐句侧栏；段统一场景与章节；按轨道生成的图层开关；画面上的标记带段落落点发给会话；顶栏与时间线视图切换，共用一份状态；默认打开规则与偏好 |

@@ -97,7 +97,7 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 
 **CPU 指令集基线**。打包脚本给三个变体编 Model Worker 时都设 `GGML_NATIVE=OFF` 与 `GGML_AVX2=ON`（外部设了就用外部的）：ggml 缺省按构建机的 CPU 探测指令集，runner 带 AVX-512 时编出的 Whisper 在没有 AVX-512 的用户机器上会非法指令崩溃。固定基线是 AVX2（MSVC 上 `/arch:AVX2` 加 FMA、F16C、BMI2，Intel Haswell / AMD Zen 起）：带 AVX-512 的机器在 CPU 上转写稍慢；没有 AVX2 的 CPU（Sandy / Ivy Bridge 与不少 Pentium / Celeron）仍不支持，运行期按 CPU 选内核在 whisper-rs-sys 的静态链接下做不到（[架构设计 §6.5](../../docs/architecture/architecture-design.md#65-model-worker本地推理进程)「ggml 的 CPU 指令集基线」）。whisper-rs-sys 不随这些环境变量重跑：本机以前编过 Windows 的 Worker，先 `cargo clean -p whisper-rs-sys --release --target x86_64-pc-windows-msvc` 再打包；工作流的缓存 key 带着基线。只按源码核对，没有在 Windows 上实际构建或在只有 AVX2 的机器上跑过。
 
-它先 `npm run build`、`npm run build:web`、`npm run build:slides-editor`、`npm run build:design-editor`、`npm run build:design-system-editor`、`npm run build:docs-editor`，再由 `tools/package-desktop.mjs` 用 cargo 编 Worker（release、`x86_64-pc-windows-msvc`、`--locked`），用 electron-builder 出包到 `apps/desktop/dist/<cpu|cuda|vulkan>/`（已被 git 忽略）：
+它先 `npm run build`、`npm run build:web`，再由 `tools/package-desktop.mjs` 用 cargo 编 Worker（release、`x86_64-pc-windows-msvc`、`--locked`），用 electron-builder 出包到 `apps/desktop/dist/<cpu|cuda|vulkan>/`（已被 git 忽略）：
 
 - `BaoCut-<版本>[-build.<n>]-win-x64[-cuda|-vulkan]-setup.exe`：NSIS 一键安装，按用户装到 `%LOCALAPPDATA%\Programs\baocut`，不要管理员；
 - `BaoCut-<版本>[-build.<n>]-win-x64[-cuda|-vulkan].zip`：解开即用；
@@ -122,10 +122,7 @@ Windows 同样启用上述字体与 WASM 共享：Export Worker 用 `external-fo
 | `skills/` | 仓库根的 `skills/`：说明书 `baocut/` 与它下面的内置 skill `baocut/built-in-skills/` | `BAOCUT_AGENT_SKILLS_DIR`（`skills/`）、`BAOCUT_SKILLS_DIR`（`skills/baocut/built-in-skills/`） |
 | `model-assets/` | `packages/models/assets` | `BAOCUT_MODEL_ASSETS_DIR` |
 | `web/` | `apps/web/dist` | `BAOCUT_WEB_DIST` |
-| `slides-editor/` | `apps/slides-editor/dist`：幻灯片编辑器页面与 `slides_check` 用的编译器 | `BAOCUT_SLIDES_EDITOR_DIST` |
-| `design-editor/` | `apps/design-editor/dist`：设计稿编辑器页面、画板运行时与快速编辑 Worker | `BAOCUT_DESIGN_EDITOR_DIST` |
-| `design-system-editor/` | `apps/design-system-editor/dist`：设计系统编辑器页面、预览页 `artifact-type/run.html` 与预览用的 React UMD | `BAOCUT_DESIGN_SYSTEM_EDITOR_DIST` |
-| `docs-editor/` | `apps/docs-editor/dist`：文档编辑器页面与它的运行时、字体 | `BAOCUT_DOCS_EDITOR_DIST` |
+| `open-artifact/` | `node_modules/@open-artifact/cli`（`package.json`、`scripts/open-artifact.mjs`、`vendor/`、`LICENSE`、`NOTICE`）：本机没有 Open Artifact daemon 时 Runtime 用它起一个（[作品设计 §2](../../docs/design/artifacts/artifacts-design.md#2-运行时)） | `BAOCUT_OPEN_ARTIFACT_DIR` |
 
 [BaoCut 许可](../../LICENSE)、第三方代码的来源、修改声明与原始许可由 `tools/third-party-notices.ts` 的清单随桌面与 Web 构建分发。安装包在 asar 内附带 `LICENSE`，另在 `resources/LICENSE`、`resources/THIRD_PARTY_NOTICES.md` 与 `resources/crates/model-runtime/licenses/speech-swift.txt` 保留原文副本；打包结构检查与安装后的自检核对这些文件的内容。
 

@@ -92,6 +92,7 @@ export const fr: CopyMessages = {
     desc: { label: "Rédiger une description", sub: "Avec codes temporels de chapitres et tags" },
     cover: { label: "Créer une miniature", sub: "Plusieurs candidats depuis les images clés" },
     export: { label: "Exporter", sub: "SRT / MP4 avec sous-titres incrustés" },
+    artifacts: { label: "Créer un artefact", sub: "Diapositives, documents, maquettes, tableaux et plus dans un onglet" },
   },
   composerMenu: {
     insert: "Insérer",

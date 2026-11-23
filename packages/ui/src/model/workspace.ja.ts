@@ -1,3 +1,3 @@
 import type { WorkspaceMessages } from './workspace.ts';
 
-export const ja: WorkspaceMessages = { newTab: '新しいタブ', projectFiles: 'プロジェクトファイル', videoUnavailable: '動画を利用できません', fileUnavailable: 'ファイルを利用できません', slidesUnavailable: 'スライドを利用できません', designUnavailable: 'デザインを利用できません', designSystemUnavailable: 'デザインシステムを利用できません', docsUnavailable: '共同編集ドキュメントを利用できません' };
+export const ja: WorkspaceMessages = { newTab: '新しいタブ', projectFiles: 'プロジェクトファイル', videoUnavailable: '動画を利用できません', fileUnavailable: 'ファイルを利用できません', artifactUntitled: '無題のアーティファクト' };

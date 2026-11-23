@@ -205,37 +205,12 @@ describe('工具步骤', () => {
     expect(of('image', { prompt: 'x', count: 4 })).toEqual(['生成图片', '4 张', 'image']);
     expect(of('export', { video: 'v', kind: 'video', format: 'mp4' })).toEqual(['导出', '成片 · MP4', 'export']);
     expect(of('download', { url: 'https://www.youtube.com/watch?v=1' })).toEqual(['下载视频', 'youtube.com', 'download']);
-    expect(of('slides_check', { path: 'decks/talk/' })).toEqual(['检查幻灯片', 'talk', 'slides']);
-    expect(of('slides_import_asset', { deck: 'talk', path: 'images/cover.png' })).toEqual(['导入幻灯片素材', 'cover.png', 'slides']);
-    expect(of('design_check', { path: 'designs/landing' })).toEqual(['检查设计稿', 'landing', 'design']);
-    expect(of('design_import_asset', { canvas: 'designs/landing', path: 'images/hero.png' })).toEqual(['导入设计稿素材', 'hero.png', 'design']);
-    expect(of('design_system_check', { path: 'systems/brand/' })).toEqual(['检查设计系统', 'brand', 'design-system']);
-    expect(of('design_system_import_asset', { system: 'systems/brand', path: 'assets/logo.svg', group: 'Logos' })).toEqual([
-      '导入设计系统素材',
-      'logo.svg · Logos',
-      'design-system',
-    ]);
-    expect(of('design_system_import_asset', { system: 'systems/brand', path: 'fonts/Inter.woff2' })).toEqual([
-      '导入设计系统素材',
-      'Inter.woff2',
-      'design-system',
-    ]);
-    // 协作文档：新建文档（docs_batch 带 container.create）写新文档的名字，其余写文档目录名；评论与正文分开念。
-    expect(of('docs_batch', { doc: 'docs/plan', container: { kind: 'project', create: { name: '发布计划' } }, batch: [] })).toEqual([
-      '新建协作文档',
-      '发布计划',
-      'docs',
-    ]);
-    expect(of('docs_batch', { doc: 'docs/plan/', container: { kind: 'project', id: 'd1' }, batch: [] })).toEqual(['编辑协作文档', 'plan', 'docs']);
-    expect(of('docs_create', { doc: 'docs/plan', object: 'utterance', payload: {} })).toEqual(['在协作文档里评论', 'plan', 'docs']);
-    expect(of('docs_create', { doc: 'docs/plan', object: 'file', payload: {} })).toEqual(['添加到协作文档', 'plan', 'docs']);
-    expect(of('docs_read', { doc: 'docs/plan' })).toEqual(['读取协作文档', 'plan', 'docs']);
-    expect(of('docs_update', { doc: 'docs/plan', ref: { object: 'node', id: 'n1' }, payload: {} })).toEqual(['编辑协作文档', 'plan', 'docs']);
-    expect(of('docs_query', { doc: 'docs/plan', object: 'utterance', payload: {} })).toEqual(['读取协作文档评论', 'plan', 'docs']);
-    expect(of('docs_delete', { doc: 'docs/plan', ref: { object: 'utterance', id: 'u1' } })).toEqual(['从协作文档删除', 'plan', 'docs']);
-    expect(of('docs_upload', { doc: 'docs/plan', path: 'images/chart.png' })).toEqual(['上传到协作文档', 'plan · chart.png', 'docs']);
-    expect(of('docs_export', { doc: 'docs/plan', to: 'out/plan.md' })).toEqual(['导出协作文档', 'plan · plan.md', 'docs']);
-    expect(of('docs_export', { doc: 'docs/plan' })).toEqual(['导出协作文档', 'plan', 'docs']);
+    // 作品工具：按动作分读、写与管理；没写动作时是发布。
+    expect(of('Artifact', { title: '季度回顾', file_path: 'deck/index.html' })).toEqual(['制作作品', '季度回顾', 'open-artifact']);
+    expect(of('Artifact', { action: 'quickstart', intent: 'slides' })).toEqual(['查看作品', '', 'open-artifact']);
+    expect(of('Artifact', { action: 'delete', url: 'open-artifact://artifact/a1' })).toEqual(['管理作品', '', 'open-artifact']);
+    expect(of('ArtifactData', { action: 'list', url: 'open-artifact://artifact/a1', collection: 'rows' })).toEqual(['读写作品数据', 'rows', 'open-artifact']);
+    expect(of('ArtifactComments', { action: 'read', url: 'open-artifact://artifact/a1' })).toEqual(['处理作品评论', '', 'open-artifact']);
     expect(of('edits_apply', { video: 'v', operations: [{ type: 'putDocument', kind: 'translation', language: 'en' }] })).toEqual([
       '翻译',
       'en',
@@ -309,56 +284,15 @@ describe('工具步骤', () => {
     expect(blocks.map((b) => b.type)).toEqual(['user', 'steps']);
   });
 
-  it('幻灯片的记录同样不占块，也不打断步骤组', () => {
+  it('作品的记录同样不占块，也不打断步骤组', () => {
     const created: TimelineItem = {
-      kind: 'slides-created',
-      id: 'slides_1',
+      kind: 'artifact',
+      id: 'artifact_1',
       createdAt: at,
       taskId: 't1',
-      target: { conversationId: 'c', path: 'talk' },
+      url: 'open-artifact://artifact/deck1',
       title: '季度回顾',
-      slideCount: 3,
-    };
-    const blocks = buildThread([user('u1', 't1'), tool('c1', 't1'), created, tool('c2', 't1')]);
-    expect(blocks.map((b) => b.type)).toEqual(['user', 'steps']);
-  });
-
-  it('设计稿的记录同样不占块，也不打断步骤组', () => {
-    const created: TimelineItem = {
-      kind: 'design-created',
-      id: 'design_1',
-      createdAt: at,
-      taskId: 't1',
-      target: { conversationId: 'c', path: 'designs/landing' },
-      title: '课程落地页',
-      boardCount: 3,
-    };
-    const blocks = buildThread([user('u1', 't1'), tool('c1', 't1'), created, tool('c2', 't1')]);
-    expect(blocks.map((b) => b.type)).toEqual(['user', 'steps']);
-  });
-
-  it('设计系统的记录同样不占块，也不打断步骤组', () => {
-    const created: TimelineItem = {
-      kind: 'design-system-created',
-      id: 'system_1',
-      createdAt: at,
-      taskId: 't1',
-      target: { conversationId: 'c', path: 'systems/brand' },
-      title: '品牌设计系统',
-    };
-    const blocks = buildThread([user('u1', 't1'), tool('c1', 't1'), created, tool('c2', 't1')]);
-    expect(blocks.map((b) => b.type)).toEqual(['user', 'steps']);
-  });
-
-  it('协作文档的记录同样不占块，也不打断步骤组', () => {
-    const created: TimelineItem = {
-      kind: 'docs-created',
-      id: 'docs_1',
-      createdAt: at,
-      taskId: 't1',
-      target: { conversationId: 'c', path: 'docs/plan' },
-      title: '发布计划',
-      tabCount: 2,
+      type: 'slides',
     };
     const blocks = buildThread([user('u1', 't1'), tool('c1', 't1'), created, tool('c2', 't1')]);
     expect(blocks.map((b) => b.type)).toEqual(['user', 'steps']);

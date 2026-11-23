@@ -111,6 +111,7 @@ export const ptBR: BotMessages = {
       schedule: 'Execução agendada',
       make: 'Sugestões',
       moved: 'Movida',
+      artifact: 'Comentário do artefato',
     },
     expand: 'Mostrar detalhes',
     collapse: 'Ocultar detalhes',

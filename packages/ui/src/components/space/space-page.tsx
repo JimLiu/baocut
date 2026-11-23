@@ -80,7 +80,6 @@ import {
   type SpaceSort,
   type SpaceStatusFilter,
 } from '../../model/space.ts';
-import type { EditorKind } from '../../model/workspace.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEntryIndex } from '../../state/space-index-store.ts';
 import { useSettings } from '../../state/settings-store.ts';
@@ -514,21 +513,6 @@ function SpaceMain({ category, projectId, from }: { category: SpaceCategory; pro
     go({ tab: 'tools', tool: 'transcribe' });
   };
 
-  /**
-   * 幻灯片、设计稿、设计系统与协作文档在做它的那条会话（项目里的在项目起始页）的功能区里开各自的标签
-   * （docs/design/slides §8.1、docs/design/canvas §8.1、§10、docs/design/docs §8）。`videoTargetOf` 只是按来源目录与相对路径给定位，这几种目录同样适用。
-   */
-  const openEditorTab = (kind: EditorKind, entry: SpaceEntry) => {
-    const { projectId, conversationId } = entry.source;
-    if (!projectId && !conversationId) return;
-    setViewingId(null);
-    useShell.getState().openPane({ kind, target: videoTargetOf(entry) }, { conversationId, projectId });
-  };
-  const openSlides = (entry: SpaceEntry) => openEditorTab('slides', entry);
-  const openDesign = (entry: SpaceEntry) => openEditorTab('design', entry);
-  const openDesignSystem = (entry: SpaceEntry) => openEditorTab('design-system', entry);
-  const openDocs = (entry: SpaceEntry) => openEditorTab('docs', entry);
-
   /** 重新索引：丢掉这部视频的索引，排到队首重建；画面开着就两路一起（检索规格 §9.1、§13.2）。 */
   const reindex = (entry: SpaceEntry) => {
     const videoId = videoIdOf(entry);
@@ -564,11 +548,7 @@ function SpaceMain({ category, projectId, from }: { category: SpaceCategory; pro
 
   const onAction = (action: EntryAction, entry: SpaceEntry) => {
     if (action === 'open') {
-      if (entry.kind === 'slides') openSlides(entry);
-      else if (entry.kind === 'design') openDesign(entry);
-      else if (entry.kind === 'design-system') openDesignSystem(entry);
-      else if (entry.kind === 'docs') openDocs(entry);
-      else openVideo(videoTargetOf(entry));
+      openVideo(videoTargetOf(entry));
     } else if (action === 'transcribe') openTranscribe(entry);
     else if (action === 'view') setViewingId(entry.id);
     else if (action === 'info') setInfoId(entry.id);
@@ -597,10 +577,6 @@ function SpaceMain({ category, projectId, from }: { category: SpaceCategory; pro
       setViewingId(null);
       openVideo(videoTargetOf(entry));
     },
-    onOpenSlides: openSlides,
-    onOpenDesign: openDesign,
-    onOpenDesignSystem: openDesignSystem,
-    onOpenDocs: openDocs,
     onEdit: (entry) => void edit(entry),
     onOpenPackage: (entry) => {
       const path = entryPath(entry, dirs);

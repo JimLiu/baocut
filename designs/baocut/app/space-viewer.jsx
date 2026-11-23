@@ -159,17 +159,9 @@
       else if (route === 'source') { close(); app.openMovie(it.movie, {via: 'space'}); }
       else if (route === 'new-movie') { close(); app.newProject({entry: 'media', file: it.name, dir: it.dir || undefined}); }
       else if (route === 'text') setEditing(true);
-      // docs/design/slides §8.1：在做它的那条会话里开幻灯片标签页；找不到会话就开在 Home
-      else if (route === 'slides') { close(); app.go(sess ? {r: 'agent', id: sess.id, slides: it.id} : {r: 'home', slides: it.id}); }
-      // docs/design/canvas §8.1：设计稿同一种做法
-      else if (route === 'design') { close(); app.go(sess ? {r: 'agent', id: sess.id, design: it.id} : {r: 'home', design: it.id}); }
-      // docs/design/canvas §10.6：设计系统也一样，开设计系统标签页
-      else if (route === 'design-system') { close(); app.go(sess ? {r: 'agent', id: sess.id, system: it.id} : {r: 'home', system: it.id}); }
-      // docs/design/docs §8：协作文档也一样，开协作文档标签页
-      else if (route === 'docs') { close(); app.go(sess ? {r: 'agent', id: sess.id, docs: it.id} : {r: 'home', docs: it.id}); }
       else save();
     };
-    const editLabel = {editor: '打开视频', source: '回到来源视频编辑', 'new-movie': '以它为素材新建视频', text: '编辑文字', version: '另存一份再改', slides: '打开幻灯片', design: '打开设计稿', 'design-system': '打开设计系统', docs: '打开协作文档'}[route];
+    const editLabel = {editor: '打开视频', source: '回到来源视频编辑', 'new-movie': '以它为素材新建视频', text: '编辑文字', version: '另存一份再改'}[route];
     /* 在会话中继续（§4.7）：条目作为引用标签带进输入框，预填一句可改写的草稿，不自动发送；落到哪条会话由 handoverToAgent 决定 */
     const cont = () => {
       close();

@@ -63,17 +63,8 @@ export function projectFileTarget(conversationId: Id, entry: Pick<ProjectFileEnt
   return { conversationId, path: entry.path };
 }
 
-/**
- * 视频目录交给视频查看器，幻灯片目录交给幻灯片标签（docs/design/slides §8.1），设计稿目录交给设计稿标签（docs/design/canvas §8.1），
- * 设计系统目录交给设计系统标签（§10），协作文档目录交给协作文档标签（docs/design/docs），普通目录进入，其余是文件。
- */
-export function entryAction(
-  entry: Pick<ProjectFileEntry, 'isDir' | 'kind'>,
-): 'video' | 'slides' | 'design' | 'design-system' | 'docs' | 'enter' | 'file' {
+/** 视频目录交给视频查看器，普通目录进入，其余是文件。 */
+export function entryAction(entry: Pick<ProjectFileEntry, 'isDir' | 'kind'>): 'video' | 'enter' | 'file' {
   if (entry.kind === 'video') return 'video';
-  if (entry.kind === 'slides') return 'slides';
-  if (entry.kind === 'design') return 'design';
-  if (entry.kind === 'design-system') return 'design-system';
-  if (entry.kind === 'docs') return 'docs';
   return entry.isDir ? 'enter' : 'file';
 }

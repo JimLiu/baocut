@@ -111,6 +111,7 @@ export const de: BotMessages = {
       schedule: 'Geplanter Lauf',
       make: 'Vorschläge',
       moved: 'Verschoben',
+      artifact: 'Kommentar zum Artefakt',
     },
     expand: 'Details zeigen',
     collapse: 'Details ausblenden',

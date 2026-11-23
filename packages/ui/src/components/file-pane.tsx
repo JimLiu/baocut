@@ -22,10 +22,6 @@ import { generatedImageGallery } from '../model/image-preview.ts';
 import { useImagePreview } from '../state/image-preview-store.ts';
 import { IMAGE } from './image-preview-copy.ts';
 import { itemKey } from '../model/workspace.ts';
-import { DESIGN } from '../model/design-copy.ts';
-import { DESIGN_SYSTEM } from '../model/design-system-copy.ts';
-import { DOCS } from '../model/docs-copy.ts';
-import { SLIDES } from '../model/slides-copy.ts';
 
 const pane = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0, minHeight: 0 });
 /** 单文件头（原型 home-workspace.css `.home-resource__bar`）。 */
@@ -105,35 +101,6 @@ export function FilePane({ target, conversationId, fileNameHint, active = true }
   const memoryKey = previewMemoryKey(target,entries,conversations);
   const gallery = (activeGroup ? groups[activeGroup] : undefined)
     ?? generatedImageGallery({ target, name: fileName }, entries);
-  // 打开的是一份幻灯片的 `deck.json`：可以改用幻灯片编辑器打开它所在的目录（docs/design/slides §8.1）。是不是合法的 deck 由 slides.open 判断。
-  const deckDir = 'path' in target && /(^|[\\/])deck\.json$/.test(target.path) ? target.path.replace(/[\\/]?deck\.json$/, '') : null;
-  const openDeck = () => {
-    if (deckDir === null || !('path' in target)) return;
-    const deck = 'projectId' in target ? { projectId: target.projectId, path: deckDir } : { conversationId: target.conversationId, path: deckDir };
-    useShell.getState().openPane({ kind: 'slides', target: deck });
-  };
-  // 打开的是一份设计稿的 `canvas.json`：同样改用设计稿编辑器打开它所在的目录（docs/design/canvas §8.1）；认不认得出由 design.open 判断。
-  const canvasDir = 'path' in target && /(^|[\\/])canvas\.json$/.test(target.path) ? target.path.replace(/[\\/]?canvas\.json$/, '') : null;
-  const openCanvas = () => {
-    if (canvasDir === null || !('path' in target)) return;
-    const canvas = 'projectId' in target ? { projectId: target.projectId, path: canvasDir } : { conversationId: target.conversationId, path: canvasDir };
-    useShell.getState().openPane({ kind: 'design', target: canvas });
-  };
-  // 打开的是一套设计系统的 `design-system.json`：改用设计系统编辑器打开它所在的目录（docs/design/canvas §10）；认不认得出由 designSystem.open 判断。
-  const systemDir =
-    'path' in target && /(^|[\\/])design-system\.json$/.test(target.path) ? target.path.replace(/[\\/]?design-system\.json$/, '') : null;
-  const openSystem = () => {
-    if (systemDir === null || !('path' in target)) return;
-    const system = 'projectId' in target ? { projectId: target.projectId, path: systemDir } : { conversationId: target.conversationId, path: systemDir };
-    useShell.getState().openPane({ kind: 'design-system', target: system });
-  };
-  // 打开的是一份协作文档的 `doc.json`：改用协作文档编辑器打开它所在的目录（docs/design/docs §8）；认不认得出由 docs.open 判断。
-  const docDir = 'path' in target && /(^|[\\/])doc\.json$/.test(target.path) ? target.path.replace(/[\\/]?doc\.json$/, '') : null;
-  const openDoc = () => {
-    if (docDir === null || !('path' in target)) return;
-    const doc = 'projectId' in target ? { projectId: target.projectId, path: docDir } : { conversationId: target.conversationId, path: docDir };
-    useShell.getState().openPane({ kind: 'docs', target: doc });
-  };
 
   return (
     <section className={pane} aria-label={S.filePane.label(entry?.name ?? fileName)}>
@@ -144,10 +111,6 @@ export function FilePane({ target, conversationId, fileNameHint, active = true }
           {metadata ? <span className={meta}>{metadata}</span> : null}
         </div>
         {mode && mode !== 'image' && mode !== 'audio' && mode !== 'video' && <DocumentViewControl mode={mode} source={source} onChange={setSource} />}
-        {deckDir !== null && <ActionButton isQuiet onPress={openDeck}>{SLIDES.openInEditor}</ActionButton>}
-        {canvasDir !== null && <ActionButton isQuiet onPress={openCanvas}>{DESIGN.openInEditor}</ActionButton>}
-        {systemDir !== null && <ActionButton isQuiet onPress={openSystem}>{DESIGN_SYSTEM.openInEditor}</ActionButton>}
-        {docDir !== null && <ActionButton isQuiet onPress={openDoc}>{DOCS.openInEditor}</ActionButton>}
         {resolved && <Button variant="secondary" onPress={() => save.media(resolved.handle.url, fileName)}>{IMAGE.download}</Button>}
         {absolute && kind && runtime.host.openFile && <ActionButton isQuiet onPress={() => {
           void runtime.host.openFile!(absolute).then(async error => {

@@ -57,6 +57,11 @@ export type ToolInfo = Omit<ToolDefinition, 'name' | 'inputSchema'>;
 /** 一组工具。`dispatch` 收到的参数已经按 `schemas[name]` 解析过。 */
 export interface ToolSet {
   readonly schemas: Readonly<Record<string, z.ZodType>>;
+  /**
+   * 给智能体看的 JSON Schema，按工具名覆盖 `schemas` 推出来的。只给自带 schema 的外部工具用（Open Artifact 的三个工具，
+   * docs/design/artifacts §3）：它们的 `schemas` 只查是个对象，细的检查在对方那里。
+   */
+  readonly inputSchemas?: Readonly<Record<string, Record<string, unknown>>>;
   readonly definitions: Readonly<Record<string, ToolInfo>>;
   dispatch(name: string, args: unknown, principal: ToolPrincipal): Promise<unknown>;
 }
@@ -117,7 +122,7 @@ export class ToolCatalog {
       Object.keys(set.schemas)
         .filter((name) => this.#exposed(set, name))
         .map((name) => {
-          const { $schema: _, ...inputSchema } = z.toJSONSchema(set.schemas[name]!, { io: 'input' }) as Record<string, unknown>;
+          const { $schema: _, ...inputSchema } = (set.inputSchemas?.[name] ?? z.toJSONSchema(set.schemas[name]!, { io: 'input' })) as Record<string, unknown>;
           const info = set.definitions[name]!;
           return { name, ...(this.#view.describe ? this.#view.describe(name, info) : info), inputSchema };
         }),

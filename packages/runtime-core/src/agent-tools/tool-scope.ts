@@ -14,10 +14,6 @@ import type {
   ServiceId,
   VideoChange,
   VideoCreated,
-  SlidesCreated,
-  DesignCreated,
-  DesignSystemCreated,
-  DocsCreated,
   VideoOpenResult,
 } from '@baocut/protocol';
 import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
@@ -230,25 +226,10 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   // 用户库（§5.9）：只读。
   library_list: 'read',
   library_show: 'read',
-  // 幻灯片（docs/design/slides §7.2）：校验只读文件（通过时在会话里记一张卡片）；导入素材写 deck 目录的 assets/，按内容寻址、不覆盖。
-  slides_check: 'read',
-  slides_import_asset: 'edit',
-  // 设计稿（docs/design/canvas §7.2）：同幻灯片。校验只读文件；导入素材写设计稿目录的 assets/。
-  design_check: 'read',
-  design_import_asset: 'edit',
-  // 设计系统（docs/design/canvas §10.5）：同设计稿。校验只读文件；导入素材写设计系统目录的 _blobs/。
-  design_system_check: 'read',
-  design_system_import_asset: 'edit',
-  // 文档（docs/design/docs §7）：读与列评论只读；写正文、评论、标签页、上传与删除都只动这份文档目录（编辑器里能看历史），与导入素材同级；
-  // 导出写工作目录里一个新的 .md（不覆盖）。
-  docs_read: 'read',
-  docs_query: 'read',
-  docs_batch: 'edit',
-  docs_create: 'edit',
-  docs_update: 'edit',
-  docs_delete: 'edit',
-  docs_upload: 'edit',
-  docs_export: 'edit',
+  // Open Artifact 作品（docs/design/artifacts §3）：按动作定风险，见 `artifact-tools.ts` 的 `artifactRisk`；这里是没有动作时的兜底。
+  Artifact: 'edit',
+  ArtifactData: 'edit',
+  ArtifactComments: 'read',
   // 屏幕录制（屏幕录制设计 §13）：开始录制是 high，但会话里不另放审批卡，用户在面板上按「开始录制」就是批准；暂停、继续、停止与
   // 恢复是 command；丢弃删掉的是用户录下的文件，是 high；来源、状态与列表只读。
   record: 'high',
@@ -419,17 +400,6 @@ export interface ToolScope<A extends ToolAccess = ToolAccess> {
   recordChange(access: A, change: VideoChange): void;
   /** `videos_create` 新建视频之后：会话记一条 `video-created`；对外服务把它登记进自己的视频范围（之后看得见）。 */
   recordCreated?(access: A, created: VideoCreated): void | Promise<void>;
-  /** `slides_check` 校验通过之后：会话记一条 `slides-created`（同一份 deck 只有一条）；对外服务没有会话，不做。 */
-  recordSlides?(access: A, created: SlidesCreated): void;
-  /** `design_check` 没有问题之后：会话记一条 `design-created`（同一份设计稿只有一条）；对外服务没有会话，不做。 */
-  recordDesign?(access: A, created: DesignCreated): void;
-  /** `design_system_check` 没有问题之后：会话记一条 `design-system-created`（同一个设计系统只有一条）；对外服务没有会话，不做。 */
-  recordDesignSystem?(access: A, created: DesignSystemCreated): void;
-  /**
-   * `docs_*` 写入之后：会话记一条 `docs-created`（同一份文档只有一条）。新建文档时 `onlyExisting` 为 false；之后的写入只更新已有的
-   * 那一条（标题与标签页数），不为别处来的文档新添卡片。对外服务没有会话，不做。
-   */
-  recordDocs?(access: A, created: DocsCreated, onlyExisting: boolean): void;
   /**
    * 固定流程替调用方新建的视频（`download` / `transcribe` 给链接时的 `newVideo`）：对外服务把它登记进自己的视频范围；会话不做
    * （视频卡来自流程的任务卡片）。
@@ -547,18 +517,6 @@ export class ScopeRouter implements ToolScope<ToolAccess> {
   }
   recordCreated(access: ToolAccess, created: VideoCreated): void | Promise<void> {
     return this.#of(access.principal).recordCreated?.(access, created);
-  }
-  recordSlides(access: ToolAccess, created: SlidesCreated): void {
-    this.#of(access.principal).recordSlides?.(access, created);
-  }
-  recordDesign(access: ToolAccess, created: DesignCreated): void {
-    this.#of(access.principal).recordDesign?.(access, created);
-  }
-  recordDesignSystem(access: ToolAccess, created: DesignSystemCreated): void {
-    this.#of(access.principal).recordDesignSystem?.(access, created);
-  }
-  recordDocs(access: ToolAccess, created: DocsCreated, onlyExisting: boolean): void {
-    this.#of(access.principal).recordDocs?.(access, created, onlyExisting);
   }
   adoptCreatedVideo(access: ToolAccess, videoId: Id): void | Promise<void> {
     return this.#of(access.principal).adoptCreatedVideo?.(access, videoId);

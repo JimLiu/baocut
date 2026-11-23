@@ -20,19 +20,11 @@
     audio:    {k: 'audio',    label: '音频', icon: 'AudioWave'},
     subtitle: {k: 'subtitle', label: '字幕', icon: 'CloseCaptions'},
     doc:      {k: 'doc',      label: '文档', icon: 'FileText'},
-    /* docs/design/slides §7.3：一份 deck 的目录是一个条目，不拆成 deck.json 加每页一份文档 */
-    slides:   {k: 'slides',   label: '幻灯片', icon: 'Layout'},
-    /* docs/design/canvas §7.3：一份设计稿的目录是一个条目，不拆成 canvas.json 加每块画板一份文档 */
-    design:   {k: 'design',   label: '设计稿', icon: 'Shapes'},
-    /* docs/design/canvas §10.6：一套设计系统的目录（含 design-system.json）是一个条目，不再往里扫 */
-    'design-system': {k: 'design-system', label: '设计系统', icon: 'ColorHarmony'},
-    /* docs/design/docs §6：一份协作文档的目录（doc.json 加每个标签页一份）是一个条目。叫「协作文档」，不与「文档」（doc）、「文稿」混 */
-    docs:     {k: 'docs',     label: '协作文档', icon: 'TextParagraph'},
     template: {k: 'template', label: '模板', icon: 'Template'},
   };
-  const KIND_ORDER = ['movie', 'final', 'clip', 'image', 'audio', 'subtitle', 'doc', 'slides', 'design', 'design-system', 'docs', 'template'];
+  const KIND_ORDER = ['movie', 'final', 'clip', 'image', 'audio', 'subtitle', 'doc', 'template'];
 
-  /* 分类侧栏（§4.3）：全部 ＋ 十二类（幻灯片是 docs/design/slides、设计稿与设计系统是 docs/design/canvas、协作文档是 docs/design/docs 新加的）；收藏；回收站。 */
+  /* 分类侧栏（§4.3）：全部 ＋ 八类；收藏；回收站。Open Artifact 的作品不是 Space 条目（docs/design/artifacts §1）。 */
   const CATS = [{k: 'all', label: '全部', icon: 'Apps'}]
     .concat(KIND_ORDER.map((k) => ({k, label: KINDS[k].label, icon: KINDS[k].icon})));
   const SPECIAL = [{k: 'fav', label: '收藏', icon: 'Star'}, {k: 'trash', label: '回收站', icon: 'Delete'}];
@@ -341,10 +333,6 @@
     if (it.kind === 'audio') return size;
     if (it.kind === 'subtitle') return it.lines ? `${it.lines} 句` : '';
     if (it.kind === 'doc') return it.lines ? `${it.lines} 行` : '';
-    if (it.kind === 'slides') return it.slides ? `${it.slides.length} 页` : '';
-    if (it.kind === 'design') return it.boards ? `${it.boards.length} 个画板` : '';
-    if (it.kind === 'design-system') return it.components?.length ? `${it.components.length} 个组件` : '';
-    if (it.kind === 'docs') return it.tabs ? `${it.tabs.length} 个标签页` : '';
     return '';
   }
 
@@ -439,10 +427,6 @@
     if (it.kind === 'movie') return 'editor';
     if (it.kind === 'final') return it.movie ? 'source' : 'new-movie';
     if (it.kind === 'subtitle' || it.kind === 'doc') return 'text';
-    if (it.kind === 'slides') return 'slides';
-    if (it.kind === 'design') return 'design';
-    if (it.kind === 'design-system') return 'design-system';
-    if (it.kind === 'docs') return 'docs';
     return 'version';
   }
 

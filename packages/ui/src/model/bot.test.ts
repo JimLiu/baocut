@@ -430,7 +430,7 @@ describe('Make panel', () => {
     // A file in the thread's folder: keyed by its Space entry.
     const srt = card({ id: 'e_srt', kind: 'subtitle', video: null, entry: { id: 'e_srt' } as SpaceEntry });
     expect(cardOutputKey(srt, [], resolve)).toBe('space:e_srt');
-    const deck = card({ id: 'e_deck', kind: 'slides', video: null, entry: { id: 'e_deck' } as SpaceEntry, slides: { target: { entryId: 'e_deck' }, slideCount: 3 } });
+    const deck = card({ id: 'open-artifact://artifact/deck1', kind: 'artifact', video: null, entry: null, artifact: { url: 'open-artifact://artifact/deck1', title: 'Deck', type: 'slides' } });
     expect(cardOutputKey(deck, [], resolve)).toBeNull();
   });
 

@@ -76,15 +76,9 @@ export function buildThread(items: readonly TimelineItem[]): ThreadBlock[] {
   };
 
   items.forEach((item, i) => {
-    // 新建视频、幻灯片、设计稿、设计系统与协作文档的记录不占一行、也不打断步骤组：视频卡由 video-cards.ts 挂在这一轮最后引用它的那一行后面，
-    // 幻灯片、设计稿、设计系统与协作文档卡片同理。
-    if (
-      item.kind === 'video-created' ||
-      item.kind === 'slides-created' ||
-      item.kind === 'design-created' ||
-      item.kind === 'design-system-created' ||
-      item.kind === 'docs-created'
-    ) {
+    // 新建视频与作品的记录不占一行、也不打断步骤组：视频卡由 video-cards.ts 挂在这一轮最后引用它的那一行后面，
+    // 作品卡片（docs/design/artifacts §4）由 conversation-outputs.ts 挂在那一轮的回复下面。
+    if (item.kind === 'video-created' || item.kind === 'artifact') {
       flushTasksEndingAt(i);
       return;
     }

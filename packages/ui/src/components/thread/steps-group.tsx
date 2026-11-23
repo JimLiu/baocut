@@ -7,7 +7,6 @@ import AudioWave from '@react-spectrum/s2/icons/AudioWave';
 import Bookmark from '@react-spectrum/s2/icons/Bookmark';
 import Checkmark from '@react-spectrum/s2/icons/Checkmark';
 import Collection from '@react-spectrum/s2/icons/Collection';
-import ColorHarmony from '@react-spectrum/s2/icons/ColorHarmony';
 import Cut from '@react-spectrum/s2/icons/Cut';
 import Data from '@react-spectrum/s2/icons/Data';
 import Delete from '@react-spectrum/s2/icons/Delete';
@@ -17,13 +16,11 @@ import FileText from '@react-spectrum/s2/icons/FileText';
 import Image from '@react-spectrum/s2/icons/Image';
 import Key from '@react-spectrum/s2/icons/Key';
 import Layers from '@react-spectrum/s2/icons/Layers';
-import Layout from '@react-spectrum/s2/icons/Layout';
 import ListBulleted from '@react-spectrum/s2/icons/ListBulleted';
 import Rename from '@react-spectrum/s2/icons/Rename';
 import SaveFloppy from '@react-spectrum/s2/icons/SaveFloppy';
 import Shapes from '@react-spectrum/s2/icons/Shapes';
 import Text from '@react-spectrum/s2/icons/Text';
-import TextParagraph from '@react-spectrum/s2/icons/TextParagraph';
 import Transcript from '@react-spectrum/s2/icons/Transcript';
 import Translate from '@react-spectrum/s2/icons/Translate';
 import Undo from '@react-spectrum/s2/icons/Undo';
@@ -100,6 +97,8 @@ const TOOL_ICON: Record<BaoCutStepKind, ReactNode> = {
   'downloads-save': <SaveFloppy />,
   job: <Layers />,
   artifact: <SaveFloppy />,
+  // 作品工具：与作品卡片的默认类型图标同一个（artifact-icon.tsx）。
+  'open-artifact': <Shapes />,
   space: <Collection />,
   'space-search': <Search />,
   skill: <Bookmark />,
@@ -107,10 +106,6 @@ const TOOL_ICON: Record<BaoCutStepKind, ReactNode> = {
   contract: <Checkmark />,
   conversation: <Rename />,
   project: <Folder />,
-  slides: <Layout />,
-  design: <Shapes />,
-  'design-system': <ColorHarmony />,
-  docs: <TextParagraph />,
 };
 
 /**

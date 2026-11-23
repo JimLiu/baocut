@@ -111,6 +111,7 @@ export const tr: BotMessages = {
       schedule: 'Zamanlanmış çalışma',
       make: 'Öneriler',
       moved: 'Taşındı',
+      artifact: 'Yapıt yorumu',
     },
     expand: 'Ayrıntıları göster',
     collapse: 'Ayrıntıları gizle',

@@ -348,14 +348,14 @@ export function tabOutput(item: WorkItem | null | undefined, key: string): Artif
  * 任务线程里的一张卡在右栏开哪个产物页签（需求 §11.6 的修订稿），返回产物键；右栏看不了的返回 null，照常去功能区。
  * 先按卡的 id 对任务的产物（视频是视频 id，文件是 Space 条目 id；同一部视频先认整部视频，再认片段）。不是任务产物的卡——
  * 线程从链接导入的原片、工作目录里的文件——也在右栏开：Space 里认得出的视频按视频 id，其余有条目的按 Space 条目。
- * 幻灯片、设计稿与协作文档在右栏看不了；Space 还没扫到的视频没有条目，也去功能区。
+ * 作品（docs/design/artifacts）在右栏看不了；Space 还没扫到的视频没有条目，也去功能区。
  */
 export function cardOutputKey(
   card: ConversationOutput,
   outputs: readonly ArtifactRef[],
   resolve: (ref: ResourceRef) => ConversationOutput | null,
 ): string | null {
-  if (card.slides || card.design || card.designSystem || card.docs) return null;
+  if (card.artifact) return null;
   const hits = outputs.filter((ref) => opensAsTab(ref) && resolve(ref)?.id === card.id);
   const hit = hits.find((ref) => ref.kind !== 'video-range') ?? hits[0];
   if (hit) return outputKey(hit);

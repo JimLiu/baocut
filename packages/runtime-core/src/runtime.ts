@@ -86,12 +86,8 @@ import { createFileLogger } from './logger.ts';
 import { StorageGc } from './storage-gc.ts';
 import { AttachmentStore } from './attachments.ts';
 import { MediaRegistry } from './media.ts';
-import { SlidesService } from './slides.ts';
-import { DocsService } from './docs.ts';
-import { SlidesTools } from './agent-tools/slides-tools.ts';
-import { DesignTools } from './agent-tools/design-tools.ts';
-import { DocsTools } from './agent-tools/docs-tools.ts';
-import { DesignSystemTools } from './agent-tools/design-system-tools.ts';
+import { ArtifactsService } from './artifacts/open-artifact.ts';
+import { ArtifactTools } from './agent-tools/artifact-tools.ts';
 import { MediaAnalysis } from './media-analysis.ts';
 import { createFaceDetector } from './face-detection.ts';
 import { LibraryService } from './library/library-service.ts';
@@ -282,25 +278,15 @@ export interface StartRuntimeOptions {
    */
   agentSkillsDir?: string | null;
   /**
-   * 幻灯片编辑器的构建目录（docs/design/slides §3）。默认取 `BAOCUT_SLIDES_EDITOR_DIST`、打包的资源目录或仓库的
-   * `apps/slides-editor/dist`；null 表示没有构建（`slides.open` 照常给地址，页面回 503，结果里 `editorAvailable` 为 false）。
+   * Open Artifact 作品（docs/design/artifacts §2）。`connectAtStart`：本机已有 daemon 在跑时，启动后就在后台连上（Runtime 入口开）；
+   * 不开时第一次用到才连。`runtimeDir`、`home`、`create` 给测试替换运行时、home 与连接。null 表示不接入。
    */
-  slidesEditorDist?: string | null;
-  /**
-   * 设计稿编辑器的构建目录（docs/design/canvas §3）。默认取 `BAOCUT_DESIGN_EDITOR_DIST`、打包的资源目录或仓库的
-   * `apps/design-editor/dist`；null 表示没有构建（`design.open` 照常给地址，页面回 503，结果里 `editorAvailable` 为 false）。
-   */
-  designEditorDist?: string | null;
-  /**
-   * 设计系统编辑器的构建目录（docs/design/canvas §10.2）。默认取 `BAOCUT_DESIGN_SYSTEM_EDITOR_DIST`、打包的资源目录或仓库的
-   * `apps/design-system-editor/dist`；null 表示没有构建（`designSystem.open` 照常给地址，页面回 503，结果里 `editorAvailable` 为 false）。
-   */
-  designSystemEditorDist?: string | null;
-  /**
-   * 文档编辑器的构建目录（docs/design/docs §3）。默认取 `BAOCUT_DOCS_EDITOR_DIST`、打包的资源目录或仓库的
-   * `apps/docs-editor/dist`；null 表示没有构建（`docs.open` 照常给地址，页面回 503，结果里 `editorAvailable` 为 false）。
-   */
-  docsEditorDist?: string | null;
+  artifacts?: {
+    connectAtStart?: boolean;
+    runtimeDir?: string | null;
+    home?: string;
+    create?: ConstructorParameters<typeof ArtifactsService>[0]['create'];
+  } | null;
   /** 从 GitHub 导入 skill（§12.9）。测试注入假的 fetch，不访问真实网络。 */
   skillsGithub?: GithubFetchOptions;
   /** 按需下载的字体（§9.1）。测试注入只含几个族的字体目录，并把下载指向本机的假服务；不访问真实网络。 */
@@ -401,8 +387,7 @@ const STOP_ORDER = [
   'discovery',
   'semantic-index',
   'space',
-  'slides',
-  'docs',
+  'artifacts',
   'compositions',
   'analysis',
   'git',
@@ -541,21 +526,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const media = new MediaRegistry({ log, originAllowed: (origin) => originAllowed(origin, options.allowedOrigins) });
     // 动态贴纸与 Codex Pets 的精灵图不随包：用到时从素材 CDN 取进本机缓存。
     const onlineAssets = new OnlineAssets({ baseUrl: resolveOnlineAssetsUrl(), cacheDir: path.join(home.cacheDir, 'online-assets') });
-    // 幻灯片、设计稿与设计系统编辑器（docs/design/slides §6、docs/design/canvas §6、§10.4）：网关与 Web 服务共用，同一个
-    // 目录只有一个存储与一个目录监听。
-    const slides = new SlidesService({
-      log,
-      editorDist: options.slidesEditorDist === undefined ? undefined : () => options.slidesEditorDist ?? null,
-      designEditorDist: options.designEditorDist === undefined ? undefined : () => options.designEditorDist ?? null,
-      designSystemEditorDist: options.designSystemEditorDist === undefined ? undefined : () => options.designSystemEditorDist ?? null,
-    });
-    stops.add('slides', () => slides.close(), null);
-    // 文档编辑器（docs/design/docs §6）：网关、Web 服务与智能体的 `docs_*` 工具共用，同一个目录在内存里只有一份文档。
-    const docs = new DocsService({
-      log,
-      editorDist: options.docsEditorDist === undefined ? undefined : () => options.docsEditorDist ?? null,
-    });
-    stops.add('docs', () => docs.close(), null);
     // 生成的音频与图片、参考录音都用 ffprobe 解码校验（与引擎同一个 ffprobe）；WebM / QuickTime 播放也用它探测编码与 alpha。
     const ffprobe = async () => ({ command: process.env.BAOCUT_FFPROBE || 'ffprobe', env: await toolEnv() });
     const analysis = new MediaAnalysis({
@@ -892,8 +862,11 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     // Agent 的 skill（§3.8）：开关只存差量；目录每次重读。开着的 skill 的索引在每个原生会话开始时附在指导后面。
     const skillPrefs = new SkillPrefsStore(home.skillPrefsFile, { log: log.child('skill-prefs') });
     await skillPrefs.load();
+    // 集成目录（docs/design/artifacts §6）：Open Artifact 的 `/artifacts` 由 Runtime 按这个 harness 渲染后写在这里，按内置 skill 算。
+    const providedSkillsDir = path.join(home.root, 'integrations', 'skills');
     const skills = new SkillCatalog({
       builtinDir: options.skillsDir === undefined ? resolveBuiltinSkillsDir() : options.skillsDir,
+      providedDir: options.artifacts === null ? null : providedSkillsDir,
       userDir: home.skillsDir,
       prefs: skillPrefs,
     });
@@ -955,6 +928,25 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       log,
     });
     stops.add('harness', () => harness.shutdown(), 'Stopping the Harness failed');
+    // Open Artifact 作品（docs/design/artifacts §2）：Runtime 是本机 daemon 的一个适配器；先写一份 kit 自带的 `/artifacts` skill。
+    const openArtifacts =
+      options.artifacts === null
+        ? null
+        : new ArtifactsService({
+            harness,
+            skillsDir: providedSkillsDir,
+            skillsChanged: () => skills.changed(),
+            hasViewer: () => present.size > 0,
+            ...(options.artifacts?.runtimeDir !== undefined ? { runtimeDir: options.artifacts.runtimeDir } : {}),
+            ...(options.artifacts?.home ? { home: options.artifacts.home } : {}),
+            ...(options.artifacts?.create ? { create: options.artifacts.create } : {}),
+            log: log.child('artifacts'),
+          });
+    if (openArtifacts) {
+      stops.add('artifacts', () => openArtifacts.close(), 'Stopping the Open Artifact connection failed');
+      await openArtifacts.init();
+      if (options.artifacts?.connectAtStart) openArtifacts.connectIfRunning();
+    }
     // 完成收件箱（§7.2）：会话里的智能体提交的 Job 结束、它没看结果时，交给 Harness 告诉它。在任务管理器之前停，停机取消的不交。
     const jobInbox = new JobInbox({ jobs: models.jobs, harness, log: log.child('job-inbox') });
     stops.add('job-inbox', () => jobInbox.close(), null);
@@ -964,7 +956,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       const tasksEvent = event.event as TasksEvent;
       if (tasksEvent.type !== 'task.upsert') return;
       videos.noteTask(tasksEvent.task);
-      docs.noteTask(tasksEvent.task);
     });
     // 定时任务（产品设计 §6.1）：到点时发的就是一条 `conversations.send`（带品牌与 skill 的同一条路），发送入口在方法表建好后接上；
     // 在网关开始监听之前读出，客户端连上时 `tasks` 快照里就有。
@@ -1242,14 +1233,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           separationModel: async (model) => models.services.selectSeparate(model ? { provider: 'local', model } : {}),
           scope: toolScope,
         }),
-        // 会话里的幻灯片（docs/design/slides §7.2）：校验与导入素材；编译器与 deck 的存储来自幻灯片服务。
-        new SlidesTools({ scope: toolScope, slides }),
-        // 会话里的设计稿（docs/design/canvas §7.2）：结构校验与导入素材；设计稿的存储来自同一个编辑器服务。
-        new DesignTools({ scope: toolScope, design: slides }),
-        // 会话里的设计系统（docs/design/canvas §10.5）：结构校验与导入素材；存储来自同一个编辑器服务。
-        new DesignSystemTools({ scope: toolScope, designSystem: slides }),
-        // 会话里的文档（docs/design/docs §7）：连接器与编辑器共用文档服务里的同一份文档。
-        new DocsTools({ scope: toolScope, docs }),
+        // Open Artifact 作品（docs/design/artifacts §3）：幻灯片、文档、设计稿、表格……都在 Open Artifact 的 daemon 里。
+        ...(openArtifacts ? [new ArtifactTools({ scope: toolScope, backend: openArtifacts })] : []),
         // Bot 模式的工具（技术方案 §10）：只露给频道对话与线程会话（`roles`）。
         new BotTools({ bot: botService, harness }),
       ];
@@ -1465,10 +1450,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       setup,
       space,
       media,
-      slides: slides.opener(),
-      design: slides.designOpener(),
-      designSystem: slides.designSystemOpener(),
-      docs: docs.opener(),
       attachments,
       analysis,
       faces,
@@ -1514,6 +1495,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       schedules,
       bot: botService,
       recordings,
+      artifacts: openArtifacts,
     };
     // Web 服务（§4.8）用同一组处理函数，只把媒体句柄换成它自己的（同源地址、要会话）；白名单在它的网关入口上。
     services.web.bind({
@@ -1521,13 +1503,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       handlers: createHandlers({
         ...handlerDeps,
         media: services.web.media,
-        slides: slides.opener(() => ''),
-        design: slides.designOpener(() => ''),
-        designSystem: slides.designSystemOpener(() => ''),
-        docs: docs.opener(() => ''),
       }),
-      slides: slides.server,
-      docs: docs.server,
       videoTarget: (videoId) => videoTargetOf(videos, space, videoId),
       sourceRoot: options.sourceRoot ?? null,
     });
@@ -1547,13 +1523,9 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         return (
           mcp.handle(request, response) ||
           attachments.handle(request, response) ||
-          media.handle(request, response) ||
-          slides.handle(request, response) ||
-          docs.handle(request, response)
+          media.handle(request, response)
         );
       },
-      // 文档编辑器的实时连接（`/docs/<grant>/api/mux`）；其余升级请求是网关自己的 WebSocket。
-      upgrade: (request, socket, head) => docs.upgrade(request, socket, head),
       onConnect: (principal) => {
         if (principal.kind === 'desktop') present.add(principal.connectionId);
         activity.connected(principal);
@@ -1588,8 +1560,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     );
     const endpoint = await gateway.listen(options.host, options.port);
     media.setBaseUrl(endpoint.replace(/^ws:/, 'http:'));
-    slides.setBaseUrl(endpoint.replace(/^ws:/, 'http:'));
-    docs.setBaseUrl(endpoint.replace(/^ws:/, 'http:'));
     attachments.setBaseUrl(endpoint.replace(/^ws:/, 'http:'));
     grants.setEndpoint(`${endpoint.replace(/^ws:/, 'http:')}/mcp`);
     const discovery: RuntimeDiscovery = { ...info, endpoint, token };

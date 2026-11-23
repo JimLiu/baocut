@@ -115,6 +115,7 @@ const en = {
     desc: { label: 'Write a description', sub: 'With chapter timecodes and tags' },
     cover: { label: 'Make a cover', sub: 'A few candidates based on key frames' },
     export: { label: 'Export', sub: 'SRT / MP4 with burned-in subtitles' },
+    artifacts: { label: 'Make an artifact', sub: 'Slides, docs, designs, sheets and more in a tab' },
   },
   composerMenu: {
     insert: 'Insert',
@@ -1212,7 +1213,7 @@ function slash<C extends `/${SlashKey}`, I extends string>(cmd: C, icon: I) {
 
 /**
  * 斜杠命令（原型 data.js `agent.slash`，产品设计 §5.10）：`/` 点名一个工具，选中只把 `/xxx ` 留在正文里，后面接着说，Agent 自己解释。
- * 原型的智能裁剪与剪成短视频还没有接入 Agent 的流程，不列进来。
+ * 原型的智能裁剪与剪成短视频还没有接入 Agent 的流程，不列进来。`/artifacts` 由 Runtime 换成点选 Open Artifact 的 skill（docs/design/artifacts §6）。
  */
 export const SLASH_COMMANDS = [
   slash('/polish', 'sparkle'),
@@ -1229,6 +1230,7 @@ export const SLASH_COMMANDS = [
   slash('/desc', 'edit'),
   slash('/cover', 'image'),
   slash('/export', 'export'),
+  slash('/artifacts', 'artifact'),
 ] as const;
 export type SlashCommand = (typeof SLASH_COMMANDS)[number];
 

@@ -111,6 +111,7 @@ export const nl: BotMessages = {
       schedule: 'Geplande run',
       make: 'Voorstellen',
       moved: 'Verplaatst',
+      artifact: 'Opmerking bij artefact',
     },
     expand: 'Details tonen',
     collapse: 'Details verbergen',

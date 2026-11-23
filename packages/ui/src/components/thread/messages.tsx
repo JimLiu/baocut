@@ -19,14 +19,13 @@ import { T } from './thread-copy.ts';
 import { HOME_COPY, sentAttachmentsLabel, SKILL_COPY } from '../../copy.ts';
 import { formatClock } from '../../model/format.ts';
 import { skillNameById } from '../../model/agent-skills.ts';
-import { sentAnnotationId } from '../../model/slide-annotations.ts';
 import { referenceDescription, referencesText } from '../../model/space-actions.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useSkills } from '../../state/skills-store.ts';
 import { AgentMarkdown } from './agent-markdown.tsx';
 import { useBotThreadExtras } from './bot-items.ts';
 import { CopyButton } from './copy-button.tsx';
-import { AnnotationsToken, docsTokenItem, videoTokenItems } from '../annotations-token.tsx';
+import { AnnotationsToken, videoTokenItems } from '../annotations-token.tsx';
 import { BRAND_TOKEN_COPY } from '../skills/skills-copy.ts';
 
 type Item<K extends TimelineItem['kind']> = Extract<TimelineItem, { kind: K }>;
@@ -196,50 +195,10 @@ export const UserMessage = memo(function UserMessage({ item, conversationId }: {
           </div>
         ) : null;
       })()}
-      {item.slideAnnotations?.length ? (
-        // 随这条消息交出去的幻灯片标注（docs/design/slides §8.2）：点开看各条，点一条打开那份幻灯片跳到那一页。
-        <div className={contextLine}>
-          <AnnotationsToken
-            kind="slides"
-            items={item.slideAnnotations.map((a, i) => ({ id: sentAnnotationId(item.id, i), target: a.deck, anchor: a.anchor, label: a.label, text: a.text }))}
-          />
-        </div>
-      ) : null}
-      {item.designAnnotations?.length ? (
-        // 随这条消息交出去的设计稿标注（docs/design/canvas §8.2）：点一条打开那份设计稿，定位到那个元素或区域。
-        <div className={contextLine}>
-          <AnnotationsToken
-            kind="design"
-            items={item.designAnnotations.map((a, i) => ({ id: sentAnnotationId(item.id, i), target: a.canvas, anchor: a.anchor, label: a.label, text: a.text }))}
-          />
-        </div>
-      ) : null}
-      {item.designSystemAnnotations?.length ? (
-        // 随这条消息交出去的设计系统标注（docs/design/canvas §10.6）：点一条打开那套设计系统，展开那一节定位到那个目标。
-        <div className={contextLine}>
-          <AnnotationsToken
-            kind="design-system"
-            items={item.designSystemAnnotations.map((a, i) => ({
-              id: sentAnnotationId(item.id, i),
-              target: a.system,
-              anchor: a.anchor,
-              section: a.section,
-              label: a.label,
-              text: a.text,
-            }))}
-          />
-        </div>
-      ) : null}
       {item.videoAnnotations?.length ? (
         // 随这条消息交出去的视频标注（产品设计 §3.2.3「视频标注」）：一帧一条，点一条打开那部视频，播放头放到那一帧。
         <div className={contextLine}>
-          <AnnotationsToken kind="video" items={videoTokenItems(item.videoAnnotations)} />
-        </div>
-      ) : null}
-      {item.docsAnnotations?.length ? (
-        // 随这条消息交出去的协作文档评论与请求（docs/design/docs §8）：点一条打开那份文档，尽力跳到那条评论或那个块。
-        <div className={contextLine}>
-          <AnnotationsToken kind="docs" items={item.docsAnnotations.map((a, i) => docsTokenItem(sentAnnotationId(item.id, i), a))} />
+          <AnnotationsToken items={videoTokenItems(item.videoAnnotations)} />
         </div>
       ) : null}
       <div className={actions}>

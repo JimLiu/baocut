@@ -52,15 +52,6 @@ export const it: RcAgentToolsMessages = {
   clauseSeparator: '; ',
 
   createVideoSummary: (p: { name: string }) => `Crea il video «${p.name}»`,
-  slidesImportAssetSummary: (p: { file: string; deck: string }) => `Importa «${p.file}» nelle diapositive «${p.deck}»`,
-  designImportAssetSummary: (p: { file: string; canvas: string }) => `Importa «${p.file}» nel design «${p.canvas}»`,
-  designSystemImportAssetSummary: (p: { file: string; system: string }) => `Importa «${p.file}» nel design system «${p.system}»`,
-  docsEditSummary: (p: { doc: string }) => `Modifica il documento «${p.doc}»`,
-  docsCreateSummary: (p: { doc: string }) => `Crea il documento «${p.doc}»`,
-  docsCommentSummary: (p: { doc: string }) => `Commenta nel documento «${p.doc}»`,
-  docsDeleteSummary: (p: { doc: string }) => `Elimina dal documento «${p.doc}»`,
-  docsUploadSummary: (p: { file: string; doc: string }) => `Importa «${p.file}» nel documento «${p.doc}»`,
-  docsExportSummary: (p: { file: string; doc: string }) => `Esporta il documento «${p.doc}» in Markdown in «${p.file}»`,
   editsSummary: (p: { label: string; count: number; types: string }) =>
     `${p.label} (${plural(p.count, 'operazione', 'operazioni')}: ${p.types})`,
   captionsSummary: (p: { documentId: string; bilingual: boolean }) =>

@@ -69,6 +69,7 @@ import Redo from '@react-spectrum/s2/icons/Redo';
 import Refresh from '@react-spectrum/s2/icons/Refresh';
 import Search from '@react-spectrum/s2/icons/Search';
 import Settings from '@react-spectrum/s2/icons/Settings';
+import Shapes from '@react-spectrum/s2/icons/Shapes';
 import Star from '@react-spectrum/s2/icons/Star';
 import StopProcessing from '@react-spectrum/s2/icons/StopProcessing';
 import TextIcon from '@react-spectrum/s2/icons/Text';
@@ -186,11 +187,12 @@ const SLASH_ICON: Record<SlashCommand['icon'], ComponentType> = {
   star: Star,
   edit: Edit,
   image: ImageIcon,
+  artifact: Shapes,
 };
 
 const IMAGE_TYPES = [...ATTACHMENT_MIME_TYPES];
 
-/** composer 上方的一组还没发出的标注（幻灯片、设计稿、设计系统或协作文档）：可以逐条移除或全部移除。 */
+/** composer 上方还没发出的视频标注：可以逐条移除或全部移除。 */
 export interface ComposerAnnotations {
   items: readonly AnnotationTokenItem[];
   onRemove(id: string): void;
@@ -227,11 +229,6 @@ export interface ComposerProps {
    * 返回 false 表示没有发出去，保留草稿（含点选的 skill）。
    */
   onSend(text: string, attachments: AttachmentRef[], skills: SkillSendRef[], options: ComposerSendOptions): Promise<boolean>;
-  /**
-   * 发送前的准备（如让打开着的幻灯片编辑器保存完），在清空输入框之前跑：等的时候正文与附件都留在框里，发送按钮显示进行中。
-   * 返回 false 不发，草稿原样留着（提示由调用方给）。
-   */
-  beforeSend?(): Promise<boolean>;
   onStop?(): void;
   /** 输入框上方的引用标签（产品设计 §3.2.3）：随这条消息交给智能体的编辑器状态。可以移除。 */
   reference?: { label: string; description: string; onRemove(): void } | null;
@@ -246,23 +243,10 @@ export interface ComposerProps {
    */
   readScope?: { scope: SpaceReadScope; onRemove(): void } | null;
   /**
-   * 输入框上方：幻灯片标签里加进对话、还没发出的标注（docs/design/slides §8.2），「幻灯片标注 · N 条」。
+   * 输入框上方：编辑器预览画面上加进对话、还没发出的视频标注（产品设计 §3.2.3「视频标注」），「视频标注 · N 条」；点一条跳到那一刻。
    * 有标注时正文空着也能发（`onSend` 收到空正文，由调用方补一句）。
    */
-  slideAnnotations?: ComposerAnnotations | null;
-  /** 输入框上方：设计稿标签里加进对话、还没发出的标注（docs/design/canvas §8.2），「设计稿标注 · N 条」；其余同 `slideAnnotations`。 */
-  designAnnotations?: ComposerAnnotations | null;
-  /** 输入框上方：设计系统标签里加进对话、还没发出的标注（docs/design/canvas §10.6），「设计系统标注 · N 条」；其余同 `slideAnnotations`。 */
-  designSystemAnnotations?: ComposerAnnotations | null;
-  /**
-   * 输入框上方：编辑器预览画面上加进对话、还没发出的视频标注（产品设计 §3.2.3「视频标注」），「视频标注 · N 条」；点一条跳到那一刻。
-   * 其余同 `slideAnnotations`。
-   */
   videoAnnotations?: ComposerAnnotations | null;
-  /**
-   * 输入框上方：协作文档标签里发给智能体、还没发出的评论与请求（docs/design/docs §8），「协作文档标注 · N 条」；其余同 `slideAnnotations`。
-   */
-  docsAnnotations?: ComposerAnnotations | null;
   /** 输入框上方：排队等发送的消息。 */
   queue?: ReactNode;
   /** 新会话起始页（原型 new-agent.jsx `AgentHero`）才传；会话里不传，输入区保持原样。 */
@@ -334,14 +318,10 @@ export interface ComposerSendOptions {
 
 export function Composer(props: ComposerProps) {
   const { draftKey, driverId, model, effort, lockedTo, lockImported, onAgentChange, accessMode, onAccessModeChange } = props;
-  const { busy, queueWhileBusy, stopping, placeholder, autoFocus, mentionScope, onSend, beforeSend, onStop, reference, queue, start, tool } = props;
+  const { busy, queueWhileBusy, stopping, placeholder, autoFocus, mentionScope, onSend, onStop, reference, queue, start, tool } = props;
   const spaceReferences = props.spaceReferences?.items.length ? props.spaceReferences : null;
   const readScope = props.readScope?.scope === 'unfiled' ? props.readScope : null;
-  const slideAnnotations = props.slideAnnotations?.items.length ? props.slideAnnotations : null;
-  const designAnnotations = props.designAnnotations?.items.length ? props.designAnnotations : null;
-  const designSystemAnnotations = props.designSystemAnnotations?.items.length ? props.designSystemAnnotations : null;
   const videoAnnotations = props.videoAnnotations?.items.length ? props.videoAnnotations : null;
-  const docsAnnotations = props.docsAnnotations?.items.length ? props.docsAnnotations : null;
   const runtime = useRuntime();
   const shellDraft = useShell((s) => s.drafts[draftKey] ?? '');
   const setShellDraft = useShell((s) => s.setDraft);
@@ -411,11 +391,7 @@ export function Composer(props: ComposerProps) {
     hasText ||
     !!files.length ||
     !!images.length ||
-    !!slideAnnotations ||
-    !!designAnnotations ||
-    !!designSystemAnnotations ||
     !!videoAnnotations ||
-    !!docsAnnotations ||
     (!!start && start.canSendEmpty(images.length));
   const canSend = (!busy || !!queueWhileBusy) && !sending && !picking && !uploading && !blocked && hasContent && !tool?.isDisabled;
   const [over, setOver] = useState(false);
@@ -597,10 +573,6 @@ export function Composer(props: ComposerProps) {
       } finally {
         setSending(false);
       }
-      return;
-    }
-    if (beforeSend && !(await beforeSend().catch(() => false))) {
-      setSending(false);
       return;
     }
     setDraft(draftKey, '');
@@ -934,7 +906,7 @@ export function Composer(props: ComposerProps) {
               ))}
             </div>
           ) : null}
-          {reference || spaceReferences || readScope || slideAnnotations || designAnnotations || designSystemAnnotations || videoAnnotations || docsAnnotations ? (
+          {reference || spaceReferences || readScope || videoAnnotations ? (
             <div className={tags}>
               {readScope ? (
                 <span className={tag} title={S.composer.readScopeHint}>
@@ -968,25 +940,8 @@ export function Composer(props: ComposerProps) {
                   </ActionButton>
                 </span>
               ) : null}
-              {slideAnnotations ? (
-                <AnnotationsToken kind="slides" items={slideAnnotations.items} onRemove={slideAnnotations.onRemove} onClear={slideAnnotations.onClear} />
-              ) : null}
-              {designAnnotations ? (
-                <AnnotationsToken kind="design" items={designAnnotations.items} onRemove={designAnnotations.onRemove} onClear={designAnnotations.onClear} />
-              ) : null}
-              {designSystemAnnotations ? (
-                <AnnotationsToken
-                  kind="design-system"
-                  items={designSystemAnnotations.items}
-                  onRemove={designSystemAnnotations.onRemove}
-                  onClear={designSystemAnnotations.onClear}
-                />
-              ) : null}
               {videoAnnotations ? (
-                <AnnotationsToken kind="video" items={videoAnnotations.items} onRemove={videoAnnotations.onRemove} onClear={videoAnnotations.onClear} />
-              ) : null}
-              {docsAnnotations ? (
-                <AnnotationsToken kind="docs" items={docsAnnotations.items} onRemove={docsAnnotations.onRemove} onClear={docsAnnotations.onClear} />
+                <AnnotationsToken items={videoAnnotations.items} onRemove={videoAnnotations.onRemove} onClear={videoAnnotations.onClear} />
               ) : null}
             </div>
           ) : null}

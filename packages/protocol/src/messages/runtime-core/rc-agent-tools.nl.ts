@@ -29,15 +29,6 @@ export const nl: RcAgentToolsMessages = {
   clauseSeparator: "; ",
 
   createVideoSummary: (p: { name: string }) => `Video maken: ‘${p.name}’`,
-  slidesImportAssetSummary: (p: { file: string; deck: string }) => `‘${p.file}’ importeren in de dia's ‘${p.deck}’`,
-  designImportAssetSummary: (p: { file: string; canvas: string }) => `‘${p.file}’ importeren in het ontwerp ‘${p.canvas}’`,
-  designSystemImportAssetSummary: (p: { file: string; system: string }) => `‘${p.file}’ importeren in het ontwerpsysteem ‘${p.system}’`,
-  docsEditSummary: (p: { doc: string }) => `Het document ‘${p.doc}’ bewerken`,
-  docsCreateSummary: (p: { doc: string }) => `Het document ‘${p.doc}’ maken`,
-  docsCommentSummary: (p: { doc: string }) => `Reageren in het document ‘${p.doc}’`,
-  docsDeleteSummary: (p: { doc: string }) => `Verwijderen uit het document ‘${p.doc}’`,
-  docsUploadSummary: (p: { file: string; doc: string }) => `‘${p.file}’ importeren in het document ‘${p.doc}’`,
-  docsExportSummary: (p: { file: string; doc: string }) => `Het document ‘${p.doc}’ als Markdown exporteren naar ‘${p.file}’`,
   editsSummary: (p: { label: string; count: number; types: string }) =>
     `${p.label} (${`${p.count} ${pluralForm('nl', p.count, { one: "actie", other: "acties" })}`}: ${p.types})`,
   captionsSummary: (p: { documentId: string; bilingual: boolean }) =>

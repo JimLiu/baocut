@@ -15,6 +15,8 @@ interface Entry {
   info: ToolInfo;
   schema: z.ZodType;
   json: { properties?: Record<string, Record<string, unknown>>; required?: string[] };
+  /** 给智能体看的 JSON Schema 来自外部（Open Artifact 的作品工具），不是按 `schema` 派生的。 */
+  external: boolean;
 }
 
 const entries: Entry[] = allToolSets().flatMap((set) =>
@@ -22,7 +24,9 @@ const entries: Entry[] = allToolSets().flatMap((set) =>
     name,
     info: set.definitions[name]!,
     schema: set.schemas[name]!,
-    json: z.toJSONSchema(set.schemas[name]!, { io: 'input' }) as Entry['json'],
+    // 与工具目录同一规则：有 `inputSchemas` 时智能体看到的就是它。
+    json: (set.inputSchemas?.[name] ?? z.toJSONSchema(set.schemas[name]!, { io: 'input' })) as Entry['json'],
+    external: set.inputSchemas?.[name] !== undefined,
   })),
 );
 
@@ -46,7 +50,7 @@ describe('工具目录项', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  for (const { name, info, schema, json } of entries) {
+  for (const { name, info, schema, json, external } of entries) {
     describe(name, () => {
       it('effect、surfaces 写全，effect 与 annotations 一致', () => {
         expect(TOOL_EFFECTS).toContain(info.effect);
@@ -70,7 +74,8 @@ describe('工具目录项', () => {
         expect(info.title.trim()).not.toBe('');
       });
 
-      it('每个字段有 description，枚举值都写进说明', () => {
+      // 外部的 schema 由它的项目自己守（Open Artifact 的 protocol 测试有同一条检查），这里不重复。
+      it.skipIf(external)('每个字段有 description，枚举值都写进说明', () => {
         for (const [field, prop] of Object.entries(json.properties ?? {})) {
           const text = prop.description;
           expect(typeof text === 'string' && text.length > 0, `${name}.${field} 没有 description`).toBe(true);

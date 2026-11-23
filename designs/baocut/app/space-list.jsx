@@ -94,30 +94,6 @@
         <span className="sp-prev__doctype">{SP.KINDS[it.kind].label}</span>
       </div>;
     }
-    /* 幻灯片（docs/design/slides §7.3）：第一页；列表行里的小图放不下，留类型图标 */
-    if (it.kind === 'slides' && it.slides?.length && !missing && !small && window.SlideFace) {
-      return <div className={cx('sp-prev', 'sp-prev--slides', size)}><window.SlideFace slide={it.slides[0]} label={`${it.name}的第一页`} /></div>;
-    }
-    /* 设计稿（docs/design/canvas §7.3）：整张画布；列表行里同样留类型图标 */
-    if (it.kind === 'design' && it.boards?.length && !missing && !small && window.DesignCanvasView) {
-      return <div className={cx('sp-prev', 'sp-prev--design', size)}><window.DesignCanvasView canvas={it} pad={12} label={`${it.name}的画布`} /></div>;
-    }
-    /* 设计系统（docs/design/canvas §10.6）：封面缩成一张卡；列表行里同样留类型图标 */
-    if (it.kind === 'design-system' && !missing && !small && window.DesignSystemFace) {
-      return <div className={cx('sp-prev', 'sp-prev--design-system', size)}><window.DesignSystemFace system={it} label={`设计系统「${it.name}」的封面`} /></div>;
-    }
-    /* 协作文档（docs/design/docs §6）：纸面上印第一个标签页的开头；列表行里同文档一样只留纸面和类型图标 */
-    if (it.kind === 'docs' && it.tabs?.length && !missing && window.DocsFace) {
-      if (small) {
-        return <div className={cx('sp-prev', 'sp-prev--document', size)} aria-hidden="true">
-          <div className="sp-prev__paper"><Icon /></div>
-        </div>;
-      }
-      return <div className={cx('sp-prev', 'sp-prev--document', size)}>
-        <div className="sp-prev__paper" aria-hidden="true"><window.DocsFace doc={it} /></div>
-        <span className="sp-prev__doctype">{SP.KINDS[it.kind].label}</span>
-      </div>;
-    }
     if (it.kind === 'image' && it.art) {
       /* 列表行里名字就在旁边，缩略图不再重复读一遍 */
       const a11y = small ? {'aria-hidden': true} : {role: 'img', 'aria-label': it.name};

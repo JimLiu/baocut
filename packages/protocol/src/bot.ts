@@ -375,7 +375,7 @@ export interface CitedMessage {
 
 export type UserMessageVia = 'typed' | 'suggestion' | 'reaction' | 'notification';
 
-export type RelayDirection = 'report' | 'brief' | 'relay' | 'refresh' | 'schedule' | 'make' | 'moved';
+export type RelayDirection = 'report' | 'brief' | 'relay' | 'refresh' | 'schedule' | 'make' | 'moved' | 'artifact';
 
 export interface RelayBody {
   direction: RelayDirection;

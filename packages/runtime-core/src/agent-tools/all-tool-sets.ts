@@ -20,10 +20,7 @@ import { AudioTools } from './audio-tools.ts';
 import { ProjectTools } from './project-tools.ts';
 import { RecordingTools } from './recording-tools.ts';
 import { SkillTools } from './skill-tools.ts';
-import { SlidesTools } from './slides-tools.ts';
-import { DesignTools } from './design-tools.ts';
-import { DesignSystemTools } from './design-system-tools.ts';
-import { DocsTools } from './docs-tools.ts';
+import { ArtifactTools } from './artifact-tools.ts';
 import { SpaceTools } from './space-tools.ts';
 import { SemanticTools } from './semantic-tools.ts';
 import { SpeechSentenceTools } from './speech-sentence-tools.ts';
@@ -68,10 +65,7 @@ export function allToolSets(): ToolSet[] {
     new AudioTools(none),
     new ImageTools(none),
     new FootageTools(none),
-    new SlidesTools(none),
-    new DesignTools(none),
-    new DesignSystemTools(none),
-    new DocsTools(none),
+    new ArtifactTools(none),
     new BotTools(none),
   ];
 }

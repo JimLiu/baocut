@@ -44,10 +44,6 @@ const en = {
   projectDirNotFound: "The project folder doesn't exist",
   hiddenDirFile: "Files in hidden or dependency folders can't be added",
   videoDirFile: "Files in a video folder belong to the video and can't be added on their own",
-  slidesDirFile: "Files in a slides folder belong to the deck and can't be added on their own",
-  designDirFile: "Files in a design folder belong to the design and can't be added on their own",
-  designSystemDirFile: "Files in a design system folder belong to the design system and can't be added on their own",
-  docsDirFile: "Files in a doc folder belong to the doc and can't be added on their own",
   tooManySameName: "Too many files with the same name in the project's imports/",
 
   // 物理删除（space.purge）

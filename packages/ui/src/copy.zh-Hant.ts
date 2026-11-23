@@ -82,6 +82,7 @@ export const zhHant: CopyMessages = {
     desc: { label: '寫簡介', sub: '附章節時間碼和標籤' },
     cover: { label: '做封面', sub: '從關鍵影格做幾張候選' },
     export: { label: '匯出', sub: 'SRT / 燒錄字幕的 MP4' },
+    artifacts: { label: '做一份作品', sub: '投影片、文件、設計稿、表格等，在分頁裡開啟' },
   },
   composerMenu: {
     insert: '插入',

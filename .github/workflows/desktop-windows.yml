@@ -209,20 +209,12 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         run: ninja --version
 
-      # 构建 Electron、Runtime 托管的 Web 客户端、幻灯片编辑器（页面和 Node 编译器）、设计稿编辑器与设计系统编辑器。
-      - name: Build the Electron app, Web client, slides editor, design editor and design system editor
+      # 构建 Electron 与 Runtime 托管的 Web 客户端。
+      - name: Build the Electron app and Web client
         if: steps.gate.outputs.skip != 'true'
         run: |
           npm run build
           npm run build:web
-          npm run build:slides-editor
-          npm run build:design-editor
-          npm run build:design-system-editor
-          npm run build:docs-editor
-
-      - name: Verify slides file watching after atomic saves
-        if: steps.gate.outputs.skip != 'true'
-        run: npx vitest run packages/slides/src/deck-store.test.ts -t watchExternalEdits
 
       # 打包脚本自己编 Worker（release、x86_64-pc-windows-msvc、--locked）；三个变体都设 GGML_NATIVE=OFF 与 GGML_AVX2=ON，ggml-cpu
       # 按 AVX2 基线编，不按 runner 的 CPU（可能带 AVX-512）探测；CUDA 版另设 CUDA_COMPUTE_CAP=80、nvcc 的 /MD 与

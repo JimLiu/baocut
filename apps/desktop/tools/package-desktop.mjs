@@ -2,10 +2,8 @@
 // 两个平台共用 staging 与 Runtime 资源布局。Mac 要 --build、--sign-sha1、全新输出目录与干净提交，签名流程在 macos-distribution.mjs。
 // Mac 选项：--platform mac、--notary-profile、--sign-keychain、--metallib；Windows 专属选项与流程如下。
 //
-// 先要有：`npm run build`（out/）、`npm run build:web`（apps/web/dist）、`npm run build:slides-editor`（apps/slides-editor/dist）、
-// `npm run build:design-editor`（apps/design-editor/dist）、`npm run build:design-system-editor`（apps/design-system-editor/dist）
-// 与 `npm run build:docs-editor`（apps/docs-editor/dist）；
-// 根的 package:win 脚本会先跑它们。
+// 先要有：`npm run build`（out/）与 `npm run build:web`（apps/web/dist）；根的 package:win 脚本会先跑它们。
+// Open Artifact 的运行时（`@open-artifact/cli`，docs/design/artifacts §2）由 npm install 装好，原样拷进资源目录。
 // 步骤：
 // 1. 编 Worker：`cargo build --release --locked --target <三元组>`，Model Worker 按变体选后端（标准版 candle CPU 与 whisper.cpp 的
 //    Whisper，CUDA 版的 candle 与 Whisper 都走 CUDA，Vulkan 版的 Whisper 改用 Vulkan）；
@@ -14,8 +12,8 @@
 //    不直接打 apps/desktop：它的 dependencies 里有工作区的 TypeScript 包与只给渲染进程用的 React，会被原样塞进 asar。
 // 3. 资源按 `src/main/packaged-resources.ts`（主进程启动 Runtime 时用的同一份）放到 `<resources>` 下：bin/（Worker、凭据助手，
 //    CUDA 版另带 NVIDIA 运行库；bin/audiocpp/ 是内置的 audio.cpp 引擎，本地语音合成与音乐共用，由 tools/fetch-audiocpp.ts 按目标平台
-//    从上游发布页取、核对 sha256：Mac 取 Metal 包，Windows 标准版取 CPU 包，CUDA 版与 Vulkan 版取 Vulkan 包）、templates/、stickers/（随包贴纸；动态贴纸只带清单）、skills/（说明书与内置 skill）、model-assets/、web/、slides-editor/、design-editor/、
-//    design-system-editor/、docs-editor/。都在 asar 外面，子进程要按路径读。
+//    从上游发布页取、核对 sha256：Mac 取 Metal 包，Windows 标准版取 CPU 包，CUDA 版与 Vulkan 版取 Vulkan 包）、templates/、stickers/（随包贴纸；动态贴纸只带清单）、skills/（说明书与内置 skill）、model-assets/、web/、
+//    open-artifact/。都在 asar 外面，子进程要按路径读。
 // 4. electron-builder 出包。它会把 Electron 的 win32-x64 发行包与 NSIS 工具下到自己的缓存目录（~/Library/Caches/electron-builder 等）。
 // 5. 核对解开的包：resources 里的每一项都在，asar 里有主进程、Runtime 与 editor.wasm。在 Windows 上另由 check-packaged-app.mjs 真跑一遍。
 // 6. 写发布报告 `<产物名>-release.json`：版本、build、变体、安装器与 zip 的文件名、大小与 sha256。给了 --download-base-url 时再按
@@ -259,36 +257,11 @@ for (const required of [
   if (!existsSync(path.join(DESKTOP, required))) fail(`没有 apps/desktop/${required}：先运行 npm run build`);
 }
 if (!existsSync(path.join(ROOT, 'apps/web/dist/index.html'))) fail('没有 apps/web/dist/index.html：先运行 npm run build:web');
-// 幻灯片编辑器的页面与 slides_check 用的编译器（docs/design/slides §3）。
-const SLIDES_EDITOR_DIST = path.join(ROOT, 'apps/slides-editor/dist');
-const SLIDES_EDITOR_FILES = ['index.html', 'node/compiler.cjs'];
-for (const file of SLIDES_EDITOR_FILES) {
-  if (!existsSync(path.join(SLIDES_EDITOR_DIST, file))) fail(`没有 apps/slides-editor/dist/${file}：先运行 npm run build:slides-editor`);
-}
-// 设计稿编辑器的页面、画板运行时与快速编辑 Worker（docs/design/canvas §3）。
-const DESIGN_EDITOR_DIST = path.join(ROOT, 'apps/design-editor/dist');
-const DESIGN_EDITOR_FILES = ['index.html', 'artifact-type/dc-runtime.js', 'artifact-type/fast-edit-worker.js'];
-for (const file of DESIGN_EDITOR_FILES) {
-  if (!existsSync(path.join(DESIGN_EDITOR_DIST, file))) fail(`没有 apps/design-editor/dist/${file}：先运行 npm run build:design-editor`);
-}
-// 设计系统编辑器的页面、预览页与预览用的 React UMD（docs/design/canvas §10.2）。
-const DESIGN_SYSTEM_EDITOR_DIST = path.join(ROOT, 'apps/design-system-editor/dist');
-const DESIGN_SYSTEM_EDITOR_FILES = [
-  'index.html',
-  'artifact-type/run.html',
-  'artifact-type/vendor/react.production.min.js',
-  'artifact-type/vendor/react-dom.production.min.js',
-];
-for (const file of DESIGN_SYSTEM_EDITOR_FILES) {
-  if (!existsSync(path.join(DESIGN_SYSTEM_EDITOR_DIST, file))) {
-    fail(`没有 apps/design-system-editor/dist/${file}：先运行 npm run build:design-system-editor`);
-  }
-}
-// 文档编辑器的页面（docs/design/docs §3）。
-const DOCS_EDITOR_DIST = path.join(ROOT, 'apps/docs-editor/dist');
-const DOCS_EDITOR_FILES = ['index.html', 'assets/docs.css'];
-for (const file of DOCS_EDITOR_FILES) {
-  if (!existsSync(path.join(DOCS_EDITOR_DIST, file))) fail(`没有 apps/docs-editor/dist/${file}：先运行 npm run build:docs-editor`);
+// Open Artifact 的运行时（docs/design/artifacts §2）：`@open-artifact/cli` 的包目录，没有 npm 依赖，Runtime 用它起 daemon。
+const OPEN_ARTIFACT_DIR = path.join(ROOT, 'node_modules/@open-artifact/cli');
+const OPEN_ARTIFACT_FILES = ['package.json', 'scripts/open-artifact.mjs', 'LICENSE', 'NOTICE'];
+for (const file of OPEN_ARTIFACT_FILES) {
+  if (!existsSync(path.join(OPEN_ARTIFACT_DIR, file))) fail(`Missing node_modules/@open-artifact/cli/${file}: run npm install first`);
 }
 
 // 1. Worker。
@@ -426,10 +399,7 @@ try {
   run(process.execPath, ['--experimental-strip-types', path.join(ROOT, 'tools/render-agent-skill.ts'), '--out', path.join(resDir, RESOURCE_DIRS.agentSkill, 'baocut')]);
   cpSync(path.join(ROOT, 'packages/models/assets'), path.join(resDir, RESOURCE_DIRS.modelAssets), { recursive: true });
   cpSync(path.join(ROOT, 'apps/web/dist'), path.join(resDir, RESOURCE_DIRS.web), { recursive: true });
-  cpSync(SLIDES_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.slidesEditor), { recursive: true });
-  cpSync(DESIGN_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.designEditor), { recursive: true });
-  cpSync(DESIGN_SYSTEM_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.designSystemEditor), { recursive: true });
-  cpSync(DOCS_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.docsEditor), { recursive: true });
+  cpSync(OPEN_ARTIFACT_DIR, path.join(resDir, RESOURCE_DIRS.openArtifact), { recursive: true, dereference: true });
   const sharedWeb = path.join(resDir, RESOURCE_DIRS.web);
   const fonts = shareFonts({ appDir, webDir: sharedWeb,
     fontSource: path.join(ROOT, 'crates/render-raster/assets/fonts'), exportWorker: path.join(bin, exe('export-worker')) });
@@ -714,19 +684,8 @@ function verifyUnpacked(dir, variantName) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.web, 'assets', name))) problems.push(`Missing shared resource manifest: ${name}`);
   }
   if (!existsSync(path.join(resources, RESOURCE_DIRS.agentSkill, 'baocut', 'SKILL.md'))) problems.push(`没有 resources/${RESOURCE_DIRS.agentSkill}/baocut/SKILL.md`);
-  for (const file of SLIDES_EDITOR_FILES) {
-    if (!existsSync(path.join(resources, RESOURCE_DIRS.slidesEditor, file))) problems.push(`没有 resources/${RESOURCE_DIRS.slidesEditor}/${file}`);
-  }
-  for (const file of DESIGN_EDITOR_FILES) {
-    if (!existsSync(path.join(resources, RESOURCE_DIRS.designEditor, file))) problems.push(`没有 resources/${RESOURCE_DIRS.designEditor}/${file}`);
-  }
-  for (const file of DESIGN_SYSTEM_EDITOR_FILES) {
-    if (!existsSync(path.join(resources, RESOURCE_DIRS.designSystemEditor, file))) {
-      problems.push(`没有 resources/${RESOURCE_DIRS.designSystemEditor}/${file}`);
-    }
-  }
-  for (const file of DOCS_EDITOR_FILES) {
-    if (!existsSync(path.join(resources, RESOURCE_DIRS.docsEditor, file))) problems.push(`没有 resources/${RESOURCE_DIRS.docsEditor}/${file}`);
+  for (const file of OPEN_ARTIFACT_FILES) {
+    if (!existsSync(path.join(resources, RESOURCE_DIRS.openArtifact, file))) problems.push(`Missing resources/${RESOURCE_DIRS.openArtifact}/${file}`);
   }
   const asar = path.join(resources, 'app.asar');
   if (!existsSync(asar)) problems.push('没有 resources/app.asar');

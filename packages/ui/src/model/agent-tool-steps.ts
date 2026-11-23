@@ -69,21 +69,11 @@ const en = {
     listProjects: 'List projects',
     newProject: 'New project',
     moveToNewProject: 'Move to new project',
-    checkSlides: 'Check slides',
-    importSlideAsset: 'Import slide image',
-    checkDesign: 'Check design',
-    importDesignAsset: 'Import design asset',
-    checkDesignSystem: 'Check design system',
-    importDesignSystemAsset: 'Import design system asset',
-    createDoc: 'Create doc',
-    editDoc: 'Edit doc',
-    addToDoc: 'Add to doc',
-    commentInDoc: 'Comment in doc',
-    readDoc: 'Read doc',
-    readDocComments: 'Read doc comments',
-    deleteFromDoc: 'Delete from doc',
-    uploadToDoc: 'Upload to doc',
-    exportDoc: 'Export doc',
+    makeArtifact: 'Make an artifact',
+    viewArtifacts: 'View artifacts',
+    manageArtifact: 'Manage artifact',
+    artifactData: 'Artifact data',
+    artifactComments: 'Artifact comments',
   },
   exportKind: {
     subtitles: 'Subtitles',
@@ -135,17 +125,14 @@ export type BaoCutStepKind =
   | 'downloads-save'
   | 'job'
   | 'artifact'
+  | 'open-artifact'
   | 'space'
   | 'space-search'
   | 'skill'
   | 'grant'
   | 'contract'
   | 'conversation'
-  | 'project'
-  | 'slides'
-  | 'design'
-  | 'design-system'
-  | 'docs';
+  | 'project';
 
 export interface BaoCutStep {
   kind: BaoCutStepKind;
@@ -169,6 +156,17 @@ function host(url: unknown): string | null {
 }
 
 const EXPORT_KIND: Record<string, string> = live(() => M.exportKind);
+
+const ARTIFACT_READS = new Set(['quickstart', 'list', 'read', 'open']);
+const ARTIFACT_MANAGE = new Set(['delete', 'share', 'adopt']);
+
+/** `Artifact` 的动作：没写时是发布。 */
+function artifactLabel(action: unknown): string {
+  const name = str(action) ?? 'publish';
+  if (ARTIFACT_READS.has(name)) return M.label.viewArtifacts;
+  if (ARTIFACT_MANAGE.has(name)) return M.label.manageArtifact;
+  return M.label.makeArtifact;
+}
 
 const CUT_OPS = new Set(['removeRange', 'addCuts', 'deleteItems']);
 
@@ -229,6 +227,10 @@ const CATALOG: Record<string, (a: Args) => BaoCutStep> = {
   jobs_inspect: () => ({ kind: 'job', label: M.label.viewTask, summary: '' }),
   jobs_cancel: () => ({ kind: 'job', label: M.label.cancelTask, summary: '' }),
   artifacts_save: (a) => ({ kind: 'artifact', label: M.label.saveOutput, summary: str(a.path) ?? '' }),
+  // Open Artifact 的作品工具（docs/design/artifacts §3）：按动作分读、写与管理；摘要是作品标题或集合名。
+  Artifact: (a) => ({ kind: 'open-artifact', label: artifactLabel(a.action), summary: str(a.title) ?? '' }),
+  ArtifactData: (a) => ({ kind: 'open-artifact', label: M.label.artifactData, summary: str(a.collection) ?? '' }),
+  ArtifactComments: () => ({ kind: 'open-artifact', label: M.label.artifactComments, summary: '' }),
   space_list: () => ({ kind: 'space', label: M.label.browseSpace, summary: '' }),
   space_search: (a) => ({ kind: 'space-search', label: M.label.searchSpace, summary: str(a.query) ?? '' }),
   // 本机语义检索与索引（只读的检索、取材与相关视频；催建索引）。
@@ -258,33 +260,6 @@ const CATALOG: Record<string, (a: Args) => BaoCutStep> = {
   projects_list: () => ({ kind: 'project', label: M.label.listProjects, summary: '' }),
   projects_create: (a) => ({ kind: 'project', label: M.label.newProject, summary: str(a.name) ?? base(a.path) }),
   projects_adopt_session: (a) => ({ kind: 'project', label: M.label.moveToNewProject, summary: str(a.name) ?? folder(a.project) }),
-  // 幻灯片（docs/design/slides §7.2）：摘要是 deck 目录名与图片文件名。
-  slides_check: (a) => ({ kind: 'slides', label: M.label.checkSlides, summary: base(a.path) }),
-  slides_import_asset: (a) => ({ kind: 'slides', label: M.label.importSlideAsset, summary: base(a.path) }),
-  // 设计稿（docs/design/canvas §7.2）：摘要是设计稿目录名与素材文件名。
-  design_check: (a) => ({ kind: 'design', label: M.label.checkDesign, summary: base(a.path) }),
-  design_import_asset: (a) => ({ kind: 'design', label: M.label.importDesignAsset, summary: base(a.path) }),
-  // 设计系统（docs/design/canvas §10.5）：摘要是设计系统目录名，导入素材的是文件名与素材组。
-  design_system_check: (a) => ({ kind: 'design-system', label: M.label.checkDesignSystem, summary: base(a.path) }),
-  design_system_import_asset: (a) => ({
-    kind: 'design-system',
-    label: M.label.importDesignSystemAsset,
-    summary: join(base(a.path), str(a.group)),
-  }),
-  // 协作文档（docs/design/docs）：摘要是文档目录名；新建文档时是新文档的名字，上传与导出另带文件名。
-  docs_batch: (a) => {
-    const create = (a.container as Args | undefined)?.create as Args | undefined;
-    return create
-      ? { kind: 'docs', label: M.label.createDoc, summary: str(create.name) ?? base(a.doc) }
-      : { kind: 'docs', label: M.label.editDoc, summary: base(a.doc) };
-  },
-  docs_create: (a) => ({ kind: 'docs', label: a.object === 'utterance' ? M.label.commentInDoc : M.label.addToDoc, summary: base(a.doc) }),
-  docs_read: (a) => ({ kind: 'docs', label: M.label.readDoc, summary: base(a.doc) }),
-  docs_update: (a) => ({ kind: 'docs', label: M.label.editDoc, summary: base(a.doc) }),
-  docs_query: (a) => ({ kind: 'docs', label: M.label.readDocComments, summary: base(a.doc) }),
-  docs_delete: (a) => ({ kind: 'docs', label: M.label.deleteFromDoc, summary: base(a.doc) }),
-  docs_upload: (a) => ({ kind: 'docs', label: M.label.uploadToDoc, summary: join(base(a.doc), base(a.path)) }),
-  docs_export: (a) => ({ kind: 'docs', label: M.label.exportDoc, summary: join(base(a.doc), base(a.to)) }),
 };
 
 /** 工具名：MCP 的 `baocut.<tool>`；不是 BaoCut 的工具返回 null。 */

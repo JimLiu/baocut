@@ -111,6 +111,7 @@ export const it: BotMessages = {
       schedule: 'Esecuzione programmata',
       make: 'Suggerimenti',
       moved: 'Spostata',
+      artifact: "Commento sull'artefatto",
     },
     expand: 'Mostra dettagli',
     collapse: 'Nascondi dettagli',

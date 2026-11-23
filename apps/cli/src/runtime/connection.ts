@@ -441,10 +441,7 @@ export function packagedResourceEnv(resources: string, platform: NodeJS.Platform
     ...(platform === 'win32' ? { BAOCUT_CLI_ENTRY: path.join(path.dirname(resources), 'baocut.cmd') } : {}),
     BAOCUT_MODEL_ASSETS_DIR: path.join(resources, 'model-assets'),
     BAOCUT_WEB_DIST: path.join(resources, 'web'),
-    BAOCUT_SLIDES_EDITOR_DIST: path.join(resources, 'slides-editor'),
-    BAOCUT_DESIGN_EDITOR_DIST: path.join(resources, 'design-editor'),
-    BAOCUT_DESIGN_SYSTEM_EDITOR_DIST: path.join(resources, 'design-system-editor'),
-    BAOCUT_DOCS_EDITOR_DIST: path.join(resources, 'docs-editor'),
+    BAOCUT_OPEN_ARTIFACT_DIR: path.join(resources, 'open-artifact'),
     ...(platform === 'darwin' ? { PMETAL_METALLIB_PATH: path.join(resources, 'bin', 'mlx.metallib') } : {}),
   };
 }

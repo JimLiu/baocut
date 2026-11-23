@@ -236,6 +236,9 @@
      一次 1 分 36 秒的录制：屏幕（另画光标）、摄像头、麦克风、系统音频四路，同一个联动组；屏幕带一份取景文档
      （五段按点击生成的自动缩放，其中一段改过，加一段手动的「固定看一点」）。录屏的画面是示意的渐变，
      时刻都在录制时钟上（秒），点击的坐标是画面的 0–1。 */
+  /* 作品标签的演示（docs/design/artifacts §5，home-artifact.jsx）：这些作品第一次打开失败，点「重试」后打开 */
+  const artifactDemo = {failOnce: ['art-plan1']};
+
   const recordingDemo = {
     id: 'rec-1115-1012', view: 'sv-1115-1012', link: 'lg-1115-1012', duration: 96, date: '今天 10:12',
     pointer: 'separate',
@@ -696,469 +699,6 @@
      text: '{"title":"产品手册动画","durationSeconds":40,"size":{"width":1920,"height":1080},"files":["成片.mp4","字幕.srt"],"editable":true}'},
     {id: 'preview-code', kind: 'doc', name: '检查时长.py', file: '检查时长.py', dir: 'd8', session: 's17', mtime: 1,
      text: '# 检查分镜总时长\nshots = [8, 12, 10, 10]\nexpected_seconds = 40\n\nassert sum(shots) == expected_seconds\nprint(f"Duration: {sum(shots)} seconds")\n'},
-    /* 幻灯片（docs/design/slides §7.3）：deck 的目录是一个条目。`slides` 是原型画静态页面用的演示内容，正式版由 Slides 运行时
-       读 deck 的文件来画；`parts` 是页面上能被标注的元素（角色与原文）。第 3、6 页是按 s25 第二轮的标注改过之后的样子。 */
-    {id: 'deck-r1', kind: 'slides', name: '确定性渲染 · 第 1 讲', dir: 'd5', session: 's25', mtime: 2, bytes: 48128,
-     file: '幻灯片/第1讲/', ratio: '16:9',
-     slides: [
-       {id: 's01', layout: 'cover', parts: [
-         {id: 'kicker', role: '眉题', text: '确定性渲染课程 · 第 1 讲'},
-         {id: 'title', role: '标题', text: '同一份输入，永远同一帧'},
-         {id: 'sub', role: '副标题', text: '为什么视频渲染需要确定性，以及怎么证明它'}]},
-       {id: 's02', layout: 'list', parts: [
-         {id: 'title', role: '标题', text: '这一讲回答三个问题'},
-         {id: 'list', role: '列表', items: ['什么是确定性渲染', '不确定从哪里来', '怎么证明两次渲染一样']}]},
-       {id: 's03', layout: 'list', parts: [
-         {id: 'title', role: '标题', text: '不确定从哪里来'},
-         {id: 'list', role: '列表', items: ['浮点误差', '字体回退', '线程顺序', '时间舍入']}]},
-       {id: 's04', layout: 'steps', parts: [
-         {id: 'title', role: '标题', text: '一帧是怎么画出来的'},
-         {id: 'steps', role: '流程', items: ['时间线', '布局', '栅格化', '编码']}]},
-       {id: 's05', layout: 'quote', parts: [
-         {id: 'quote', role: '引语', text: '渲染两次，逐像素比对。'},
-         {id: 'caption', role: '说明', text: '这门课每一讲的验收标准'}]},
-       {id: 's06', layout: 'stats', parts: [
-         {id: 'title', role: '标题', text: '同一段 206 秒'},
-         {id: 'sub', role: '副标题', text: '3 台机器各渲染一次'},
-         {id: 'stats', role: '数据', items: [{value: '5,150', label: '帧'}, {value: '3', label: '种显卡'}, {value: '0', label: '像素差异'}]}]},
-       {id: 's07', layout: 'list', parts: [
-         {id: 'title', role: '标题', text: '本讲小结'},
-         {id: 'list', role: '列表', items: ['同一份输入得到同一串像素', '先消除浮点、字体、线程与时间四类来源', '用逐像素比对来验收']}]},
-       {id: 's08', layout: 'end', parts: [
-         {id: 'title', role: '标题', text: '下一讲：时间模型'},
-         {id: 'sub', role: '副标题', text: '帧号、时间码与舍入规则'}]},
-     ]},
-    /* 设计稿（docs/design/canvas §7.3）：设计稿的目录是一个条目。`boards` 是原型画静态画板用的演示内容，正式版由设计稿运行时
-       读 canvas.json 与各块画板的 .dc.html 来画；x、y、w、h 是画板在画布上的位置与尺寸（像素），`parts` 是画板上能被标注的元素。
-       首屏的按钮与手机首屏的标题是按 s26 第二轮的标注改过之后的样子。 */
-    {id: 'canvas-r1', kind: 'design', name: '确定性渲染课程 · 落地页', dir: 'd5', session: 's26', mtime: 1, bytes: 96256,
-     file: '设计稿/课程落地页/',
-     boards: [
-       {id: 'hero', name: '首屏 · 桌面', file: 'hero.dc.html', layout: 'web', x: 0, y: 0, w: 1280, h: 800, parts: [
-         {id: 'nav', role: '导航', items: ['课程大纲', '讲师', '常见问题', '报名']},
-         {id: 'kicker', role: '眉题', text: '8 讲视频课 · 每讲 40 分钟'},
-         {id: 'title', role: '标题', text: '同一份输入，永远同一帧'},
-         {id: 'sub', role: '副标题', text: '从浮点误差到逐像素比对，讲清视频渲染为什么必须可复现，以及怎么证明它。'},
-         {id: 'cta', role: '按钮', text: '免费试听第 1 讲'},
-         {id: 'visual', role: '配图', text: '三台机器渲染同一帧，逐像素比对没有差异'}]},
-       {id: 'phone', name: '首屏 · 手机', file: 'phone.dc.html', layout: 'phone', x: 1360, y: 0, w: 390, h: 800, parts: [
-         {id: 'kicker', role: '眉题', text: '8 讲视频课'},
-         {id: 'title', role: '标题', text: '同一份输入，\n永远同一帧'},
-         {id: 'sub', role: '副标题', text: '讲清视频渲染为什么必须可复现。'},
-         {id: 'visual', role: '配图', text: '逐像素比对'},
-         {id: 'cta', role: '按钮', text: '免费试听第 1 讲'}]},
-       {id: 'plans', name: '报名卡片', file: 'plans.dc.html', layout: 'cards', x: 0, y: 900, w: 1750, h: 640, parts: [
-         {id: 'title', role: '标题', text: '选一种方式开始'},
-         {id: 'cards', role: '卡片', items: [
-           {name: '单讲', price: '¥49', note: '任选一讲，永久回看'},
-           {name: '全套 8 讲', price: '¥299', note: '含课件与示例工程', featured: true},
-           {name: '团队', price: '¥1,999', note: '10 个席位，可开发票'}]}]},
-     ]},
-    /* 协作文档（docs/design/docs §6、§7.3）：一份协作文档的目录（doc.json 加每个标签页一份）是一个条目。`tabs` 是原型画静态正文用的演示内容，
-       正式版由协作文档编辑器读 doc.json、tabs/<id>.json 与 comments.json 来画：每个标签页有正文节点 `node` 与按顺序的块
-       （h1 / h2 / h3 / p / list / table / ask，ask 是空行上写给智能体的请求）；`threads` 是评论线程，挂在某个标签页的某一块上，
-       `quote` 是它引用的原文，id 就是第一条评论的 id。概览里「八讲」下面那张列表是 s34 第二轮按请求写进去的，
-       「首月 500 名付费学员」那条线程里智能体的回复也是那一轮回的；风险里的请求和另外两条线程还没发给智能体。 */
-    {id: 'docs-r1', kind: 'docs', name: '确定性渲染课程 · 发布计划', dir: 'd5', session: 's34', mtime: 1, bytes: 18432,
-     file: '协作文档/发布计划/',
-     tabs: [
-       {id: 'overview', name: '概览', node: 'n-overview', blocks: [
-         {id: 'b1', type: 'h1', text: '确定性渲染课程 · 发布计划'},
-         {id: 'b2', type: 'p', text: '这门课讲清视频渲染为什么必须可复现，以及怎么证明它。共 8 讲，每讲 40 分钟；11 月先上线前两讲试听，其余每周一讲。'},
-         {id: 'b3', type: 'h2', text: '这份文档放什么'},
-         {id: 'b4', type: 'list', items: ['计划：目标、上线节奏和每周的负责人', '风险：已知风险和应对办法', '相关文件：落地页在 设计稿/课程落地页/，第 1 讲的课件在 幻灯片/第1讲/']},
-         {id: 'b5', type: 'h3', text: '八讲'},
-         {id: 'b6', type: 'list', items: ['第 1 讲 同一份输入，永远同一帧', '第 2 讲 浮点误差从哪里来', '第 3 讲 字体回退与排版', '第 4 讲 线程顺序',
-           '第 5 讲 时间模型与舍入', '第 6 讲 编码器的确定性', '第 7 讲 逐像素比对', '第 8 讲 把验收放进持续集成']},
-       ]},
-       {id: 'plan', name: '计划', node: 'n-plan', blocks: [
-         {id: 'b1', type: 'h2', text: '目标'},
-         {id: 'b2', type: 'p', text: '首月 500 名付费学员，试听到付费的转化不低于 4%，退款率低于 5%。'},
-         {id: 'b3', type: 'h2', text: '上线节奏'},
-         {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
-           ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '进行中'],
-           ['第 2 周', '第 3 讲上线，邮件通知试听用户', '我', '未开始'],
-           ['第 3 周', '第 4 讲上线，社群直播答疑', '林舟', '未开始'],
-           ['第 4 周', '第 5 讲上线，首月复盘', '我', '未开始']]},
-         {id: 'b5', type: 'h3', text: '渠道'},
-         {id: 'b6', type: 'list', items: ['课程落地页与试听视频', '已购学员的邮件列表', '两个技术社群的直播答疑']},
-       ]},
-       {id: 'risks', name: '风险', node: 'n-risks', blocks: [
-         {id: 'b1', type: 'h2', text: '已知风险'},
-         {id: 'b2', type: 'list', items: ['第 5 讲之后的录制可能赶不上每周一讲', '试听转化低于预期，首月达不到目标', '逐像素比对的示例工程在部分显卡上跑不通']},
-         {id: 'b3', type: 'ask', text: '把每条风险补一句应对办法，写成两列的表格。'},
-       ]},
-     ],
-     threads: [
-       {id: 'c1', tab: 'plan', block: 'b2', quote: '首月 500 名付费学员', comments: [
-         {id: 'c1', author: '林舟', time: '昨天', text: '500 是怎么估的？试听人数还没出来，这个数会不会太乐观？'},
-         {id: 'c2', author: '我', time: '昨天', text: '按落地页预计 1.2 万次访问、试听转化 4% 估的，可以再保守一点。'},
-         {id: 'c3', author: '智能体', agent: true, time: '1 分钟前', text: '按这两个数算是 480 人左右，500 略高。建议目标改成 400，第 4 周复盘时再按实际试听人数调。要我直接改吗？'}]},
-       {id: 'c5', tab: 'plan', block: 'b4', quote: '社群直播答疑', comments: [
-         {id: 'c5', author: '我', time: '2 小时前', text: '直播放在周四晚上，提前一周在社群预告。'},
-         {id: 'c6', author: '林舟', time: '1 小时前', text: '可以。预告文案谁来写？'}]},
-       {id: 'c4', tab: 'overview', block: 'b2', quote: '其余每周一讲', comments: [
-         {id: 'c4', author: '林舟', time: '1 小时前', text: '第 5 讲之后的录制排得开吗？要不要改成两周一讲？'}]},
-     ],
-     /* 版本记录（版本记录设计 §13.2，三期方案待确认）：每个标签页的正文各自记版本，旧的在前，字段见 model-home-docs-versions.js。
-        最新一版不写 `blocks`，它就是上面 `tabs` 里的正文。计划：昨晚你写了两版，今早 s34 补了「渠道」，刚才你又改了两处、还开着；
-        概览：你昨晚写好、在「八讲」下面留了一条请求，s34 第二轮按请求写了列表；风险只有昨晚那一版。 */
-     versions: {
-       overview: [
-         {n: 1, day: '昨天', start: '21:30', end: '21:38', by: [{kind: 'you'}], cut: 'turn', blocks: [
-           {id: 'b1', type: 'h1', text: '确定性渲染课程 · 发布计划'},
-           {id: 'b2', type: 'p', text: '这门课讲清视频渲染为什么必须可复现，以及怎么证明它。共 8 讲，每讲 40 分钟；11 月先上线前两讲试听，其余每周一讲。'},
-           {id: 'b3', type: 'h2', text: '这份文档放什么'},
-           {id: 'b4', type: 'list', items: ['计划：目标、上线节奏和每周的负责人', '风险：已知风险和应对办法', '相关文件：落地页在 设计稿/课程落地页/，第 1 讲的课件在 幻灯片/第1讲/']},
-           {id: 'b5', type: 'h3', text: '八讲'},
-           {id: 'b7', type: 'ask', text: '按课程大纲把八讲的题目列出来。'}]},
-         {n: 2, day: '今天', start: '09:40', end: '09:41', by: [{kind: 'agent', session: 's34'}], open: true},
-       ],
-       plan: [
-         {n: 1, day: '昨天', start: '21:40', end: '21:52', by: [{kind: 'you'}], cut: 'quiet', blocks: [
-           {id: 'b1', type: 'h2', text: '目标'},
-           {id: 'b2', type: 'p', text: '首月 800 名付费学员，退款率低于 5%。'},
-           {id: 'b3', type: 'h2', text: '上线节奏'},
-           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
-             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
-             ['第 2 周', '第 3 讲上线', '我', '未开始']]}]},
-         {n: 2, day: '昨天', start: '22:30', end: '22:41', by: [{kind: 'you'}], cut: 'turn', blocks: [
-           {id: 'b1', type: 'h2', text: '目标'},
-           {id: 'b2', type: 'p', text: '首月 500 名付费学员，试听到付费的转化不低于 4%，退款率低于 5%。'},
-           {id: 'b3', type: 'h2', text: '上线节奏'},
-           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
-             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
-             ['第 2 周', '第 3 讲上线，邮件通知试听用户', '我', '未开始'],
-             ['第 3 周', '第 4 讲上线，社群直播答疑', '林舟', '未开始'],
-             ['第 4 周', '第 5 讲上线，首月复盘', '我', '未开始']]}]},
-         {n: 3, day: '今天', start: '10:05', end: '10:09', by: [{kind: 'agent', session: 's34'}], cut: 'quiet', blocks: [
-           {id: 'b1', type: 'h2', text: '目标'},
-           {id: 'b2', type: 'p', text: '首月 500 名付费学员，试听到付费的转化不低于 4%，退款率低于 5%。'},
-           {id: 'b3', type: 'h2', text: '上线节奏'},
-           {id: 'b4', type: 'table', head: ['周', '内容', '负责人', '状态'], rows: [
-             ['第 1 周', '落地页上线，开放第 1、2 讲试听', '林舟', '未开始'],
-             ['第 2 周', '第 3 讲上线，邮件通知试听用户', '我', '未开始'],
-             ['第 3 周', '第 4 讲上线，社群直播答疑', '林舟', '未开始'],
-             ['第 4 周', '第 5 讲上线，首月复盘', '我', '未开始']]},
-           {id: 'b5', type: 'h3', text: '渠道'},
-           {id: 'b6', type: 'list', items: ['课程落地页与试听视频', '已购学员的邮件列表']}]},
-         {n: 4, day: '今天', start: '11:20', end: '11:26', by: [{kind: 'you'}], open: true},
-       ],
-       risks: [
-         {n: 1, day: '昨天', start: '22:45', end: '22:50', by: [{kind: 'you'}], open: true},
-       ],
-     }},
-    /* 设计系统（docs/design/canvas §10）：含 design-system.json 的目录是一个条目。下面是原型画设计系统标签页用的演示内容，
-       正式版由设计系统编辑器读 design-system.json、tokens.json、README.md、components/ 与 assets/ 来画。字段：
-       `fileCount` 是目录里的文件数（导航尾巴上的 Files 行）；`cover` 有值时 Overview 顶上画封面（components/Cover）；`readme` 是 README.md 的原文；
-       `colors` 是按 token 名前缀分的组（`name` 为空的是不带前缀的那几个，显示成 Palette），每个 token 是 `[名字, 浅色值, 深色值?, 用法?]`，
-       值是别名 `{gray-25}` 或色值，深色与浅色一样时省掉；色值都与原型 tokens.css 里同名色阶的浅/深两值一致，别名都指向本组数据里的 token（有测试对拍）；
-       `type` 是字体键到字体栈的表与分组的文字样式 `[名字, 字号, 行高, 字重, 示例?]`；`spacing` / `corners` 是 `[名字, 值, 用法?]`；
-       `shadows` 是 `[名字, 浅色值, 深色值, 用法?]`；`extras` 是 tokens.json 里的其他 token 家族（导航里排在 Shadows 后面）；
-       `components` 是组件包里的组件（`usage` 是它 README 的第一行），原型用 S2 组件现画预览；`assets` 是分组的素材 `[文件名, 字节数]`。
-       dsys-spectrum2 取自从 adobe/react-spectrum（packages/@react-spectrum/s2，main@740c6c5）同步出的一套：颜色只摘了能对上原型色阶的 126 个
-       （原版 445 个），README 去掉了几条，其余照原样；dsys-new 是刚建好、只有 design-system.json 的一套。 */
-    {id: 'dsys-spectrum2', kind: 'design-system', name: 'Spectrum 2', dir: 'd6', session: 's27', mtime: 1, bytes: 1068393, fileCount: 80,
-     file: '设计系统/Spectrum 2/', namespace: 'S2',
-     cover: {tagline: "Adobe's design language, as built in React Spectrum."},
-     readme: [
-       "Spectrum 2 is Adobe's design language as implemented in React Spectrum (`@react-spectrum/s2`). It is neutral-first: gray surfaces and near-black text carry almost everything, one blue accent marks the primary action and selection, and four semantic hues (informative, positive, notice, negative) carry status. Components are rounded, generous and quiet; color is spent on meaning, not decoration.",
-       "",
-       "## Content fundamentals",
-       "",
-       "- **Sentence case everywhere** — buttons, tabs, field labels, menu items, headings: \"Save changes\", \"Add to library\", never \"Save Changes\".",
-       "- **Verbs on actions.** A button says what happens: \"Save\", \"Publish\", \"Delete\", \"Cancel\". Avoid \"OK\", \"Yes\", \"Submit\" when a specific verb exists.",
-       "- **Address the user as \"you\"**, the product as itself; no \"we\" in UI copy. Short, direct, no exclamation marks, no emoji in product UI.",
-       "- **Labels are nouns, help text is a sentence.** Field label \"Email\"; description \"As it appears on your ID.\"; error text says what to do: \"Enter a valid email address.\"",
-       "- **Status words are paired with color** — a Badge reads \"Approved\", a StatusLight reads \"Needs review\". Color alone never carries the meaning.",
-       "",
-       "## Color",
-       "",
-       "- Build every screen on surfaces: `background-base` for the app frame, `background-layer-1` for rails and panels, `background-layer-2` for the content area, `background-elevated` for popovers, menus and dialogs. Never invent intermediate grays.",
-       "- Set UI text in `neutral-content-default` (14:1 on every surface in both themes); secondary text in `neutral-subdued-content-default` (≥7.5:1). Headings use `heading`, prose uses `body`, eyebrows use `detail`.",
-       "- `accent-background-default` (blue-900 light / blue-800 dark) is for the one primary call to action per view and for selected states; its text is white (4.8:1 light, 4.5:1 dark). Links and accent text use `accent-content-default`.",
-       "- Status fills: `informative-`, `positive-`, `negative-background-default` take white text; `notice-background-default` (orange) takes **black** text — white fails at 2.6:1. Each has a `-subtle-` fill for low-emphasis badges and a `-visual` color for icons, dots and bars (≥3:1 on `background-base`).",
-       "- Use the semantic scales (`accent-*`, `informative-*`, `negative-*`, `notice-*`, `positive-*`) rather than raw hues when meaning is involved; they alias blue, blue, red, orange and green today.",
-       "",
-       "## Typography",
-       "",
-       "- One family: Adobe Clean (variable, `sans`), with Adobe Clean Serif (`serif`) for editorial moments and Source Code Pro (`code`). The scale is a 1.125 ratio from a 14px base (`ui`).",
-       "- Component text uses the `ui-*` styles and follows the component's size: S → `ui-sm`, M → `ui`, L → `ui-lg`, XL → `ui-xl`.",
-       "- Headings use the `heading-*` styles at weight 800; titles (card and list item titles) the `title-*` styles at 700; eyebrows and metadata the `detail-*` styles at 500.",
-       "- Long-form prose uses `body-*` at line-height 1.5. UI line heights shrink from 1.3 to 1.15 as size grows (rounded to 2px), which the styles here already encode.",
-       "",
-       "## Space, shape, elevation",
-       "",
-       "- Spacing is a 4px-based scale: `space-4`, `space-8`, `space-12`, `space-16`, `space-24`, `space-32`, `space-40`, `space-48`, `space-64` cover most layouts; `space-2` is for hairline offsets only. Gaps and margins scale with font size (rem), padding stays in px.",
-       "- Radii: `radius-sm` (4px) for checkboxes and small chips, `radius-default` (8px) for fields, menus, tooltips, `radius-lg` (10px) for cards, `radius-xl` (16px) for dialogs. ActionButtons, badges and fields use `radius-default` at size M, scaled by 1.125 per t-shirt step (S ≈ 7px, L 9px, XL 10px). Buttons are pills (radius = half their height); switches and progress tracks use `radius-full`, as do avatars.",
-       "- Borders: `border-width-1` for dividers and card outlines, `border-width-2` for field borders, checkbox boxes and the focus ring.",
-       "- Elevation is shadow plus surface, never color: `shadow-emphasized` for hovered or selected cards, `shadow-elevated` for popovers, menus, toasts and dialogs on `background-elevated`, `shadow-dragged` for a dragged item.",
-       "",
-       "## Iconography",
-       "",
-       "- Use the Spectrum 2 workflow icons (`@react-spectrum/s2/icons/*`, 412 icons, 20×20 grid, filled paths, Apache-2.0). The `Icons` group here holds a representative subset, verbatim.",
-       "- Icons inherit their color from the component (`--iconPrimary`); in a plain `<img>` they render black. Pair an icon with a text label except in toolbars, where an icon-only ActionButton carries an `aria-label`.",
-       "",
-       "## Components",
-       "",
-       "The cards below are the real `@react-spectrum/s2` components, live, exposed as `window.S2` (React 19). Wrap an app once in `S2.Provider` (it sets locale, color scheme and optional `background`). Spectrum components accept layout-only `styles` (margin, width, flex, grid placement) — their colors and internal padding are not customizable; build custom UI with the style macro and these tokens instead.",
-       "",
-       "| Need | Use |",
-       "| --- | --- |",
-       "| The primary action of a view | `Button variant=\"accent\"` — one per view |",
-       "| A neutral action | `Button variant=\"secondary\"` or `\"primary\"`; in toolbars `ActionButton` |",
-       "| Destructive confirmation | `Button variant=\"negative\"` |",
-       "| Navigation in text | `Link` |",
-       "| Switch between views | `Tabs` |",
-       "| Binary setting that applies immediately | `Switch`; in forms that submit, `Checkbox` |",
-       "| Choose one of a list | `Picker` |",
-       "| Categorize / show status | `Badge` (labels), `StatusLight` (state of an entity) |",
-       "| Progress / quantity | `ProgressBar` (over time), `Meter` (amount in a range) |",
-       "",
-       "## Not synced",
-       "",
-       "Synced from adobe/react-spectrum `main@740c6c5` (`packages/@react-spectrum/s2`, v1.8.1), token values from its pinned `@adobe/spectrum-tokens` 14.15.0.",
-       "",
-       "- **Fonts:** Adobe Clean, Adobe Clean Serif and Adobe Clean Han are served by Adobe's Typekit kit (`src/font-faces.css`) and are licensed, so no font files are included; previews and specimens fall back to `system-ui`. Source Code Pro is not bundled either.",
-       "- **Colors skipped:** the `transparent-overlay-*` scale and `auto` static color (computed with `lch(from …)` at runtime), the `wireframe` theme, the `forcedColors` (Windows high-contrast) mappings, and the remaining ~2,000 component-level tokens in spectrum-tokens.",
-       "- **Type:** mobile sizes (the system's touch scale) are not listed; only desktop values.",
-       "- **Icons:** 46 of 412 workflow icons; UI icons (`ui-icons/`) and illustrations not included. Adobe logos are trademarks and were not copied.",
-     ].join('\n'),
-     colors: [
-       {name: "", tokens: [
-         ["heading", "{gray-900}", "Headings on background-base / layer-2."],
-         ["title", "{gray-900}", "Titles on background-base / layer-2."],
-         ["body", "{gray-800}", "Long-form body copy on background-base / layer-2."],
-         ["detail", "{gray-600}", "Detail (eyebrow) text on background-base / layer-2."],
-         ["code", "{gray-800}", "Inline and block code text."],
-       ]},
-       {name: "background", tokens: [
-         ["background-base", "{gray-25}", "App frame / outermost background. Text: neutral-content-default."],
-         ["background-layer-1", "{gray-50}"],
-         ["background-layer-2", "{gray-25}", "{gray-75}"],
-         ["background-pasteboard", "{gray-100}", "{gray-25}", "Canvas behind documents in editing apps."],
-         ["background-elevated", "{gray-25}", "{gray-75}", "Popovers, menus and dialogs that float above content."],
-       ]},
-       {name: "neutral", tokens: [
-         ["neutral-content-default", "{gray-800}", "Default UI text on background-base, layer-1, layer-2 and elevated."],
-         ["neutral-subdued-content-default", "{gray-700}", "Secondary text (help text, descriptions) on the same grounds as neutral-content."],
-         ["neutral-background-default", "{gray-800}", "Fill of neutral emphasized controls (secondary fill buttons, neutral badges); text on it is gray-25."],
-         ["neutral-subdued-background-default", "{gray-700}", "{gray-500}", "Subdued neutral fill (e.g. tooltips)."],
-         ["neutral-subtle-background-default", "{gray-100}", "{gray-300}", "Very light neutral fill for subtle badges and tags."],
-         ["neutral-visual", "{gray-500}", "{gray-600}", "Neutral status dots and icons."],
-       ]},
-       {name: "accent", tokens: [
-         ["accent-content-default", "{accent-900}", "Accent text, e.g. links and selected labels, on background-base / layer-2."],
-         ["accent-background-default", "{accent-900}", "{accent-800}", "Primary call-to-action fill (accent Button, selected switch/checkbox). White text on it."],
-         ["accent-subtle-background-default", "{accent-200}", "{accent-300}", "Light accent fill for subtle badges and selected rows."],
-         ["accent-visual", "{accent-800}", "{accent-900}", "Non-text accent marks (icons, meters, status dots); 3:1 floor."],
-         ["accent-100", "{blue-100}"],
-         ["accent-200", "{blue-200}"],
-         ["accent-300", "{blue-300}"],
-         ["accent-400", "{blue-400}"],
-         ["accent-500", "{blue-500}"],
-         ["accent-600", "{blue-600}"],
-         ["accent-800", "{blue-800}"],
-         ["accent-900", "{blue-900}"],
-         ["accent-1000", "{blue-1000}"],
-         ["accent-1100", "{blue-1100}"],
-       ]},
-       {name: "negative", tokens: [
-         ["negative-content-default", "{negative-900}", "Error text and error help text on background-base / layer-2."],
-         ["negative-subtle-background-default", "{negative-200}", "{negative-300}", "Light error fill for subtle badges and inline alerts."],
-         ["negative-border-default", "{negative-900}", "Border of invalid fields."],
-         ["negative-100", "{red-100}"],
-         ["negative-200", "{red-200}"],
-         ["negative-300", "{red-300}"],
-         ["negative-400", "{red-400}"],
-         ["negative-700", "{red-700}"],
-         ["negative-900", "{red-900}"],
-         ["negative-1000", "{red-1000}"],
-         ["negative-1100", "{red-1100}"],
-       ]},
-       {name: "disabled", tokens: [
-         ["disabled-content", "{gray-400}", "Text and icons of disabled controls. Intentionally below 4.5:1 (WCAG exempts disabled UI)."],
-         ["disabled-background", "{gray-100}", "Fill of disabled controls."],
-         ["disabled-border", "{gray-300}", "Border of disabled fields."],
-       ]},
-       {name: "informative", tokens: [
-         ["informative-background-default", "{informative-900}", "{informative-800}", "Informative status fill. White text on it."],
-         ["informative-subtle-background-default", "{informative-200}", "{informative-300}", "Light informative fill."],
-         ["informative-visual", "{informative-800}", "{informative-900}", "Info icons and status dots."],
-         ["informative-100", "{blue-100}"],
-         ["informative-200", "{blue-200}"],
-         ["informative-300", "{blue-300}"],
-         ["informative-400", "{blue-400}"],
-         ["informative-500", "{blue-500}"],
-         ["informative-600", "{blue-600}"],
-         ["informative-800", "{blue-800}"],
-         ["informative-900", "{blue-900}"],
-         ["informative-1000", "{blue-1000}"],
-         ["informative-1100", "{blue-1100}"],
-       ]},
-       {name: "positive", tokens: [
-         ["positive-subtle-background-default", "{positive-200}", "{positive-300}", "Light success fill."],
-         ["positive-100", "{green-100}"],
-         ["positive-200", "{green-200}"],
-         ["positive-300", "{green-300}"],
-         ["positive-400", "{green-400}"],
-         ["positive-700", "{green-700}"],
-         ["positive-900", "{green-900}"],
-         ["positive-1000", "{green-1000}"],
-         ["positive-1100", "{green-1100}"],
-       ]},
-       {name: "notice", tokens: [
-         ["notice-background-default", "{notice-600}", "{notice-900}", "Warning status fill. Dark (black) text on it."],
-         ["notice-subtle-background-default", "{notice-200}", "{notice-300}", "Light warning fill."],
-         ["notice-100", "{orange-100}"],
-         ["notice-200", "{orange-200}"],
-         ["notice-300", "{orange-300}"],
-         ["notice-400", "{orange-400}"],
-         ["notice-600", "{orange-600}"],
-         ["notice-700", "{orange-700}"],
-         ["notice-900", "{orange-900}"],
-         ["notice-1000", "{orange-1000}"],
-         ["notice-1100", "{orange-1100}"],
-       ]},
-       {name: "focus", tokens: [
-         ["focus-indicator", "{blue-800}", "Keyboard focus ring, 2px solid, offset 2px. Forced-colors: Highlight."],
-       ]},
-       {name: "gray", tokens: [
-         ["gray-25", "#FFFFFF", "#111111"],
-         ["gray-50", "#F8F8F8", "#1B1B1B"],
-         ["gray-75", "#F3F3F3", "#222222"],
-         ["gray-100", "#E9E9E9", "#2C2C2C"],
-         ["gray-200", "#E1E1E1", "#323232"],
-         ["gray-300", "#DADADA", "#393939"],
-         ["gray-400", "#C6C6C6", "#444444"],
-         ["gray-500", "#8F8F8F", "#6D6D6D"],
-         ["gray-600", "#717171", "#8A8A8A"],
-         ["gray-700", "#505050", "#AFAFAF"],
-         ["gray-800", "#292929", "#DBDBDB"],
-         ["gray-900", "#131313", "#F2F2F2"],
-         ["gray-1000", "#000000", "#FFFFFF"],
-       ]},
-       {name: "blue", tokens: [
-         ["blue-100", "#F5F9FF", "#0E173F"],
-         ["blue-200", "#E5F0FE", "#0F1C52"],
-         ["blue-300", "#CBE2FE", "#0C2175"],
-         ["blue-400", "#ACCFFD", "#122D9A"],
-         ["blue-500", "#8EB9FC", "#1A3AC3"],
-         ["blue-600", "#729EFD", "#2549E5"],
-         ["blue-800", "#4B75FF", "#4069FD"],
-         ["blue-900", "#3B63FB", "#5681FF"],
-         ["blue-1000", "#274DEA", "#6995FE"],
-         ["blue-1100", "#1D3ECF", "#7CA9FC"],
-       ]},
-       {name: "red", tokens: [
-         ["red-100", "#FFF6F5", "#360A03"],
-         ["red-200", "#FFEBE8", "#440D05"],
-         ["red-300", "#FFD6D1", "#571107"],
-         ["red-400", "#FFBCB4", "#73180B"],
-         ["red-700", "#FF513D", "#CD2E1D"],
-         ["red-900", "#D73220", "#FC432E"],
-         ["red-1000", "#B72818", "#FF6756"],
-         ["red-1100", "#9C2113", "#FF8678"],
-       ]},
-       {name: "orange", tokens: [
-         ["orange-100", "#FFF6E7", "#311000"],
-         ["orange-200", "#FFECCF", "#3D1500"],
-         ["orange-300", "#FFDA9E", "#501B00"],
-         ["orange-400", "#FFC15E", "#6A2400"],
-         ["orange-600", "#FC7D00", "#A23B00"],
-         ["orange-700", "#E86A00", "#B94900"],
-         ["orange-900", "#C24E00", "#E06400"],
-         ["orange-1000", "#A73E00", "#F37500"],
-         ["orange-1100", "#903300", "#FF8900"],
-       ]},
-       {name: "green", tokens: [
-         ["green-100", "#EDFCF1", "#001E17"],
-         ["green-200", "#D7F7E1", "#00261D"],
-         ["green-300", "#ADEEC5", "#003326"],
-         ["green-400", "#6BE3A2", "#004430"],
-         ["green-700", "#0BA45D", "#047C4B"],
-         ["green-900", "#05834E", "#099D59"],
-         ["green-1000", "#036E45", "#0EAF62"],
-         ["green-1100", "#025D3C", "#18C16E"],
-       ]},
-     ],
-     type: {families: {sans: "adobe-clean-spectrum-vf, adobe-clean-variable, adobe-clean, ui-sans-serif, system-ui, sans-serif", serif: "adobe-clean-spectrum-srf-vf, adobe-clean-serif, \"Source Serif\", Georgia, serif", code: "source-code-pro, \"Source Code Pro\", Monaco, monospace"}, groups: [
-       {name: "UI", family: "sans", styles: [["ui-xs", "11px", "14px", 400], ["ui-sm", "12px", "16px", 400], ["ui", "14px", "18px", 400], ["ui-lg", "16px", "20px", 400], ["ui-xl", "18px", "22px", 400], ["ui-2xl", "20px", "24px", 400], ["ui-3xl", "22px", "26px", 400]]},
-       {name: "Heading", family: "sans", styles: [["heading-2xs", "14px", "18px", 800], ["heading-xs", "18px", "22px", 800], ["heading-sm", "20px", "24px", 800], ["heading", "22px", "26px", 800], ["heading-lg", "28px", "32px", 800], ["heading-xl", "36px", "42px", 800], ["heading-2xl", "45px", "52px", 800], ["heading-3xl", "58px", "66px", 800, "Make it yours"]]},
-       {name: "Title", family: "sans", styles: [["title-xs", "12px", "16px", 700], ["title-sm", "14px", "18px", 700], ["title", "16px", "20px", 700], ["title-lg", "18px", "22px", 700], ["title-xl", "20px", "24px", 700], ["title-2xl", "22px", "26px", 700], ["title-3xl", "25px", "30px", 700]]},
-       {name: "Body", family: "sans", styles: [["body-xs", "12px", 1.5, 400], ["body-sm", "14px", 1.5, 400], ["body", "16px", 1.5, 400], ["body-lg", "18px", 1.5, 400], ["body-xl", "20px", 1.5, 400], ["body-2xl", "22px", 1.5, 400], ["body-3xl", "25px", 1.5, 400]]},
-       {name: "Detail", family: "sans", styles: [["detail-sm", "12px", "16px", 500, "METADATA · 2 MIN"], ["detail", "14px", "18px", 500], ["detail-lg", "16px", "20px", 500], ["detail-xl", "18px", "22px", 500]]},
-       {name: "Code", family: "code", styles: [["code-xs", "12px", 1.5, 400, "const x = 1;"], ["code-sm", "14px", 1.5, 400, "const x = 1;"], ["code", "16px", 1.5, 400, "const x = 1;"], ["code-lg", "18px", 1.5, 400, "const x = 1;"], ["code-xl", "20px", 1.5, 400, "const x = 1;"]]},
-     ]},
-     spacing: [
-       ["space-0", "0px", "In-between step."],
-       ["space-2", "2px", "spacing-50."],
-       ["space-4", "4px", "spacing-75."],
-       ["space-8", "8px", "spacing-100."],
-       ["space-12", "12px", "spacing-200."],
-       ["space-16", "16px", "spacing-300."],
-       ["space-20", "20px", "In-between step."],
-       ["space-24", "24px", "spacing-400."],
-       ["space-28", "28px", "In-between step."],
-       ["space-32", "32px", "spacing-500."],
-       ["space-36", "36px", "In-between step."],
-       ["space-40", "40px", "spacing-600."],
-       ["space-44", "44px", "In-between step."],
-       ["space-48", "48px", "spacing-700."],
-       ["space-56", "56px", "In-between step."],
-       ["space-64", "64px", "spacing-800."],
-       ["space-80", "80px", "spacing-900."],
-       ["space-96", "96px", "spacing-1000."],
-     ],
-     corners: [
-       ["radius-none", "0px", "borderRadius: 'none' (corner-radius-none). Full-bleed images, table cells."],
-       ["radius-sm", "4px", "borderRadius: 'sm' (corner-radius-small-default). Checkboxes, small chips."],
-       ["radius-default", "8px", "borderRadius: 'default' (corner-radius-medium-default). Fields, menus, popovers, tooltips."],
-       ["radius-lg", "10px", "borderRadius: 'lg' (corner-radius-large-default). Cards."],
-       ["radius-xl", "16px", "borderRadius: 'xl' (corner-radius-extra-large-default). Dialogs and large containers."],
-       ["radius-full", "9999px", "borderRadius: 'full'. Discs and fully round elements (avatars, switch handle)."],
-     ],
-     shadows: [
-       ["shadow-emphasized", "0px 2px 8px #00000014, 0px 1px 4px #0000000a, 0px 0px 1px #00000014", "0px 2px 8px #0000003d, 0px 1px 4px #0000001f, 0px 0px 1px #0000003d", "boxShadow: 'emphasized'. Cards on hover, selected tiles. S2 applies it as filter: drop-shadow() (drop-shadow-emphasized)."],
-       ["shadow-elevated", "0px 4px 12px #00000014, 0px 2px 6px #0000000a, 0px 0px 2px #0000001f", "0px 4px 12px #0000003d, 0px 2px 6px #0000001f, 0px 0px 2px #0000005c", "boxShadow: 'elevated'. Popovers, menus, toasts, dialogs. S2 applies it as filter: drop-shadow() (drop-shadow-elevated)."],
-       ["shadow-dragged", "0px 12px 16px #00000014, 0px 6px 8px #0000000a, 0px 0px 6px #00000029", "0px 12px 16px #0000003d, 0px 6px 8px #0000001f, 0px 0px 6px #0000007a", "boxShadow: 'dragged'. The item being dragged. S2 applies it as filter: drop-shadow() (drop-shadow-dragged)."],
-     ],
-     extras: [{key: 'borderWidth', title: 'Border width', tokens: [
-       ["border-width-1", "1px", "borderWidth: 1 (border-width-100). Dividers, card outlines."],
-       ["border-width-2", "2px", "borderWidth: 2 (border-width-200). Field borders, checkbox boxes, focus ring width."],
-       ["border-width-4", "4px", "borderWidth: 4 (border-width-400). Heavy dividers, selected card outline."],
-     ]}],
-     components: [
-       {name: "Button", group: "Actions", usage: "Allows a user to perform an action or to navigate to another page."},
-       {name: "ActionButton", group: "Actions", usage: "Allows a user to perform an action, typically in toolbars, panels and action bars."},
-       {name: "Link", group: "Navigation", usage: "Allows a user to navigate to another page."},
-       {name: "Tabs", group: "Navigation", usage: "Organizes content into multiple sections and lets a user view one at a time."},
-       {name: "Checkbox", group: "Forms", usage: "Allows a user to select an individual option."},
-       {name: "Switch", group: "Forms", usage: "Allows a user to turn a setting on or off."},
-       {name: "TextField", group: "Forms", usage: "Allows a user to enter a plain text value with a keyboard."},
-       {name: "Picker", group: "Forms", usage: "Displays a collapsible list of options and lets a user select one of them."},
-       {name: "Badge", group: "Status", usage: "Displays color-categorized metadata for an object."},
-       {name: "StatusLight", group: "Status", usage: "Displays the status or category of an entity with a colored dot and a label."},
-       {name: "ProgressBar", group: "Status", usage: "Shows progress of an operation over time with a linear representation."},
-       {name: "Meter", group: "Status", usage: "Represents a quantity within a known range, or a fractional value."},
-     ],
-     assets: [{name: 'Icons', files: [
-       ["S2_Icon_Add_20_N.svg", 402], ["S2_Icon_AlertDiamond_20_N.svg", 1275], ["S2_Icon_AlertTriangle_20_N.svg", 1216], ["S2_Icon_Bell_20_N.svg", 1174],
-       ["S2_Icon_Bookmark_20_N.svg", 698], ["S2_Icon_Calendar_20_N.svg", 1254], ["S2_Icon_CheckmarkCircle_20_N.svg", 783], ["S2_Icon_Checkmark_20_N.svg", 507],
-       ["S2_Icon_ChevronDown_20_N.svg", 491], ["S2_Icon_ChevronRight_20_N.svg", 488], ["S2_Icon_Clock_20_N.svg", 699], ["S2_Icon_Close_20_N.svg", 646],
-       ["S2_Icon_Comment_20_N.svg", 746], ["S2_Icon_Copy_20_N.svg", 1920], ["S2_Icon_Delete_20_N.svg", 1313], ["S2_Icon_Download_20_N.svg", 832],
-       ["S2_Icon_Edit_20_N.svg", 996], ["S2_Icon_File_20_N.svg", 734], ["S2_Icon_Filter_20_N.svg", 1066], ["S2_Icon_Folder_20_N.svg", 665],
-       ["S2_Icon_Heart_20_N.svg", 1277], ["S2_Icon_HelpCircle_20_N.svg", 1249], ["S2_Icon_Home_20_N.svg", 847], ["S2_Icon_Image_20_N.svg", 1039],
-       ["S2_Icon_InfoCircle_20_N.svg", 899], ["S2_Icon_Link_20_N.svg", 1324], ["S2_Icon_Lock_20_N.svg", 833], ["S2_Icon_MenuHamburger_20_N.svg", 599],
-       ["S2_Icon_MoreVertical_20_N.svg", 349], ["S2_Icon_More_20_N.svg", 625], ["S2_Icon_Pause_20_N.svg", 1507], ["S2_Icon_Play_20_N.svg", 845],
-       ["S2_Icon_Redo_20_N.svg", 694], ["S2_Icon_Refresh_20_N.svg", 1579], ["S2_Icon_Search_20_N.svg", 579], ["S2_Icon_Send_20_N.svg", 667],
-       ["S2_Icon_Settings_20_N.svg", 3519], ["S2_Icon_Share_20_N.svg", 837], ["S2_Icon_Sort_20_N.svg", 654], ["S2_Icon_Star_20_N.svg", 1788],
-       ["S2_Icon_Undo_20_N.svg", 665], ["S2_Icon_Upload_20_N.svg", 1020], ["S2_Icon_UserGroup_20_N.svg", 1640], ["S2_Icon_User_20_N.svg", 809],
-       ["S2_Icon_VisibilityOff_20_N.svg", 1907], ["S2_Icon_Visibility_20_N.svg", 1150],
-     ]}]},
-    {id: 'dsys-new', kind: 'design-system', name: '新品发布品牌', dir: 'd3', session: 's28', mtime: 0, bytes: 214, fileCount: 1,
-     file: '设计系统/新品发布品牌/', namespace: 'Launch', readme: '', colors: [], type: {families: {}, groups: []}, spacing: [], corners: [], shadows: [],
-     extras: [], components: [], assets: []},
     {id: 'o11', kind: 'image', name: '橘猫窗台 · 水彩.png', dir: null, task: 'im1', status: 'generating',
      res: '1024×1024', mtime: 0, hue: 32, file: '~/BaoCut/未归类/cat-window.png'},
     {id: 'o13', kind: 'subtitle', name: '年度回顾 · 粗剪字幕.srt', dir: 'd7', movie: 'p6', trashed: true,
@@ -2467,6 +2007,8 @@
       {cmd: '/desc', icon: 'edit', label: '写简介', sub: '带章节时间码和标签'},
       {cmd: '/cover', icon: 'image', label: '做封面', sub: '从关键帧出发做几张候选'},
       {cmd: '/export', icon: 'export', label: '导出', sub: 'SRT / 烧录字幕的 MP4'},
+      /* docs/design/artifacts §6：选上后消息以 `/artifacts ` 开头，发送时点选 artifacts skill */
+      {cmd: '/artifacts', icon: 'template', label: '做一份作品', sub: '幻灯片、文档、设计稿、表格等，在标签页里打开'},
     ],
     /* 推理强度：第 111 轮补丁从 Segmented 改成下拉，副文案说清代价。 */
     efforts: [{k: 'low', label: '低', sub: '快，适合小改动'}, {k: 'mid', label: '中', sub: '默认'}, {k: 'high', label: '高', sub: '慢，想得更久'}],
@@ -2896,143 +2438,35 @@
          {id: 'm9', role: 'assistant', text: "### 视频速览\n\n**口播剪辑 · 实验**\n`~/Movies/口播/talk-take2.mp4` · 3:26 · 中文 · 本机文件，没有来源页面\n\n一段单人口播，讲视频工具为什么该做成本地优先：语音识别不必上云，小模型在笔记本上已经够快，素材不出本机，重跑也不用付钱。后半段有一分钟左右的操作演示，最后落在一句话：能在本机做完的就别上传。\n\n适合想知道本机转录值不值得用的人，三分多钟能听完。\n\n**出场的人**\n\n- 一位讲者：开场说「欢迎回到科浪」，应该是这档节目的主持人；文稿里没报名字，说话人先留作「说话人 1」，告诉我名字我再改\n\n**要点**\n\n- [0:26](/videos/p8?t=26) 语音识别过去默认放在云上，因为模型大、机器带不动\n- [0:41](/videos/p8?t=41) 现在笔记本跑一小时的识别，比上传加排队还快\n- [1:03](/videos/p8?t=63) 访谈、内部会议、没发布的演示，本来就不该往外传\n- [1:44](/videos/p8?t=104) 演示：拖进文件、选中文、点开始，就地得到带时间的文稿\n- [2:46](/videos/p8?t=166) 本地优先不是反对云，是把默认值调回来\n\n### 任务总结\n\n你要的是把这条口播转成文字。做完了：文稿写进了「口播剪辑 · 实验」，62 句、1 位说话人，按话题分了 3 章（开场、正文、收尾）。这次只转录，没有建字幕层；要在画面上看到字幕，告诉我一声。\n\n**要你看一下的**\n\n- [1:44](/videos/p8?t=104) 演示里念的几个界面上的词识别成了同音字，我没改；要我顺一遍文稿吗\n\n| 量出来的 | 看过的 | 要人听的 |\n| --- | --- | --- |\n| 时长 3:26 · 62 句 · 3 章 | 没取帧，没看画面 | 识别错的词要对着声音核对 |"},
        ]},
       /* 未绑定项目的会话再补 7 条：侧栏这一段首屏只露 5 条、每次再加载 5 条，少于 6 条演示不出来 */
-      /* 会话里的幻灯片（docs/design/slides）：读讲稿、读 slides skill、用 Driver 自带的文件工具写 deck，`slides_check` 通过后
-         线程里出一张幻灯片卡片（挂在那条回复上）。第二轮是在幻灯片标签页里标了 2 处、随消息发回来的标注（`slideAnnotations`）：
-         标注记的是当时的位置与原文，之后页面改了，位置里引的仍是旧字。 */
+      /* 会话里的作品（docs/design/artifacts §4–§6）：用 `/artifacts` 点选 artifacts skill，智能体经 Open Artifact 的 `Artifact` 工具建作品，
+         daemon 报回来的作品回执（`role: 'artifact'`）在线程里画成一张作品卡，挂在那一轮的回复上。第二轮是页面上的评论回到会话后再改：
+         同一份作品又来一条回执，卡片不重复，标题取最近一次的。 */
       {id: 's25', title: '把第 1 讲的讲稿做成课件', project: null, dir: 'd5', harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'done', ago: 2, unread: true,
        messages: [
-         {id: 'm1', role: 'user', text: '按「讲稿/第1讲.md」做一份 16:9 的课件，8 页左右，版式素一点。', ...turnDone(9, 96)},
+         {id: 'm1', role: 'user', text: '/artifacts 按「讲稿/第1讲.md」做一份 16:9 的课件，8 页左右，版式素一点。', ...turnDone(9, 96)},
          {id: 'm2', role: 'tool', kind: 'read', summary: '讲稿/第1讲.md', cmd: '读取 讲稿/第1讲.md · 186 行', status: 'done', took: '0.1s'},
-         {id: 'm3', role: 'tool', kind: 'read', summary: 'slides', cmd: '读取 skill slides · references/format.md、design.md', status: 'done', took: '0.1s'},
-         {id: 'm4', role: 'tool', kind: 'edit', summary: '幻灯片/第1讲/deck.json', cmd: '新建 幻灯片/第1讲/deck.json 与 8 页', status: 'done', took: '0.4s',
-          out: '--- /dev/null\n+++ b/幻灯片/第1讲/deck.json\n@@ -0,0 +1,6 @@\n+{\n+  "title": "确定性渲染 · 第 1 讲",\n+  "size": [1920, 1080],\n+  "order": ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08"],\n+  "faces": ["Source Sans 3"]\n+}'},
-         {id: 'm5', role: 'tool', tool: 'slides_check', args: {path: '幻灯片/第1讲/', slides: 8}, status: 'done', took: '0.6s', out: '8 页 · 0 个问题'},
-         {id: 'm6', role: 'assistant', artifactIds: ['deck-r1'], text: '课件做好了，一共 8 页，放在 `幻灯片/第1讲/`：封面、三个问题、不确定的来源、一帧的流程、验收标准、实测数据、小结和下一讲预告。\n\n点卡片上的「打开」在右侧预览和修改。哪里要改，打开「标注」，点一下页面上的元素写批注，添加到对话后和你的话一起发给我。'},
-         {id: 'm7', role: 'user', text: '按标注改一下。', ...turnDone(2, 41),
-          slideAnnotations: [
-            {id: 'a1', deck: 'deck-r1', path: '幻灯片/第1讲/', slide: 's03', part: 'list', x: 0.3, y: 0.56,
-             label: '第 3 页 › 列表 “浮点误差在不同显卡上会逐帧…”', detail: 'Element on slide 3 (s03) · list · "浮点误差在不同显卡上会逐帧累积，字体缺失时回退到别的字体…"',
-             text: '四条都太长，压成一眼能读完的短词。'},
-            {id: 'a2', deck: 'deck-r1', path: '幻灯片/第1讲/', slide: 's06', part: 'title', x: 0.5, y: 0.24,
-             label: '第 6 页 › 标题 “同一段 206 秒，在 3 台机器上…”', detail: 'Element on slide 6 (s06) · title · "同一段 206 秒，在 3 台机器上各渲染一次"',
-             text: '标题太长，拆成两行。'},
-          ]},
-         {id: 'm8', role: 'tool', kind: 'edit', summary: '幻灯片/第1讲/slides/s03.html', cmd: '修改 幻灯片/第1讲/slides/s03.html', status: 'done', took: '0.1s'},
-         {id: 'm9', role: 'tool', kind: 'edit', summary: '幻灯片/第1讲/slides/s06.html', cmd: '修改 幻灯片/第1讲/slides/s06.html', status: 'done', took: '0.1s'},
-         {id: 'm10', role: 'tool', tool: 'slides_check', args: {path: '幻灯片/第1讲/', slides: 8}, status: 'done', took: '0.5s', out: '8 页 · 0 个问题'},
-         {id: 'm11', role: 'assistant', text: '改好了：第 3 页的四条压成了「浮点误差、字体回退、线程顺序、时间舍入」；第 6 页的标题拆成「同一段 206 秒」和「3 台机器各渲染一次」两行。右侧打开着的编辑器已经刷新。'},
+         {id: 'm3', role: 'tool', kind: 'read', summary: 'artifacts', cmd: '读取 skill artifacts · SKILL.md', status: 'done', took: '0.1s'},
+         {id: 'm4', role: 'tool', tool: 'Artifact', args: {action: 'publish', type: 'slides', title: '确定性渲染 · 第 1 讲'}, status: 'done', took: '1.2s', out: 'open-artifact://artifact/art-deck1'},
+         {id: 'm5', role: 'artifact', url: 'open-artifact://artifact/art-deck1', title: '确定性渲染 · 第 1 讲', type: 'slides', taskId: null},
+         {id: 'm6', role: 'assistant', text: '课件做好了，一共 8 页：封面、三个问题、不确定的来源、一帧的流程、验收标准、实测数据、小结和下一讲预告。\n\n点下面的卡片在右侧打开。哪里要改，直接在页面上评论，评论会回到这条会话。'},
+         {id: 'm7', role: 'user', text: '第 3 页的列表太长；第 6 页的标题拆成两行。', direction: 'artifact', ...turnDone(2, 41)},
+         {id: 'm8', role: 'tool', tool: 'ArtifactComments', args: {action: 'list', url: 'open-artifact://artifact/art-deck1'}, status: 'done', took: '0.1s', out: '2 条评论'},
+         {id: 'm9', role: 'tool', tool: 'Artifact', args: {action: 'publish', url: 'open-artifact://artifact/art-deck1'}, status: 'done', took: '0.8s'},
+         {id: 'm10', role: 'artifact', url: 'open-artifact://artifact/art-deck1', title: '确定性渲染 · 第 1 讲（修订）', type: 'slides', taskId: null},
+         {id: 'm11', role: 'assistant', text: '改好了：第 3 页的四条压成了「浮点误差、字体回退、线程顺序、时间舍入」；第 6 页的标题拆成「同一段 206 秒」和「3 台机器各渲染一次」两行。右侧打开着的作品页面会自己刷新。'},
        ]},
-      /* 刚建好的设计系统（docs/design/canvas §10.5）：选了 design-system skill 发出去，只写了 design-system.json，`design_system_check` 通过后
-         线程里出一张设计系统卡片；打开是原版编辑器的空状态（起步 README 与三张起步卡片）。最新的一条，排在最前。 */
-      {id: 's28', title: '给新品发布建一套设计系统', project: null, dir: 'd3', harness: 'claude', model: 'sonnet', effort: 'mid',
-       status: 'done', ago: 0, unread: true,
+      /* 一轮里做两份作品：两张卡挂在同一条回复上。发布计划在原型里第一次打开会失败（BC_DATA.artifactDemo.failOnce），演示「打不开」与「重试」。 */
+      {id: 's26', title: '给这门课做一个落地页和发布计划', project: null, dir: 'd5', harness: 'claude', model: 'sonnet', effort: 'mid',
+       status: 'done', ago: 30,
        messages: [
-         {id: 'm1', role: 'user', text: '给新品发布建一套设计系统，叫「新品发布品牌」，先空着，颜色和字体之后再定。\n使用 skill：设计系统', ...turnDone(0, 18)},
-         {id: 'm2', role: 'tool', kind: 'read', summary: 'design-system', cmd: '读取 skill design-system · SKILL.md、references/format.md', status: 'done', took: '0.1s'},
-         {id: 'm3', role: 'tool', kind: 'edit', summary: '设计系统/新品发布品牌/design-system.json', cmd: '新建 设计系统/新品发布品牌/design-system.json', status: 'done', took: '0.1s',
-          out: '--- /dev/null\n+++ b/设计系统/新品发布品牌/design-system.json\n@@ -0,0 +1,8 @@\n+{\n+  "v": 3,\n+  "layout": "files",\n+  "createdOnFiles": {"v": 1, "at": "2026-10-11T10:02:41Z"},\n+  "title": "新品发布品牌",\n+  "namespace": "Launch",\n+  "groups": []\n+}'},
-         {id: 'm4', role: 'tool', tool: 'design_system_check', args: {path: '设计系统/新品发布品牌/', components: 0}, status: 'done', took: '0.2s', out: '0 个组件 · 0 个问题'},
-         {id: 'm5', role: 'assistant', artifactIds: ['dsys-new'], text: '建好了，放在 `设计系统/新品发布品牌/`，现在只有索引文件。点卡片在右侧打开：可以从 GitHub 仓库同步、从连接的工具搭，或者上传品牌文件；也可以直接告诉我品牌的颜色和字体，我来起一版。'},
-       ]},
-      /* 从 GitHub 同步的设计系统（docs/design/canvas §10.5）：先建一套空的（第一张卡片），在标签页里点「Sync from GitHub」，那段话放进输入框、
-         用户发出去（m6，正文与 BC_HOME_DESIGN_SYSTEM.githubStarterPrompt 一致，有测试对拍）；agent 先问仓库，用户答 adobe/react-spectrum 的 S2 包，
-         agent 克隆、按 from-code 指南读 token 与组件源码、打组件包、写 tokens.json 与 README，`design_system_import_asset` 把 46 个图标拷进 _blobs/
-         （原型只画了头两次与最后一次），`design_system_check` 零问题后线程里再出一张卡片。比 s26 晚，所以排在它前面。
-         最后一轮是在设计系统标签里标了 2 处（一个颜色 token、一个组件）、随消息发回来的标注（`designSystemAnnotations`，§10.6）。 */
-      {id: 's27', title: '从 GitHub 同步 Spectrum 2 设计系统', project: null, dir: 'd6', harness: 'claude', model: 'sonnet', effort: 'mid',
-       status: 'done', ago: 1, unread: true,
-       messages: [
-         {id: 'm1', role: 'user', text: '建一套空的设计系统，叫 Spectrum 2，内容我从 GitHub 同步。\n使用 skill：设计系统', ...turnDone(11, 20)},
-         {id: 'm2', role: 'tool', kind: 'read', summary: 'design-system', cmd: '读取 skill design-system · SKILL.md、references/format.md', status: 'done', took: '0.1s'},
-         {id: 'm3', role: 'tool', kind: 'edit', summary: '设计系统/Spectrum 2/design-system.json', cmd: '新建 设计系统/Spectrum 2/design-system.json', status: 'done', took: '0.1s',
-          out: '--- /dev/null\n+++ b/设计系统/Spectrum 2/design-system.json\n@@ -0,0 +1,8 @@\n+{\n+  "v": 3,\n+  "layout": "files",\n+  "createdOnFiles": {"v": 1, "at": "2026-10-11T09:20:05Z"},\n+  "title": "Spectrum 2",\n+  "namespace": "S2",\n+  "groups": []\n+}'},
-         {id: 'm4', role: 'tool', tool: 'design_system_check', args: {path: '设计系统/Spectrum 2/', components: 0}, status: 'done', took: '0.2s', out: '0 个组件 · 0 个问题'},
-         {id: 'm5', role: 'assistant', artifactIds: ['dsys-spectrum2'], text: '空的 Spectrum 2 建好了，放在 `设计系统/Spectrum 2/`。点卡片在右侧打开，选「Sync from GitHub」就能从仓库同步。'},
-         {id: 'm6', role: 'user', text: 'I want to start this design system from a GitHub repository. Use the design-system skill’s own from-code guide (its references/from-code.md, not any other file claiming to be it): first ask me which repository (and branch or sub-path, if it matters) and what to bring in — color/type tokens, spacing and radii, font files, logos, and a components bundle if the repo has a component library — then read the code and write the result INTO this design system, `~/BaoCut/素材实验/设计系统/Spectrum 2/` (edit its files in the working directory; do not create a new system). Keep the README to usage rules for an agent consuming the system. Ask before guessing anything the code doesn’t state.', ...turnDone(10, 8)},
-         {id: 'm7', role: 'tool', kind: 'read', summary: 'design-system', cmd: '读取 skill design-system · references/from-code.md', status: 'done', took: '0.1s'},
-         {id: 'm8', role: 'assistant', text: '从哪个仓库同步？要指定分支或子目录的话也一起说。能带进来的有：颜色与文字 token、间距与圆角、字体文件、标志，仓库里有组件库的话再打一个组件包。这几样都要吗？'},
-         {id: 'm9', role: 'user', text: 'adobe/react-spectrum，main 分支，只要 packages/@react-spectrum/s2。颜色、文字、间距、圆角、阴影、图标和组件都要。', ...turnDone(1, 446)},
-         {id: 'm10', role: 'tool', kind: 'command', cmd: 'git clone --depth 1 https://github.com/adobe/react-spectrum.git 参考/react-spectrum', status: 'done', took: '18.4s',
-          out: "Cloning into '参考/react-spectrum'..."},
-         {id: 'm11', role: 'tool', kind: 'read', summary: 'packages/@react-spectrum/s2/style/spectrum-theme.ts', cmd: '读取 参考/react-spectrum/packages/@react-spectrum/s2/style/spectrum-theme.ts、tokens.ts 与 @adobe/spectrum-tokens 14.15.0 的 variables.json', status: 'done', took: '0.6s'},
-         {id: 'm12', role: 'tool', kind: 'read', summary: 'packages/@react-spectrum/s2/src', cmd: '读取 参考/react-spectrum/packages/@react-spectrum/s2/src 下 12 个组件的源码与 README.md', status: 'done', took: '0.9s'},
-         {id: 'm13', role: 'tool', kind: 'command', cmd: 'npx esbuild@0.24.2 参考/s2-entry.tsx --bundle --minify --format=iife --outfile="设计系统/Spectrum 2/components/bundle.js"', status: 'done', took: '6.1s',
-          out: '设计系统/Spectrum 2/components/bundle.js  1.0mb\n设计系统/Spectrum 2/components/bundle.css  96.4kb'},
-         {id: 'm14', role: 'tool', kind: 'edit', summary: '设计系统/Spectrum 2/tokens.json', cmd: '新建 设计系统/Spectrum 2/tokens.json、README.md、components/ 下 12 个组件与封面', status: 'done', took: '0.8s'},
-         {id: 'm15', role: 'tool', tool: 'design_system_import_asset', args: {system: '设计系统/Spectrum 2/', path: '参考/react-spectrum/packages/@react-spectrum/s2/s2wf-icons/S2_Icon_Add_20_N.svg', group: 'Icons'}, status: 'done', took: '0.1s',
-          out: '/_blob/3e7eafa6f304 · image/svg+xml · 402 B'},
-         {id: 'm16', role: 'tool', tool: 'design_system_import_asset', args: {system: '设计系统/Spectrum 2/', path: '参考/react-spectrum/packages/@react-spectrum/s2/s2wf-icons/S2_Icon_AlertDiamond_20_N.svg', group: 'Icons'}, status: 'done', took: '0.1s',
-          out: '/_blob/f5cef67c1c65 · image/svg+xml · 1 KB'},
-         {id: 'm17', role: 'tool', tool: 'design_system_import_asset', args: {system: '设计系统/Spectrum 2/', path: '参考/react-spectrum/packages/@react-spectrum/s2/s2wf-icons/S2_Icon_VisibilityOff_20_N.svg', group: 'Icons'}, status: 'done', took: '0.1s',
-          out: '/_blob/edbba811a193 · image/svg+xml · 2 KB'},
-         {id: 'm18', role: 'tool', tool: 'design_system_check', args: {path: '设计系统/Spectrum 2/', components: 12}, status: 'done', took: '1.1s', out: '12 个组件 · 0 个问题'},
-         {id: 'm19', role: 'assistant', artifactIds: ['dsys-spectrum2'], text: '同步好了。`设计系统/Spectrum 2/` 现在是 adobe/react-spectrum `main@740c6c5` 里 `packages/@react-spectrum/s2` 的一套：\n\n- 颜色：445 个 token，浅色、深色各一套\n- 文字：38 个样式，分 UI、Heading、Title、Body、Detail、Code 六组\n- 间距、圆角、阴影与边框宽度\n- 素材：46 个 workflow 图标（Apache-2.0）\n- 组件：12 个 S2 组件，预览是真组件现场渲染，另有一张封面\n\nAdobe Clean 字体由 Adobe 的授权字体服务提供，没有拷进来，预览里退回系统字体；没同步的部分都写在 README 的「Not synced」里。'},
-         {id: 'm20', role: 'user', text: '按标注改一下。', ...turnDone(0.2, 30),
-          designSystemAnnotations: [
-            {id: 'n1', system: 'dsys-spectrum2', path: '设计系统/Spectrum 2/', anchor: 'token-notice-background-default', section: 'colors', prefix: 'token',
-             name: 'notice-background-default', file: 'tokens.json', x: 0.3, y: 0.5,
-             label: '设计系统「Spectrum 2」 › Colors › token “notice-background-default”',
-             detail: 'Token "notice-background-default" in section colors (tokens.json) · token-notice-background-default',
-             text: '用法里写明：这个橙色底上的文字用黑色，白色只有 2.6:1。'},
-            {id: 'n2', system: 'dsys-spectrum2', path: '设计系统/Spectrum 2/', anchor: 'comp-Button', section: 'components', prefix: 'comp',
-             name: 'Button', file: 'components/Button/', x: 0.5, y: 0.5,
-             label: '设计系统「Spectrum 2」 › Components › 组件 “Button”',
-             detail: 'Component "Button" in section components (components/Button/) · comp-Button',
-             text: 'README 第一行补上：一个视图只放一个 accent 按钮，其余用 secondary。'},
-          ]},
-         {id: 'm21', role: 'tool', kind: 'edit', summary: '设计系统/Spectrum 2/tokens.json', cmd: '修改 设计系统/Spectrum 2/tokens.json', status: 'done', took: '0.1s'},
-         {id: 'm22', role: 'tool', kind: 'edit', summary: '设计系统/Spectrum 2/components/Button/README.md', cmd: '修改 设计系统/Spectrum 2/components/Button/README.md', status: 'done', took: '0.1s'},
-         {id: 'm23', role: 'tool', tool: 'design_system_check', args: {path: '设计系统/Spectrum 2/', components: 12}, status: 'done', took: '1.0s', out: '12 个组件 · 0 个问题'},
-         {id: 'm24', role: 'assistant', text: '改好了：`notice-background-default` 的用法写明了上面的文字用黑色；Button 的 README 第一行补上了「一个视图只放一个 accent 按钮」。右侧打开着的设计系统已经刷新。'},
-       ]},
-      /* 会话里的设计稿（docs/design/canvas）：选了 design skill 发出去，读 skill、用 Driver 自带的文件工具写画布与画板，
-         `design_check` 通过后线程里出一张设计稿卡片。第二轮是在设计稿标签页里标了 2 处、随消息发回来的标注（`designAnnotations`）。 */
-      {id: 's26', title: '给这门课做一个落地页', project: null, dir: 'd5', harness: 'claude', model: 'sonnet', effort: 'mid',
-       status: 'done', ago: 1, unread: true,
-       messages: [
-         {id: 'm1', role: 'user', text: '给「确定性渲染」这门课做一个落地页：桌面首屏、手机首屏和报名卡片，配色跟课件一致。\n使用 skill：设计稿', ...turnDone(6, 132)},
-         {id: 'm2', role: 'tool', kind: 'read', summary: 'design', cmd: '读取 skill design · references/format.md、craft.md', status: 'done', took: '0.1s'},
-         {id: 'm3', role: 'tool', kind: 'read', summary: '幻灯片/第1讲/deck.json', cmd: '读取 幻灯片/第1讲/deck.json · 课件的配色与字体', status: 'done', took: '0.1s'},
-         {id: 'm4', role: 'tool', kind: 'edit', summary: '设计稿/课程落地页/canvas.json', cmd: '新建 设计稿/课程落地页/canvas.json 与 3 块画板', status: 'done', took: '0.5s',
-          out: '--- /dev/null\n+++ b/设计稿/课程落地页/canvas.json\n@@ -0,0 +1,8 @@\n+{\n+  "version": 3,\n+  "title": "确定性渲染课程 · 落地页",\n+  "boards": {\n+    "hero": {"file": "hero.dc.html", "x": 0, "y": 0, "w": 1280, "h": 800},\n+    "phone": {"file": "phone.dc.html", "x": 1360, "y": 0, "w": 390, "h": 800},\n+    "plans": {"file": "plans.dc.html", "x": 0, "y": 900, "w": 1750, "h": 640}\n+  }\n+}'},
-         {id: 'm5', role: 'tool', tool: 'design_check', args: {path: '设计稿/课程落地页/', boards: 3}, status: 'done', took: '0.7s', out: '3 个画板 · 0 个问题'},
-         {id: 'm6', role: 'assistant', artifactIds: ['canvas-r1'], text: '落地页做好了，放在 `设计稿/课程落地页/`，画布上 3 块画板：桌面首屏、手机首屏和报名卡片，配色取自课件。\n\n点卡片上的「打开」在右侧预览和修改。哪里要改，打开「标注」，点一下画板上的元素写批注，添加到对话后和你的话一起发给我。'},
-         {id: 'm7', role: 'user', text: '按标注改一下。', ...turnDone(1, 38),
-          designAnnotations: [
-            {id: 'a1', canvas: 'canvas-r1', path: '设计稿/课程落地页/', board: 'hero', file: 'hero.dc.html', part: 'cta', x: 0.16, y: 0.66,
-             label: '画板「首屏 · 桌面」 › 按钮 “立即报名”', detail: 'Element in board hero (hero.dc.html) · cta · "立即报名"',
-             text: '先让人试听，按钮改成「免费试听第 1 讲」。'},
-            {id: 'a2', canvas: 'canvas-r1', path: '设计稿/课程落地页/', board: 'phone', file: 'phone.dc.html', part: 'title', x: 0.42, y: 0.27,
-             label: '画板「首屏 · 手机」 › 标题 “同一份输入，永远同一帧”', detail: 'Element in board phone (phone.dc.html) · title · "同一份输入，永远同一帧"',
-             text: '手机上标题断成两行，逗号后换行。'},
-          ]},
-         {id: 'm8', role: 'tool', kind: 'edit', summary: '设计稿/课程落地页/hero.dc.html', cmd: '修改 设计稿/课程落地页/hero.dc.html', status: 'done', took: '0.1s'},
-         {id: 'm9', role: 'tool', kind: 'edit', summary: '设计稿/课程落地页/phone.dc.html', cmd: '修改 设计稿/课程落地页/phone.dc.html', status: 'done', took: '0.1s'},
-         {id: 'm10', role: 'tool', tool: 'design_check', args: {path: '设计稿/课程落地页/', boards: 3}, status: 'done', took: '0.6s', out: '3 个画板 · 0 个问题'},
-         {id: 'm11', role: 'assistant', text: '改好了：桌面首屏的按钮换成「免费试听第 1 讲」；手机首屏的标题在逗号后断成两行。右侧打开着的编辑器已经刷新。'},
-       ]},
-      /* 会话里的协作文档（docs/design/docs）：智能体用 `docs_batch` 建好一份三个标签页的协作文档，线程里出一张协作文档卡片。
-         第二轮是在协作文档标签页里把一条评论和一条请求「发给智能体」、随消息发回来的标注（`docsAnnotations`，§8）：
-         智能体读文档，在评论线程里回复（`docs_create` utterance，parent 是线程第一条），把请求那一行换成内容（`docs_update`）。 */
-      {id: 's34', title: '把这门课的发布计划整理成协作文档', project: null, dir: 'd5', harness: 'claude', model: 'sonnet', effort: 'mid',
-       status: 'done', ago: 1, unread: true,
-       messages: [
-         {id: 'm1', role: 'user', text: '把「确定性渲染」这门课的发布计划整理成一份协作文档：概览、计划、风险三个标签页，计划里放目标和每周的上线节奏表。', ...turnDone(4, 46)},
-         {id: 'm2', role: 'tool', kind: 'read', summary: '幻灯片/第1讲/deck.json', cmd: '读取 幻灯片/第1讲/deck.json 与 设计稿/课程落地页/canvas.json · 课程的讲数与时长', status: 'done', took: '0.1s'},
-         {id: 'm3', role: 'tool', tool: 'docs_batch', args: {path: '协作文档/发布计划/', create: {name: '确定性渲染课程 · 发布计划'}, tabs: 3}, status: 'done', took: '0.6s', out: '3 个标签页'},
-         {id: 'm4', role: 'assistant', artifactIds: ['docs-r1'], text: '发布计划整理好了，放在 `协作文档/发布计划/`，分概览、计划、风险三个标签页，计划里有目标和四周的上线节奏表。\n\n点卡片在右侧打开。有问题直接在文档里评论，或者在空行上写一句请求，点「发给智能体」带回这里。'},
-         {id: 'm5', role: 'user', text: '请处理这些协作文档里的评论和请求。', ...turnDone(1, 35),
-          docsAnnotations: [
-            {id: 'k1', doc: 'docs-r1', docPath: '协作文档/发布计划/', kind: 'comment', path: 'f-plan#n-plan/b2;thread=c1',
-             label: '计划 › "首月 500 名付费学员"', quote: '首月 500 名付费学员', text: '500 是怎么估的？试听人数还没出来，这个数会不会太乐观？'},
-            {id: 'k2', doc: 'docs-r1', docPath: '协作文档/发布计划/', kind: 'ask', path: 'f-overview#n-overview/b6',
-             label: '概览 › 空行', text: '在这里列出八讲的标题。'},
-          ]},
-         {id: 'm6', role: 'tool', tool: 'docs_read', args: {path: '协作文档/发布计划/'}, status: 'done', took: '0.2s', out: '3 个标签页 · 3 个评论线程'},
-         {id: 'm7', role: 'tool', tool: 'docs_create', args: {path: '协作文档/发布计划/', object: 'utterance', parent: 'c1'}, status: 'done', took: '0.1s'},
-         {id: 'm8', role: 'tool', tool: 'docs_update', args: {path: '协作文档/发布计划/', block: 'b6'}, status: 'done', took: '0.1s'},
-         {id: 'm9', role: 'assistant', text: '处理好了：在「首月 500 名付费学员」那条评论下回复了估算依据（按 1.2 万次访问、4% 转化算是 480 人左右，建议改成 400）；概览里那行请求换成了八讲的标题。右侧打开着的协作文档已经刷新。'},
+         {id: 'm1', role: 'user', text: '/artifacts 给「确定性渲染」这门课做一个落地页设计稿，再把发布计划整理成一份文档。', ...turnDone(30, 120)},
+         {id: 'm2', role: 'tool', kind: 'read', summary: 'artifacts', cmd: '读取 skill artifacts · SKILL.md', status: 'done', took: '0.1s'},
+         {id: 'm3', role: 'tool', tool: 'Artifact', args: {action: 'publish', type: 'design', title: '确定性渲染课程 · 落地页'}, status: 'done', took: '1.6s', out: 'open-artifact://artifact/art-landing1'},
+         {id: 'm4', role: 'artifact', url: 'open-artifact://artifact/art-landing1', title: '确定性渲染课程 · 落地页', type: 'design', taskId: null},
+         {id: 'm5', role: 'tool', tool: 'Artifact', args: {action: 'publish', type: 'docs', title: '确定性渲染课程 · 发布计划'}, status: 'done', took: '0.9s', out: 'open-artifact://artifact/art-plan1'},
+         {id: 'm6', role: 'artifact', url: 'open-artifact://artifact/art-plan1', title: '确定性渲染课程 · 发布计划', type: 'docs', taskId: null},
+         {id: 'm7', role: 'assistant', text: '两份都做好了：落地页有首屏、功能介绍和手机版三块画板；发布计划分了目标、里程碑和风险。点卡片在右侧打开，评论会回到这条会话。'},
        ]},
       {id: 's7', title: '把 3 段竖屏素材拼成一条 60 秒短片', project: null, harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'done', ago: 1800,
@@ -3956,60 +3390,30 @@
 - 一般：术语与术语表不一致、漏掉修饰成分
 - 轻微：标点、大小写、空格`},
       ]},
-    /* 设计稿（docs/design/canvas §7.1）：在输入框里选上它再说要做什么，智能体按它做一份设计稿 */
-    {id: 'design', name: '设计稿', source: 'builtin', author: 'BaoCut', category: '设计', enabled: true, updated: '2026-10-11',
-      summary: '在画布上做界面、网页、海报或图表的设计稿，可以预览、改和标注。',
-      description: '做视觉设计稿：界面、网页、海报、图表。用户说「做个设计稿」「画个页面」「做张海报」时使用。',
-      examples: ['给这门课做一个落地页：桌面首屏、手机首屏和报名卡片', '把这份数据画成一张信息图，竖版'],
+    /* 作品（docs/design/artifacts §6）：Open Artifact 的 skill，Runtime 写进 skill 集成目录，id 是 `artifacts`。
+       输入框的 `/artifacts` 命令会给消息点选它；内容以 daemon 渲染的为准，这里只是原型的示意。 */
+    {id: 'artifacts', name: '作品', source: 'builtin', author: 'Open Artifact', category: '作品', enabled: true, updated: '2026-11-20',
+      summary: '做幻灯片、文档、设计稿、表格等可以评论与协作的作品，在标签页里打开。',
+      description: '用 Open Artifact 做给人看、可以评论与协作的成品：幻灯片、文档、设计稿、设计系统、表格、白板、数据看板。',
+      examples: ['/artifacts 按「讲稿/第1讲.md」做一份 16:9 的课件', '/artifacts 给这门课做一个落地页设计稿'],
       files: [
-        {path: 'SKILL.md', body: skillDoc('design', '做视觉设计稿：界面、网页、海报、图表。用户说「做个设计稿」「画个页面」「做张海报」时使用。', `
-# 设计稿
+        {path: 'SKILL.md', body: skillDoc('artifacts', '用 Open Artifact 做给人看、可以评论与协作的成品：幻灯片、文档、设计稿、设计系统、表格、白板、数据看板。', `
+# 作品
 
 ## 什么时候用
 
-- 用户要一份能看、能改的视觉设计：界面、网页、海报、图表、示意图。
-- 不要用在幻灯片上，那是 slides skill。
+- 用户要一份能看、能评论、能接着改的成品：幻灯片、文档、设计稿、设计系统、表格、白板、数据看板。
+- 视频、字幕与音频不用它，那是 BaoCut 自己的工具。
 
-## 步骤
+## 怎么做
 
-1. 先问清楚尺寸、页数和风格；有现成的品牌或课件，先读它的配色与字体。
-2. 按 references/format.md 建目录：canvas.json 记画板的位置，每块画板一个 .dc.html。
-3. 写完调用 design_check 检查一次；有问题改完再检查。
-4. 回复里说清楚做了哪几块画板，怎么在右侧打开和标注。`)},
-        {path: 'references/format.md', body: `# 设计稿的格式
+1. 先用 \`Artifact\` 的 quickstart 选类型，再按类型的说明发布。
+2. 发布后告诉用户作品在右侧的标签页里打开；页面上的评论会回到这条会话。
+3. 读评论用 \`ArtifactComments\`，读写作品里的数据用 \`ArtifactData\`。
 
-- canvas.json：version 3，boards 记每块画板的文件与位置
-- 每块画板是一个 .dc.html，可以放在任意子目录
-- 图片放进 assets/，用 design_import_asset 导入`},
-      ]},
-    /* 设计系统（docs/design/canvas §10.5）：在输入框里选上它再说要做什么，智能体按它做一套设计系统；设计稿可以装上它 */
-    {id: 'design-system', name: '设计系统', source: 'builtin', author: 'BaoCut', category: '设计', enabled: true, updated: '2026-10-11',
-      summary: '把颜色、字体、组件与品牌素材整理成一套设计系统，做设计稿时可以装上它。',
-      description: '做设计系统：颜色、字体与文字样式、组件和品牌素材。用户说「做一套设计系统」「整理品牌规范」「统一配色和字体」时使用。',
-      examples: ['把这门课的课件和落地页整理成一套设计系统', '按这份品牌手册做一套设计系统：颜色、字体、按钮和卡片'],
-      files: [
-        {path: 'SKILL.md', body: skillDoc('design-system', '做设计系统：颜色、字体与文字样式、组件和品牌素材。用户说「做一套设计系统」「整理品牌规范」「统一配色和字体」时使用。', `
-# 设计系统
+## 连不上时
 
-## 什么时候用
-
-- 用户要一套能反复用的设计规范：颜色、字体与文字样式、间距、组件、标志与插图。
-- 只做一个页面或一张图时用 design skill；设计稿要用设计系统时，先在 Space 与工作目录里找现成的。
-
-## 步骤
-
-1. 先读已有的物料（课件、设计稿、品牌手册、代码里的样式），列出颜色、字体与常用组件。
-2. 按 references/format.md 建目录：design-system.json 是索引，tokens.json 放颜色与文字样式，README.md 写品牌说明，每个组件一个 components/<Comp>/。
-3. 标志、插图与字体用 design_system_import_asset 导入，记进索引的素材分组。
-4. 写完调用 design_system_check 检查一次；有问题改完再检查。
-5. 回复里说清楚有哪些颜色、文字样式与组件，怎么在右侧打开，以及做设计稿时怎么装上它。`)},
-        {path: 'references/format.md', body: `# 设计系统的格式
-
-- design-system.json：v 为 3，layout 为 "files"，带 createdOnFiles 标记
-- tokens.json：颜色、字体与文字样式，至多 512 KB
-- components/<Comp>/：README.md、preview.html（第一行是 <!-- @dsCard … -->）、bundle.js
-- 素材按组放在 assets/<组>/；导入的文件在 _blobs/，用 design_system_import_asset 导入
-- manifest.json、tokens.css 与 api/ 由编辑器保存时生成，不要手改`},
+- 工具返回 ARTIFACTS_UNAVAILABLE：说明作品暂时不可用，不要改用别的方式生成文件。`)},
       ]},
     {id: 'channel-intro', name: '频道片头规范', source: 'personal', author: '你', category: '品牌', enabled: true, updated: '2026-10-02',
       description: '按频道规范添加或检查片头。做新视频、切片或用户提到「片头」时使用。',
@@ -4505,5 +3909,6 @@ description: 「确定性渲染」课程的统一规范：讲师口吻、代码�
     textCats, textPresets, textAnims, textStylePresets,
     entries, cutSuggestions, semantic, videoVersions,
     recordingDemo, recordingSources, recordingRecovery,
+    artifactDemo,
   };
 })();

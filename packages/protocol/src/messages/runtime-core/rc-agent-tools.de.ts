@@ -29,15 +29,6 @@ export const de: RcAgentToolsMessages = {
   clauseSeparator: "; ",
 
   createVideoSummary: (p: { name: string }) => `Video erstellen: „${p.name}“`,
-  slidesImportAssetSummary: (p: { file: string; deck: string }) => `„${p.file}“ in die Folien „${p.deck}“ übernehmen`,
-  designImportAssetSummary: (p: { file: string; canvas: string }) => `„${p.file}“ in das Design „${p.canvas}“ übernehmen`,
-  designSystemImportAssetSummary: (p: { file: string; system: string }) => `„${p.file}“ in das Designsystem „${p.system}“ übernehmen`,
-  docsEditSummary: (p: { doc: string }) => `Dokument „${p.doc}“ bearbeiten`,
-  docsCreateSummary: (p: { doc: string }) => `Dokument „${p.doc}“ erstellen`,
-  docsCommentSummary: (p: { doc: string }) => `Im Dokument „${p.doc}“ kommentieren`,
-  docsDeleteSummary: (p: { doc: string }) => `Aus dem Dokument „${p.doc}“ löschen`,
-  docsUploadSummary: (p: { file: string; doc: string }) => `„${p.file}“ in das Dokument „${p.doc}“ übernehmen`,
-  docsExportSummary: (p: { file: string; doc: string }) => `Dokument „${p.doc}“ als Markdown nach „${p.file}“ exportieren`,
   editsSummary: (p: { label: string; count: number; types: string }) =>
     `${p.label} (${`${p.count} ${pluralForm('de', p.count, { one: "Operation", other: "Operationen" })}`}: ${p.types})`,
   captionsSummary: (p: { documentId: string; bilingual: boolean }) =>

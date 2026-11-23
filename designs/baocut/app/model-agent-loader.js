@@ -50,11 +50,8 @@
     search: ['mag', 'filter', 'eye'],
     fetch: ['cloud', 'page', 'eye'],
     agent: ['aiLogo', 'journey', 'flower'],
-    slides: ['page', 'eye', 'pencil'],
-    design: ['brush', 'eyedrop', 'eye'],
-    'design-system': ['eyedrop', 'slider', 'document'],
-    /* 协作文档：读文档、动笔、在线程里回评论 */
-    docs: ['document', 'pencil', 'comment'],
+    /* Open Artifact 的作品工具（docs/design/artifacts §3）：起稿、上色、修改 */
+    'open-artifact': ['page', 'brush', 'pencil'],
     /* 会话标题：读懂素材后起名 */
     conversation: ['comment', 'pencil'],
     /* 项目：列出、新建，把会话放进新项目 */

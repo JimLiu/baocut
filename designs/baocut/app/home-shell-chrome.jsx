@@ -90,7 +90,7 @@
             return <div key={item.key} className={cx('shell-tabs__row', on && 'is-active')}>
               <BCAction className="shell-tabs__open" aria-current={on ? 'true' : undefined} title={name}
                 onClick={() => run(() => app.showWorkspaceTab(item.key))}>
-                {window.workspaceTabIcon(item)}<span>{name}</span>
+                {window.workspaceTabIcon(item, app)}<span>{name}</span>
               </BCAction>
               <ShellButton name="full" className="shell-tabs__full" label={`在完整视图中打开「${name}」`} tooltip={false}
                 onPress={() => run(() => app.showWorkspaceTab(item.key, true))} />
@@ -172,10 +172,11 @@
       });
       target.current.replaceChildren(copy);
     }, [item.key]);
-    const file = item.kind === 'file' || item.kind === 'slides' || item.kind === 'design' || item.kind === 'design-system' || item.kind === 'docs' ? app.spaceItems.find(x => x.id === item.id) : null;
+    const file = item.kind === 'file' ? app.spaceItems.find(x => x.id === item.id) : null;
     const dir = file?.dir ? app.dirById(file.dir) : null;
     const sub = item.key === W.CONVERSATION ? '会话'
       : item.kind === 'web' ? item.url || '新标签页'
+      : item.kind === 'artifact' ? window.BC_HOME_ARTIFACTS.urlOf(item.id)
       : file ? (dir ? `${dir.path}/${file.file || file.name}` : file.file || file.name) : title;
     return ReactDOM.createPortal(<div className="shell-tab-preview" role="tooltip"
       style={{left: Math.max(8, Math.min(rect.left, window.innerWidth - 288)), top: rect.bottom + 8}}>

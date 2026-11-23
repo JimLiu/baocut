@@ -67,11 +67,7 @@ import TextParagraph from '@react-spectrum/s2/icons/TextParagraph';
 import Video from '@react-spectrum/s2/icons/Video';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { agoLabel } from '../../model/format.ts';
-import { DESIGN } from '../../model/design-copy.ts';
-import { DESIGN_SYSTEM } from '../../model/design-system-copy.ts';
-import { DOCS } from '../../model/docs-copy.ts';
 import { M as SEMANTIC } from '../../model/semantic-copy.ts';
-import { SLIDES } from '../../model/slides-copy.ts';
 import { continueBlock, entryJobId, entryMenuKey, inIndexFolder, isFailedPlaceholder, purgeBlock } from '../../model/space-actions.ts';
 import {
   filesAttention,
@@ -126,10 +122,6 @@ export const KIND_ICON: Record<SpaceEntryKind, ComponentType> = {
   audio: MusicNote,
   subtitle: CloseCaptions,
   document: FileText,
-  slides: Layout,
-  design: Shapes,
-  'design-system': ColorHarmony,
-  docs: TextParagraph,
   package: Archive,
   template: Template,
 };
@@ -457,11 +449,7 @@ function entryMenuParts(entry: SpaceRow, ctx: MenuContext): { disabled: EntryAct
   // 索引文件夹里的只读（检索规格 §9.1）：BaoCut 视频不打开编辑，条目不进回收站。
   const readOnly = inIndexFolder(entry);
   const isVideo = entry.kind === 'video' && !trashed && !readOnly;
-  const isSlides = entry.kind === 'slides' && !trashed;
-  const isDesign = entry.kind === 'design' && !trashed;
-  const isDesignSystem = entry.kind === 'design-system' && !trashed;
-  const isDocs = entry.kind === 'docs' && !trashed;
-  const openLabel = isVideo ? COPY.openVideo : isDesign ? DESIGN.open : isDesignSystem ? DESIGN_SYSTEM.open : isDocs ? DOCS.open : SLIDES.open;
+  const openLabel = COPY.openVideo;
   const viewLabel = isVideo ? (entry.files?.length ? COPY.viewInfoFiles : COPY.viewInfo) : COPY.view;
   const transcribe = ctx.transcribe;
   const disabled: EntryAction[] = [];
@@ -473,7 +461,7 @@ function entryMenuParts(entry: SpaceRow, ctx: MenuContext): { disabled: EntryAct
     <>
       <MenuSection>
         {isVideo && transcribe === 'retry' ? transcribeItem(transcribe) : null}
-        {isVideo || isSlides || isDesign || isDesignSystem || isDocs ? (
+        {isVideo ? (
           <MenuItem id="open" textValue={openLabel}>
             <OpenIn />
             <Text>{openLabel}</Text>
@@ -568,9 +556,9 @@ function measureOf(entry: SpaceEntry): string {
   return measureText(entry) ?? (entry.size > 0 ? formatBytes(entry.size) : '');
 }
 
-/** 行与卡片的默认动作：视频打开编辑器，幻灯片、设计稿、设计系统与协作文档在功能区打开，其余打开查看框（原型 onAction）。 */
+/** 行与卡片的默认动作：视频打开编辑器，其余打开查看框（原型 onAction）。 */
 const primaryAction = (entry: SpaceEntry): EntryAction =>
-  (entry.kind === 'video' || entry.kind === 'slides' || entry.kind === 'design' || entry.kind === 'design-system' || entry.kind === 'docs') &&
+  entry.kind === 'video' &&
   !entry.user.trashedAt &&
   !inIndexFolder(entry)
     ? 'open'

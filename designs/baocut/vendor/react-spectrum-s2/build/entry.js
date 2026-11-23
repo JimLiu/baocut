@@ -249,6 +249,9 @@ import I_Briefcase from '@react-spectrum/s2/icons/Briefcase';
 import I_Rename from '@react-spectrum/s2/icons/Rename';
 import I_FolderMoveTo from '@react-spectrum/s2/icons/FolderMoveTo';
 import I_PinOff from '@react-spectrum/s2/icons/PinOff';
+/* Open Artifact 作品的类型图标（表格、动画；docs/design/artifacts §5） */
+import I_Table from '@react-spectrum/s2/icons/Table';
+import I_Animation from '@react-spectrum/s2/icons/Animation';
 export const Icons = {
   Home: I_Home,
   Folder: I_Folder,
@@ -399,4 +402,6 @@ export const Icons = {
   Rename: I_Rename,
   FolderMoveTo: I_FolderMoveTo,
   PinOff: I_PinOff,
+  Table: I_Table,
+  Animation: I_Animation,
 };

@@ -94,6 +94,8 @@ async function main(): Promise<void> {
       requestStop: () => onStopRequest(),
       install,
       sourceRoot,
+      // Open Artifact（docs/design/artifacts §2）：本机已有 daemon 在跑时启动后就连上，页面上的评论能马上回到会话。
+      artifacts: { connectAtStart: true },
     });
   } catch (error) {
     if (error instanceof RuntimeAlreadyRunningError) {

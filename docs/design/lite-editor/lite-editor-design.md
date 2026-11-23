@@ -277,7 +277,7 @@ candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
 
 ## 7. 脚本显示：要不要复用协作文档编辑器
 
-问题：侧栏里的脚本能不能用 `apps/docs-editor`（[协作文档](../docs/docs-design.md)）的富文本编辑器显示、顺手编辑。
+问题：侧栏里的脚本能不能用 `apps/docs-editor`（当时内置的协作文档）的富文本编辑器显示、顺手编辑。（2026-11-23：内置的协作文档已移除，文档交给 Open Artifact，见[作品设计](../artifacts/artifacts-design.md)；结论不变。）
 
 | 看点 | 协作文档编辑器 | 只读 Markdown 渲染 |
 | --- | --- | --- |

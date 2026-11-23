@@ -111,6 +111,7 @@ export const ja: BotMessages = {
       schedule: '定期実行',
       make: '提案',
       moved: '移動済み',
+      artifact: 'アーティファクトのコメント',
     },
     expand: '詳細を表示',
     collapse: '詳細を隠す',

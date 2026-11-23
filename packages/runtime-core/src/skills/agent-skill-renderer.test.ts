@@ -261,67 +261,6 @@ describe('只在会话里有的工具在 CLI 面的兜底写法', () => {
     // 工具桥面原样。
     expect(agent('再用 {{tool:downloads_save}} 放进下载目录。')).toBe('再用 `downloads_save` 放进下载目录。');
   });
-
-  it('slides_check 与 slides_import_asset：craft 里的那一步从「调用」起整行换掉，其余地方换成兜底说法', () => {
-    // skills/slides 的第 6 步与第 4 步。
-    expect(cli('6. **校验**。调用 `slides_check`（参数 `path` 是 deck 目录），逐条改掉它列出的问题。问题为 0 后线程里出现卡片。')).toBe(
-      '6. **校验**。终端里没有校验命令：按 `references/format.md` 逐页自查标签、样式与图片地址，按 `references/design.md` 的估算确认放得下，' +
-        '再核对 `deck.json` 的 `order`、`sections`、`cover` 都指向存在的页，`slides/` 里没有 `order` 之外的文件。',
-    );
-    expect(cli('4. **准备图片**。用户给的图片，逐张调用 `slides_import_asset` 放进 deck：返回的 `src` 写进 `<img src>`。')).toBe(
-      '4. **准备图片**。用户给的图片，终端里没有把图片导入 deck 的命令：页面先不放图片，交付时说明哪几页该配什么图。',
-    );
-    expect(cli('最后跑一遍 {{tool:slides_check}}。')).toBe('最后跑一遍 幻灯片校验（只在 BaoCut 的会话里有）。');
-    expect(cli('- 字体文件逐个用 `slides_import_asset` 导入，`src` 写它返回的 `/_blob/<id>`。')).toBe(
-      `- 字体文件${SESSION_ONLY_TOOLS.slides_import_asset!.morePhrases![0]!.replacement}`,
-    );
-    expect(cli('图片经 slides_import_asset 放进来。')).toBe('图片经 导入图片与字体（只在 BaoCut 的会话里有） 放进来。');
-    // 工具桥面原样。
-    expect(agent('调用 {{tool:slides_check}} 校验。')).toBe('调用 `slides_check` 校验。');
-  });
-
-  it('design_check 与 design_import_asset：skills/design 的校验句与导入句整句换掉，其余地方换成兜底说法', () => {
-    // skills/design「新建」的第 6 步与第 3 步。
-    expect(
-      cli(
-        '6. 其余的。然后对设计稿运行 design_check，改掉它列出的每个问题，再运行一次，直到一个问题都不列：这时线程里才出现设计稿卡片。然后说一句。',
-      ),
-    ).toBe(
-      '6. 其余的。终端里没有设计稿校验，也没有设计稿卡片：按 `references/format.md` 自己逐个检查文件' +
-        '（标签都闭合、attribute 都加引号、`support.js` 那一行头部原样、`boards` 与 `order` 都指向存在的文件）。然后说一句。',
-    );
-    expect(
-      cli(
-        '3. 每个字体**文件**：用 design_import_asset 导入（见下文；先写好 `canvas.json`，见第 5 步）→ 它返回的 `src` **原样**写到 `<img src>` 或 `@font-face`。.css 文件照旧。',
-      ),
-    ).toBe('3. 每个字体**文件**：终端里没有把它导入设计稿的命令：先不放（图片换成带说明的 placeholder），并说明这份设计需要哪些文件。.css 文件照旧。');
-    expect(cli('4. 然后 design_check，直到不列问题。')).toBe('4. 然后 设计稿校验（只在 BaoCut 的会话里有），直到不列问题。');
-    expect(cli('导入（design_import_asset）只用于字体')).toBe('导入（导入素材（只在 BaoCut 的会话里有））只用于字体');
-    // 工具桥面原样。
-    expect(agent('然后 {{tool:design_check}}。')).toBe('然后 `design_check`。');
-  });
-
-  it('design_system_check 与 design_system_import_asset：skills/design-system 的校验句与两条调用说明整句换掉', () => {
-    expect(
-      cli('3. index **最后**写。然后对设计系统运行 design_system_check，改掉它列出的每个问题，再运行一次，直到一个问题都不列：这时线程里才出现设计系统卡片。'),
-    ).toBe(
-      '3. index **最后**写。终端里没有设计系统校验，也没有设计系统卡片：按 `references/format.md` 自己逐个检查文件' +
-        '（index 的 marker 与字段、`tokens.json` 里每个 family 都写成列表、每条 record 与每个 `/_blob/<id>` 都指向存在的文件）。',
-    );
-    expect(
-      cli('- design_system_check（`path` = 设计系统的目录）→ 按文件列出的问题，以及不需要改动的提示；没有问题时：线程里出现设计系统卡片。'),
-    ).toBe(
-      '- 终端里没有设计系统校验，也没有设计系统卡片：按 `references/format.md` 自己逐个检查文件' +
-        '（index 的 marker 与字段、`tokens.json` 里每个 family 都写成列表、每条 record 与每个 `/_blob/<id>` 都指向存在的文件）。',
-    );
-    expect(
-      cli(
-        '- design_system_import_asset（`system` = 设计系统的目录，`path` = 工作目录里的文件，`group` = 它所在的素材组）→ `src`（`/_blob/<id>`），以及要写到 index 里 `indexPath` 处的 `record`。还没有 index 的目录也能上传：index 照样最后写。',
-      ),
-    ).toBe(`- ${SESSION_ONLY_TOOLS.design_system_import_asset!.replacement}`);
-    expect(cli('图片经 design_system_import_asset 上传。')).toBe('图片经 上传素材（只在 BaoCut 的会话里有） 上传。');
-    expect(agent('然后 {{tool:design_system_check}}。')).toBe('然后 `design_system_check`。');
-  });
 });
 
 describe('说明书的标记法报错', () => {

@@ -13,7 +13,6 @@ import {
   type VideoSnapshot,
 } from '@baocut/protocol';
 import { TopicLog, silentLogger, type Harness } from '@baocut/harness';
-import { createDoc } from '@baocut/docs';
 import { SpaceArtifactStore, SpaceMarkStore } from '@baocut/runtime-storage';
 import { ArtifactStore, artifactIdOf, toolDefinition } from '@baocut/jobs';
 import { SpaceCatalog, type SpaceJobsSource } from '../space-catalog.ts';
@@ -772,120 +771,6 @@ describe('Space 目录', () => {
     const failed = catalog.entries().find((e) => e.status === 'failed')!;
     expect(await catalog.purge(failed.id)).toMatchObject({ status: 'purged' });
     expect(() => catalog.get(failed.id)).toThrow(RpcError);
-  });
-
-  it('幻灯片：含合法 deck.json 的目录是一个 slides 条目，名字是标题、带页数；里面的文件不单列、不能单独登记，物理删除删整个目录', async () => {
-    const deckDir = path.join(projectDir, 'talk');
-    await fs.mkdir(path.join(deckDir, 'slides'), { recursive: true });
-    await fs.mkdir(path.join(deckDir, 'assets'), { recursive: true });
-    await fs.writeFile(path.join(deckDir, 'deck.json'), JSON.stringify({ v: 4, title: ' 季度回顾 ', order: ['s01', 's02', 's03'] }));
-    await fs.writeFile(path.join(deckDir, 'slides', 's01.html'), '<slide></slide>');
-    await fs.writeFile(path.join(deckDir, 'assets', 'logo.png'), 'png');
-    await fs.writeFile(path.join(deckDir, 'notes.md'), '# 讲稿');
-    // deck.json 不合格式的目录照常往里走。
-    await fs.mkdir(path.join(projectDir, 'draft'), { recursive: true });
-    await fs.writeFile(path.join(projectDir, 'draft', 'deck.json'), JSON.stringify({ v: 3, order: [] }));
-    const { catalog } = await open();
-
-    const deck = catalog.entries().find((e) => e.kind === 'slides')!;
-    expect(deck).toMatchObject({ relPath: 'talk', fileName: 'talk', name: '季度回顾', deck: { slideCount: 3 } });
-    expect(deck.size).toBeGreaterThan(0);
-    expect(catalog.entries().filter((e) => e.relPath.startsWith('talk/'))).toEqual([]);
-    expect(byName(catalog, 'deck.json')).toMatchObject({ relPath: 'draft/deck.json', kind: 'document' });
-
-    await expect(catalog.importFile({ projectId: 'p1', file: path.join(deckDir, 'notes.md') })).rejects.toMatchObject({
-      details: { code: 'SPACE_IMPORT_UNSUPPORTED' },
-    });
-
-    await catalog.update({ entryId: deck.id, trashed: true });
-    expect(await catalog.purge(deck.id)).toEqual({ status: 'purged', entryId: deck.id });
-    await expect(fs.stat(deckDir)).rejects.toThrow();
-  });
-
-  it('设计稿：含合法 canvas.json 的目录是一个 design 条目，名字是标题、带画板数；里面的文件不单列、不能单独登记，物理删除删整个目录', async () => {
-    const canvasDir = path.join(projectDir, 'poster');
-    await fs.mkdir(path.join(canvasDir, 'screens'), { recursive: true });
-    await fs.mkdir(path.join(canvasDir, 'assets'), { recursive: true });
-    const boards = { 'Main.dc.html': { x: 0, y: 0, w: 880, h: 560 }, 'screens/Cart.dc.html': { x: 960, y: 0, w: 390, h: 844 } };
-    await fs.writeFile(path.join(canvasDir, 'canvas.json'), JSON.stringify({ v: 3, title: ' 春季海报 ', boards, order: Object.keys(boards) }));
-    await fs.writeFile(path.join(canvasDir, 'Main.dc.html'), '<x-dc></x-dc>');
-    await fs.writeFile(path.join(canvasDir, 'screens', 'Cart.dc.html'), '<x-dc></x-dc>');
-    await fs.writeFile(path.join(canvasDir, 'assets', 'logo.png'), 'png');
-    await fs.writeFile(path.join(canvasDir, 'brief.md'), '# 需求');
-    // canvas.json 不合格式的目录照常往里走。
-    await fs.mkdir(path.join(projectDir, 'sketch'), { recursive: true });
-    await fs.writeFile(path.join(projectDir, 'sketch', 'canvas.json'), JSON.stringify({ v: 2, boards: [] }));
-    const { catalog } = await open();
-
-    const design = catalog.entries().find((e) => e.kind === 'design')!;
-    expect(design).toMatchObject({ relPath: 'poster', fileName: 'poster', name: '春季海报', canvas: { boardCount: 2 } });
-    expect(design.size).toBeGreaterThan(0);
-    expect(catalog.entries().filter((e) => e.relPath.startsWith('poster/'))).toEqual([]);
-    expect(byName(catalog, 'canvas.json')).toMatchObject({ relPath: 'sketch/canvas.json', kind: 'document' });
-
-    await expect(catalog.importFile({ projectId: 'p1', file: path.join(canvasDir, 'brief.md') })).rejects.toMatchObject({
-      details: { code: 'SPACE_IMPORT_UNSUPPORTED' },
-    });
-
-    await catalog.update({ entryId: design.id, trashed: true });
-    expect(await catalog.purge(design.id)).toEqual({ status: 'purged', entryId: design.id });
-    await expect(fs.stat(canvasDir)).rejects.toThrow();
-  });
-
-  it('设计系统：含合法 design-system.json 的目录是一个 design-system 条目，名字是标题；里面的文件不单列、不能单独登记，物理删除连同 _blobs/ 删整个目录', async () => {
-    const systemDir = path.join(projectDir, 'brand');
-    await fs.mkdir(path.join(systemDir, 'assets', 'Logos'), { recursive: true });
-    await fs.mkdir(path.join(systemDir, '_blobs'), { recursive: true });
-    await fs.writeFile(
-      path.join(systemDir, 'design-system.json'),
-      JSON.stringify({ v: 3, layout: 'files', createdOnFiles: { v: 1, at: '2026-10-11T00:00:00Z' }, title: ' 品牌规范 ', namespace: 'Brand' }),
-    );
-    await fs.writeFile(path.join(systemDir, 'README.md'), '# 品牌');
-    await fs.writeFile(path.join(systemDir, 'assets', 'Logos', 'mark.svg'), '<svg/>');
-    await fs.writeFile(path.join(systemDir, '_blobs', `${'ab'.repeat(16)}.png`), 'png');
-    // 不是 v3 files 的 design-system.json（旧的单文件信封）不算设计系统，目录照常往里走。
-    await fs.mkdir(path.join(projectDir, 'legacy'), { recursive: true });
-    await fs.writeFile(path.join(projectDir, 'legacy', 'design-system.json'), JSON.stringify({ v: 2, content: { files: {} } }));
-    const { catalog } = await open();
-
-    const system = catalog.entries().find((e) => e.kind === 'design-system')!;
-    expect(system).toMatchObject({ relPath: 'brand', fileName: 'brand', name: '品牌规范' });
-    expect(system.size).toBeGreaterThan(0);
-    expect(catalog.entries().filter((e) => e.relPath.startsWith('brand/'))).toEqual([]);
-    expect(byName(catalog, 'design-system.json')).toMatchObject({ relPath: 'legacy/design-system.json', kind: 'document' });
-
-    for (const file of [path.join(systemDir, 'README.md'), path.join(systemDir, 'assets', 'Logos', 'mark.svg')]) {
-      await expect(catalog.importFile({ projectId: 'p1', file })).rejects.toMatchObject({ details: { code: 'SPACE_IMPORT_UNSUPPORTED' } });
-    }
-
-    await catalog.update({ entryId: system.id, trashed: true });
-    expect(await catalog.purge(system.id)).toEqual({ status: 'purged', entryId: system.id });
-    await expect(fs.stat(systemDir)).rejects.toThrow();
-  });
-
-  it('文档：含合格 doc.json 的目录是一个 docs 条目，名字是标题；里面的文件不单列、不能单独登记，物理删除删整个目录', async () => {
-    const docDir = path.join(projectDir, 'plan');
-    await createDoc(docDir, { name: ' 三季度计划 ' });
-    await fs.mkdir(path.join(docDir, 'assets'), { recursive: true });
-    await fs.writeFile(path.join(docDir, 'assets', `${'cd'.repeat(16)}.png`), 'png');
-    // 不合格的 doc.json 不算文档，目录照常往里走。
-    await fs.mkdir(path.join(projectDir, 'loose'), { recursive: true });
-    await fs.writeFile(path.join(projectDir, 'loose', 'doc.json'), JSON.stringify({ name: 'not a doc' }));
-    const { catalog } = await open();
-
-    const doc = catalog.entries().find((e) => e.kind === 'docs')!;
-    expect(doc).toMatchObject({ relPath: 'plan', fileName: 'plan', name: '三季度计划' });
-    expect(doc.size).toBeGreaterThan(0);
-    expect(catalog.entries().filter((e) => e.relPath.startsWith('plan/'))).toEqual([]);
-    expect(byName(catalog, 'doc.json')).toMatchObject({ relPath: 'loose/doc.json', kind: 'document' });
-
-    for (const file of [path.join(docDir, 'doc.json'), path.join(docDir, 'assets', `${'cd'.repeat(16)}.png`)]) {
-      await expect(catalog.importFile({ projectId: 'p1', file })).rejects.toMatchObject({ details: { code: 'SPACE_IMPORT_UNSUPPORTED' } });
-    }
-
-    await catalog.update({ entryId: doc.id, trashed: true });
-    expect(await catalog.purge(doc.id)).toEqual({ status: 'purged', entryId: doc.id });
-    await expect(fs.stat(docDir)).rejects.toThrow();
   });
 
   it('登记项目素材：项目里的原地登记，项目外的复制进 imports/', async () => {

@@ -72,15 +72,6 @@ const en = {
   clauseSeparator: '; ',
 
   createVideoSummary: (p: { name: string }) => `Create video "${p.name}"`,
-  slidesImportAssetSummary: (p: { file: string; deck: string }) => `Add "${p.file}" to the slides "${p.deck}"`,
-  designImportAssetSummary: (p: { file: string; canvas: string }) => `Add "${p.file}" to the design "${p.canvas}"`,
-  designSystemImportAssetSummary: (p: { file: string; system: string }) => `Add "${p.file}" to the design system "${p.system}"`,
-  docsEditSummary: (p: { doc: string }) => `Edit the doc "${p.doc}"`,
-  docsCreateSummary: (p: { doc: string }) => `Create the doc "${p.doc}"`,
-  docsCommentSummary: (p: { doc: string }) => `Comment in the doc "${p.doc}"`,
-  docsDeleteSummary: (p: { doc: string }) => `Delete from the doc "${p.doc}"`,
-  docsUploadSummary: (p: { file: string; doc: string }) => `Add "${p.file}" to the doc "${p.doc}"`,
-  docsExportSummary: (p: { file: string; doc: string }) => `Export the doc "${p.doc}" as Markdown to "${p.file}"`,
   editsSummary: (p: { label: string; count: number; types: string }) =>
     `${p.label} (${plural(p.count, 'operation', 'operations')}: ${p.types})`,
   captionsSummary: (p: { documentId: string; bilingual: boolean }) =>

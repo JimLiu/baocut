@@ -25,10 +25,6 @@ export const zhHans: RcSpaceMessages = {
   projectDirNotFound: '项目目录不存在',
   hiddenDirFile: '隐藏目录或依赖目录里的文件不能登记',
   videoDirFile: '视频目录里的文件归视频管理，不能单独登记',
-  slidesDirFile: '幻灯片目录里的文件归这份幻灯片管理，不能单独登记',
-  designDirFile: '设计稿目录里的文件归这份设计稿管理，不能单独登记',
-  designSystemDirFile: '设计系统目录里的文件归这个设计系统管理，不能单独登记',
-  docsDirFile: '文档文件夹里的文件属于这份文档，不能单独加入',
   tooManySameName: '项目的 imports/ 里同名的文件太多了',
 
   purgeVideoDeleteFirst: '视频要先删除（videos.delete）进回收站，再从回收站里物理删除',

@@ -60,32 +60,6 @@ describe('分类', () => {
     expect(counts.audio).toBe(0);
     expect(visibleCategories(counts).map((c) => c.key)).toEqual(['all', 'video-file', 'image', 'favorite', 'trash']);
   });
-
-  it('设计系统是单独的一类，排在设计稿后面、模板前面', () => {
-    const counts = countByCategory([
-      entry('t', { kind: 'template' }),
-      entry('s', { kind: 'design-system', name: '品牌设计系统' }),
-      entry('d', { kind: 'design', canvas: { boardCount: 2 } }),
-    ]);
-    expect(counts['design-system']).toBe(1);
-    expect(visibleCategories(counts).map((c) => c.key)).toEqual(['all', 'design', 'design-system', 'template', 'favorite', 'trash']);
-    expect(visibleCategories(counts).find((c) => c.key === 'design-system')?.label).toBe('设计系统');
-    expect(inCategory(entry('s', { kind: 'design-system' }), 'design-system')).toBe(true);
-  });
-
-  it('协作文档是单独的一类，排在设计系统后面、模板前面，与普通文档分开', () => {
-    const counts = countByCategory([
-      entry('t', { kind: 'template' }),
-      entry('n', { kind: 'document', name: 'notes.md' }),
-      entry('k', { kind: 'docs', name: '发布计划', doc: { tabCount: 2 } }),
-      entry('s', { kind: 'design-system', name: '品牌设计系统' }),
-    ]);
-    expect(counts.docs).toBe(1);
-    expect(visibleCategories(counts).map((c) => c.key)).toEqual(['all', 'document', 'design-system', 'docs', 'template', 'favorite', 'trash']);
-    expect(visibleCategories(counts).find((c) => c.key === 'docs')?.label).toBe('协作文档');
-    expect(inCategory(entry('k', { kind: 'docs' }), 'docs')).toBe(true);
-    expect(inCategory(entry('k', { kind: 'docs' }), 'document')).toBe(false);
-  });
 });
 
 describe('viewEntries', () => {
@@ -269,16 +243,12 @@ describe('状态与时长', () => {
     expect(statusText({ status: 'generating', statusDetail: { progress: { done: 1, total: null } } })).toBe('生成中');
   });
 
-  it('时长或尺寸：视频写时长与画面，音频写时长，图片写尺寸，幻灯片写页数；没有媒体信息时 null', () => {
+  it('时长或尺寸：视频写时长与画面，音频写时长，图片写尺寸；没有媒体信息时 null', () => {
     expect(measureText({ kind: 'export', media: { durationSec: 65, width: 1920, height: 1080 } })).toBe('1:05 · 1920×1080');
     expect(measureText({ kind: 'audio', media: { durationSec: 3, width: 1, height: 1 } })).toBe('0:03');
     expect(measureText({ kind: 'image', media: { width: 640, height: 480 } })).toBe('640×480');
     expect(measureText({ kind: 'image', media: {} })).toBeNull();
     expect(measureText({ kind: 'document' })).toBeNull();
-    expect(measureText({ kind: 'slides', deck: { slideCount: 12 } })).toBe('12 页');
-    expect(measureText({ kind: 'slides' })).toBeNull();
-    expect(measureText({ kind: 'docs', doc: { tabCount: 3 } })).toBe('3 个标签页');
-    expect(measureText({ kind: 'docs' })).toBeNull();
   });
 });
 

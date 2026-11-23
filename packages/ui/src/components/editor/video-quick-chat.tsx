@@ -218,11 +218,7 @@ export function VideoQuickChat() {
         sent.map((a) => a.id),
         undefined,
         skills,
-        undefined,
-        undefined,
-        undefined,
         videoNotes,
-        undefined,
         { skipProjectBrand },
       );
       editor.reset();

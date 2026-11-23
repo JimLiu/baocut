@@ -201,11 +201,8 @@ import type {
   ServiceStatus,
 } from './services.ts';
 import type { WebAccessLink, WebReviewLink, WebSession } from './web.ts';
-import type { SlideAnnotation, SlidesOpenResult } from './slides.ts';
-import type { DesignAnnotation, DesignOpenResult } from './design.ts';
-import type { DesignSystemAnnotation, DesignSystemOpenResult } from './design-system.ts';
-import type { DocsAnnotation, DocsOpenResult } from './docs.ts';
 import type { LegacyImportAnswer, LegacyImportRetry, LegacyImportSetSkipped, LegacyImportSnapshot } from './legacy-import.ts';
+import type { ArtifactOpenResult } from './artifacts.ts';
 import type { Seq } from './domain.ts';
 import type { PlaybackCodec } from './limits.ts';
 import type {
@@ -545,18 +542,9 @@ export interface RpcMethods extends BotRpcMethods {
    * 排在最前，重复的 id 只算第一次（`sendSkillRefs`）。Runtime 读目录里当前的 `SKILL.md`，每个 skill 把正文与「同目录还有哪些文件、
    * 用 `skills_read` 取」包成一段，按顺序附在交给智能体的文字后面（在模板段之后）；消息上按同样的顺序带 skill 标记。
    * 有一个不存在时整条 `not-found`（`SKILL_NOT_FOUND`）。
-   * `slideAnnotations`：幻灯片标签里加进草稿的标注（docs/design/slides §9），最多 `SLIDE_ANNOTATION_LIMITS.perMessage` 条。
-   * Runtime 把 deck 换成相对会话工作目录的路径，每份 deck 一段 `<baocut-slide-annotations>` 附在交给智能体的文字最后；
-   * 消息上原样带一份。deck 的位置找不到（Space 条目或项目已不在）时整条 `not-found`。
-   * `designAnnotations`：设计稿标签里加进草稿的标注（docs/design/canvas §9），限制与幻灯片标注相同（`DESIGN_ANNOTATION_LIMITS`）。
-   * 每份设计稿一段 `<baocut-design-annotations>`，附在幻灯片标注段之后；编号各自从 1 起；设计稿找不到时同样整条 `not-found`。
-   * `designSystemAnnotations`：设计系统标签里加进草稿的标注（docs/design/canvas §10.6），限制相同（`DESIGN_SYSTEM_ANNOTATION_LIMITS`）。
-   * 每套设计系统一段 `<baocut-design-system-annotations>`，附在设计稿标注段之后；编号各自从 1 起；设计系统找不到时同样整条 `not-found`。
-   * `videoAnnotations`：编辑器预览画面上加进草稿的标注（产品设计 §3.2.3「视频标注」），限制相同（`VIDEO_ANNOTATION_LIMITS`）。
-   * 每部视频一段 `<baocut-video-annotations video="…" revision="…">`，附在设计系统标注段之后；同一帧的几条并成一条（`groupVideoAnnotationsByFrame`），
+   * `videoAnnotations`：编辑器预览画面上加进草稿的标注（产品设计 §3.2.3「视频标注」），最多 `VIDEO_ANNOTATION_LIMITS.perMessage` 条。
+   * 每部视频一段 `<baocut-video-annotations video="…" revision="…">`，附在交给智能体的文字最后；同一帧的几条并成一条（`groupVideoAnnotationsByFrame`），
    * 编号各自从 1 起，同一部视频标了两帧以上时段末另给 `candidateBoundsMs`；视频找不到时同样整条 `not-found`，`revision` 落后于当前版本时不拒绝。
-   * `docsAnnotations`：文档标签里发给智能体的评论与请求（docs/design/docs §8），最多 `DOCS_ANNOTATION_LIMITS.perMessage` 条。
-   * 每份文档一段 `<baocut-docs-annotations>`，附在设计系统标注段之后；编号各自从 1 起；文档找不到时同样整条 `not-found`。
    */
   'conversations.send': {
     params: {
@@ -573,11 +561,7 @@ export interface RpcMethods extends BotRpcMethods {
       skills?: SkillSendRef[];
       /** 只这一条不带品牌设定：项目的与全局的 `BRAND.md` 都不带（架构设计 §3.8「项目品牌与全局品牌」）。 */
       skipProjectBrand?: boolean;
-      slideAnnotations?: SlideAnnotation[];
-      designAnnotations?: DesignAnnotation[];
-      designSystemAnnotations?: DesignSystemAnnotation[];
       videoAnnotations?: VideoAnnotation[];
-      docsAnnotations?: DocsAnnotation[];
       /** Bot 模式：消息的来源（亲手打、点提示、点表情、在通知里答）；缺省为亲手打。 */
       via?: UserMessageVia;
       /** 点的提示（`via: 'suggestion'`）：Runtime 核验它还开着，否则 `conflict`（`STALE_SUGGESTION`）。 */
@@ -589,7 +573,7 @@ export interface RpcMethods extends BotRpcMethods {
   };
   /**
    * 把一条消息插进正在运行的回合（Agent 支持时）。不支持或没有运行中的回合时如实返回，由界面决定排队还是先停再发。
-   * `slideAnnotations`、`designAnnotations`、`designSystemAnnotations`、`videoAnnotations`、`docsAnnotations` 与 `conversations.send` 的相同。
+   * `videoAnnotations` 与 `conversations.send` 的相同。
    */
   'conversations.steer': {
     params: {
@@ -597,11 +581,7 @@ export interface RpcMethods extends BotRpcMethods {
       text: string;
       commandId: Id;
       attachments?: Id[];
-      slideAnnotations?: SlideAnnotation[];
-      designAnnotations?: DesignAnnotation[];
-      designSystemAnnotations?: DesignSystemAnnotation[];
       videoAnnotations?: VideoAnnotation[];
-      docsAnnotations?: DocsAnnotation[];
     };
     result: { status: 'steered' | 'unsupported' | 'no-active-turn' };
   };
@@ -945,29 +925,15 @@ export interface RpcMethods extends BotRpcMethods {
     result: VideoOpenResult;
   };
   /**
-   * 在幻灯片标签里打开一份 deck（docs/design/slides §6.1）：Space 里的幻灯片条目，或来源目录里的 deck 目录。
-   * 目录按真实路径必须在来源目录之内、认得出是 deck（有合法的 `deck.json`）。同一个目录返回同一个地址。
+   * 在作品标签里打开一份 Open Artifact 作品（docs/design/artifacts §5）：Runtime 请 daemon 为 BaoCut 开一个视图，返回 Shell 页面带一次性
+   * 票据的地址。`conversationId` 是谁要看（作品卡片所在的会话）；不给时以 Runtime 自己的名义开。daemon 连不上时 `unsupported`
+   * （`ARTIFACTS_UNAVAILABLE`），没有这份作品时 `not-found`（`ARTIFACT_NOT_FOUND`）。
    */
-  'slides.open': { params: FileTarget; result: SlidesOpenResult };
+  'artifacts.open': { params: { url: string; conversationId?: Id }; result: ArtifactOpenResult };
   /**
-   * 在设计稿标签里打开一份设计稿（docs/design/canvas §6.1）：Space 里的设计稿条目，或来源目录里的设计稿目录。
-   * 目录的校验与 `slides.open` 相同，认得出是设计稿（`canvas.json` 的 `v` 为 3、`boards` 是对象）；与 `slides.open` 共用 grant 表，
-   * 同一个目录返回同一个地址。
+   * 发一条宿主消息给作品标签里的 Shell（`host_hello`、`goto`）：按 `artifacts.open` 返回的 `view` 转给 daemon。视图不在了时 `not-found`。
    */
-  'design.open': { params: FileTarget; result: DesignOpenResult };
-  /**
-   * 在设计系统标签里打开一个设计系统（docs/design/canvas §10.4）：Space 里的设计系统条目，或来源目录里的设计系统目录。
-   * 目录的校验与 `design.open` 相同，认得出是设计系统（`design-system.json` 的认法见 docs/design/canvas §10.1），否则
-   * `invalid-request`、`details.code` 为 `DESIGN_SYSTEM_NOT_A_SYSTEM`。与 `slides.open`、`design.open` 共用 grant 表（按种类分开），
-   * 同一个目录返回同一个地址。
-   */
-  'designSystem.open': { params: FileTarget; result: DesignSystemOpenResult };
-  /**
-   * 在文档标签里打开一份文档（docs/design/docs §6.1）：Space 里的文档条目，或来源目录里的文档目录。
-   * 目录的校验与 `slides.open` 相同，认得出是文档（`doc.json` 的 `format` 为 `baocut-doc`），否则 `invalid-request`、
-   * `details.code` 为 `DOCS_NOT_A_DOC`。同一个目录返回同一个地址；编辑器与智能体的 `docs_*` 工具共用同一份内存里的文档。
-   */
-  'docs.open': { params: FileTarget; result: DocsOpenResult };
+  'artifacts.shellCommand': { params: { view: string; command: Record<string, unknown> }; result: Record<string, never> };
   /** 打开一个视频：Space 里的视频条目，或来源目录里的视频目录。已经打开的返回同一个 `videoId`。 */
   'videos.open': { params: FileTarget; result: VideoOpenResult };
   /**
@@ -1667,14 +1633,11 @@ export interface ProjectFileEntry {
   /** 文件的字节数；目录为 null。 */
   size: number | null;
   /**
-   * 最后修改时间；视频目录取 `video.db`、幻灯片目录取 `deck.json`、设计稿目录取 `canvas.json`、设计系统目录取 `design-system.json`、
-   * 文档目录取 `doc.json` 的修改时间。
+   * 最后修改时间；视频目录取 `video.db` 的修改时间。
    */
   modifiedAt: string | null;
   /**
-   * 认得出的媒体与文档类型（与 Space 同一套分类）；含 `video.db` 的目录是 `video`，含合法 `deck.json` 的目录是 `slides`，
-   * 含合法 `canvas.json`（v 为 3）的目录是 `design`，含合法 `design-system.json`（认法见 docs/design/canvas §10.1）的目录是
-   * `design-system`，含合法 `doc.json`（docs/design/docs §2.1）的目录是 `docs`；其余为 null。
+   * 认得出的媒体与文档类型（与 Space 同一套分类）；含 `video.db` 的目录是 `video`；其余为 null。
    */
   kind: SpaceEntryKind | null;
 }

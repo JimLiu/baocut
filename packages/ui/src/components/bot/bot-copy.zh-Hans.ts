@@ -111,6 +111,7 @@ export const zhHans: BotMessages = {
       schedule: '定时运行',
       make: '建议',
       moved: '已移动',
+      artifact: '作品评论',
     },
     expand: '展开详情',
     collapse: '收起详情',

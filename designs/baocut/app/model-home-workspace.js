@@ -13,17 +13,9 @@
     if (keyFor(r) === null) return null;
     if (r.movie) return {key: 'movie:' + r.movie, kind: 'movie', id: r.movie, ...(r.tab ? {tab: r.tab} : {}), ...(r.t != null ? {t: r.t} : {})};
     if (r.file) return {key: 'file:' + r.file, kind: 'file', id: r.file};
-    // docs/design/slides §8.1: a deck opens in its own tab; `slide` is the page it shows.
-    if (r.slides) return {key: 'slides:' + r.slides, kind: 'slides', id: r.slides, ...(r.slide ? {slide: r.slide} : {})};
-    // docs/design/canvas §8.1: a design canvas opens in its own tab; `board` is the artboard it zooms to.
-    if (r.design) return {key: 'design:' + r.design, kind: 'design', id: r.design, ...(r.board ? {board: r.board} : {})};
-    // docs/design/canvas §10.6: a design system opens in its own tab; the section it shows is the tab's own state,
-    // `at` ("section:anchor") is a one-off jump to an annotated target that the tab clears once it got there.
-    if (r.system) return {key: 'design-system:' + r.system, kind: 'design-system', id: r.system, ...(r.at ? {at: r.at} : {})};
-    // docs/design/docs §8: a collaborative doc opens in its own tab; `dtab` is the doc tab it shows (kept when a route
-    // leaves it out), `at` is a one-off jump to an annotation's element path. It is always written, so clearing it
-    // after the jump lets the same annotation jump again.
-    if (r.docs) return {key: 'docs:' + r.docs, kind: 'docs', id: r.docs, ...(r.dtab ? {dtab: r.dtab} : {}), at: r.at || null};
+    // docs/design/artifacts §5: an Open Artifact artifact opens in an artifact tab, keyed by its link
+    // (`open-artifact://artifact/<id>`); the route carries the id. Title and type come from the session's receipts.
+    if (r.art) return {key: 'artifact:' + r.art, kind: 'artifact', id: r.art};
     if (r.web) return {key: 'web:' + r.web, kind: 'web', id: r.web, url: safeUrl(r.url) || ''};
     return null;
   }
@@ -80,10 +72,7 @@
     if (!item) return base;
     if (item.kind === 'movie') return {...base, movie: item.id, ...(item.tab ? {tab: item.tab} : {}), ...(item.t != null ? {t: item.t} : {})};
     if (item.kind === 'file') return {...base, file: item.id};
-    if (item.kind === 'slides') return {...base, slides: item.id, ...(item.slide ? {slide: item.slide} : {})};
-    if (item.kind === 'design') return {...base, design: item.id, ...(item.board ? {board: item.board} : {})};
-    if (item.kind === 'design-system') return {...base, system: item.id, ...(item.at ? {at: item.at} : {})};
-    if (item.kind === 'docs') return {...base, docs: item.id, ...(item.dtab ? {dtab: item.dtab} : {}), ...(item.at ? {at: item.at} : {})};
+    if (item.kind === 'artifact') return {...base, art: item.id};
     return {...base, web: item.id, ...(item.url ? {url: item.url} : {})};
   }
   function reconcile(book, r) {
@@ -113,9 +102,11 @@
     if (visible) return {icon: 'hide-tabs', label: '隐藏标签页', action: 'hide'};
     return {count, badge: count > 9 ? '9+' : String(count), label: '显示标签页', action: 'show'};
   }
-  function title(item, items) {
+  // `artifactTitle(id)`: the artifact's title from the session receipts (BC_HOME_ARTIFACTS.find); an artifact without one is「未命名作品」.
+  function title(item, items, artifactTitle) {
     if (item.kind === 'web') { try { return new URL(item.url).hostname; } catch { return '新标签页'; } }
-    return items.find(it => it.id === item.id)?.name || ({movie: '视频不可用', slides: '幻灯片不可用', design: '设计稿不可用', 'design-system': '设计系统不可用', docs: '协作文档不可用'}[item.kind] || '文件不可用');
+    if (item.kind === 'artifact') return (artifactTitle && artifactTitle(item.id)) || '未命名作品';
+    return items.find(it => it.id === item.id)?.name || (item.kind === 'movie' ? '视频不可用' : '文件不可用');
   }
   // Hit-test untransformed tab slots so animated neighbors cannot move the target.
   function dragTarget(rects, key, x) {

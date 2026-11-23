@@ -256,40 +256,14 @@ BaoCut 自带一组原创卡通角色包（`.bcpuppet`，半身动漫与 Q 版�
 **花费与交付**：生成要花时间，用在线服务时还要花钱（看 `cost`）：只画用得上的，不一张张试着画，也不反复重画。交付时说清哪些图是生成的、用的哪个服务与模型、存在哪里或进了哪个视频的素材。
 <!-- surface: agent -->
 
-### 幻灯片
+### 作品：幻灯片、文档、设计稿、表格等
 
-一份幻灯片是工作目录里的一个 deck 目录（`deck.json` 加 `slides/<id>.html`），页面用文件工具直接写；怎么做、格式是什么见 {{skill:slides}}。只有两步要用工具：
+幻灯片、文档、设计稿、表格、看板这类给人看、可以评论与协作的成品，交给 Open Artifact 做成「作品」，不在工作目录里自己拼格式。用户用 `/artifacts` 起头、或明说要这类成品时，照 `artifacts` 这份 skill 做：它说明先用 `Artifact` 工具的 `quickstart` 选类型，再按类型的说明发布与填内容。
 
-| 要做的事 | 调用 |
-| --- | --- |
-| 把工作目录里的图片或字体放进 deck | {{tool:slides_import_asset}}，{{arg:deck}} + {{arg:path}}；同一份只存一份 |
-| 校验整份 deck，通过后线程里出卡片 | {{tool:slides_check}}，{{arg:path}} 是 deck 目录；改完页面再校验一次 |
+- 工具：`Artifact`（选类型、发布、读、打开、列出）、`ArtifactData`（作品自带的数据）、`ArtifactComments`（评论与回复）。这几个工具只在本机的 Open Artifact 服务可用时出现；没有时告诉用户作品服务没有启动，不改用别的格式凑。
+- 作品做好后在功能区的标签里打开，用户在上面评论时会唤醒这条会话；照评论改完回复那条评论。
+- 要插图时用 {{tool:image}} 生成（不带 {{arg:video}}），{{tool:artifacts_save}} 存进工作目录，再按作品类型的说明上传。
 
-页面要插图时用 {{tool:image}} 生成（不带 {{arg:video}}），{{tool:artifacts_save}} 存进工作目录，再按上表导入 deck；哪几页画、提示词与尺寸见 {{skill:slides}}。
-
-### 设计稿
-
-一份设计稿是工作目录里的一个目录（`canvas.json` 加每块画板一个 `.dc.html`），文件用文件工具直接写；怎么做、格式是什么见 {{skill:design}}，设计系统见 {{skill:design-system}}（只是文件，没有工具）。只有两步要用工具：
-
-| 要做的事 | 调用 |
-| --- | --- |
-| 把工作目录里的图片或字体放进设计稿 | {{tool:design_import_asset}}，{{arg:canvas}} + {{arg:path}}；设计稿目录里要先有 `canvas.json`；同一份只存一份 |
-| 校验整份设计稿，通过后线程里出卡片 | {{tool:design_check}}，{{arg:path}} 是设计稿目录；改完文件再校验一次 |
-
-css、js、json 这类支持文件不导入，直接写进设计稿目录，用相对路径引用。
-
-### 文档
-
-一份文档是工作目录里的一个目录（`doc.json`、每个标签页一份 `tabs/<id>.json`、`comments.json` 与 `assets/`），**不用文件工具写**：全部经 `docs_*` 工具，每个都带 {{arg:doc}}（文档目录）；怎么做见 {{skill:docs}}。
-
-| 要做的事 | 调用 |
-| --- | --- |
-| 新建一份文档（骨架），或在文档上原子地执行一组改动 | {{tool:docs_batch}}；新建时 `container.create`，线程里出文档卡片 |
-| 读文档、标签页的大纲、一段、搜索或某个 rev 以来的变化 | {{tool:docs_read}} |
-| 改正文，或标签页的名字、顺序与层级 | {{tool:docs_update}} |
-| 评论与回复、下拉选项、标签页 | {{tool:docs_create}}；列评论线程 {{tool:docs_query}}，删除 {{tool:docs_delete}} |
-| 把工作目录里的图片或文件放进文档 | {{tool:docs_upload}}，{{arg:doc}} + {{arg:path}}；正文用 `blob/<id>` 引用 |
-| 导出 Markdown | {{tool:docs_export}}；带 {{arg:to}} 时写成工作目录里的 `.md` |
 <!-- /surface -->
 
 ### 找镜头切换
@@ -318,13 +292,6 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 - {{tool:videos_create}} / {{tool:videos_import_package}}：返回与 {{tool:videos_inspect}} 相同的摘要，含 `videoId`。
 - {{tool:image}}：`outputs` 里每张图的 `artifactId`；带了 video 时还有 `assetId`。
 - {{tool:music}}（见 [music](music.md)）：`outputs` 里是一个 WAV 的 `artifactId`；带了 video 时还有 `assetId`；到了时长预算时 `warnings` 里有 `output-truncated`。
-<!-- surface: agent -->
-- {{tool:slides_import_asset}}：`src` 形如 `/_blob/<id>`，图片原样写进 `<img src>`，字体原样写进 `deck.json` 里 `faces` 那一项的 `src`；另有 `bytes` 与 `contentType`。
-- {{tool:slides_check}}：`problems` 是问题总数，为 0 时线程里记一张幻灯片卡片；否则 `slides` 列出每页的 `problems`，`deckProblems` 是 `deck.json`（含字体与设计系统的记录）与 `ds/` 的问题，`orphans` 是不在 `order` 里的页面文件。每页的 `notes` 不算问题，其中以「排版」开头的是放不下或互相压住的提示，尽量改掉。
-- {{tool:design_import_asset}}：`src` 形如 `/_blob/<id>`，原样写进 `<img src>`、`<helmet><style>` 里的 `url(…)` 或 `@font-face`；另有 `bytes` 与 `contentType`。
-- {{tool:design_check}}：`problems` 是问题总数，为 0 时线程里记一张设计稿卡片；否则 `issues` 每条有 `file`（相对设计稿目录，`.` 是整个目录）与 `message`，列不下时 `more` 说还有几条。`notChecked` 说明没查的部分：画板脚本能不能跑、排版与视觉效果。
-- `docs_*`：结果与 Claude Docs 连接器相同（回执的 `lids`、读到的 `<doc rev=…>` xml、`files[]`、评论的 `rows`）；被拒时错误码就是连接器的拒绝码（`guard_mismatch`、`find_none`、`missing_guard`……），什么也没改，按 {{skill:docs}} 改好后重发整个调用。{{tool:docs_upload}} 返回 `blob`（`blob/<id>`）、`bytes` 与 `contentType`；{{tool:docs_export}} 不带 {{arg:to}} 时返回 `markdown`（太长时 `truncated`）。
-<!-- /surface -->
 
 ## 看一条视频的证据阶梯
 
@@ -361,10 +328,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 | `TOOL_UNAVAILABLE`、`TOOL_MANIFEST_INCOMPLETE` | 放大要的工具（Real-ESRGAN、waifu2x、Upscayl 权重）用不了，或这个平台下载不到：照 `remedy` 转告用户 |
 | `UPSCALE_MODEL_UNSUPPORTED`、`UPSCALE_MODEL_TOO_SMALL` | `generative` 选的生图模型不收参考图、不列尺寸，或出图比源图还小：换一个收参考图的模型（{{tool:models_capabilities}} 的 `generateImage`），或改用本机的模型 |
 <!-- surface: agent -->
-| `DECK_NOT_FOUND`、`NOT_A_DECK` | 路径不是 deck 目录（没有 `deck.json`，或它不是幻灯片的索引）：核对路径 |
-| `SLIDES_COMPILER_UNAVAILABLE` | 这台机器上的 BaoCut 没带幻灯片编辑器：deck 文件照样写好，告诉用户没法校验、也没法在 BaoCut 里打开，不要自己找编译器 |
-| `CANVAS_NOT_FOUND`、`NOT_A_CANVAS` | 路径不是设计稿目录（没有 `canvas.json`，或它不合格式）：核对路径；导入素材前先写好 `canvas.json` |
-| `UNSUPPORTED_ASSET_TYPE` | 只能导入 png、jpg、gif、webp、avif、svg 图片；设计稿另收 woff2、woff、ttf、otf 字体 |
+| `ARTIFACTS_UNAVAILABLE` | 本机的 Open Artifact 服务连不上：告诉用户作品服务没有启动，稍后再试；不改用别的格式凑 |
 <!-- /surface -->
 
 <!-- surface: cli -->

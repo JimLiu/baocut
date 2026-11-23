@@ -150,6 +150,7 @@ export const pl: BotMessages = {
       schedule: 'Zaplanowane uruchomienie',
       make: 'Propozycje',
       moved: 'Przeniesione',
+      artifact: 'Komentarz do artefaktu',
     },
     expand: 'Pokaż szczegóły',
     collapse: 'Ukryj szczegóły',

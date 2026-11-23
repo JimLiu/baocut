@@ -187,26 +187,12 @@ describe('标签名与条目', () => {
     expect(workspaceTitle(video)).toBe('第一部');
     expect(workspaceTitle({ kind: 'video', target: { entryId: 'e1' } })).toBe('视频不可用');
     expect(workspaceTitle({ kind: 'file', target: { entryId: 'e1' } })).toBe('文件不可用');
-    // 幻灯片（deck 目录）：键按目录，与同一目录的视频、文件分开；名字退到目录名。
-    const slides = { kind: 'slides' as const, target: { conversationId: 'c1', path: 'decks/talk/' } };
-    expect(itemKey(slides)).toBe(`slides:${targetKey(slides.target)}`);
-    expect(workspaceTitle(slides)).toBe('talk');
-    expect(workspaceTitle(slides, '季度回顾')).toBe('季度回顾');
-    expect(workspaceTitle({ kind: 'slides', target: { entryId: 'e1' } })).toBe('幻灯片不可用');
-    // 设计系统（含 design-system.json 的目录）：同一种做法，键与同一目录的设计稿分开。
-    const system = { kind: 'design-system' as const, target: { projectId: 'p1', path: 'systems/brand' } };
-    expect(itemKey(system)).toBe(`design-system:${targetKey(system.target)}`);
-    expect(itemKey(system)).not.toBe(itemKey({ kind: 'design', target: system.target }));
-    expect(workspaceTitle(system)).toBe('brand');
-    expect(workspaceTitle(system, '品牌设计系统')).toBe('品牌设计系统');
-    expect(workspaceTitle({ kind: 'design-system', target: { entryId: 'e1' } })).toBe('设计系统不可用');
-    // 协作文档（含 doc.json 的目录）：同一种做法，键与同一目录的别的编辑器标签分开。
-    const docs = { kind: 'docs' as const, target: { conversationId: 'c1', path: 'docs/launch-plan' } };
-    expect(itemKey(docs)).toBe(`docs:${targetKey(docs.target)}`);
-    expect(itemKey(docs)).not.toBe(itemKey({ kind: 'slides', target: docs.target }));
-    expect(workspaceTitle(docs)).toBe('launch-plan');
-    expect(workspaceTitle(docs, '发布计划')).toBe('发布计划');
-    expect(workspaceTitle({ kind: 'docs', target: { entryId: 'e1' } })).toBe('协作文档不可用');
+    // Open Artifact 作品：键按作品链接；名字依次取标签上的、作品标题，都没有时「未命名作品」。
+    const artifact = { kind: 'artifact' as const, url: 'open-artifact://artifact/deck1', title: '季度回顾', type: 'slides', conversationId: 'c1' };
+    expect(itemKey(artifact)).toBe('artifact:open-artifact://artifact/deck1');
+    expect(workspaceTitle(artifact)).toBe('季度回顾');
+    expect(workspaceTitle(artifact, '改过的名字')).toBe('改过的名字');
+    expect(workspaceTitle({ kind: 'artifact', url: 'open-artifact://artifact/x' })).toBe('未命名作品');
   });
 
   it('按条目 id、项目路径或会话路径找到 Space 条目', () => {

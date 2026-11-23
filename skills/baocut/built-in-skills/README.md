@@ -32,10 +32,8 @@ BaoCut 随应用分发的内置 Agent skill，也叫 craft（做法）：一件�
 | [`virtual-host`](virtual-host/SKILL.md) | 虚拟主播 | 用内置的原创主播（按性别、年龄、适合的片子挑），或生成一个卡通主播拆成分层的角色包；按读音与音量算出动作轨，自动对口型、眨眼、点头转头、换表情；放上时间线是一个角色贴纸，预览与导出直接画。附内置主播表、头发遮罩、角色包打包与动作轨脚本 |
 | [`production-scripts`](production-scripts/SKILL.md) | 制作脚本 | 有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本，附代码场景的绘图起点（`scene-kit/`）；它是一条省事的路，不规定片子的形态 |
 | [`motion-graphics`](motion-graphics/SKILL.md) | 动效图形 | 用自包含 HTML 定制音频视频的背景与标题，或做下横栏、关键词、大数字、标注与品牌贴片，导入后放上时间线 |
-| [`slides`](slides/SKILL.md) | 幻灯片 | 在工作目录写一份 deck，校验通过后在线程里出卡片，用户在功能区预览、编辑与标注（只给会话内智能体） |
-| [`design`](design/SKILL.md) | 设计稿 | 在工作目录写一份设计稿（界面、网页、海报、图表、示意图、原型），校验通过后在线程里出卡片，用户在功能区预览、编辑与标注（只给会话内智能体） |
-| [`design-system`](design-system/SKILL.md) | 设计系统 | 在工作目录写一个设计系统目录（tokens、品牌手册、组件、素材），可从代码仓库或设计工具整理，供设计稿装用（只给会话内智能体） |
-| [`docs`](docs/SKILL.md) | 协作文档 | 经 docs 工具在工作目录建一份协作文档（报告、提案、计划、信件、手册），先发骨架再逐节填，线程里出卡片，用户在功能区编辑、评论，评论可以发给智能体（只给会话内智能体） |
+
+幻灯片、文档、设计稿这类作品不在这里：由 Open Artifact 的 `artifacts` skill 负责，Runtime 把它写进 skill 的集成目录，见[作品设计](../../../docs/design/artifacts/artifacts-design.md#6-skill-与-artifacts-命令)。
 
 ## 新增或修改一个 skill
 

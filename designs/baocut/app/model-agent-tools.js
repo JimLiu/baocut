@@ -27,6 +27,8 @@
     const ss = String(total % 60).padStart(2, '0');
     return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
   }
+  const ARTIFACT_READS = new Set(['quickstart', 'list', 'read', 'open']);
+  const ARTIFACT_MANAGE = new Set(['delete', 'share', 'adopt']);
   const base = (p) => String(p || '').split('/').filter(Boolean).pop() || '';
   const join = (...xs) => xs.filter((x) => x != null && x !== '').join(' · ');
   const n = (v, unit) => (v == null || v === '' ? null : `${v} ${unit}`);
@@ -89,30 +91,12 @@
     projects_list: () => ({kind: 'project', label: '列出项目', icon: 'folder', summary: ''}),
     projects_create: (a) => ({kind: 'project', label: '新建项目', icon: 'folder', summary: a.name || base(a.path)}),
     projects_adopt_session: (a) => ({kind: 'project', label: '放进新项目', icon: 'folder', summary: a.name || (/[\\/~]/.test(a.project || '') ? base(a.project) : '')}),
-    /* 幻灯片（docs/design/slides §7.2）：写完或改完 deck 校验一次，没有错误时线程里登记幻灯片卡片；图片拷进 deck 的 assets/ */
-    slides_check: (a) => ({kind: 'slides', label: '检查幻灯片', icon: 'template', summary: join(a.deck || base(a.path), n(a.slides, '页'))}),
-    slides_import_asset: (a) => ({kind: 'slides', label: '导入幻灯片素材', icon: 'image', summary: a.name || base(a.path)}),
-    /* 设计稿（docs/design/canvas §7.2）：同一种做法，校验 canvas.json 与画板；图片拷进设计稿的 assets/ */
-    design_check: (a) => ({kind: 'design', label: '检查设计稿', icon: 'template', summary: join(a.canvas || base(a.path), n(a.boards, '个画板'))}),
-    design_import_asset: (a) => ({kind: 'design', label: '导入设计稿素材', icon: 'image', summary: a.name || base(a.path)}),
-    /* 设计系统（docs/design/canvas §10.5）：校验 design-system.json、tokens.json 与组件包；图片、字体等拷进设计系统的 _blobs/，
-       `group` 是记进索引的素材分组。`components` 是原型的参数摘要（组件数），不是工具的参数 */
-    design_system_check: (a) => ({kind: 'design-system', label: '检查设计系统', icon: 'template', summary: join(a.system || base(a.path), n(a.components, '个组件'))}),
-    design_system_import_asset: (a) => ({kind: 'design-system', label: '导入设计系统素材', icon: 'image', summary: join(a.name || base(a.path), a.group)}),
-    /* 协作文档（docs/design/docs §6）：八个工具同一类。摘要是协作文档的目录名，新建时还没有目录，念 `create.name`；
-       在评论线程里回复是 `docs_create` 建一条 utterance，念成「在协作文档里评论」 */
-    docs_batch: (a) => (a.create
-      ? {kind: 'docs', label: '新建协作文档', icon: 'plus', summary: a.create.name || base(a.path)}
-      : {kind: 'docs', label: '编辑协作文档', icon: 'edit', summary: base(a.path)}),
-    docs_create: (a) => (a.object === 'utterance'
-      ? {kind: 'docs', label: '在协作文档里评论', icon: 'edit', summary: base(a.path)}
-      : {kind: 'docs', label: '添加到协作文档', icon: 'plus', summary: base(a.path)}),
-    docs_read: (a) => ({kind: 'docs', label: '读取协作文档', icon: 'transcript', summary: base(a.path)}),
-    docs_update: (a) => ({kind: 'docs', label: '编辑协作文档', icon: 'edit', summary: base(a.path)}),
-    docs_query: (a) => ({kind: 'docs', label: '读取协作文档评论', icon: 'search', summary: base(a.path)}),
-    docs_delete: (a) => ({kind: 'docs', label: '从协作文档删除', icon: 'trash', summary: base(a.path)}),
-    docs_upload: (a) => ({kind: 'docs', label: '上传到协作文档', icon: 'upload', summary: join(base(a.path), a.name || base(a.file))}),
-    docs_export: (a) => ({kind: 'docs', label: '导出协作文档', icon: 'export', summary: join(base(a.path), base(a.to))}),
+    /* Open Artifact 的作品工具（docs/design/artifacts §3）：`Artifact` 按动作分查看、管理与制作（没写动作时是发布），
+       摘要是作品标题或数据集合名（工具名经 normalize 成 `artifact`、`artifact_data`、`artifact_comments`）；文案照 packages/ui 的 agent-tool-steps.zh-Hans.ts */
+    artifact: (a) => ({kind: 'open-artifact', label: ARTIFACT_READS.has(a.action) ? '查看作品' : ARTIFACT_MANAGE.has(a.action) ? '管理作品' : '制作作品',
+      icon: ARTIFACT_READS.has(a.action) ? 'eye' : ARTIFACT_MANAGE.has(a.action) ? 'edit' : 'template', summary: a.title || ''}),
+    artifact_data: (a) => ({kind: 'open-artifact', label: '读写作品数据', icon: 'list', summary: a.collection || ''}),
+    artifact_comments: () => ({kind: 'open-artifact', label: '处理作品评论', icon: 'edit', summary: ''}),
   };
   const NAMES = Object.keys(CATALOG);
 

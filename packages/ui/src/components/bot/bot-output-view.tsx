@@ -202,7 +202,7 @@ function OutputBody({ output, conversationId }: { output: ConversationOutput | n
   if (!output) return <p className={centered}>{C.output.notFound}</p>;
   if (output.video) return <EditorWorkspace />;
   if (output.kind === 'video') return <p className={centered}>{C.output.videoNotReady}</p>;
-  if (output.slides || output.design || output.designSystem || output.docs) {
+  if (output.artifact) {
     return (
       <div className={scroll}>
         <p className={centered}>{C.output.elsewhere}</p>

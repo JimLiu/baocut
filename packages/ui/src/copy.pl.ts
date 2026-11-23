@@ -101,6 +101,7 @@ export const pl: CopyMessages = {
     desc: { label: "Napisz opis", sub: "Z czasami rozdziałów i tagami" },
     cover: { label: "Utwórz okładkę", sub: "Kilka propozycji na podstawie kluczowych kadrów" },
     export: { label: "Eksportuj", sub: "SRT / MP4 z wtopionymi napisami" },
+    artifacts: { label: "Utwórz artefakt", sub: "Slajdy, dokumenty, projekty, arkusze i więcej w karcie" },
   },
   composerMenu: {
     insert: "Wstaw",

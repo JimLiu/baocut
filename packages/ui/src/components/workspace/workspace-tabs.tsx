@@ -4,15 +4,11 @@ import { newId } from '@baocut/protocol';
 import { ActionButton, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import Close from '@react-spectrum/s2/icons/Close';
-import ColorHarmony from '@react-spectrum/s2/icons/ColorHarmony';
 import Comment from '@react-spectrum/s2/icons/Comment';
 import FileText from '@react-spectrum/s2/icons/FileText';
 import Filmstrip from '@react-spectrum/s2/icons/Filmstrip';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import GlobeGrid from '@react-spectrum/s2/icons/GlobeGrid';
-import Layout from '@react-spectrum/s2/icons/Layout';
-import Shapes from '@react-spectrum/s2/icons/Shapes';
-import TextParagraph from '@react-spectrum/s2/icons/TextParagraph';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Focusable, VisuallyHidden } from 'react-aria-components';
 import { WORKSPACE_COPY } from '../../copy.ts';
@@ -36,6 +32,7 @@ import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { STATUS_WORD } from '../conversation-header.tsx';
+import { artifactIcon } from './artifact-icon.tsx';
 import { useWorkspaceOverlay } from './workspace-overlay.ts';
 import { WorkspaceTabPreview } from './workspace-tab-preview.tsx';
 
@@ -59,7 +56,7 @@ export function useWorkspaceTitle(): (item: WorkspaceItem) => string {
   const openKey = useVideo((s) => (s.video ? targetKey(s.video.target) : null));
   const openName = useVideo((s) => s.video?.state?.video.name ?? s.video?.ref?.name ?? null);
   return (item) => {
-    if (item.kind === 'files') return workspaceTitle(item);
+    if (item.kind === 'files' || item.kind === 'artifact') return workspaceTitle(item);
     if (item.kind === 'web') return workspaceTitle(item, webTitles[item.id]);
     const live = item.kind === 'video' && openKey === targetKey(item.target) ? openName : null;
     return workspaceTitle(item, live ?? entryOfTarget(entries, item.target)?.name);
@@ -73,10 +70,10 @@ export function WorkspaceTabIcon({ item }: { item: WorkspaceItem }) {
   if (item.kind === 'video') return <Filmstrip UNSAFE_style={icon} />;
   if (item.kind === 'web') return <GlobeGrid UNSAFE_style={icon} />;
   if (item.kind === 'files') return <Folder UNSAFE_style={icon} />;
-  if (item.kind === 'slides') return <Layout UNSAFE_style={icon} />;
-  if (item.kind === 'design') return <Shapes UNSAFE_style={icon} />;
-  if (item.kind === 'design-system') return <ColorHarmony UNSAFE_style={icon} />;
-  if (item.kind === 'docs') return <TextParagraph UNSAFE_style={icon} />;
+  if (item.kind === 'artifact') {
+    const Icon = artifactIcon(item.type);
+    return <Icon UNSAFE_style={icon} />;
+  }
   return <FileText UNSAFE_style={icon} />;
 }
 

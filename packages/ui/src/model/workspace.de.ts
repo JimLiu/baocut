@@ -1,3 +1,3 @@
 import type { WorkspaceMessages } from './workspace.ts';
 
-export const de: WorkspaceMessages = { newTab: "Neuer Tab", projectFiles: "Projektdateien", videoUnavailable: "Video nicht verfügbar", fileUnavailable: "Datei nicht verfügbar", slidesUnavailable: "Folien nicht verfügbar", designUnavailable: "Design nicht verfügbar", designSystemUnavailable: "Designsystem nicht verfügbar", docsUnavailable: "Gemeinschaftsdokument nicht verfügbar" };
+export const de: WorkspaceMessages = { newTab: "Neuer Tab", projectFiles: "Projektdateien", videoUnavailable: "Video nicht verfügbar", fileUnavailable: "Datei nicht verfügbar", artifactUntitled: 'Unbenanntes Artefakt' };

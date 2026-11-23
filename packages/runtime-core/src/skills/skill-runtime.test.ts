@@ -34,7 +34,8 @@ describe('Agent skill 端到端', () => {
 
   async function boot(): Promise<void> {
     driver = new ToolDriver();
-    runtime = await startRuntime({ home, drivers: () => [driver], watchSpace: false, skillsDir: builtin });
+    // 不写 Open Artifact 的 `/artifacts` skill（它有自己的测试），索引里只有测试建的 skill。
+    runtime = await startRuntime({ home, drivers: () => [driver], watchSpace: false, skillsDir: builtin, artifacts: null });
     const { endpoint, token } = runtime.discovery;
     client = new BaoCutClient({
       resolve: async () => ({ endpoint, token }),

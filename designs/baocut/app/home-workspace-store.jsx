@@ -53,16 +53,8 @@
       if (workspace.active === key) app.replace(W.route(sid, next.tabs.find(t => t.key === next.active)));
     };
     const openWorkspaceFile = (id, sessionId = sid) => { show(sessionId); app.go(W.route(sessionId, {kind: 'file', id})); };
-    // docs/design/slides §8.1: a deck opens in its own tab; `slide` jumps to a page (an annotation in a sent message).
-    const openWorkspaceSlides = (id, sessionId = sid, slide) => { show(sessionId); app.go(W.route(sessionId, {kind: 'slides', id, ...(slide ? {slide} : {})})); };
-    // docs/design/canvas §8.1: a design canvas opens in its own tab; `board` zooms to an artboard (an annotation in a sent message).
-    const openWorkspaceDesign = (id, sessionId = sid, board) => { show(sessionId); app.go(W.route(sessionId, {kind: 'design', id, ...(board ? {board} : {})})); };
-    // docs/design/canvas §10.6: a design system opens in its own tab, like a design canvas; `at` ("section:anchor")
-    // jumps to an annotated target (an annotation in a sent message).
-    const openWorkspaceDesignSystem = (id, sessionId = sid, at) => { show(sessionId); app.go(W.route(sessionId, {kind: 'design-system', id, ...(at ? {at} : {})})); };
-    // docs/design/docs §8: a collaborative doc opens in its own tab; `dtab` picks a doc tab and `at` (an element path)
-    // jumps to a comment thread or block (an annotation in a sent message or in the draft).
-    const openWorkspaceDocs = (id, sessionId = sid, {dtab, at} = {}) => { show(sessionId); app.go(W.route(sessionId, {kind: 'docs', id, ...(dtab ? {dtab} : {}), ...(at ? {at} : {})})); };
+    // docs/design/artifacts §5: an Open Artifact artifact opens in an artifact tab (product card, tab restore).
+    const openWorkspaceArtifact = (id, sessionId = sid) => { show(sessionId); app.go(W.route(sessionId, {kind: 'artifact', id})); };
     const openWorkspaceAttachment = file => {
       setWorkspaceAttachments(previous => ({...previous, [file.id]: file}));
       setWorkspaceFileTitle(file.id, file.name);
@@ -203,7 +195,7 @@
     });
     return {workspaceKey: sid, workspaceSessionId, workspaceSingle, showWorkspaceTab, finishDraftWorkspace, openAgent, createWorkspacePage, browseWorkspaceFiles, workspaceAttachments, openWorkspaceAttachment, workspaceMediaState, updateWorkspaceMediaState, workspaceFileTitles, setWorkspaceFileTitle, workspace, workspaceVisible, workspaceFull, workspaceNarrow, workspaceConversation, workspaceRef, showConversation,
       workspaceWidth, workspaceDockW, resizeWorkspace, toggleWorkspace, toggleWorkspaceFull,
-      selectWorkspaceTab, closeWorkspaceTab, moveWorkspaceTab, openWorkspaceFile, openWorkspaceSlides, openWorkspaceDesign, openWorkspaceDesignSystem, openWorkspaceDocs, openWorkspaceBrowser, openMovie, openMovieBeside};
+      selectWorkspaceTab, closeWorkspaceTab, moveWorkspaceTab, openWorkspaceFile, openWorkspaceArtifact, openWorkspaceBrowser, openMovie, openMovieBeside};
   }
   Object.assign(window, {useHomeWorkspace});
 })();

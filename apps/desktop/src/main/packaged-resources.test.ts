@@ -15,10 +15,7 @@ describe('packagedResources', () => {
       agentSkillDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\agent-skill\\baocut',
       modelAssetsDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\model-assets',
       webDist: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\web',
-      slidesEditorDist: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\slides-editor',
-      designEditorDist: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\design-editor',
-      designSystemEditorDist: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\design-system-editor',
-      docsEditorDist: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\docs-editor',
+      openArtifactDir: 'C:\\Users\\a\\AppData\\Local\\Programs\\BaoCut\\resources\\open-artifact',
     });
   });
 
@@ -34,10 +31,7 @@ describe('packagedResources', () => {
       BAOCUT_CLI_ENTRY: '/baocut.cmd',
       BAOCUT_MODEL_ASSETS_DIR: '/r/model-assets',
       BAOCUT_WEB_DIST: '/r/web',
-      BAOCUT_SLIDES_EDITOR_DIST: '/r/slides-editor',
-      BAOCUT_DESIGN_EDITOR_DIST: '/r/design-editor',
-      BAOCUT_DESIGN_SYSTEM_EDITOR_DIST: '/r/design-system-editor',
-      BAOCUT_DOCS_EDITOR_DIST: '/r/docs-editor',
+      BAOCUT_OPEN_ARTIFACT_DIR: '/r/open-artifact',
     });
   });
   it('points the Runtime at the CLI launcher beside the app', () => {

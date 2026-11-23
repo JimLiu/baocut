@@ -88,7 +88,7 @@ body.is-lite-view > div[role="region"] { bottom: 156px; }
 .lt-ov--mark { right: 40px; bottom: 40px; background: var(--gray-900); color: var(--gray-25); opacity: 0.8; box-shadow: none; }
 
 /* 侧栏的三页（editor-lite-script.jsx）：顶上一行「台词 / 脚本」与「字幕样式」；脚本页整份只读、正在播的那一段的小节标出来；版本页上面列表、下面选中那一版。
-   边界只画一根 2px gray-100 的横线，与侧栏其余分隔一致。改动的标法与协作文档的版本页同一套（home-docs-versions.css）：新加绿、改过橙、删掉红并划掉，另写一个字的标签。 */
+   边界只画一根 2px gray-100 的横线，与侧栏其余分隔一致。改动的标法：新加绿、改过橙、删掉红并划掉，另写一个字的标签。 */
 .lt__side > .pview { flex: 1 1 auto; min-height: 0; }
 .lt-side__top { display: flex; align-items: center; gap: 8px; flex: none; height: 48px; padding: 0 12px 0 16px; border-bottom: 2px solid var(--gray-100); }
 .lt__side > .lt-side__tabs { gap: 0; }

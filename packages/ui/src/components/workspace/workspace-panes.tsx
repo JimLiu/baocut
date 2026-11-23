@@ -12,10 +12,7 @@ import { useVideo } from '../../state/video-store.ts';
 import { VideoEditor } from '../editor/video-editor.tsx';
 import { FilePane } from '../file-pane.tsx';
 import { ProjectFiles } from './project-files.tsx';
-import { DesignPane } from './design-pane.tsx';
-import { DesignSystemPane } from './design-system-pane.tsx';
-import { DocsPane } from './docs-pane.tsx';
-import { SlidesPane } from './slides-pane.tsx';
+import { ArtifactPane } from './artifact-pane.tsx';
 import { WebTab } from './web-tab.tsx';
 import { WORKSPACE_OVERLAY_ATTRIBUTE } from './workspace-overlay.ts';
 import { workspacePanelId, workspaceTabId } from './workspace-tabs.tsx';
@@ -104,9 +101,9 @@ export function WorkspacePanes({
   );
 }
 
-/** 编辑器 iframe 的标签（幻灯片、设计稿、设计系统、协作文档）：隐藏时保留布局。 */
+/** 作品页面的 iframe 标签（docs/design/artifacts §5）：隐藏时保留布局。 */
 function isEditorTab(item: WorkspaceItem): boolean {
-  return item.kind === 'slides' || item.kind === 'design' || item.kind === 'design-system' || item.kind === 'docs';
+  return item.kind === 'artifact';
 }
 
 const PARKED: CSSProperties = { position: 'absolute', inset: 0, visibility: 'hidden' };
@@ -131,7 +128,7 @@ function useShownWidth(ref: RefObject<HTMLElement | null>, shown: boolean): RefO
 /**
  * 一个标签的面板。隐藏时把里面的播放器停下（网页视图由 WebTab 按 `active` 自己隐藏）。
  *
- * `keepLayout`（幻灯片标签）隐藏时不用 display none：编辑器的 iframe 重新显示时会先量到一个错的尺寸，缩放闪动约 1 秒。
+ * `keepLayout`（作品标签）隐藏时不用 display none：编辑器的 iframe 重新显示时会先量到一个错的尺寸，缩放闪动约 1 秒。
  * 改为叠在当前标签下面、保持同样的尺寸，只是看不见：visibility hidden 不接收指针、不进 Tab 顺序与读屏。
  */
 function Pane({ paneKey, shown, keepLayout, children }: { paneKey: string; shown: boolean; keepLayout?: boolean; children: ReactNode }) {
@@ -206,14 +203,8 @@ function PaneContent({
           onTitleChange={(title) => setWebTitle(item.id, title)}
         />
       );
-    case 'slides':
-      return <SlidesPane target={item.target} conversationId={conversationId} active={shown} />;
-    case 'design':
-      return <DesignPane target={item.target} conversationId={conversationId} active={shown} />;
-    case 'design-system':
-      return <DesignSystemPane target={item.target} conversationId={conversationId} active={shown} />;
-    case 'docs':
-      return <DocsPane target={item.target} conversationId={conversationId} active={shown} />;
+    case 'artifact':
+      return <ArtifactPane url={item.url} conversationId={item.conversationId ?? conversationId} active={shown} />;
   }
 }
 
@@ -238,10 +229,6 @@ function ConversationFiles({ conversationId }: { conversationId: Id }) {
       conversationId={conversationId}
       onOpenFile={(target) => useShell.getState().openPane({ kind: 'file', target: scoped(target) })}
       onOpenVideo={(target) => useShell.getState().openVideo(scoped(target))}
-      onOpenSlides={(target) => useShell.getState().openPane({ kind: 'slides', target: scoped(target) })}
-      onOpenDesign={(target) => useShell.getState().openPane({ kind: 'design', target: scoped(target) })}
-      onOpenDesignSystem={(target) => useShell.getState().openPane({ kind: 'design-system', target: scoped(target) })}
-      onOpenDocs={(target) => useShell.getState().openPane({ kind: 'docs', target: scoped(target) })}
     />
   );
 }

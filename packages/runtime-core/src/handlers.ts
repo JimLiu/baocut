@@ -1,4 +1,4 @@
-import { RcBot, RcRecordings, RcWeb } from '@baocut/protocol/messages/runtime-core';
+import { RcArtifacts, RcBot, RcRecordings, RcWeb } from '@baocut/protocol/messages/runtime-core';
 import path from 'node:path';
 import {
   type CodeBundleManifest,
@@ -8,11 +8,7 @@ import {
   parseVideoTopic,
   type FileTarget,
   type Id,
-  type SlideAnnotation,
-  type DesignAnnotation,
-  type DesignSystemAnnotation,
   type VideoAnnotation,
-  type DocsAnnotation,
   type RpcMethod,
   type RpcParams,
   type RpcResult,
@@ -34,16 +30,8 @@ import { listProjectFiles } from './project-files.ts';
 import { createProjectFile, type ProjectFileScope } from './project-file-create.ts';
 import type { FaceDetector } from './face-detection.ts';
 import type { MediaAnalysis } from './media-analysis.ts';
-import {
-  resolveDesignAnnotations,
-  resolveDesignSystemAnnotations,
-  resolveVideoAnnotations,
-  resolveSlideAnnotations,
-  type DesignOpener,
-  type DesignSystemOpener,
-  type SlidesOpener,
-} from './slides.ts';
-import { resolveDocsAnnotations, type DocsOpener } from './docs.ts';
+import { resolveVideoAnnotations } from './video-annotations.ts';
+import type { ArtifactsService } from './artifacts/open-artifact.ts';
 import type { SpaceCatalog } from './space-catalog.ts';
 import { forkVideoOptions, restoreForkVideos, type ForkVideoDeps } from './conversation-fork.ts';
 import { resolvePipelineEntryInputs, withImageEntries, withSpeechMaterial, withTextMaterial } from './space/space-inputs.ts';
@@ -125,14 +113,6 @@ export interface HandlerDeps {
   setup: AgentSetup;
   space: SpaceCatalog;
   media: MediaRegistry;
-  /** 幻灯片编辑器的地址（`slides.open`，docs/design/slides §6.1）：网关与 Web 服务的基址不同。 */
-  slides: SlidesOpener;
-  /** 设计稿编辑器的地址（`design.open`，docs/design/canvas §6.1），基址同 `slides`。 */
-  design: DesignOpener;
-  /** 设计系统编辑器的地址（`designSystem.open`，docs/design/canvas §10.4），基址同 `slides`。 */
-  designSystem: DesignSystemOpener;
-  /** 文档编辑器的地址（`docs.open`，docs/design/docs §6.1），基址同 `slides`。 */
-  docs: DocsOpener;
   attachments: AttachmentStore;
   analysis: MediaAnalysis;
   /** 人脸检测（`videos.shots` 的 `by: "speaker"`）；不给时按说话人切段以 `SHOTS_FACES_UNAVAILABLE` 拒绝。 */
@@ -189,6 +169,8 @@ export interface HandlerDeps {
   bot?: BotService | null | (() => BotService | null);
   /** 屏幕录制（docs/design/screen-recording §7）：没有时 `recordings.*` 回 `RECORDING_UNAVAILABLE`。 */
   recordings?: RecordingService | null;
+  /** Open Artifact 作品（docs/design/artifacts §5）：没有时 `artifacts.*` 回 `ARTIFACTS_UNAVAILABLE`。 */
+  artifacts?: ArtifactsService | null;
 }
 
 /** 文件目标定位到来源目录与文件（Space 条目、会话工作目录或项目目录里的路径）。目录内的检查在媒体通道（或视频服务）里做。 */
@@ -237,10 +219,6 @@ export function createHandlers({
   setup,
   space,
   media,
-  slides,
-  design,
-  designSystem,
-  docs,
   attachments,
   analysis,
   faces,
@@ -276,6 +254,7 @@ export function createHandlers({
   schedules,
   bot,
   recordings = null,
+  artifacts = null,
 }: HandlerDeps): RpcHandlers {
   const { catalog, jobs, services, pipelines } = models;
   const packages = new PackageImporter(videos);
@@ -300,23 +279,11 @@ export function createHandlers({
   };
   /** 分叉按 `commandId` 只做一次（命令与协议规范 §2.4）：重发拿回同一个结果，视频不再回一次。失败的不留。 */
   const forkRuns = new Map<Id, Promise<RpcResult<'conversations.fork'>>>();
-  /** 发送与插话带的幻灯片标注：deck 换成相对会话工作目录的路径（docs/design/slides §9）。 */
   // 项目品牌与全局品牌（§3.8）：不缓存，每次按项目登记与 Home 根目录读磁盘。
   const brands = new ProjectBrands({ projects: () => harness.listProjects(), skills, globalDir: globalBrandDir ?? null });
-  const slideAnnotationsOf = (conversationId: Id, annotations: readonly SlideAnnotation[] | undefined) =>
-    resolveSlideAnnotations(annotations, harness.getConversation(conversationId).conversation.cwd, locateMedia);
-  /** 设计稿标注同上（docs/design/canvas §9）。 */
-  const designAnnotationsOf = (conversationId: Id, annotations: readonly DesignAnnotation[] | undefined) =>
-    resolveDesignAnnotations(annotations, harness.getConversation(conversationId).conversation.cwd, locateMedia);
-  /** 设计系统标注同上（docs/design/canvas §10.6）。 */
-  const designSystemAnnotationsOf = (conversationId: Id, annotations: readonly DesignSystemAnnotation[] | undefined) =>
-    resolveDesignSystemAnnotations(annotations, harness.getConversation(conversationId).conversation.cwd, locateMedia);
-  /** 视频标注同上（产品设计 §3.2.3「视频标注」）：视频目录换成相对会话工作目录的路径。 */
+  /** 发送与插话带的视频标注（产品设计 §3.2.3「视频标注」）：视频目录换成相对会话工作目录的路径。 */
   const videoAnnotationsOf = (conversationId: Id, annotations: readonly VideoAnnotation[] | undefined) =>
     resolveVideoAnnotations(annotations, harness.getConversation(conversationId).conversation.cwd, locateMedia);
-  /** 文档标注同上（docs/design/docs §8）。 */
-  const docsAnnotationsOf = (conversationId: Id, annotations: readonly DocsAnnotation[] | undefined) =>
-    resolveDocsAnnotations(annotations, harness.getConversation(conversationId).conversation.cwd, locateMedia);
 
   /**
    * 新建视频的位置：项目目录。给的是会话时用它的来源：所属项目，不属于项目时是会话的工作目录（架构设计 §3.10，不为视频建项目）。
@@ -367,12 +334,12 @@ export function createHandlers({
     skills,
     brands,
     videos,
-    slideAnnotationsOf,
-    designAnnotationsOf,
-    designSystemAnnotationsOf,
     videoAnnotationsOf,
-    docsAnnotationsOf,
   });
+  const requireArtifacts = (): ArtifactsService => {
+    if (!artifacts) throw new RpcError('unsupported', RcArtifacts.unavailable(), { code: 'ARTIFACTS_UNAVAILABLE' });
+    return artifacts;
+  };
   const botRef = (): BotService | null => (typeof bot === 'function' ? bot() : (bot ?? null));
   return {
     methods: {
@@ -497,20 +464,9 @@ export function createHandlers({
         return { deleted: true as const };
       },
       // 带模板或 skill 的发送在 `templateMethods` 里：先解析模板与 skill，再交给 Harness。
-      'conversations.steer': wrapBotSteer(botRef, ({ slideAnnotations, designAnnotations, designSystemAnnotations, videoAnnotations, docsAnnotations, ...p }) => {
-        const resolved = slideAnnotationsOf(p.conversationId, slideAnnotations);
-        const resolvedDesign = designAnnotationsOf(p.conversationId, designAnnotations);
-        const resolvedSystem = designSystemAnnotationsOf(p.conversationId, designSystemAnnotations);
+      'conversations.steer': wrapBotSteer(botRef, ({ videoAnnotations, ...p }) => {
         const resolvedVideo = videoAnnotationsOf(p.conversationId, videoAnnotations);
-        const resolvedDocs = docsAnnotationsOf(p.conversationId, docsAnnotations);
-        return harness.steer({
-          ...p,
-          ...(resolved ? { slideAnnotations: resolved } : {}),
-          ...(resolvedDesign ? { designAnnotations: resolvedDesign } : {}),
-          ...(resolvedSystem ? { designSystemAnnotations: resolvedSystem } : {}),
-          ...(resolvedVideo ? { videoAnnotations: resolvedVideo } : {}),
-          ...(resolvedDocs ? { docsAnnotations: resolvedDocs } : {}),
-        });
+        return harness.steer({ ...p, ...(resolvedVideo ? { videoAnnotations: resolvedVideo } : {}) });
       }),
       'attachments.prepare': (p) => attachments.prepare(p),
       'tasks.stop': (p) => harness.stopTask(p.taskId),
@@ -630,25 +586,11 @@ export function createHandlers({
         const { root, scope } = await videoRoot(p);
         return packages.import(p, root, scope, principal);
       },
-      'slides.open': async (p) => {
-        // Space 条目给的是绝对路径，其余是相对来源目录的路径。
-        const { root, file } = locateMedia(p);
-        return slides.open(root, path.isAbsolute(file) ? path.relative(root, file) : file);
-      },
-      'design.open': async (p) => {
-        // 同 slides.open（docs/design/canvas §6.1）。
-        const { root, file } = locateMedia(p);
-        return design.open(root, path.isAbsolute(file) ? path.relative(root, file) : file);
-      },
-      'designSystem.open': async (p) => {
-        // 同 design.open（docs/design/canvas §10.4）。
-        const { root, file } = locateMedia(p);
-        return designSystem.open(root, path.isAbsolute(file) ? path.relative(root, file) : file);
-      },
-      'docs.open': async (p) => {
-        // 同 slides.open（docs/design/docs §6.1）。
-        const { root, file } = locateMedia(p);
-        return docs.open(root, path.isAbsolute(file) ? path.relative(root, file) : file);
+      // Open Artifact 作品（docs/design/artifacts §5）：界面在作品标签里打开，Shell 的消息经 Runtime 转发。
+      'artifacts.open': (p) => requireArtifacts().open(p.url, p.conversationId ?? null),
+      'artifacts.shellCommand': async (p) => {
+        await requireArtifacts().shellCommand(p.view, p.command);
+        return {};
       },
       'videos.open': (p, principal) => videos.open(locateMedia(p), principal),
       'videos.target': (p) => ({ target: videoTargetOf(videos, space, p.videoId) }),
@@ -871,6 +813,10 @@ export function createHandlers({
       if (topic === 'recordings') {
         if (!recordings) throw new RpcError('unsupported', RcRecordings.unsupportedPlatform(), { code: 'RECORDING_UNAVAILABLE', reason: 'unsupported' });
         return recordings.subscribe(afterSeq, listener as (event: never) => void);
+      }
+      if (topic === 'artifacts') {
+        if (!artifacts) throw new RpcError('unsupported', RcArtifacts.unavailable(), { code: 'ARTIFACTS_UNAVAILABLE' });
+        return artifacts.subscribe(afterSeq, listener as (event: never) => void);
       }
       if (topic === 'legacy-import') return legacyUpgrade.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'channels' || topic.startsWith('work-items:')) {

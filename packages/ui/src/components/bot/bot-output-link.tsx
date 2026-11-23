@@ -26,7 +26,7 @@ export function outputLabel(ref: ArtifactRef): string {
 export function outputLook(ref: ArtifactRef, resolved: ConversationOutput | null): { label: string; kind: OutputKind } {
   return {
     label: !ref.label && ref.kind !== 'file' && resolved?.name ? resolved.name : outputLabel(ref),
-    kind: ref.kind === 'space' && resolved ? entryOutputKind(resolved.kind) : (outputKind(ref) ?? 'doc'),
+    kind: ref.kind === 'space' && resolved && resolved.kind !== 'artifact' ? entryOutputKind(resolved.kind) : (outputKind(ref) ?? 'doc'),
   };
 }
 

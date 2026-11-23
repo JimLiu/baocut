@@ -114,22 +114,15 @@ test('新会话页的 dir（在哪个项目里起）算不同的一条路由', (
 });
 
 
-test('设计系统标签的 at（跳到哪个标注目标）算不同的一条路由，并能经地址往返', () => {
-  const route = {r: 'agent', id: 's27', system: 'dsys-spectrum2', at: 'components:comp-Button'};
-  assert.ok(!N.isSame({r: 'agent', id: 's27', system: 'dsys-spectrum2'}, route));
+test('作品标签的 art 算不同的一条路由，并能经地址往返', () => {
+  const route = {r: 'agent', id: 's25', art: 'art-deck1'};
+  assert.ok(!N.isSame({r: 'agent', id: 's25'}, route));
+  assert.ok(!N.isSame(route, {...route, art: 'art-plan1'}));
   assert.ok(N.isSame(route, {...route}));
   assert.deepEqual(N.routeFromHref(N.hrefFor(route)), route);
-});
-
-test('协作文档标签的 docs、dtab 与跳回标注的 at 各算不同的一条路由，并能经地址往返', () => {
-  const base = {r: 'agent', id: 's34', docs: 'docs-r1'};
-  const route = {...base, dtab: 'plan', at: 'f-plan#n-plan/b2;thread=c1'};
-  assert.ok(!N.isSame(base, {...base, dtab: 'plan'}));
-  assert.ok(!N.isSame({...base, dtab: 'plan'}, route));
-  assert.ok(!N.isSame(base, {...base, docs: 'docs-r2'}));
-  assert.ok(N.isSame(route, {...route}));
-  assert.deepEqual(N.routeFromHref(N.hrefFor(route)), route);
-  assert.deepEqual(N.routeFromHref(N.hrefFor({r: 'home', docs: 'docs-r1'})), {r: 'home', docs: 'docs-r1'});
+  assert.deepEqual(N.routeFromHref(N.hrefFor({r: 'home', art: 'art-deck1'})), {r: 'home', art: 'art-deck1'});
+  // 旧链接里的幻灯片、设计稿、设计系统与协作文档参数不再认
+  assert.deepEqual(N.routeFromHref('#/agent/s34?docs=docs-r1&dtab=plan'), {r: 'agent', id: 's34'});
 });
 
 test('旧模型 URL 迁入设置，保留能力与子页并兼容已有设置链接', () => {

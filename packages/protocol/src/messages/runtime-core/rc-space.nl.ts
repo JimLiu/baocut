@@ -27,10 +27,6 @@ export const nl: RcSpaceMessages = {
   projectDirNotFound: "De projectmap bestaat niet",
   hiddenDirFile: "Bestanden in verborgen mappen of afhankelijkheidsmappen kunnen niet worden toegevoegd",
   videoDirFile: "Bestanden in een videomap horen bij de video en kunnen niet afzonderlijk worden toegevoegd",
-  slidesDirFile: "Bestanden in een diamap horen bij de dia's en kunnen niet afzonderlijk worden toegevoegd",
-  designDirFile: 'Bestanden in een ontwerpmap horen bij het ontwerp en kunnen niet afzonderlijk worden toegevoegd',
-  designSystemDirFile: 'Bestanden in een ontwerpsysteemmap horen bij het ontwerpsysteem en kunnen niet afzonderlijk worden toegevoegd',
-  docsDirFile: 'Bestanden in een documentmap horen bij het document en kunnen niet afzonderlijk worden toegevoegd',
   tooManySameName: "Te veel bestanden met dezelfde naam in imports/ van het project",
 
   purgeVideoDeleteFirst:

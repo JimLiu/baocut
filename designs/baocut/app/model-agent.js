@@ -900,9 +900,11 @@
   // 前面不是回答（审批之后、轮次开头）的工具才独立成一组。
   // 2026-10-09：变更回执（receipt）也是过程，与工具收进同一组：两段文字之间只留一行摘要，回执与撤销在展开后（product-design §3.2.2）。
   const isWork = (m) => m.role === 'tool' || m.role === 'receipt';
+  // 作品回执（role 'artifact'，docs/design/artifacts §4）不占一行、也不打断工具组：产物卡由 BC_AGENT_PROJECTS.sessionArtifacts 挂在那一轮的回复下面。
   function conversationRows(messages) {
     const rows = [];
     for (const m of messages) {
+      if (m.role === 'artifact') continue;
       const last = rows[rows.length - 1];
       if (isWork(m) && last && last.role === 'work') last.items.push(m);
       else if (isWork(m) && last && last.role === 'assistant') {

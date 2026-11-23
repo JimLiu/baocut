@@ -31,7 +31,8 @@ import { currentRevision, loadSnapshot, readVersionIndex } from './skill-version
 import { RcSkills } from '@baocut/protocol/messages/runtime-core';
 
 /**
- * Agent 的 skill 目录（架构设计 §3.8）：内置目录（随应用发布）与 `<Runtime Home>/skills/`（用户添加、导入或自己放的）。
+ * Agent 的 skill 目录（架构设计 §3.8）：内置目录（随应用发布）、集成目录（Runtime 按接入的服务写的，例如 Open Artifact 的
+ * `/artifacts`，docs/design/artifacts §6）与 `<Runtime Home>/skills/`（用户添加、导入或自己放的）。集成目录里的按内置 skill 算。
  *
  * - 每个子目录是一个 skill，id 由目录名规范化（`normalizeSkillId`）；坏目录跳过并记一条诊断，不影响其余的。
  * - 不缓存：每次 `list`、`get`、`require` 都重新读目录，用户放进新目录后再列一次就能看到。
@@ -82,6 +83,8 @@ export interface SkillScan {
 export interface SkillCatalogOptions {
   /** 内置 skill 目录；null 表示没有。 */
   builtinDir: string | null;
+  /** 集成目录：Runtime 自己写进去的 skill，按内置算（排在内置目录之后）；不给时没有。 */
+  providedDir?: string | null;
   /** `<Runtime Home>/skills`。不存在时当作空目录。 */
   userDir: string;
   prefs: SkillPrefsStore;
@@ -167,7 +170,13 @@ export class SkillCatalog {
 
   /** 来源合在一起：说明书页在前，内置目录其次；内置目录与用户目录里与前面同 id 的跳过。 */
   async scan(): Promise<SkillScan> {
-    const scanned = this.#options.builtinDir ? await scanSkillDir(this.#options.builtinDir, 'builtin') : { skills: [], diagnostics: [] };
+    const fromBuiltin = this.#options.builtinDir ? await scanSkillDir(this.#options.builtinDir, 'builtin') : { skills: [], diagnostics: [] };
+    const provided = this.#options.providedDir ? await scanSkillDir(this.#options.providedDir, 'builtin') : { skills: [], diagnostics: [] };
+    const builtinIds = new Set(fromBuiltin.skills.map((s) => s.id));
+    const scanned = {
+      skills: [...fromBuiltin.skills, ...provided.skills.filter((s) => !builtinIds.has(s.id))],
+      diagnostics: [...fromBuiltin.diagnostics, ...provided.diagnostics],
+    };
     const user = await scanSkillDir(this.#options.userDir, 'user');
     const guideIds = new Set(this.#guide.map((s) => s.id));
     const builtin = { skills: [] as LoadedSkill[], diagnostics: [...scanned.diagnostics] };

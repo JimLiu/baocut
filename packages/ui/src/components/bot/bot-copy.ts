@@ -131,6 +131,7 @@ const en = {
       schedule: 'Scheduled run',
       make: 'Suggestions',
       moved: 'Moved',
+      artifact: 'Artifact comment',
     },
     expand: 'Show details',
     collapse: 'Hide details',

@@ -45,8 +45,6 @@ jobs:
         run: npm run build:wasm
       - name: Prebuild web client (web-service.test.ts requires dist output)
         run: npm run build:web
-      - name: Build slides editor and compiler for slide validation tests
-        run: npm run build:slides-editor
       - name: Run Vitest suite (unit + Runtime e2e)
         run: npm test
 

@@ -3,11 +3,7 @@ import type { TaskContract } from './tasks.ts';
 import type { TemplateMessageRef } from './template.ts';
 import type { MessageBrandRef, SkillMessageRef } from './skill.ts';
 import type { MessageRef } from './message-ref.ts';
-import type { SlideAnnotation } from './slides.ts';
-import type { DesignAnnotation } from './design.ts';
-import type { DesignSystemAnnotation } from './design-system.ts';
 import type { VideoAnnotation } from './video.ts';
-import type { DocsAnnotation } from './docs.ts';
 import type { ConversationRole, ProposalState, RelayBody, SuggestionsBody, UserMessageVia } from './bot.ts';
 
 /**
@@ -319,16 +315,8 @@ export type TimelineItem =
       skill?: SkillMessageRef;
       /** 项目的与全局的 `BRAND.md`（架构设计 §3.8「项目品牌与全局品牌」）：这条带了还是被用户摘掉了。哪一层都没有时没有。 */
       brand?: MessageBrandRef;
-      /** 随消息发出的幻灯片标注（docs/design/slides §9），按添加的顺序。批注正文交给了智能体，不在 `text` 里。旧记录没有。 */
-      slideAnnotations?: SlideAnnotation[];
-      /** 随消息发出的设计稿标注（docs/design/canvas §9），按添加的顺序；与 `slideAnnotations` 同一个写法。旧记录没有。 */
-      designAnnotations?: DesignAnnotation[];
-      /** 随消息发出的设计系统标注（docs/design/canvas §10.6），按添加的顺序；与 `designAnnotations` 同一个写法。旧记录没有。 */
-      designSystemAnnotations?: DesignSystemAnnotation[];
-      /** 随消息发出的视频标注（产品设计 §3.2.3「视频标注」），按添加的顺序；与 `designSystemAnnotations` 同一个写法。旧记录没有。 */
+      /** 随消息发出的视频标注（产品设计 §3.2.3「视频标注」），按添加的顺序。批注正文交给了智能体，不在 `text` 里。旧记录没有。 */
       videoAnnotations?: VideoAnnotation[];
-      /** 随消息发出的文档标注（docs/design/docs §8），按添加的顺序；与 `designAnnotations` 同一个写法。旧记录没有。 */
-      docsAnnotations?: DocsAnnotation[];
       /** Bot 模式：这条用户消息从哪来（亲手打、点提示、点表情、在通知里答）。普通会话没有。 */
       via?: UserMessageVia;
       /** 点的是哪个提示（`via: 'suggestion'`）。 */
@@ -439,10 +427,7 @@ export type TimelineItem =
     })
   | (TimelineBase & VideoChange & { kind: 'video-change' })
   | (TimelineBase & VideoCreated & { kind: 'video-created' })
-  | (TimelineBase & SlidesCreated & { kind: 'slides-created' })
-  | (TimelineBase & DesignCreated & { kind: 'design-created' })
-  | (TimelineBase & DesignSystemCreated & { kind: 'design-system-created' })
-  | (TimelineBase & DocsCreated & { kind: 'docs-created' })
+  | (TimelineBase & ArtifactCreated & { kind: 'artifact' })
   /** Bot 频道对话里的线程卡占位：卡片内容由界面从 WorkItem 实时画（BOT-CV-03）。 */
   | (TimelineBase & { kind: 'work-item-ref'; workItemId: Id; ackGroup: Id | null })
   /** Runtime 搬进会话的、不是用户打的字：报告、简报、转交、刷新、定时与提醒（技术方案 §4.3）。 */
@@ -760,50 +745,17 @@ export interface VideoSpeakerShotsResult {
 export type VideoShotsResult = VideoPictureShotsResult | VideoSpeakerShotsResult;
 
 /**
- * 智能体在这条会话里做好了一份幻灯片（`slides_check` 校验通过，docs/design/slides §7.3）：线程里出现幻灯片卡片，点开在功能区的幻灯片标签里编辑。
- * 同一份 deck 只有一条，之后再校验通过时更新标题、页数与 `taskId`（换成那次校验的任务；条目 id 与位置不变）。
+ * 智能体在这条会话里做了或改了一份 Open Artifact 作品（幻灯片、设计稿、文档、表格……，docs/design/artifacts）：线程里出现作品卡片，
+ * 点开在功能区的作品标签里看、改、评论。同一份作品（同一个 `url`）只有一条，之后再有改动时更新标题与 `taskId`（条目 id 与位置不变）。
+ * 旧记录里的 `slides-created`、`design-created`、`design-system-created`、`docs-created` 不再读。
  */
-export interface SlidesCreated {
-  /** deck 目录；与 `VideoCreated.target` 同一个写法，打开时原样交给 `slides.open`。 */
-  target: VideoChange['target'];
-  /** `deck.json` 的 `title`（去掉首尾空白，可能为空）。 */
+export interface ArtifactCreated {
+  /** 作品的链接 `open-artifact://artifact/<id>`：打开时原样交给 `artifacts.open`。页面地址会随 daemon 的端口变，不存。 */
+  url: string;
+  /** 作品的标题（可能为空）。 */
   title: string;
-  slideCount: number;
-}
-
-/**
- * 智能体在这条会话里做好了一份设计稿（`design_check` 没有问题，docs/design/canvas §7.3）：线程里出现设计稿卡片，
- * 点开在功能区的设计稿标签里编辑。与 `SlidesCreated` 同一套规则：同一份设计稿只有一条，之后再校验通过时更新标题、画板数与 `taskId`。
- */
-export interface DesignCreated {
-  /** 设计稿目录；与 `VideoCreated.target` 同一个写法，打开时原样交给 `design.open`。 */
-  target: VideoChange['target'];
-  /** `canvas.json` 的 `title`（去掉首尾空白；没有时是目录名）。 */
-  title: string;
-  boardCount: number;
-}
-
-/**
- * 智能体在这条会话里做好了一个设计系统（`design_system_check` 没有问题，docs/design/canvas §10.5）：线程里出现设计系统卡片，
- * 点开在功能区的设计系统标签里编辑。与 `DesignCreated` 同一套规则：同一个设计系统只有一条，之后再校验通过时更新标题与 `taskId`。
- */
-export interface DesignSystemCreated {
-  /** 设计系统目录；与 `VideoCreated.target` 同一个写法，打开时原样交给 `designSystem.open`。 */
-  target: VideoChange['target'];
-  /** `design-system.json` 的 `title`（去掉首尾空白；没有时是目录名）。 */
-  title: string;
-}
-
-/**
- * 智能体在这条会话里新建了一份文档（`docs_batch` 带 `container.create` 成功，docs/design/docs §7.3）：线程里出现文档卡片，
- * 点开在功能区的文档标签里看与改。同一份文档只有一条，之后智能体再写它时更新标题与 `taskId`（条目 id 与位置不变）。
- */
-export interface DocsCreated {
-  /** 文档目录；与 `VideoCreated.target` 同一个写法，打开时原样交给 `docs.open`。 */
-  target: VideoChange['target'];
-  /** 文档的标题（`doc.json` 的 `name`）。 */
-  title: string;
-  tabCount: number;
+  /** 作品类型：`slides`、`design`、`docs`、`sheets`…… 由 Open Artifact 定，界面不认识的按通用作品显示。 */
+  type: string;
 }
 
 /**
@@ -1246,7 +1198,7 @@ export interface TaskSummary {
   /** 任务合同的当前修订号；没有合同的旧任务没有。 */
   contractRevision?: number;
   /**
-   * 这个任务在会话之外留下过作用：新建或改过视频、幻灯片、设计稿、设计系统，改过文件，或请求过审批（产品设计 §6.1）。
+   * 这个任务在会话之外留下过作用：新建或改过视频、新建过作品（Open Artifact），改过文件，或请求过审批（产品设计 §6.1）。
    * 只检索、问答的任务为 false，不进后台任务表；它提交的 Job 由界面按 `submitter.taskId` 另外认。没有这个字段的按 true 对待。
    */
   sideEffects?: boolean;
@@ -1255,8 +1207,7 @@ export interface TaskSummary {
 /**
  * Space 条目（架构设计 §5.7）。目录是派生索引，条目有四种来源：
  *
- * - 来源目录（登记的项目目录、不属于项目的会话的工作目录）里认得出的文件、视频目录与幻灯片目录（有合法 `deck.json` 的目录，
- *   一份 deck 一个条目，不拆成里面的文件）；视频条目带 `ref.videoId`；
+ * - 来源目录（登记的项目目录、不属于项目的会话的工作目录）里认得出的文件与视频目录；视频条目带 `ref.videoId`；
  * - Artifact Store 里可交付的产物（生成的图片、音频、文本；不在来源目录里的导出），`id` 是 artifactId；
  * - Job Ledger 里进行中与失败的生成、导出：`generating` / `failed` 的占位，`id` 是 jobId，没有 bytes；
  * - 经 `space.import` 登记的项目文件（与来源目录里的同一个文件是同一个条目，`origin.source` 为 `imported`）。
@@ -1273,11 +1224,7 @@ export type SpaceEntryKind =
   | 'subtitle'
   | 'document'
   | 'package'
-  | 'template'
-  | 'slides'
-  | 'design'
-  | 'design-system'
-  | 'docs';
+  | 'template';
 
 export type SpaceEntryStatus = 'generating' | 'candidate' | 'applied' | 'published' | 'source-changed' | 'missing' | 'failed';
 
@@ -1343,12 +1290,6 @@ export interface SpaceEntry {
     currentRevision?: string;
   };
   media?: { mediaType?: string; durationSec?: number; width?: number; height?: number };
-  /** 幻灯片条目（deck 目录，docs/design/slides §7.3）的页数；`name` 是 deck 的标题。 */
-  deck?: { slideCount: number };
-  /** 设计稿条目（设计稿目录，docs/design/canvas §7.3）的画板数；`name` 是设计稿的标题。 */
-  canvas?: { boardCount: number };
-  /** 文档条目（文档目录，docs/design/docs §7.3）的标签页数；`name` 是文档的标题。 */
-  doc?: { tabCount: number };
   /**
    * 结果写到磁盘上的文件（架构设计 §7.9「保存位置」）：取自任务结果的 `outputs[].path`——文件到文件的流程与导出发布的文件、
    * 直接任务另存的副本。文件不在了时没有；来源目录里扫描到的普通文件也没有（按来源目录与 `relPath` 拼）。

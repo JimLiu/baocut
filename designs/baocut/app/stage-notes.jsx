@@ -34,8 +34,8 @@
       {badge ? <span ref={anchor} className={cx('stnotes__badge mk-c', pin.kind === 'comment' && 'is-stamp')} data-color={mark.color} style={{left: at.x, top: at.y}}>
         <R.ActionButton size="XS" aria-label={`标注 ${pin.n}：${said}`} aria-expanded={open} aria-haspopup="dialog" onPress={() => setOpen(v => !v)}>{pin.n}</R.ActionButton>
         <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchor} width={280} label={`标注 ${pin.n}`}>
-          <div className="home-design__pin-note">
-            <p className="home-design__form-label">{label}</p>
+          <div className="stnotes__note">
+            <p className="stnotes__note-label">{label}</p>
             {texts.map((t, i) => <p key={i}>{t}</p>)}
             <R.ActionButton isQuiet size="S" onPress={() => { setOpen(false); onRemove(g.notes.map(n => n.id)); }}><R.Icons.Delete /><R.Text>从对话中移除</R.Text></R.ActionButton>
           </div>
@@ -66,7 +66,7 @@
     </div>;
   }
 
-  /* composer 上方与已发送消息里的「视频标注 · N 条」：画法与幻灯片、设计稿标注的标签一家。点开列出各条——一帧一条：时刻与几处标记、
+  /* composer 上方与已发送消息里的「视频标注 · N 条」。点开列出各条——一帧一条：时刻与几处标记、
      批注、那一帧的截图，点一条跳到那部视频的那个时刻。给了 `onRemove` 是草稿，可以逐条（整帧）移除或全部移除；不给是已发送的消息，只读。 */
   function VideoNotesToken({notes, onRemove, onClear}) {
     const app = useApp();
@@ -79,22 +79,22 @@
       if (!app.projById(n.video)) { app.toast('这部视频已移走或删除', 'negative'); return; }
       app.openMovie(n.video, {t: n.timeMs / 1000});
     };
-    return <div ref={anchor} className="cins-token home-slides-notes">
-      <BCAction className="home-slides-notes__open" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(v => !v)}>
+    return <div ref={anchor} className="cins-token stnotes-token">
+      <BCAction className="stnotes-token__open" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(v => !v)}>
         <window.RSP.Icons.Comment /><span>{N.tokenLabel(notes)}</span>
       </BCAction>
       {draft ? <IconBtn icon="close" size="xs" tip="移除全部视频标注" onClick={onClear} /> : null}
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchor} width={360} dir={draft ? 'up' : 'down'} label={N.tokenLabel(notes)}>
-        <ol className="home-slides-notes__list bc-scroll">
+        <ol className="stnotes-token__list bc-scroll">
           {N.groups(notes).map(g => {
             const label = N.groupLabel(g);
             const texts = N.groupTexts(g);
             const stamps = g.notes.filter(n => n.shot && n.shot.stamp).map(n => n.shot.stamp);
             const shot = g.notes.some(n => n.shot);
-            return <li key={g.key} className="home-slides-notes__item">
-              <BCAction className="home-slides-notes__jump" aria-label={`第 ${g.n} 条，${label}${texts.length ? '：' + texts.join('；') : ''}`} onClick={() => jump(g)}>
-                <b className="home-slides-notes__n">{g.n}</b>
-                <span className="home-slides-notes__body"><small>{label}</small>{texts.map((t, i) => <span key={i}>{t}</span>)}
+            return <li key={g.key} className="stnotes-token__item">
+              <BCAction className="stnotes-token__jump" aria-label={`第 ${g.n} 条，${label}${texts.length ? '：' + texts.join('；') : ''}`} onClick={() => jump(g)}>
+                <b className="stnotes-token__n">{g.n}</b>
+                <span className="stnotes-token__body"><small>{label}</small>{texts.map((t, i) => <span key={i}>{t}</span>)}
                   {/* 附件：那一帧的截图（原型里画一块示意帧，评论另画印章；正式版是真截图，画着这一帧的全部标记） */}
                   {shot ? <span className="stnotes__shot" role="img" aria-label={`截图 · ${T.timecode(g.timeMs / 1000)} · 画着这一帧的标记`}>
                     {stamps.map((st, i) => <span key={i} className="stnotes__shot-stamp" style={{left: px(st.x), top: px(st.y)}} />)}</span> : null}</span>

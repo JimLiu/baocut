@@ -23,6 +23,7 @@ import type { ModelsEvent, ModelsSnapshot } from './models.ts';
 import type { SettingsEvent, SettingsSnapshot } from './settings.ts';
 import type { ServicesEvent, ServicesSnapshot } from './services.ts';
 import type { VideoTopicEvent, VideoTopicSnapshot } from './video.ts';
+import type { ArtifactsEvent, ArtifactsSnapshot } from './artifacts.ts';
 
 /**
  * 订阅的主题（架构设计 §4.4、§4.5）：按资源订阅，一条连接多路复用。
@@ -41,6 +42,7 @@ import type { VideoTopicEvent, VideoTopicSnapshot } from './video.ts';
  *   每个 Driver 的后台探测完成、偏好变化时送 `agents.updated`。
  * - `legacy-import`：旧版项目的导入询问与这次启动里的导入（架构设计 §2.7，`legacy-import.ts`）；快照是等回答的询问与导入的进展，
  *   询问出现或消失时送 `prompt.updated`，导入每有进展送 `run.updated`。
+ * - `artifacts`：Open Artifact 作品（docs/design/artifacts）：daemon 连上没有，智能体要给用户看的作品，作品页面（Shell）发给宿主的消息。
  * - `channels`：Bot 模式的频道摘要（docs/design/bot-mode 技术方案 §16.2），连同 Bot 设置与通知事件。
  * - `work-items:<channelId>`：一个频道的任务、转换记录与线程报告。
  * - `conversation:<id>`：一个会话的内容（卡片投影）。
@@ -64,6 +66,7 @@ export type Topic =
   | 'channels'
   /** 屏幕录制（屏幕录制设计 §7）：当前与没有收完的录制。只在本机：Web 服务不开放。 */
   | 'recordings'
+  | 'artifacts'
   | `work-items:${Id}`
   | `conversation:${Id}`
   | `video:${Id}`;
@@ -223,6 +226,7 @@ export interface TopicMap {
   'legacy-import': { snapshot: LegacyImportSnapshot; event: LegacyImportEvent };
   channels: { snapshot: ChannelsSnapshot; event: ChannelsEvent };
   recordings: { snapshot: RecordingsSnapshot; event: RecordingsEvent };
+  artifacts: { snapshot: ArtifactsSnapshot; event: ArtifactsEvent };
   'work-items': { snapshot: WorkItemsSnapshot; event: WorkItemsEvent };
   conversation: { snapshot: ConversationSnapshot; event: ConversationEvent };
   video: { snapshot: VideoTopicSnapshot; event: VideoTopicEvent };
@@ -256,6 +260,8 @@ export type SnapshotOf<T extends Topic> = T extends 'directory'
                         ? ChannelsSnapshot
                         : T extends 'recordings'
                         ? RecordingsSnapshot
+                        : T extends 'artifacts'
+                        ? ArtifactsSnapshot
                         : T extends `work-items:${string}`
                         ? WorkItemsSnapshot
                         : T extends `video:${string}`
@@ -289,6 +295,8 @@ export type EventOf<T extends Topic> = T extends 'directory'
                         ? ChannelsEvent
                         : T extends 'recordings'
                         ? RecordingsEvent
+                        : T extends 'artifacts'
+                        ? ArtifactsEvent
                         : T extends `work-items:${string}`
                         ? WorkItemsEvent
                         : T extends `video:${string}`

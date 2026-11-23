@@ -68,10 +68,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 做角色演出来的动画片：人物在插画场景里走路、指向、拿东西、做反应，文字写在牌子上 | 稿子与镜头表先给用户看；成套生成场景与角色，抠成可动的部件，绑上骨骼按旁白的字演出来；风格与讲法每期自己定 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:character-animation}}、{{skill:video-production}} |
 | 要一个会说话的卡通虚拟主播：角色跟着旁白对口型、眨眼、点头，常驻画面角落讲解或在场景里出镜 | 用户没有自己的角色时，从 BaoCut 自带的原创主播里按片子推荐两三个，缩略图给用户挑；要自己的形象才生成正面像、改图打成角色包。按配音与逐字时间算动作轨，放上时间线是一个角色贴纸，审片后导出；真人照片与实拍视频不做对口型 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:virtual-host}}、{{skill:video-production}} |
 <!-- surface: agent -->
-| 做幻灯片、演示文稿、汇报用的页面 | 在工作目录写一份 deck，校验通过后线程里出卡片，用户在功能区预览、编辑、标注 | [media](references/catalog/media.md) | {{skill:slides}} |
-| 做界面、网页、海报、图表或信息图、示意图、原型这类设计稿 | 在工作目录写一份设计稿（每块画板一个文件），校验通过后线程里出卡片，用户在功能区预览、编辑、标注 | [media](references/catalog/media.md) | {{skill:design}} |
-| 建设计系统、整理品牌 tokens 与组件 | 在工作目录写一个设计系统目录，可从代码仓库或设计工具整理；设计稿可以装用它 | — | {{skill:design-system}} |
-| 写报告、提案、计划、信件、手册这类文档，或按文档里的评论改 | 经 docs 工具在工作目录建一份协作文档，先发骨架再逐节填，线程里出卡片，用户在功能区编辑、评论 | [media](references/catalog/media.md) | {{skill:docs}} |
+| 做幻灯片、文档、设计稿、表格、看板这类可以评论与协作的成品，或按作品上的评论改 | 用户以 `/artifacts` 起头或明说要这类成品时，交给 Open Artifact 做成作品，在功能区的标签里打开，评论会唤醒会话 | [media](references/catalog/media.md) | `artifacts`（由作品服务提供） |
 <!-- /surface -->
 
 ### 三条底线

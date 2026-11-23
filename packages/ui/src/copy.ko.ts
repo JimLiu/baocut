@@ -79,6 +79,7 @@ export const ko: CopyMessages = {
     desc: { label: '설명 쓰기', sub: '챕터 타임코드와 태그 포함' },
     cover: { label: '커버 만들기', sub: '주요 프레임 기반의 후보 몇 장' },
     export: { label: '내보내기', sub: 'SRT / 자막을 입힌 MP4' },
+    artifacts: { label: '아티팩트 만들기', sub: '슬라이드, 문서, 디자인, 표 등을 탭에서 열기' },
   },
   composerMenu: {
     insert: '삽입',

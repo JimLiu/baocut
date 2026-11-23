@@ -801,20 +801,20 @@ describe('移除项目与缺失的目录', () => {
   });
 });
 
-describe('幻灯片回执', () => {
-  it('同一份 deck 只有一条：再次校验通过时更新标题、页数与任务，id 与位置不变；没有任务时保留原来的', async () => {
+describe('作品回执', () => {
+  it('同一份作品只有一条：再次见到时更新标题、类型与任务，id 与位置不变；没有任务时保留原来的', async () => {
     const conversation = await harness.createConversation({ title: '做幻灯片' });
-    const target = { conversationId: conversation.id, path: 'decks/talk' };
-    harness.recordSlidesCreated(conversation.id, 'task_1', { target, title: '初稿', slideCount: 3 });
-    harness.recordSlidesCreated(conversation.id, 'task_1', { target: { conversationId: conversation.id, path: 'other' }, title: '另一份', slideCount: 1 });
-    const slides = () => harness.getConversation(conversation.id).items.filter((item) => item.kind === 'slides-created');
-    const [first, other] = slides();
-    expect(first).toMatchObject({ target, title: '初稿', slideCount: 3, taskId: 'task_1' });
+    const url = 'open-artifact://artifact/a1';
+    harness.recordArtifactCreated(conversation.id, 'task_1', { url, title: '初稿', type: 'slides' });
+    harness.recordArtifactCreated(conversation.id, 'task_1', { url: 'open-artifact://artifact/a2', title: '另一份', type: 'docs' });
+    const artifacts = () => harness.getConversation(conversation.id).items.filter((item) => item.kind === 'artifact');
+    const [first, other] = artifacts();
+    expect(first).toMatchObject({ url, title: '初稿', type: 'slides', taskId: 'task_1' });
 
-    harness.recordSlidesCreated(conversation.id, 'task_2', { target, title: '定稿', slideCount: 5 });
-    expect(slides()).toEqual([{ ...first, title: '定稿', slideCount: 5, taskId: 'task_2' }, other]);
-    harness.recordSlidesCreated(conversation.id, null, { target, title: '定稿', slideCount: 6 });
-    expect(slides()[0]).toMatchObject({ id: first!.id, slideCount: 6, taskId: 'task_2' });
+    harness.recordArtifactCreated(conversation.id, 'task_2', { url, title: '定稿', type: 'slides' });
+    expect(artifacts()).toEqual([{ ...first, title: '定稿', taskId: 'task_2' }, other]);
+    harness.recordArtifactCreated(conversation.id, null, { url, title: '定稿 2', type: 'slides' });
+    expect(artifacts()[0]).toMatchObject({ id: first!.id, title: '定稿 2', taskId: 'task_2' });
   });
 });
 

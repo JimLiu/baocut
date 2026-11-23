@@ -37,14 +37,6 @@
   }
 
   function SessionArtifactCard({item, sess, onOpen}) {
-    /* 幻灯片卡（docs/design/slides §7.3）：第一页做预览，「打开」在右侧开幻灯片标签页 */
-    if (item.kind === 'slides' && window.SlidesDeckCard) return <window.SlidesDeckCard item={item} sess={sess} onOpen={onOpen} />;
-    /* 设计稿卡（docs/design/canvas §7.3）：整张画布做预览，「打开」在右侧开设计稿标签页 */
-    if (item.kind === 'design' && window.DesignCanvasCard) return <window.DesignCanvasCard item={item} sess={sess} onOpen={onOpen} />;
-    /* 设计系统卡（docs/design/canvas §10.5）：一行，图标、标题、「设计系统」，点了在右侧开设计系统标签页 */
-    if (item.kind === 'design-system' && window.DesignSystemCard) return <window.DesignSystemCard item={item} sess={sess} onOpen={onOpen} />;
-    /* 协作文档卡（docs/design/docs §7.3）：一行，图标、标题、「协作文档 · N 个标签页」，点了在右侧开协作文档标签页 */
-    if (item.kind === 'docs' && window.DocsCard) return <window.DocsCard item={item} sess={sess} onOpen={onOpen} />;
     return <ArtifactCard item={item} sess={sess} onOpen={onOpen} />;
   }
 
@@ -52,13 +44,17 @@
     const app = useApp();
     const R = window.RSP;
     const kind = window.BC_SPACE.KINDS[item.kind];
-    const Icon = R.Icons[kind?.icon || 'FileText'];
+    /* 作品卡（docs/design/artifacts §4–§5）：一行，类型图标、标题、类型名；同一份作品几次回执合成一张，点了在右侧作品标签里打开 */
+    const ART = window.BC_HOME_ARTIFACTS;
+    const artifact = item.kind === 'artifact' && ART ? {id: ART.idOf(item.url), name: item.title || ART.COPY.untitled, detail: ART.cardDetail(item)} : null;
+    const Icon = R.Icons[artifact ? ART.iconName(item.type) : kind?.icon || 'FileText'];
     const movie = item.kind === 'movie';
     const project = movie ? app.projects.find(p => p.id === item.id) : null;
     /* 线程里的卡与「会话摘要」弹层里的同一张卡都列整条会话在这部视频上的活 */
     const card = movie ? window.BC_AGENT_CARDS.movieCard(project, sess, app.tasks) : null;
     const open = () => {
       if (movie) { onOpen?.(); app.openMovie(item.id, {sid: sess.id, via: 'home'}); }
+      else if (artifact) { onOpen?.(); app.openWorkspaceArtifact(artifact.id, sess.id); }
       else { onOpen?.(); app.openWorkspaceFile(item.id, sess.id); }
     };
     const dur = project ? project.duration : item.dur;
@@ -82,7 +78,11 @@
           <div className="chat-movie__actions"><R.ActionButton size="S" onPress={open}><R.Text>打开编辑器</R.Text></R.ActionButton></div>
         </div>
         {window.MovieJobRows ? <window.MovieJobRows shown={card.shown} earlier={card.earlier} pending={card.pending} /> : null}
-      </div> : <BCAction className="chat-output" aria-label={`预览「${item.name}」`} onClick={open}>
+      </div> : artifact ? <BCAction className="chat-output" aria-label={`打开作品「${artifact.name}」`} onClick={open}>
+        <span className="chat-output__icon"><Icon /></span>
+        <span className="chat-output__body"><strong title={artifact.name}>{artifact.name}</strong><span>{artifact.detail}</span></span>
+        <R.Icons.OpenIn />
+      </BCAction> : <BCAction className="chat-output" aria-label={`预览「${item.name}」`} onClick={open}>
         <span className="chat-output__icon"><Icon /></span>
         <span className="chat-output__body"><strong title={item.name}>{item.name}</strong>
           <span>{kind?.label || '文件'}{item.dur ? ` · ${window.BC_TIME.duration(item.dur)}` : ''}</span>

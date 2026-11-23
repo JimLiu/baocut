@@ -15,9 +15,6 @@ const EXPECTED_IDS = [
   'clip-montage',
   'cover-and-title',
   'cross-video-qa',
-  'design',
-  'design-system',
-  'docs',
   'explainer-video',
   'history-video',
   'motion-graphics',
@@ -25,7 +22,6 @@ const EXPECTED_IDS = [
   'polish-transcript',
   'production-scripts',
   'shorts-segments',
-  'slides',
   'speaker-labeling',
   'subtitle-workflow',
   'talking-head-cut',
@@ -38,9 +34,6 @@ const EXPECTED_IDS = [
   'virtual-host',
   'vlog-from-clips',
 ];
-
-/** 只给会话内智能体的内置 skill：说明书的路由只在工具桥面列出它们，CLI 面的「内置 skill」表也不列。 */
-const AGENT_ONLY_IDS = ['design', 'design-system', 'docs', 'slides'];
 
 /** 会话开始时的 skill 索引只取 description 的前 300 个字符（`skill-brief.ts`），内置的写在这个长度以内。 */
 const INDEX_DESCRIPTION_CHARS = 300;
@@ -130,12 +123,12 @@ describe('仓库里的内置 skill', () => {
     for (const [, id, target] of rows) expect(target, id).toBe(`${id}/SKILL.md`);
   });
 
-  it('说明书 SKILL.md 的「内置 skill」表（只给 CLI 面）列出全部内置 skill，只给会话内智能体的除外', async () => {
+  it('说明书 SKILL.md 的「内置 skill」表（只给 CLI 面）列出全部内置 skill', async () => {
     const manual = await fs.readFile(path.join(builtinDir, '..', 'SKILL.md'), 'utf8');
     const start = manual.indexOf('### 内置 skill');
     expect(start).toBeGreaterThan(0);
     const section = manual.slice(start, manual.indexOf('<!-- /surface -->', start));
     const ids = [...section.matchAll(/^\| \{\{skill:([a-z0-9-]+)\}\} \|/gm)].map((row) => row[1]);
-    expect(ids.sort()).toEqual(EXPECTED_IDS.filter((id) => !AGENT_ONLY_IDS.includes(id)));
+    expect(ids.sort()).toEqual(EXPECTED_IDS);
   });
 });

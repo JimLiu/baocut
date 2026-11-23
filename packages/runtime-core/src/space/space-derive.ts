@@ -44,14 +44,6 @@ export interface ScannedFile {
   size: number;
   mtimeMs: number;
   birthtimeMs?: number;
-  /** 幻灯片条目（deck 目录）：deck.json 里的标题与页数。 */
-  deck?: { title: string; slideCount: number };
-  /** 设计稿条目（设计稿目录）：canvas.json 里的标题与画板数。 */
-  canvas?: { title: string; boardCount: number };
-  /** 设计系统条目（设计系统目录）：design-system.json 里的标题（没有时是目录名）。 */
-  designSystem?: { title: string };
-  /** 文档条目（文档目录）：doc.json 里的标题与标签页数。 */
-  doc?: { title: string; tabCount: number };
 }
 
 export interface ScannedItem {
@@ -153,19 +145,6 @@ export function deriveEntries(input: DeriveInput): Map<Id, DerivedEntry> {
       user: { favorite: false, displayName: null, trashedAt: null },
     };
     const derived: DerivedEntry = { entry, location: { kind: 'source', sourceKey: item.sourceKey, relPath: item.file.relPath } };
-    if (item.file.deck) {
-      if (item.file.deck.title) entry.name = item.file.deck.title;
-      entry.deck = { slideCount: item.file.deck.slideCount };
-    }
-    if (item.file.canvas) {
-      if (item.file.canvas.title) entry.name = item.file.canvas.title;
-      entry.canvas = { boardCount: item.file.canvas.boardCount };
-    }
-    if (item.file.designSystem?.title) entry.name = item.file.designSystem.title;
-    if (item.file.doc) {
-      if (item.file.doc.title) entry.name = item.file.doc.title;
-      entry.doc = { tabCount: item.file.doc.tabCount };
-    }
     if (item.file.kind === 'video') {
       const dir = path.join(source.root, ...item.file.relPath.split('/'));
       derived.videoDir = dir;

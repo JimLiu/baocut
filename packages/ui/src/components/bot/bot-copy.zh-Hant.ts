@@ -111,6 +111,7 @@ export const zhHant: BotMessages = {
       schedule: '定時執行',
       make: '建議',
       moved: '已移動',
+      artifact: '作品留言',
     },
     expand: '展開詳情',
     collapse: '收合詳情',

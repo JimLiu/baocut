@@ -38,12 +38,8 @@ describe('项目文件浏览', () => {
     expect(entryMeta(entry({ size: 10 }), now)).toBe('文件 · 10 B');
   });
 
-  it('打开：视频目录交给视频，幻灯片、设计稿、设计系统、协作文档目录交给各自的标签，普通目录进入，其余是文件；定位是会话里的相对路径', () => {
+  it('打开：视频目录交给视频，普通目录进入，其余是文件；定位是会话里的相对路径', () => {
     expect(entryAction({ isDir: true, kind: 'video' })).toBe('video');
-    expect(entryAction({ isDir: true, kind: 'slides' })).toBe('slides');
-    expect(entryAction({ isDir: true, kind: 'design' })).toBe('design');
-    expect(entryAction({ isDir: true, kind: 'design-system' })).toBe('design-system');
-    expect(entryAction({ isDir: true, kind: 'docs' })).toBe('docs');
     expect(entryAction({ isDir: true, kind: null })).toBe('enter');
     expect(entryAction({ isDir: false, kind: 'image' })).toBe('file');
     expect(projectFileTarget('conv_1', { path: 'scenes/a.mp4' })).toEqual({ conversationId: 'conv_1', path: 'scenes/a.mp4' });

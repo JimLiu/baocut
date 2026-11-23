@@ -1,4 +1,5 @@
 import {
+  type ArtifactCreated,
   type Conversation,
   type FileTarget,
   type Id,
@@ -14,13 +15,14 @@ import { conversationJobVideos, isVideoAt, openingVideo, videoOutput } from './v
 import { isPreviewExport } from './export-job.ts';
 
 /**
- * 会话头「产物」里的一项（产品设计 §3.2 用户修订）：这条会话新建、改过或在上面做过活的视频、做好的幻灯片、设计稿、设计系统与协作文档，
- * 或它工作目录里的文件。
+ * 会话头「产物」里的一项（产品设计 §3.2 用户修订）：这条会话新建、改过或在上面做过活的视频、它做的 Open Artifact 作品
+ * （docs/design/artifacts §4），或它工作目录里的文件。
  */
 export interface ConversationOutput {
-  /** 视频用视频 ID（同一个改几次只算一项），其它文件用 Space 条目 ID。 */
+  /** 视频用视频 ID（同一个改几次只算一项），作品用作品链接，其它文件用 Space 条目 ID。 */
   id: string;
-  kind: SpaceEntryKind;
+  /** 作品（`artifact`）不在 Space 里。 */
+  kind: SpaceEntryKind | 'artifact';
   name: string;
   /** 视频在编辑器里打开的定位；不是视频时为 null。 */
   video: FileTarget | null;
@@ -28,14 +30,8 @@ export interface ConversationOutput {
   entry: SpaceEntry | null;
   /** 视频最近一次修改后的时长。 */
   durationSeconds: number | null;
-  /** 幻灯片（docs/design/slides §7.3）：在功能区幻灯片标签里打开的定位与页数（不知道时 null）；不是幻灯片时没有。 */
-  slides?: { target: FileTarget; slideCount: number | null };
-  /** 设计稿（docs/design/canvas §7.3）：在功能区设计稿标签里打开的定位与画板数（不知道时 null）；不是设计稿时没有。 */
-  design?: { target: FileTarget; boardCount: number | null };
-  /** 设计系统（docs/design/canvas §10.6）：在功能区设计系统标签里打开的定位；不是设计系统时没有。 */
-  designSystem?: { target: FileTarget };
-  /** 协作文档（docs/design/docs）：在功能区协作文档标签里打开的定位与标签页数（不知道时 null）；不是协作文档时没有。 */
-  docs?: { target: FileTarget; tabCount: number | null };
+  /** 作品（docs/design/artifacts §4）：作品链接、标题与类型，在作品标签里打开；不是作品时没有。 */
+  artifact?: ArtifactCreated;
   /** 单文件标签打开的定位（Bot 任务的文件产物，可能在项目目录里）；没有时按 `entry.relPath` 在这条会话的工作目录里打开。 */
   file?: { target: FileTarget };
   at: string;
@@ -47,14 +43,6 @@ export interface ConversationOutput {
 }
 
 const LIMIT = 30;
-
-/** Space 里的这个幻灯片、设计稿、设计系统或协作文档条目是不是在这个位置（来源目录 + 相对路径）。 */
-function isDirAt(kind: 'slides' | 'design' | 'design-system' | 'docs', entry: SpaceEntry, target: FileTarget): boolean {
-  if (entry.kind !== kind || !('path' in target) || entry.relPath !== target.path) return false;
-  return 'projectId' in target ? entry.source.projectId === target.projectId : entry.source.conversationId === target.conversationId;
-}
-
-const baseName = (path: string) => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? path;
 
 /**
  * 文件改动步骤改到的文件 → 最近一次改它的任务。Driver 写的路径可能是绝对路径，也可能相对工作目录；
@@ -76,9 +64,8 @@ function fileTasks(items: readonly TimelineItem[], cwd: string | undefined): Map
 
 /**
  * 这条会话的产物，最近的在前：智能体新建（`video-created`）或经视频引擎改过（变更卡）的视频，智能体在上面做过活的视频
- * （转录、导出、从链接导入新建的……，`jobs` 里这条会话提交的），随第一句话带进来的视频（`openingVideo`），智能体做好的幻灯片、设计稿、
- * 设计系统与协作文档（`slides-created`、`design-created`、`design-system-created`、`docs-created`），
- * 加上不属于项目的会话自己工作目录里的文件。
+ * （转录、导出、从链接导入新建的……，`jobs` 里这条会话提交的），随第一句话带进来的视频（`openingVideo`），这条会话做的
+ * Open Artifact 作品（`artifact` 回执），加上不属于项目的会话自己工作目录里的文件。
  * 项目会话的其它文件没有记录是哪条会话产生的，不列；进了回收站的不列。`cwd` 用来把文件对回改它的任务。
  * 会话头只列最近 30 项；按回复分组时不截断（`limit: Infinity`）。
  */
@@ -112,73 +99,24 @@ export function conversationOutputs(
   // 随第一句话带进来的视频：线程里有它的卡，会话摘要里也列（同一张卡，产品设计 §3.2.2）。
   const opening = openingVideo(items);
   if (opening && !videos.has(opening.videoId)) videos.set(opening.videoId, videoOutput(opening.videoId, items, entries, jobs));
-  // 智能体做好的幻灯片（`slides-created` 回执）：一份一项，标题、页数与任务取最近一次校验通过的，回复下面的卡片跟着它挪。
-  // Space 里有它的条目时用条目的 id，下面列工作目录里的文件时不再重复。
-  const decks: ConversationOutput[] = [];
+  // 这条会话做的作品（`artifact` 回执，docs/design/artifacts §4）：一份一项（按链接），标题与类型取最近一次的。
+  const artifacts = new Map<string, ConversationOutput>();
   for (const item of items) {
-    if (item.kind !== 'slides-created') continue;
-    const entry = entries.find((e) => isDirAt('slides', e, item.target)) ?? null;
-    decks.push({
-      id: entry?.id ?? item.id,
-      kind: 'slides',
-      name: item.title || entry?.name || baseName(item.target.path),
+    if (item.kind !== 'artifact') continue;
+    artifacts.delete(item.url);
+    artifacts.set(item.url, {
+      id: item.url,
+      kind: 'artifact',
+      name: item.title || item.type || item.url,
       video: null,
-      entry,
+      entry: null,
       durationSeconds: null,
-      slides: { target: item.target, slideCount: item.slideCount },
+      artifact: { url: item.url, title: item.title, type: item.type },
       at: item.createdAt,
       taskId: item.taskId,
     });
   }
-  // 智能体做好的设计稿（`design-created` 回执）：同幻灯片。
-  for (const item of items) {
-    if (item.kind !== 'design-created') continue;
-    const entry = entries.find((e) => isDirAt('design', e, item.target)) ?? null;
-    decks.push({
-      id: entry?.id ?? item.id,
-      kind: 'design',
-      name: item.title || entry?.name || baseName(item.target.path),
-      video: null,
-      entry,
-      durationSeconds: null,
-      design: { target: item.target, boardCount: item.boardCount },
-      at: item.createdAt,
-      taskId: item.taskId,
-    });
-  }
-  // 智能体做好的设计系统（`design-system-created` 回执）：同幻灯片，没有计数。
-  for (const item of items) {
-    if (item.kind !== 'design-system-created') continue;
-    const entry = entries.find((e) => isDirAt('design-system', e, item.target)) ?? null;
-    decks.push({
-      id: entry?.id ?? item.id,
-      kind: 'design-system',
-      name: item.title || entry?.name || baseName(item.target.path),
-      video: null,
-      entry,
-      durationSeconds: null,
-      designSystem: { target: item.target },
-      at: item.createdAt,
-      taskId: item.taskId,
-    });
-  }
-  // 智能体新建的协作文档（`docs-created` 回执）：同幻灯片，计数是标签页数。
-  for (const item of items) {
-    if (item.kind !== 'docs-created') continue;
-    const entry = entries.find((e) => isDirAt('docs', e, item.target)) ?? null;
-    decks.push({
-      id: entry?.id ?? item.id,
-      kind: 'docs',
-      name: item.title || entry?.name || baseName(item.target.path),
-      video: null,
-      entry,
-      durationSeconds: null,
-      docs: { target: item.target, tabCount: item.tabCount },
-      at: item.createdAt,
-      taskId: item.taskId,
-    });
-  }
-  const outputs = [...videos.values(), ...decks].filter((output) => !output.entry?.user.trashedAt);
+  const outputs = [...videos.values(), ...artifacts.values()].filter((output) => !output.entry?.user.trashedAt);
   if (!conversation.projectId) {
     const normalize = (path: string) => path.replace(/\\/g, '/');
     const exports = jobs.filter((j) => j.kind === 'export');
@@ -213,10 +151,6 @@ export function conversationOutputs(
         video: entry.kind === 'video' ? videoTargetOf(entry) : null,
         entry,
         durationSeconds: null,
-        ...(entry.kind === 'slides' ? { slides: { target: videoTargetOf(entry), slideCount: entry.deck?.slideCount ?? null } } : {}),
-        ...(entry.kind === 'design' ? { design: { target: videoTargetOf(entry), boardCount: entry.canvas?.boardCount ?? null } } : {}),
-        ...(entry.kind === 'design-system' ? { designSystem: { target: videoTargetOf(entry) } } : {}),
-        ...(entry.kind === 'docs' ? { docs: { target: videoTargetOf(entry), tabCount: entry.doc?.tabCount ?? null } } : {}),
         at: entry.lastActivityAt,
         taskId: tasks.get(entry.relPath) ?? null,
       });

@@ -182,126 +182,29 @@ describe('conversationOutputs', () => {
     ]);
   });
 
-  it('智能体做好的幻灯片（slides-created）：一份一项，标题、页数与任务取回执；Space 有条目时用条目 id，工作目录里不重复', () => {
-    const source = { projectId: null, conversationId: 'c1' };
-    const receipt = (id: string, path: string, title: string): TimelineItem => ({
-      kind: 'slides-created',
+  it('智能体做的作品（artifact 回执）：一份作品一项，按链接去重，标题、类型与任务取最近一次；没有标题时用类型', () => {
+    const receipt = (id: string, url: string, title: string, type: string, taskId: string, createdAt: string): TimelineItem => ({
+      kind: 'artifact',
       id,
-      createdAt: '2026-10-02T02:00:00.000Z',
-      taskId: 't2',
-      target: { conversationId: 'c1', path },
+      createdAt,
+      taskId,
+      url,
       title,
-      slideCount: 8,
+      type,
     });
-    const items = [receipt('s1', 'decks/talk', '季度回顾'), receipt('s2', 'drafts/plan', '')];
-    const entries = [
-      entry('deck', { kind: 'slides', name: '旧标题', source, relPath: 'decks/talk', deck: { slideCount: 7 } }),
-      entry('loose', { kind: 'slides', name: '没校验的', source, relPath: 'loose', deck: { slideCount: 2 }, lastActivityAt: '2026-10-01T00:00:00.000Z' }),
+    const deck = 'open-artifact://artifact/deck1';
+    const doc = 'open-artifact://artifact/doc1';
+    const items = [
+      receipt('a1', deck, '季度回顾（草稿）', 'slides', 't1', '2026-10-02T01:00:00.000Z'),
+      receipt('a2', doc, '', 'docs', 't2', '2026-10-02T02:00:00.000Z'),
+      receipt('a3', deck, '季度回顾', 'slides', 't3', '2026-10-02T03:00:00.000Z'),
     ];
-    const outputs = conversationOutputs({ id: 'c1', projectId: null }, items, entries);
-    expect(outputs.map((o) => [o.id, o.name, o.taskId, o.slides])).toEqual([
-      ['deck', '季度回顾', 't2', { target: { conversationId: 'c1', path: 'decks/talk' }, slideCount: 8 }],
-      ['s2', 'plan', 't2', { target: { conversationId: 'c1', path: 'drafts/plan' }, slideCount: 8 }],
-      ['loose', '没校验的', null, { target: { conversationId: 'c1', path: 'loose' }, slideCount: 2 }],
+    const outputs = conversationOutputs({ id: 'c1', projectId: null }, items, []);
+    expect(outputs.map((o) => [o.id, o.kind, o.name, o.taskId, o.artifact])).toEqual([
+      [deck, 'artifact', '季度回顾', 't3', { url: deck, title: '季度回顾', type: 'slides' }],
+      [doc, 'artifact', 'docs', 't2', { url: doc, title: '', type: 'docs' }],
     ]);
-    expect(outputs.every((o) => o.kind === 'slides' && o.video === null)).toBe(true);
-  });
-
-  it('智能体做好的设计稿（design-created）：同幻灯片，画板数取回执；Space 有条目时用条目 id，工作目录里不重复', () => {
-    const source = { projectId: null, conversationId: 'c1' };
-    const items: TimelineItem[] = [
-      {
-        kind: 'design-created',
-        id: 'd1',
-        createdAt: '2026-10-02T02:00:00.000Z',
-        taskId: 't3',
-        target: { conversationId: 'c1', path: 'designs/landing' },
-        title: '课程落地页',
-        boardCount: 3,
-      },
-    ];
-    const entries = [
-      entry('canvas', { kind: 'design', name: '旧标题', source, relPath: 'designs/landing', canvas: { boardCount: 2 } }),
-      entry('draft', { kind: 'design', name: '草图', source, relPath: 'sketch', canvas: { boardCount: 1 }, lastActivityAt: '2026-10-01T00:00:00.000Z' }),
-    ];
-    const outputs = conversationOutputs({ id: 'c1', projectId: null }, items, entries);
-    expect(outputs.map((o) => [o.id, o.name, o.taskId, o.design])).toEqual([
-      ['canvas', '课程落地页', 't3', { target: { conversationId: 'c1', path: 'designs/landing' }, boardCount: 3 }],
-      ['draft', '草图', null, { target: { conversationId: 'c1', path: 'sketch' }, boardCount: 1 }],
-    ]);
-    expect(outputs.every((o) => o.kind === 'design' && o.video === null && !o.slides)).toBe(true);
-  });
-
-  it('智能体做好的设计系统（design-system-created）：同设计稿，没有计数；Space 有条目时用条目 id，工作目录里不重复', () => {
-    const source = { projectId: null, conversationId: 'c1' };
-    const items: TimelineItem[] = [
-      {
-        kind: 'design-system-created',
-        id: 's1',
-        createdAt: '2026-10-02T02:00:00.000Z',
-        taskId: 't4',
-        target: { conversationId: 'c1', path: 'systems/brand' },
-        title: '品牌设计系统',
-      },
-      {
-        kind: 'design-system-created',
-        id: 's2',
-        createdAt: '2026-10-02T01:00:00.000Z',
-        taskId: 't5',
-        target: { conversationId: 'c1', path: 'systems/untitled' },
-        title: '',
-      },
-    ];
-    const entries = [
-      entry('brand', { kind: 'design-system', name: '旧标题', source, relPath: 'systems/brand' }),
-      // 同一路径上的设计稿条目不算这套设计系统
-      entry('canvas', { kind: 'design', name: '落地页', source, relPath: 'systems/untitled', canvas: { boardCount: 1 } }),
-      entry('kit', { kind: 'design-system', name: '组件库', source, relPath: 'kit', lastActivityAt: '2026-10-01T00:00:00.000Z' }),
-    ];
-    const outputs = conversationOutputs({ id: 'c1', projectId: null }, items, entries).filter((o) => o.kind === 'design-system');
-    expect(outputs.map((o) => [o.id, o.name, o.taskId, o.designSystem])).toEqual([
-      ['brand', '品牌设计系统', 't4', { target: { conversationId: 'c1', path: 'systems/brand' } }],
-      ['s2', 'untitled', 't5', { target: { conversationId: 'c1', path: 'systems/untitled' } }],
-      ['kit', '组件库', null, { target: { conversationId: 'c1', path: 'kit' } }],
-    ]);
-    expect(outputs.every((o) => o.video === null && !o.slides && !o.design)).toBe(true);
-  });
-
-  it('智能体新建的协作文档（docs-created）：同设计稿，计数是标签页数；Space 有条目时用条目 id，工作目录里不重复', () => {
-    const source = { projectId: null, conversationId: 'c1' };
-    const items: TimelineItem[] = [
-      {
-        kind: 'docs-created',
-        id: 'k1',
-        createdAt: '2026-10-02T02:00:00.000Z',
-        taskId: 't6',
-        target: { conversationId: 'c1', path: 'docs/plan' },
-        title: '发布计划',
-        tabCount: 2,
-      },
-      {
-        kind: 'docs-created',
-        id: 'k2',
-        createdAt: '2026-10-02T01:00:00.000Z',
-        taskId: 't7',
-        target: { conversationId: 'c1', path: 'docs/untitled' },
-        title: '',
-        tabCount: 1,
-      },
-    ];
-    const entries = [
-      entry('plan', { kind: 'docs', name: '旧标题', source, relPath: 'docs/plan', doc: { tabCount: 3 } }),
-      // 同一路径上的普通文档条目不算这份协作文档
-      entry('note', { kind: 'document', name: 'untitled', source, relPath: 'docs/untitled', lastActivityAt: '2026-09-01T00:00:00.000Z' }),
-      entry('retro', { kind: 'docs', name: '复盘', source, relPath: 'retro', doc: { tabCount: 4 }, lastActivityAt: '2026-10-01T00:00:00.000Z' }),
-    ];
-    const outputs = conversationOutputs({ id: 'c1', projectId: null }, items, entries).filter((o) => o.kind === 'docs');
-    expect(outputs.map((o) => [o.id, o.name, o.taskId, o.docs])).toEqual([
-      ['plan', '发布计划', 't6', { target: { conversationId: 'c1', path: 'docs/plan' }, tabCount: 2 }],
-      ['k2', 'untitled', 't7', { target: { conversationId: 'c1', path: 'docs/untitled' }, tabCount: 1 }],
-      ['retro', '复盘', null, { target: { conversationId: 'c1', path: 'retro' }, tabCount: 4 }],
-    ]);
-    expect(outputs.every((o) => o.video === null && !o.slides && !o.design && !o.designSystem)).toBe(true);
+    expect(outputs.every((o) => o.video === null && o.entry === null)).toBe(true);
   });
 
   it('limit：会话头最多 30 项，按回复分组时可以不截断', () => {

@@ -26,10 +26,6 @@ import {
   type SemanticFolderStatus,
 } from '@baocut/protocol';
 import { TopicLog, type Harness, type Logger, type TopicSubscription } from '@baocut/harness';
-import { inspectDeck } from '@baocut/slides';
-import { inspectCanvas, readCanvasInfo } from '@baocut/design';
-import { inspectDesignSystem, readDesignSystemInfo } from '@baocut/design-system';
-import { inspectDoc, readDocInfo } from '@baocut/docs';
 import {
   EMPTY_MARK,
   artifactIdsOf,
@@ -59,9 +55,8 @@ export type { ScannedFile } from './space/space-derive.ts';
  * 与 `space.import` 的登记存在 Runtime Store 里。条目的来源与派生规则见 `space/space-derive.ts`：
  *
  * - 来源目录：登记的项目目录，和不属于项目的会话的工作目录。只收认得出类型的媒体与文档文件，跳过隐藏目录与依赖目录；
- *   含 `video.db` 的目录是一个视频（视频格式规范 §1），含合法 `deck.json` 的目录是一份幻灯片（docs/design/slides §7.3），
- *   含合法 `canvas.json` 的目录是一份设计稿（docs/design/canvas §7.3），含合法 `design-system.json`（v 为 3、`layout` 为 `"files"`）
- *   的目录是一个设计系统（§10.6），含合法 `doc.json` 的目录是一份文档（docs/design/docs §7），整个目录都算一个条目，不再往里走。
+ *   含 `video.db` 的目录是一个视频（视频格式规范 §1），整个目录算一个条目，不再往里走。幻灯片、文档、设计稿等作品在 Open Artifact
+ *   里（docs/design/artifacts），不进 Space。
  *   设计里「只索引登记过的文件、不扫描整个项目目录」（§5.7）还没有做到：界面与会话里的文件列表依赖扫描，见 §14。
  * - Job Ledger（`jobs`）：生成与导出的产物、进行中与失败的占位。Job 事件到来时增量重算。产出产物的任务另记一份派生用事实
  *   （`artifacts`，Runtime Store 的 `space-artifacts.json`）：Ledger 修剪掉旧任务之后，产物条目照样在。
@@ -162,28 +157,11 @@ export async function scanDirectory(root: string, limits: ScanLimits = DEFAULT_S
       }
       if (dirent.isDirectory()) {
         const video = await inspectVideoDir(full);
-        const deck = video ? null : await inspectDeck(full);
-        const canvas = video || deck ? null : await inspectCanvas(full);
-        const system = video || deck || canvas ? null : await inspectDesignSystem(full);
-        const doc = video || deck || canvas || system ? null : await inspectDoc(full);
-        if (video || deck || canvas || system || doc) {
+        if (video) {
           if (files.length >= limits.maxFiles) {
             return done({ kind: 'truncated', detail: RcSpace.tooManyFiles({ max: limits.maxFiles }).text });
           }
-          if (video) files.push({ relPath, kind: 'video', ...video });
-          else if (deck) {
-            const { title, slideCount, ...stat } = deck;
-            files.push({ relPath, kind: 'slides', ...stat, deck: { title, slideCount } });
-          } else if (canvas) {
-            const { title, boardCount, ...stat } = canvas;
-            files.push({ relPath, kind: 'design', ...stat, canvas: { title, boardCount } });
-          } else if (system) {
-            const { title, namespace: _namespace, ...stat } = system;
-            files.push({ relPath, kind: 'design-system', ...stat, designSystem: { title } });
-          } else if (doc) {
-            const { title, tabCount, ...stat } = doc;
-            files.push({ relPath, kind: 'docs', ...stat, doc: { title, tabCount } });
-          }
+          files.push({ relPath, kind: 'video', ...video });
         } else if (depth < limits.maxDepth) queue.push({ dir: full, rel: relPath, depth: depth + 1 });
         continue;
       }
@@ -845,18 +823,6 @@ export class SpaceCatalog {
         if (await inspectVideoDir(dir)) {
           throw new RpcError('invalid-request', RcSpace.videoDirFile(), { code: 'SPACE_IMPORT_UNSUPPORTED' });
         }
-        if (await inspectDeck(dir)) {
-          throw new RpcError('invalid-request', RcSpace.slidesDirFile(), { code: 'SPACE_IMPORT_UNSUPPORTED' });
-        }
-        if (await readCanvasInfo(dir)) {
-          throw new RpcError('invalid-request', RcSpace.designDirFile(), { code: 'SPACE_IMPORT_UNSUPPORTED' });
-        }
-        if (await readDesignSystemInfo(dir)) {
-          throw new RpcError('invalid-request', RcSpace.designSystemDirFile(), { code: 'SPACE_IMPORT_UNSUPPORTED' });
-        }
-        if (await readDocInfo(dir)) {
-          throw new RpcError('invalid-request', RcSpace.docsDirFile(), { code: 'SPACE_IMPORT_UNSUPPORTED' });
-        }
       }
       relPath = parts.join('/');
     } else {
@@ -908,9 +874,7 @@ export class SpaceCatalog {
     const file = location.kind === 'source' ? this.locate(entryId).file : location.kind === 'none' ? null : location.path;
     const references = file ? await this.#references(entry, file) : [];
     if (references.length > 0) return { status: 'blocked', entryId, references };
-    // 幻灯片、设计稿、设计系统与文档条目是整个 deck / 设计稿 / 设计系统 / 文档目录（设计系统连同 `_blobs/`）。
-    const dirEntry = entry.kind === 'slides' || entry.kind === 'design' || entry.kind === 'design-system' || entry.kind === 'docs';
-    if (file) await fsp.rm(file, { force: true, recursive: dirEntry });
+    if (file) await fsp.rm(file, { force: true });
     await this.#marks.remove(entryId);
     // 导出与扫描到的文件合成一个条目：文件删了之后不要再以「缺失」的产物出现。
     const artifactId = entry.ref && 'artifactId' in entry.ref ? entry.ref.artifactId : null;

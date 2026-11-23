@@ -19,6 +19,7 @@ import {
   type FileTarget,
   type ForkVideoOption,
   type ImportableSession,
+  type ArtifactOpenResult,
   type Id,
   type JobReconcileDecision,
   type JobRecord,
@@ -31,17 +32,14 @@ import {
   type SpaceReadScope,
   type SubtitleTrack,
   type SkillSendRef,
-  type SlideAnnotation,
-  type DesignAnnotation,
-  type DesignSystemAnnotation,
   type VideoAnnotation,
-  type DocsAnnotation,
   type TemplateSendRef,
 } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import type { HostBridge } from '../host.ts';
 import { importAndPlace } from '../model/editor-ops.ts';
 import { insertVisual, type VisualLayer } from '../model/new-items.ts';
+import { artifactsFeed, onArtifactShow, rememberPreopened } from '../state/artifacts-store.ts';
 import { useChannels } from '../state/channels-store.ts';
 import { useConnection } from '../state/connection-store.ts';
 import { useDirectory } from '../state/directory-store.ts';
@@ -164,6 +162,9 @@ export class RuntimeSession {
         snapshot: (snapshot) => useGrants.getState().replace(snapshot),
         event: (event) => useGrants.getState().apply(event),
       }),
+      // Open Artifact 的作品（docs/design/artifacts §5）：daemon 状态、作品页面的消息，以及智能体要给用户看的作品。
+      this.client.subscribe<import('@baocut/protocol').ArtifactsSnapshot, import('@baocut/protocol').ArtifactsEvent>('artifacts', artifactsFeed),
+      onArtifactShow((conversationId, open) => this.showArtifact(conversationId, open)),
     );
     void this.client.connect().catch(() => {});
   }
@@ -180,6 +181,21 @@ export class RuntimeSession {
     this.#waitingVideos.set(video.videoId, video.target);
     this.#stopWaiting ??= useSpace.subscribe((s) => this.#openWatchable(s.entries));
     this.#openWatchable(useSpace.getState().entries);
+  }
+
+  /**
+   * 智能体用 Artifact 工具建好或要用户看一份作品（`artifacts.show`）：用户正在 Home 看着这条会话（或这次没有会话、只是停在 Home）时，
+   * 在功能区开一个作品标签；不在的不打断，会话里的作品卡随时能点开。
+   */
+  showArtifact(conversationId: Id | null, open: ArtifactOpenResult): void {
+    const { route, openPane } = useShell.getState();
+    if (route.tab !== 'home') return;
+    if (conversationId && route.conversationId !== conversationId) return;
+    rememberPreopened(open);
+    openPane(
+      { kind: 'artifact', url: open.url, title: open.title, type: open.type, conversationId },
+      { conversationId: route.conversationId, projectId: route.projectId },
+    );
   }
 
   /** 在等的视频里条目已经有内容的：不再等，各试着打开一次。都等到了就不再看着 Space 镜像。 */
@@ -289,11 +305,7 @@ export class RuntimeSession {
    * `template`：挂着的场景模板（模板包规范 §5.2），Runtime 据此给智能体拼简报引导与模板正文；`text` 仍是用户自己的话。
    * `skills`：输入框「+ › 使用 Skill」点选的 skill（产品设计 §6.9），按挂上的顺序；Runtime 把每个的 `SKILL.md` 正文附给智能体，
    * 消息上另带标记。空的不传。
-   * `slideAnnotations`：幻灯片标签里加进对话的标注（docs/design/slides §8.2、§9），Runtime 按 deck 拼成给智能体的段落。空的不传。
-   * `designAnnotations`：设计稿标签里加进对话的标注（docs/design/canvas §8.2、§9），同上，按设计稿拼段。空的不传。
-   * `designSystemAnnotations`：设计系统标签里加进对话的标注（docs/design/canvas §10.6），同上，按设计系统拼段。空的不传。
-   * `videoAnnotations`：编辑器预览画面上加进对话的视频标注（产品设计 §3.2.3「视频标注」），同上，按视频拼段。空的不传。
-   * `docsAnnotations`：协作文档标签里发给智能体的评论与请求（docs/design/docs §8），同上，按文档拼段。空的不传。
+   * `videoAnnotations`：编辑器预览画面上加进对话的视频标注（产品设计 §3.2.3「视频标注」），Runtime 按视频拼成给智能体的段落。空的不传。
    */
   async send(
     conversationId: Id,
@@ -302,11 +314,7 @@ export class RuntimeSession {
     attachments?: Id[],
     template?: TemplateSendRef,
     skills?: readonly SkillSendRef[],
-    slideAnnotations?: readonly SlideAnnotation[],
-    designAnnotations?: readonly DesignAnnotation[],
-    designSystemAnnotations?: readonly DesignSystemAnnotation[],
     videoAnnotations?: readonly VideoAnnotation[],
-    docsAnnotations?: readonly DocsAnnotation[],
     options: { skipProjectBrand?: boolean; replyToItemId?: Id } = {},
   ): Promise<Id> {
     const { taskId } = await this.client.request('conversations.send', {
@@ -317,11 +325,7 @@ export class RuntimeSession {
       ...(attachments?.length ? { attachments } : {}),
       ...(template ? { template } : {}),
       ...(skills?.length ? { skills: skills.map((s) => ({ id: s.id })) } : {}),
-      ...(slideAnnotations?.length ? { slideAnnotations: [...slideAnnotations] } : {}),
-      ...(designAnnotations?.length ? { designAnnotations: [...designAnnotations] } : {}),
-      ...(designSystemAnnotations?.length ? { designSystemAnnotations: [...designSystemAnnotations] } : {}),
       ...(videoAnnotations?.length ? { videoAnnotations: [...videoAnnotations] } : {}),
-      ...(docsAnnotations?.length ? { docsAnnotations: [...docsAnnotations] } : {}),
       ...(options.skipProjectBrand ? { skipProjectBrand: true } : {}),
       ...(options.replyToItemId ? { replyToItemId: options.replyToItemId } : {}),
     });
@@ -333,22 +337,14 @@ export class RuntimeSession {
     conversationId: Id,
     text: string,
     attachments?: Id[],
-    slideAnnotations?: readonly SlideAnnotation[],
-    designAnnotations?: readonly DesignAnnotation[],
-    designSystemAnnotations?: readonly DesignSystemAnnotation[],
     videoAnnotations?: readonly VideoAnnotation[],
-    docsAnnotations?: readonly DocsAnnotation[],
   ): Promise<'steered' | 'unsupported' | 'no-active-turn'> {
     const { status } = await this.client.request('conversations.steer', {
       conversationId,
       text,
       commandId: newId('cmd'),
       ...(attachments?.length ? { attachments } : {}),
-      ...(slideAnnotations?.length ? { slideAnnotations: [...slideAnnotations] } : {}),
-      ...(designAnnotations?.length ? { designAnnotations: [...designAnnotations] } : {}),
-      ...(designSystemAnnotations?.length ? { designSystemAnnotations: [...designSystemAnnotations] } : {}),
       ...(videoAnnotations?.length ? { videoAnnotations: [...videoAnnotations] } : {}),
-      ...(docsAnnotations?.length ? { docsAnnotations: [...docsAnnotations] } : {}),
     });
     return status;
   }

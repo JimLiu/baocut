@@ -52,30 +52,14 @@ export function fileRefTarget(path: string, entries: readonly SpaceEntry[], dirs
   return conversationId ? { conversationId, path } : null;
 }
 
-/** 条目所在来源目录里的定位；只在索引文件夹里的没有（幻灯片、设计稿这些目录打不开）。 */
-function sourceTarget(entry: SpaceEntry): FileTarget | null {
-  if (entry.source.projectId) return { projectId: entry.source.projectId, path: entry.relPath };
-  if (entry.source.conversationId) return { conversationId: entry.source.conversationId, path: entry.relPath };
-  return null;
-}
-
-/** Space 条目画成什么卡：视频是视频卡；幻灯片、设计稿、设计系统、协作文档在各自的标签里打开；其余在单文件标签里打开。 */
+/** Space 条目画成什么卡：视频是视频卡；其余在单文件标签里打开。 */
 function entryOutput(entry: SpaceEntry, label: string | null, target: FileTarget | null): ConversationOutput | null {
   const base = { kind: entry.kind, name: label ?? entry.name, video: null, entry, durationSeconds: null, at: '', taskId: null };
-  const dir = sourceTarget(entry);
   switch (entry.kind) {
     case 'video': {
       const videoId = entry.ref && 'videoId' in entry.ref ? entry.ref.videoId : entry.id;
       return { ...base, id: videoId, video: videoTargetOf(entry), durationSeconds: entry.media?.durationSec ?? null };
     }
-    case 'slides':
-      return dir ? { ...base, id: entry.id, slides: { target: dir, slideCount: null } } : null;
-    case 'design':
-      return dir ? { ...base, id: entry.id, design: { target: dir, boardCount: null } } : null;
-    case 'design-system':
-      return dir ? { ...base, id: entry.id, designSystem: { target: dir } } : null;
-    case 'docs':
-      return dir ? { ...base, id: entry.id, docs: { target: dir, tabCount: null } } : null;
     default:
       return { ...base, id: entry.id, file: { target: target ?? { entryId: entry.id } } };
   }

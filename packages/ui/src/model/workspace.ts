@@ -20,18 +20,14 @@ const en = {
   projectFiles: 'Project files',
   videoUnavailable: 'Video unavailable',
   fileUnavailable: 'File unavailable',
-  slidesUnavailable: 'Slides unavailable',
-  designUnavailable: 'Design unavailable',
-  designSystemUnavailable: 'Design system unavailable',
-  docsUnavailable: 'Doc unavailable',
+  artifactUntitled: 'Untitled artifact',
 };
 export type WorkspaceMessages = typeof en;
 const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });
 
 /**
- * Home 功能区的标签页（产品设计 §2.5、§3.3 用户修订）：视频、单个文件、项目文件浏览、网页、幻灯片（deck 目录，docs/design/slides §8.1）、
- * 设计稿（含 `canvas.json` 的目录，docs/design/canvas §8.1）、设计系统（含 `design-system.json` 的目录，§10.6）、
- * 协作文档（含 `doc.json` 的目录，docs/design/docs §5）。
+ * Home 功能区的标签页（产品设计 §2.5、§3.3 用户修订）：视频、单个文件、项目文件浏览、网页、Open Artifact 作品（docs/design/artifacts §5：
+ * 按作品链接 `url` 打开，`title` 与 `type` 是打开时知道的标题与类型，`conversationId` 是从哪条会话打开的，交给 `artifacts.open`）。
  * 每条会话各自记着一组标签；路由只带当前那一个。预览不改变会话的写入目标。
  */
 export type WorkspaceItem =
@@ -39,19 +35,7 @@ export type WorkspaceItem =
   | { kind: 'file'; target: MediaTarget; name?:string }
   | { kind: 'files' }
   | { kind: 'web'; id: string; url: string }
-  | { kind: 'slides'; target: FileTarget }
-  | { kind: 'design'; target: FileTarget }
-  | { kind: 'design-system'; target: FileTarget }
-  | { kind: 'docs'; target: FileTarget };
-
-/** 用 iframe 里的编辑器打开一个目录的标签（`EditorPane`）。 */
-export type EditorKind = 'slides' | 'design' | 'design-system' | 'docs';
-
-/**
- * 有标注的编辑器标签：四种都有（幻灯片 docs/design/slides §8.2、设计稿与设计系统 docs/design/canvas §8.2、§10.6、协作文档 docs/design/docs §8）。
- * 协作文档的标注不经批注框，编辑器里「发给智能体」直接进草稿。
- */
-export type AnnotatedEditorKind = EditorKind;
+  | { kind: 'artifact'; url: string; title?: string; type?: string; conversationId?: Id | null };
 
 export interface WorkspaceTabs {
   tabs: WorkspaceItem[];
@@ -79,14 +63,8 @@ export function itemKey(item: WorkspaceItem): string {
       return 'files';
     case 'web':
       return `web:${item.id}`;
-    case 'slides':
-      return `slides:${targetKey(item.target)}`;
-    case 'design':
-      return `design:${targetKey(item.target)}`;
-    case 'design-system':
-      return `design-system:${targetKey(item.target)}`;
-    case 'docs':
-      return `docs:${targetKey(item.target)}`;
+    case 'artifact':
+      return `artifact:${item.url}`;
   }
 }
 
@@ -271,15 +249,16 @@ export function narrowShowsConversation(focusInConversation: boolean, paneVisibl
   return focusInConversation || !paneVisible;
 }
 
-/** 标签上的名字（原型 model-home-workspace.js `title`）：项目文件、网页标题（还没有时用主机名），或文件、视频与幻灯片的名字（幻灯片退到目录名）。 */
+/** 标签上的名字（原型 model-home-workspace.js `title`）：项目文件、网页标题（还没有时用主机名），作品标题，或文件与视频的名字。 */
 export function workspaceTitle(item: WorkspaceItem, name?: string | null): string {
   if (item.kind === 'files') return M.projectFiles;
   if (item.kind === 'web') return name || webTitle(item.url);
+  if (item.kind === 'artifact') return name || item.title || M.artifactUntitled;
   if (name) return name;
   if (item.kind==='file'&&item.name) return item.name;
   const path = ('path' in item.target ? item.target.path : 'localPath' in item.target ? item.target.localPath : '').replace(/[\\/]+$/, '');
   const base = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
-  return base || (item.kind === 'video' ? M.videoUnavailable : item.kind === 'slides' ? M.slidesUnavailable : item.kind === 'design' ? M.designUnavailable : item.kind === 'design-system' ? M.designSystemUnavailable : item.kind === 'docs' ? M.docsUnavailable : M.fileUnavailable);
+  return base || (item.kind === 'video' ? M.videoUnavailable : M.fileUnavailable);
 }
 
 /** 网页标签里的页面换了地址：就地改这个标签的 `url`，不改当前标签与顺序；没有这个标签或没变化时返回原对象。 */

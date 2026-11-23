@@ -303,7 +303,13 @@
       if (messageId) { e.messageId = messageId; e.turn = turn; }   // 挪到最新一条引用
       if (taskId && !e.taskIds.includes(taskId)) { e.taskIds.push(taskId); taskTurn.set(taskId, turn); }
     };
+    const receipts = new Map();   // 作品链接 → {turn, receipt}：第一次回执所在的那一轮，与最近一次回执
     messages.forEach((m, i) => {
+      /* 作品回执（docs/design/artifacts §4）：同一份作品一张卡，留在第一次出现的那一轮，标题与类型取最近一次的 */
+      if (m.role === 'artifact') {
+        if (m.url) receipts.set(m.url, {turn: receipts.has(m.url) ? receipts.get(m.url).turn : turn, receipt: m});
+        return;
+      }
       if (m.role === 'user' && i > 0) turn += 1;
       if (m.role === 'user') turnStart[turn] = Number.isFinite(m.startedAt) ? m.startedAt : -Infinity;
       turnLast[turn] = m.id;
@@ -320,6 +326,11 @@
         const movieId = m.movieId !== undefined ? m.movieId : task ? task.project : sess.project;
         if (known.get(movieId)?.kind === 'movie') add(movieId, m.id, task && task.project === movieId ? task.id : null);
       }
+    });
+    /* 作品卡挂在那一轮的回复下面（那一轮最后一条不是回执的消息） */
+    receipts.forEach(({turn: at, receipt: r}, url) => {
+      found.set('artifact:' + url, {id: url, kind: 'artifact', name: r.title || url, url, title: r.title || '', type: r.type || '',
+        taskId: r.taskId || null, messageId: turnLast[at] || null});
     });
     for (const item of items) {
       // 没有产物状态的引用素材不算交付（会话里新建的视频除外，如剪成短视频的子视频，§5.10）；记的那条消息不在会话里时不知道该挂在哪，只在「产物」汇总里列出（messageId 为 null）。

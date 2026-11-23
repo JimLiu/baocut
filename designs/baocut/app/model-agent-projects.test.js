@@ -399,3 +399,22 @@ test('从 BaoCut 移除项目：去掉登记，列出要删的会话（含经视
   assert.strictEqual(none.dirs, dirs);
   assert.deepEqual([none.sessionIds, none.movieIds], [[], []]);
 });
+
+test('作品回执（docs/design/artifacts §4）：同一份作品一张卡，留在第一次出现的那一轮的回复下，标题与类型取最近一次', () => {
+  const url = 'open-artifact://artifact/art-1';
+  const sess = {id: 's1', messages: [
+    {id: 'u1', role: 'user', text: '/artifacts 课件'},
+    {id: 'r1', role: 'artifact', url, title: '初稿', type: 'slides', taskId: null},
+    {id: 'a1', role: 'assistant', text: '做好了'},
+    {id: 'u2', role: 'user', text: '改一下'},
+    {id: 'r2', role: 'artifact', url, title: '修订', type: 'docs', taskId: 't9'},
+    {id: 'r3', role: 'artifact', url: 'open-artifact://artifact/art-2', title: '', type: 'sheets'},
+    {id: 'a2', role: 'assistant', text: '改好了'},
+  ]};
+  const cards = P.sessionArtifacts(sess, [], []).filter(it => it.kind === 'artifact');
+  assert.deepEqual(cards.map(c => [c.id, c.title, c.type, c.taskId, c.messageId]), [
+    [url, '修订', 'docs', 't9', 'a1'],
+    ['open-artifact://artifact/art-2', '', 'sheets', null, 'a2'],
+  ]);
+  assert.equal(cards[1].name, 'open-artifact://artifact/art-2');
+});

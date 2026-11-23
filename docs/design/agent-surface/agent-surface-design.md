@@ -90,7 +90,7 @@ v3 已经有三个面向程序的入口，但只有两个共用实现：
 | `risk` | `TOOL_RISK` 的等级（`read` / `command` / `high` …），三个主体各自据此决定要不要确认 |
 | `effect` | `query`（只读）、`mutation`（进撤销栈）、`job`（返回 `jobId`）、`destructive`（不可撤销）。skill 的硬规则按它说话：`job` 要等、`mutation` 要读回执、`destructive` 要 `--yes` |
 | `examples` | 一到三个最小调用示例（JSON 参数），`help <命令>` 与 `spec` 带出 |
-| `surfaces` | 在哪些面出现：`agent`（工具桥）、`mcp`、`cli`。默认三个都有；只给会话里的智能体的（`tasks_*`、`grants_request`、`downloads_save`、`slides_*`、`conversations_set_title`）标 `agent` |
+| `surfaces` | 在哪些面出现：`agent`（工具桥）、`mcp`、`cli`。默认三个都有；只给会话里的智能体的（`tasks_*`、`grants_request`、`downloads_save`、`conversations_set_title`，以及作品工具 `Artifact`、`ArtifactData`、`ArtifactComments`）标 `agent` |
 
 `effect` 与 `examples` 是新字段，其余已有。现有 `MCP_SERVICE_TOOLS` 的 `read` / `write` 由 `annotations.readOnlyHint` 推出，不再单独维护一张表。
 

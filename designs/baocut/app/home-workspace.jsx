@@ -12,9 +12,14 @@
   const CONVERSATION = W.CONVERSATION;
   const SESSION_STATUS = {running: '进行中', waiting: '待允许'};
   // Shared by the tab strip, the drag ghost and the title bar's open-tabs list.
-  const workspaceTabName = (app, item) => item.id === '__browse__' ? '项目文件' : (item.kind === 'file' && app.workspaceFileTitles[item.id]) || W.title(item, app.spaceItems);
-  const workspaceTabIcon = item => item.kind === 'slides' ? <R.Icons.Layout /> : item.kind === 'design' ? <R.Icons.Shapes /> : item.kind === 'design-system' ? <R.Icons.ColorHarmony />
-    : item.kind === 'docs' ? <R.Icons.TextParagraph /> : item.kind === 'file' && item.id !== '__browse__' ? <R.Icons.FileText /> : <Ic n={item.kind === 'movie' ? 'film' : item.kind === 'web' ? 'web' : 'folder'} className="ic--16" />;
+  // docs/design/artifacts §5: an artifact tab is named and iconed from the session receipts (BC_HOME_ARTIFACTS.find).
+  const artifactInfo = (app, item) => window.BC_HOME_ARTIFACTS.find(app.sessions, item.id);
+  const workspaceTabName = (app, item) => item.id === '__browse__' ? '项目文件' : (item.kind === 'file' && app.workspaceFileTitles[item.id])
+    || W.title(item, app.spaceItems, () => artifactInfo(app, item)?.title);
+  const workspaceTabIcon = (item, app) => {
+    if (item.kind === 'artifact') { const Icon = R.Icons[window.BC_HOME_ARTIFACTS.iconName(app && artifactInfo(app, item)?.type)]; return <Icon />; }
+    return item.kind === 'file' && item.id !== '__browse__' ? <R.Icons.FileText /> : <Ic n={item.kind === 'movie' ? 'film' : item.kind === 'web' ? 'web' : 'folder'} className="ic--16" />;
+  };
 
   function ConversationTab({hover}) {
     const app = useApp();
@@ -55,7 +60,7 @@
     // With the conversation tab selected, the remembered pane is not the selected tab.
     const active = app.workspaceConversation ? null : app.workspace.active;
     const name = item => workspaceTabName(app, item);
-    const icon = workspaceTabIcon;
+    const icon = item => workspaceTabIcon(item, app);
     // Hover thumbnail (product-design §2.5 user revision): after 500 ms, cancelled by
     // leaving, pressing or dragging.
     const [hoverTab, setHoverTab] = useState(null);
@@ -360,10 +365,7 @@
           className="home-workspace__pane movie-workspace__editor" hidden={active !== item.key} tabIndex={0}>
           {item.kind === 'movie' ? <WorkspaceMovie item={item} active={visible && active === item.key} />
             : item.kind === 'web' ? <window.WorkspaceBrowser item={item} active={visible && active === item.key} />
-            : item.kind === 'slides' ? <window.WorkspaceSlides item={item} active={visible && active === item.key} />
-            : item.kind === 'design' ? <window.WorkspaceDesign item={item} active={visible && active === item.key} />
-            : item.kind === 'design-system' ? <window.WorkspaceDesignSystem item={item} active={visible && active === item.key} />
-            : item.kind === 'docs' ? <window.WorkspaceDocs item={item} active={visible && active === item.key} /> : <WorkspaceFiles item={item} active={visible && active === item.key} />}
+            : item.kind === 'artifact' ? <window.WorkspaceArtifact item={item} active={visible && active === item.key} /> : <WorkspaceFiles item={item} active={visible && active === item.key} />}
         </div>)}
       </div>
     </div>;

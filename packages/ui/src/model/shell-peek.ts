@@ -81,7 +81,7 @@ export function tabPreviewPosition(tab: { left: number; bottom: number }, viewpo
 
 /**
  * 缩略卡的副标题：网页写地址（空白页写「新标签页」），文件与视频写项目内路径，会话页签写「会话」；
- * 找不到路径时用标题。文字由调用方按当前语言给。
+ * 作品与找不到路径时用标题。文字由调用方按当前语言给。
  */
 export function tabPreviewSubtitle(
   item: WorkspaceItem | 'conversation',
@@ -89,7 +89,7 @@ export function tabPreviewSubtitle(
 ): string {
   if (item === 'conversation') return conversation;
   if (item.kind === 'web') return item.url || newTab;
-  if (item.kind === 'files') return title;
+  if (item.kind === 'artifact' || item.kind === 'files') return title;
   return targetPath(item.target, entries) || title;
 }
 

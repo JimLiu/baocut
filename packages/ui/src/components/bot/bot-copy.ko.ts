@@ -111,6 +111,7 @@ export const ko: BotMessages = {
       schedule: '예약 실행',
       make: '제안',
       moved: '이동됨',
+      artifact: '아티팩트 댓글',
     },
     expand: '세부 정보 보기',
     collapse: '세부 정보 숨기기',

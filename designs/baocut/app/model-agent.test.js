@@ -653,3 +653,9 @@ test('workSummary：结构化事实按种类归组，读取按路径计数', () 
     '读取了 1 个文件、搜索了、读取了网页、用了子智能体',
   );
 });
+
+test('conversationRows leaves artifact receipts out of the rows; they become cards (docs/design/artifacts §4)', () => {
+  const messages = ['user', 'tool', 'artifact', 'tool', 'assistant'].map((role, i) => ({id: String(i), role}));
+  const rows = A.conversationRows(messages);
+  assert.deepEqual(rows.map((r) => r.role), ['user', 'work', 'assistant']);
+});

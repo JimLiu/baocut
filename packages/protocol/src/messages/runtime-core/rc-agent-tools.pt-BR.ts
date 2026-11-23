@@ -28,15 +28,6 @@ export const ptBR: RcAgentToolsMessages = {
   clauseSeparator: "; ",
 
   createVideoSummary: (p: { name: string }) => `Criar vídeo “${p.name}”`,
-  slidesImportAssetSummary: (p: { file: string; deck: string }) => `Importar “${p.file}” para os slides “${p.deck}”`,
-  designImportAssetSummary: (p: { file: string; canvas: string }) => `Importar “${p.file}” para o design “${p.canvas}”`,
-  designSystemImportAssetSummary: (p: { file: string; system: string }) => `Importar “${p.file}” para o sistema de design “${p.system}”`,
-  docsEditSummary: (p: { doc: string }) => `Editar o documento “${p.doc}”`,
-  docsCreateSummary: (p: { doc: string }) => `Criar o documento “${p.doc}”`,
-  docsCommentSummary: (p: { doc: string }) => `Comentar no documento “${p.doc}”`,
-  docsDeleteSummary: (p: { doc: string }) => `Excluir do documento “${p.doc}”`,
-  docsUploadSummary: (p: { file: string; doc: string }) => `Importar “${p.file}” para o documento “${p.doc}”`,
-  docsExportSummary: (p: { file: string; doc: string }) => `Exportar o documento “${p.doc}” como Markdown para “${p.file}”`,
   editsSummary: (p: { label: string; count: number; types: string }) =>
     `${p.label} (${plural(p.count, "operação", "operações")}: ${p.types})`,
   captionsSummary: (p) => `Adicionar camada de legendas${p.bilingual ? ' bilíngue' : ''} ao documento ${p.documentId}`,

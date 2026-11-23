@@ -111,6 +111,7 @@ export const vi: BotMessages = {
       schedule: 'Chạy theo lịch',
       make: 'Đề xuất',
       moved: 'Đã chuyển',
+      artifact: 'Bình luận tác phẩm',
     },
     expand: 'Hiện chi tiết',
     collapse: 'Ẩn chi tiết',

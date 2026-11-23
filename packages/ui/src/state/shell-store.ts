@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   AGENT_MODES,
+  ARTIFACT_URL_PATTERN,
   fileTargetQuery,
   isLanguagePreference,
   newId,
@@ -840,10 +841,12 @@ function parseBotRoute(a: string | undefined, b: string | undefined, c: string |
 
 function paneQuery(pane: WorkspaceItem): string {
   if (pane.kind === 'video') return fileTargetQuery('video', pane.target);
-  if (pane.kind === 'slides') return new URLSearchParams({ slides: JSON.stringify(pane.target) }).toString();
-  if (pane.kind === 'design') return new URLSearchParams({ design: JSON.stringify(pane.target) }).toString();
-  if (pane.kind === 'design-system') return new URLSearchParams({ designSystem: JSON.stringify(pane.target) }).toString();
-  if (pane.kind === 'docs') return new URLSearchParams({ docs: JSON.stringify(pane.target) }).toString();
+  if (pane.kind === 'artifact')
+    return new URLSearchParams({
+      artifact: pane.url,
+      ...(pane.title ? { artifactTitle: pane.title } : {}),
+      ...(pane.conversationId ? { artifactFrom: pane.conversationId } : {}),
+    }).toString();
   if (pane.kind === 'file') return new URLSearchParams({file:JSON.stringify(pane.target),...(pane.name?{fileName:pane.name}:{})}).toString();
   const query = new URLSearchParams();
   if (pane.kind === 'files') query.set('files', '1');
@@ -939,14 +942,12 @@ function parseSkillsRoute(id: string | undefined, query: URLSearchParams): Route
 function parsePane(query: URLSearchParams): WorkspaceItem | undefined {
   const video = parseTarget(query.get('video'));
   if (video) return { kind: 'video', target: video };
-  const slides = parseTarget(query.get('slides'));
-  if (slides) return { kind: 'slides', target: slides };
-  const design = parseTarget(query.get('design'));
-  if (design) return { kind: 'design', target: design };
-  const designSystem = parseTarget(query.get('designSystem'));
-  if (designSystem) return { kind: 'design-system', target: designSystem };
-  const docs = parseTarget(query.get('docs'));
-  if (docs) return { kind: 'docs', target: docs };
+  const artifact = query.get('artifact');
+  if (artifact && ARTIFACT_URL_PATTERN.test(artifact)) {
+    const title = query.get('artifactTitle');
+    const from = query.get('artifactFrom');
+    return { kind: 'artifact', url: artifact, ...(title ? { title } : {}), ...(from ? { conversationId: from } : {}) };
+  }
   const file = parseMediaTarget(query.get('file'));
   if (file) return { kind: 'file', target: file, ...(query.get('fileName')?{name:query.get('fileName')!}:{}) };
   if (query.get('files') === '1') return { kind: 'files' };

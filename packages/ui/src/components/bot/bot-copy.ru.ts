@@ -150,6 +150,7 @@ export const ru: BotMessages = {
       schedule: 'Запуск по расписанию',
       make: 'Предложения',
       moved: 'Перенесена',
+      artifact: 'Комментарий к артефакту',
     },
     expand: 'Показать подробности',
     collapse: 'Скрыть подробности',

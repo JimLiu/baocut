@@ -27,7 +27,7 @@ function transport(runtime: RuntimeSession, conversationId: Id): QueueTransport 
         ? Promise.resolve(
             useDirectory.getState().conversations.find((c) => c.id === conversationId)?.activeTaskId ? 'unsupported' : 'no-active-turn',
           )
-        : runtime.steer(conversationId, m.text, ids(m), m.slideAnnotations, m.designAnnotations, m.designSystemAnnotations, m.videoAnnotations, m.docsAnnotations),
+        : runtime.steer(conversationId, m.text, ids(m), m.videoAnnotations),
     send: async (m) => {
       await runtime.send(
         conversationId,
@@ -36,11 +36,7 @@ function transport(runtime: RuntimeSession, conversationId: Id): QueueTransport 
         ids(m),
         undefined,
         m.skills,
-        m.slideAnnotations,
-        m.designAnnotations,
-        m.designSystemAnnotations,
         m.videoAnnotations,
-        m.docsAnnotations,
         { ...(m.skipProjectBrand ? { skipProjectBrand: true } : {}), ...(m.replyToItemId ? { replyToItemId: m.replyToItemId } : {}) },
       );
     },

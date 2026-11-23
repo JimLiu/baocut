@@ -75,14 +75,10 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   // 预览要的本机字体（架构设计 §9.1）只解析：处理函数对浏览器不下载，句柄只发给挑中的那一个字体文件。
   // 下载、删除、样张、清点与选字列表（`fonts.*` 的其余方法）改的是这台机器的字体缓存或要联网，不开放。
   'fonts.resolve',
-  // 幻灯片（docs/design/slides §6.1）：只在来源目录里按真实路径打开；只读配置下照样能打开，发布被路由拒绝。
-  'slides.open',
-  // 设计稿（docs/design/canvas §6.1）：同幻灯片；编辑器在另一个回环主机名上，路由只认 grant（§6.2）。
-  'design.open',
-  // 设计系统（docs/design/canvas §10.4）：同设计稿，编辑器在同一个隔离主机名上。
-  'designSystem.open',
-  // 文档（docs/design/docs §6）：同幻灯片，要会话；只读配置下照样能打开，编辑器的写入被路由拒绝。
-  'docs.open',
+  // Open Artifact 作品（docs/design/artifacts §5）：打开拿到 Shell 页面的一次性地址，页面与宿主之间的消息经 Runtime 转发。
+  // 作品的读写由 Open Artifact 的 daemon 管，不经 Runtime；只读配置下照样能打开。
+  'artifacts.open',
+  'artifacts.shellCommand',
   'videos.*',
   'documents.*',
   'edits.*',
@@ -240,10 +236,8 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'media.thumbnail',
   'media.bundle',
   'fonts.resolve',
-  'slides.open',
-  'design.open',
-  'designSystem.open',
-  'docs.open',
+  'artifacts.open',
+  'artifacts.shellCommand',
   'videos.open',
   'videos.close',
   'videos.history',

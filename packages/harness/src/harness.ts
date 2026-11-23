@@ -63,18 +63,11 @@ import {
   type JobFinishedNote,
   type VideoChange,
   type VideoCreated,
-  type SlidesCreated,
-  type DesignCreated,
-  type DesignSystemCreated,
-  type DesignAnnotation,
-  type DesignSystemAnnotation,
-  type DocsAnnotation,
-  type DocsCreated,
+  type ArtifactCreated,
   type Project,
   type Seq,
   type SequencedEvent,
   type SettingsReader,
-  type SlideAnnotation,
   type VideoAnnotation,
   groupVideoAnnotationsByFrame,
   videoAnnotationElementDetail,
@@ -100,7 +93,6 @@ import {
   type TimelineItem,
   type Localized,
   type Topic,
-  parseDocsPath,
 } from '@baocut/protocol';
 import {
   AgentPrefsStore,
@@ -982,7 +974,7 @@ export class Harness {
     // 共用这个目录的会话里的卡片写的是这条会话（或它自己）的位置：一起改。
     for (const member of [state, ...guests]) {
       for (const item of member.items()) {
-        if (item.kind !== 'video-created' && item.kind !== 'video-change' && item.kind !== 'slides-created' && item.kind !== 'design-created' && item.kind !== 'design-system-created' && item.kind !== 'docs-created') continue;
+        if (item.kind !== 'video-created' && item.kind !== 'video-change') continue;
         if (!('conversationId' in item.target) || (item.target.conversationId !== state.id && item.target.conversationId !== member.id)) continue;
         const [top, ...rest] = item.target.path.split('/');
         const renamed = top !== undefined ? moved.get(top) : undefined;
@@ -1754,16 +1746,8 @@ export class Harness {
      * 只有 `notice`：在这条消息后面记一条提示，消息照发。
      */
     brand?: { ref: MessageBrandRef | null; instructions: string | null; notice?: Localized };
-    /** 幻灯片标注（docs/design/slides §9），由 Runtime 按添加的顺序解析好 deck 相对会话工作目录的路径。 */
-    slideAnnotations?: ResolvedSlideAnnotation[];
-    /** 设计稿标注（docs/design/canvas §9），由 Runtime 按添加的顺序解析好设计稿相对会话工作目录的路径。 */
-    designAnnotations?: ResolvedDesignAnnotation[];
-    /** 设计系统标注（docs/design/canvas §10.6），由 Runtime 按添加的顺序解析好设计系统相对会话工作目录的路径。 */
-    designSystemAnnotations?: ResolvedDesignSystemAnnotation[];
     /** 视频标注（产品设计 §3.2.3「视频标注」），由 Runtime 按添加的顺序解析好视频相对会话工作目录的路径。 */
     videoAnnotations?: ResolvedVideoAnnotation[];
-    /** 文档标注（docs/design/docs §8），由 Runtime 按添加的顺序解析好文档相对会话工作目录的路径。 */
-    docsAnnotations?: ResolvedDocsAnnotation[];
     /**
      * 上一条消息之后用户在编辑器里亲手做的修改（§3.4 `<baocut-user-edits>`），由 Runtime 按视频的修改记录写好；
      * 只附在交给智能体的文字后面，不记在用户消息上。
@@ -1848,13 +1832,7 @@ export class Harness {
       ...(params.template ? { template: params.template.ref } : {}),
       ...(params.skills?.refs.length ? { skills: params.skills.refs } : {}),
       ...(params.brand?.ref ? { brand: params.brand.ref } : {}),
-      ...(params.slideAnnotations?.length ? { slideAnnotations: params.slideAnnotations.map((a) => a.annotation) } : {}),
-      ...(params.designAnnotations?.length ? { designAnnotations: params.designAnnotations.map((a) => a.annotation) } : {}),
-      ...(params.designSystemAnnotations?.length
-        ? { designSystemAnnotations: params.designSystemAnnotations.map((a) => a.annotation) }
-        : {}),
       ...(params.videoAnnotations?.length ? { videoAnnotations: params.videoAnnotations.map((a) => a.annotation) } : {}),
-      ...(params.docsAnnotations?.length ? { docsAnnotations: params.docsAnnotations.map((a) => a.annotation) } : {}),
     });
     if (params.brand?.notice) {
       state.upsert({
@@ -1930,19 +1908,10 @@ export class Harness {
       .filter(Boolean)
       .join('\n\n');
     void this.#startRun(state, run, {
-      text: withDocsAnnotations(
-        withVideoAnnotations(
-          withDesignSystemAnnotations(
-            withDesignAnnotations(
-              withSlideAnnotations(withSpaceReferences(withEditorContext(agentText, params.context), references), params.slideAnnotations ?? []),
-              params.designAnnotations ?? [],
-            ),
-            params.designSystemAnnotations ?? [],
-          ),
-          params.videoAnnotations ?? [],
-          attached.map((a) => a.ref),
-        ),
-        params.docsAnnotations ?? [],
+      text: withVideoAnnotations(
+        withSpaceReferences(withEditorContext(agentText, params.context), references),
+        params.videoAnnotations ?? [],
+        attached.map((a) => a.ref),
       ),
       ...imagesOf(attached),
     });
@@ -2052,11 +2021,7 @@ export class Harness {
     text: string;
     commandId: Id;
     attachments?: Id[];
-    slideAnnotations?: ResolvedSlideAnnotation[];
-    designAnnotations?: ResolvedDesignAnnotation[];
-    designSystemAnnotations?: ResolvedDesignSystemAnnotation[];
     videoAnnotations?: ResolvedVideoAnnotation[];
-    docsAnnotations?: ResolvedDocsAnnotation[];
     via?: UserMessageVia;
     suggestionChipId?: Id;
     replyToItemId?: Id;
@@ -2074,27 +2039,14 @@ export class Harness {
       if (this.#commands.has(key)) return { status: 'steered' };
       if (this.#runs.get(state.id) !== run || run.stopRequested || this.#agents.get(state.id) !== session) return { status: 'no-active-turn' };
     }
-    const annotations = params.slideAnnotations ?? [];
-    const designAnnotations = params.designAnnotations ?? [];
-    const designSystemAnnotations = params.designSystemAnnotations ?? [];
     const videoAnnotations = params.videoAnnotations ?? [];
-    const docsAnnotations = params.docsAnnotations ?? [];
     // id 先定下来：Bot 会话插进去的话同样标上它（插话没有每回合的上下文段）。
     const messageId = newId('msg');
     const tag = isBotRole(state.conversation) ? userMessageTag(messageId, params.via) : null;
-    const text = withDocsAnnotations(
-      withVideoAnnotations(
-        withDesignSystemAnnotations(
-          withDesignAnnotations(
-            withSlideAnnotations([tag, escapeContextTags(params.text), fileAttachmentsText(attached)].filter(Boolean).join('\n\n'), annotations),
-            designAnnotations,
-          ),
-          designSystemAnnotations,
-        ),
-        videoAnnotations,
-        attached.map((a) => a.ref),
-      ),
-      docsAnnotations,
+    const text = withVideoAnnotations(
+      [tag, escapeContextTags(params.text), fileAttachmentsText(attached)].filter(Boolean).join('\n\n'),
+      videoAnnotations,
+      attached.map((a) => a.ref),
     );
     // 有待答的提问或待批的方案时，消息就是回答：卡片按拒绝结束（告诉模型看接下来的消息），再把消息插进回合。
     const waiting = state
@@ -2124,11 +2076,7 @@ export class Harness {
       ...(params.suggestionChipId ? { suggestionChipId: params.suggestionChipId } : {}),
       ...(params.replyToItemId ? { replyToItemId: params.replyToItemId } : {}),
       ...(attached.length ? { attachments: attached.map((a) => a.ref) } : {}),
-      ...(annotations.length ? { slideAnnotations: annotations.map((a) => a.annotation) } : {}),
-      ...(designAnnotations.length ? { designAnnotations: designAnnotations.map((a) => a.annotation) } : {}),
-      ...(designSystemAnnotations.length ? { designSystemAnnotations: designSystemAnnotations.map((a) => a.annotation) } : {}),
       ...(videoAnnotations.length ? { videoAnnotations: videoAnnotations.map((a) => a.annotation) } : {}),
-      ...(docsAnnotations.length ? { docsAnnotations: docsAnnotations.map((a) => a.annotation) } : {}),
     });
     // 无人在场的回合（报告、刷新）里用户插了一句：之后这一回合算有人在场，但它是由 Runtime 转来的文字起的，按插过 relay 处理：
     // 不能写记忆，也不能凭回合里早先读到的报告建任务、开线程（BOT-SF-03）。
@@ -3129,75 +3077,18 @@ export class Harness {
   }
 
   /**
-   * 智能体的 `slides_check` 校验通过了一份 deck：会话里记一条，线程里出现幻灯片卡片（docs/design/slides §7.3）。
-   * 同一份 deck 只有一条：再次通过时更新标题与页数，所属任务换成这次校验的任务（卡片跟着挂到那一轮的回复下面），
-   * 条目的 id 与位置不变。
+   * 智能体经 Open Artifact 新建了一份作品（docs/design/artifacts §4）：会话里记一条，线程里出现作品卡片。同一份作品只有一条：
+   * 之后再见到它时更新标题与类型、所属任务换成这次的（卡片跟着挂到那一轮的回复下面），条目的 id 与位置不变。
    */
-  recordSlidesCreated(conversationId: Id, taskId: Id | null, created: SlidesCreated): void {
+  recordArtifactCreated(conversationId: Id, taskId: Id | null, created: ArtifactCreated): void {
     const state = this.#states.get(conversationId);
     if (!state) return;
-    const existing = state.items().find(
-      (item): item is Extract<TimelineItem, { kind: 'slides-created' }> => item.kind === 'slides-created' && sameTarget(item.target, created.target),
-    );
+    const existing = state.items().find((item): item is Extract<TimelineItem, { kind: 'artifact' }> => item.kind === 'artifact' && item.url === created.url);
+    if (existing && existing.title === created.title && existing.type === created.type && (taskId ?? existing.taskId) === existing.taskId) return;
     state.upsert(
       existing
         ? { ...existing, ...created, taskId: taskId ?? existing.taskId }
-        : { kind: 'slides-created', id: newId('slides'), createdAt: nowIso(), taskId, ...created },
-    );
-  }
-
-  /**
-   * 智能体的 `design_check` 校验通过了一份设计稿：会话里记一条，线程里出现设计稿卡片（docs/design/canvas §7.3）。
-   * 与 `recordSlidesCreated` 相同：同一份设计稿只有一条，再次通过时更新标题与画板数、换成这次的任务，id 与位置不变。
-   */
-  recordDesignCreated(conversationId: Id, taskId: Id | null, created: DesignCreated): void {
-    const state = this.#states.get(conversationId);
-    if (!state) return;
-    const existing = state.items().find(
-      (item): item is Extract<TimelineItem, { kind: 'design-created' }> => item.kind === 'design-created' && sameTarget(item.target, created.target),
-    );
-    state.upsert(
-      existing
-        ? { ...existing, ...created, taskId: taskId ?? existing.taskId }
-        : { kind: 'design-created', id: newId('design'), createdAt: nowIso(), taskId, ...created },
-    );
-  }
-
-  /**
-   * 智能体的 `design_system_check` 校验通过了一个设计系统：会话里记一条，线程里出现设计系统卡片（docs/design/canvas §10.5）。
-   * 与 `recordDesignCreated` 相同：同一个设计系统只有一条，再次通过时更新标题、换成这次的任务，id 与位置不变。
-   */
-  recordDesignSystemCreated(conversationId: Id, taskId: Id | null, created: DesignSystemCreated): void {
-    const state = this.#states.get(conversationId);
-    if (!state) return;
-    const existing = state.items().find(
-      (item): item is Extract<TimelineItem, { kind: 'design-system-created' }> =>
-        item.kind === 'design-system-created' && sameTarget(item.target, created.target),
-    );
-    state.upsert(
-      existing
-        ? { ...existing, ...created, taskId: taskId ?? existing.taskId }
-        : { kind: 'design-system-created', id: newId('dsys'), createdAt: nowIso(), taskId, ...created },
-    );
-  }
-
-  /**
-   * 智能体经 `docs_batch` 新建了一份文档：会话里记一条，线程里出现文档卡片（docs/design/docs §7.3）。
-   * 与 `recordDesignCreated` 相同：同一份文档只有一条，之后智能体再写它时更新标题与标签页数、换成这次的任务，id 与位置不变。
-   * `onlyExisting` 为 true 时只更新已有的那条（写文档的工具不新建卡片：卡片只给这条会话里新建的文档）。
-   */
-  recordDocsCreated(conversationId: Id, taskId: Id | null, created: DocsCreated, onlyExisting = false): void {
-    const state = this.#states.get(conversationId);
-    if (!state) return;
-    const existing = state.items().find(
-      (item): item is Extract<TimelineItem, { kind: 'docs-created' }> => item.kind === 'docs-created' && sameTarget(item.target, created.target),
-    );
-    if (!existing && onlyExisting) return;
-    if (existing && existing.title === created.title && existing.tabCount === created.tabCount && (taskId ?? existing.taskId) === existing.taskId) return;
-    state.upsert(
-      existing
-        ? { ...existing, ...created, taskId: taskId ?? existing.taskId }
-        : { kind: 'docs-created', id: newId('docs'), createdAt: nowIso(), taskId, ...created },
+        : { kind: 'artifact', id: newId('artifact'), createdAt: nowIso(), taskId, ...created },
     );
   }
 
@@ -4414,13 +4305,6 @@ function summarize(state: ConversationState, task: Extract<TimelineItem, { kind:
 
 /** 目录名：去掉路径分隔符与控制字符，压掉首尾空白与点。 */
 /** 目录名作项目的默认显示名。 */
-/** 两个 FileTarget 是不是同一处（同一个项目或会话的同一个相对路径）。 */
-function sameTarget(a: SlidesCreated['target'], b: SlidesCreated['target']): boolean {
-  if (a.path !== b.path) return false;
-  if ('projectId' in a) return 'projectId' in b && a.projectId === b.projectId;
-  return 'conversationId' in b && a.conversationId === b.conversationId;
-}
-
 function dirLabel(dir: string): string {
   return path.basename(dir) || dir;
 }
@@ -4530,80 +4414,7 @@ export function withSpaceReferences(text: string, references: readonly SpaceEntr
   // i18n-ignore-end
 }
 
-/** 一条幻灯片标注与它的 deck 相对会话工作目录的路径（以 `/` 分隔、以 `/` 结尾；不在工作目录里时是绝对路径）。 */
-export interface ResolvedSlideAnnotation {
-  annotation: SlideAnnotation;
-  deckPath: string;
-}
-
-/**
- * 把幻灯片标注附在发给智能体的文字后面（docs/design/slides §9）：每份 deck 一段，按 deck 第一次出现的顺序；
- * 编号是在整条消息里的序号，与界面上 composer 列表、编辑器里的编号标记一致。会话里显示的仍是用户的原话，标注另存在消息上。
- */
-export function withSlideAnnotations(text: string, annotations: readonly ResolvedSlideAnnotation[]): string {
-  if (annotations.length === 0) return text;
-  const groups = new Map<string, string[]>();
-  annotations.forEach(({ annotation: a, deckPath }, i) => {
-    // i18n-ignore-start: 发给智能体的标注（给模型的提示词），不随界面语言变化
-    const lines = [`${i + 1}. ${a.label}`, ...(a.detail ? [`   定位：${a.detail}`] : []), `   批注：${a.text.split('\n').join('\n        ')}`];
-    // i18n-ignore-end
-    groups.set(deckPath, [...(groups.get(deckPath) ?? []), lines.join('\n')]);
-  });
-  const blocks = [...groups].map(([deckPath, items]) => contextBlock(`<baocut-slide-annotations deck=${JSON.stringify(deckPath)}>`, items, '</baocut-slide-annotations>'));
-  return [text, '', ...blocks].join('\n');
-}
-
-/** 一条设计稿标注与它的设计稿相对会话工作目录的路径（写法与 `ResolvedSlideAnnotation.deckPath` 相同）。 */
-export interface ResolvedDesignAnnotation {
-  annotation: DesignAnnotation;
-  canvasPath: string;
-}
-
-/**
- * 把设计稿标注附在发给智能体的文字后面（docs/design/canvas §9），排在幻灯片标注段之后：每份设计稿一段，按第一次出现的顺序；
- * 编号是在这条消息的设计稿标注里的序号，与界面上的列表、编辑器里的编号标记一致（幻灯片标注各自编号）。
- */
-export function withDesignAnnotations(text: string, annotations: readonly ResolvedDesignAnnotation[]): string {
-  if (annotations.length === 0) return text;
-  const groups = new Map<string, string[]>();
-  annotations.forEach(({ annotation: a, canvasPath }, i) => {
-    // i18n-ignore-start: 发给智能体的标注（给模型的提示词），不随界面语言变化
-    const lines = [`${i + 1}. ${a.label}`, ...(a.detail ? [`   定位：${a.detail}`] : []), `   批注：${a.text.split('\n').join('\n        ')}`];
-    // i18n-ignore-end
-    groups.set(canvasPath, [...(groups.get(canvasPath) ?? []), lines.join('\n')]);
-  });
-  const blocks = [...groups].map(([canvasPath, items]) =>
-    contextBlock(`<baocut-design-annotations canvas=${JSON.stringify(canvasPath)}>`, items, '</baocut-design-annotations>'),
-  );
-  return [text, '', ...blocks].join('\n');
-}
-
-/** 一条设计系统标注与它的设计系统相对会话工作目录的路径（写法与 `ResolvedSlideAnnotation.deckPath` 相同）。 */
-export interface ResolvedDesignSystemAnnotation {
-  annotation: DesignSystemAnnotation;
-  systemPath: string;
-}
-
-/**
- * 把设计系统标注附在发给智能体的文字后面（docs/design/canvas §10.6），排在设计稿标注段之后：每套设计系统一段，按第一次出现的顺序；
- * 编号是在这条消息的设计系统标注里的序号，与界面上的列表、编辑器里的编号标记一致（幻灯片、设计稿标注各自编号）。
- */
-export function withDesignSystemAnnotations(text: string, annotations: readonly ResolvedDesignSystemAnnotation[]): string {
-  if (annotations.length === 0) return text;
-  const groups = new Map<string, string[]>();
-  annotations.forEach(({ annotation: a, systemPath }, i) => {
-    // i18n-ignore-start: 发给智能体的标注（给模型的提示词），不随界面语言变化
-    const lines = [`${i + 1}. ${a.label}`, ...(a.detail ? [`   定位：${a.detail}`] : []), `   批注：${a.text.split('\n').join('\n        ')}`];
-    // i18n-ignore-end
-    groups.set(systemPath, [...(groups.get(systemPath) ?? []), lines.join('\n')]);
-  });
-  const blocks = [...groups].map(([systemPath, items]) =>
-    contextBlock(`<baocut-design-system-annotations system=${JSON.stringify(systemPath)}>`, items, '</baocut-design-system-annotations>'),
-  );
-  return [text, '', ...blocks].join('\n');
-}
-
-/** 一条视频标注与它的视频相对会话工作目录的路径（写法与 `ResolvedSlideAnnotation.deckPath` 相同）。 */
+/** 一条视频标注与它的视频相对会话工作目录的路径（以 `/` 分隔、以 `/` 结尾；不在工作目录里时是绝对路径）。 */
 export interface ResolvedVideoAnnotation {
   annotation: VideoAnnotation;
   videoPath: string;
@@ -4714,52 +4525,6 @@ export function withVideoAnnotations(
       '</baocut-video-annotations>',
     );
   });
-  return [text, '', ...blocks].join('\n');
-}
-
-/** 一条文档标注与它的文档相对会话工作目录的路径（写法与 `ResolvedSlideAnnotation.deckPath` 相同）。 */
-export interface ResolvedDocsAnnotation {
-  annotation: DocsAnnotation;
-  docPath: string;
-}
-
-/**
- * 把文档标注附在发给智能体的文字后面（docs/design/docs §8），排在设计系统标注段之后：每份文档一段，按第一次出现的顺序；
- * 编号是在这条消息的文档标注里的序号，与界面上的列表一致。评论已经在文档里，这里给智能体找到它的位置与线程：
- * 智能体用 `docs_*` 工具读那个标签页与线程，评论在线程里回复（`parent` 是线程的第一条），请求写进文档那一行。
- */
-export function withDocsAnnotations(text: string, annotations: readonly ResolvedDocsAnnotation[]): string {
-  if (annotations.length === 0) return text;
-  const groups = new Map<string, string[]>();
-  annotations.forEach(({ annotation: a, docPath }, i) => {
-    const parts = parseDocsPath(a.path);
-    const indent = (value: string) => value.split('\n').join('\n        ');
-    // i18n-ignore-start: 发给智能体的标注（给模型的提示词），不随界面语言变化
-    const lines =
-      a.kind === 'comment'
-        ? [
-            `${i + 1}. 评论 · ${a.label}`,
-            `   位置：${a.path}`,
-            ...(a.quote ? [`   原文：${indent(a.quote)}`] : []),
-            `   评论：${indent(a.text)}`,
-            ...(parts?.thread ? [`   回复：在线程 ${parts.thread} 里回复（docs_create utterance，parent 是这个 id）`] : []),
-          ]
-        : [
-            `${i + 1}. 请求 · ${a.label}`,
-            `   位置：${a.path}`,
-            `   请求：${indent(a.text)}`,
-            ...(parts
-              ? [
-                  parts.block
-                    ? `   写到：正文 ${parts.node} 的块 ${parts.block}（还空着就替换它，否则写在它后面）`
-                    : `   写到：正文 ${parts.node} 的末尾`,
-                ]
-              : []),
-          ];
-    // i18n-ignore-end
-    groups.set(docPath, [...(groups.get(docPath) ?? []), lines.join('\n')]);
-  });
-  const blocks = [...groups].map(([docPath, items]) => contextBlock(`<baocut-docs-annotations doc=${JSON.stringify(docPath)}>`, items, '</baocut-docs-annotations>'));
   return [text, '', ...blocks].join('\n');
 }
 

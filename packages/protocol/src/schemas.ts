@@ -18,11 +18,9 @@ import { languageTag } from './language-schemas.ts';
 import { USAGE_PERIODS } from './usage.ts';
 import { MAX_SELECTED_GLOSSARIES, MAX_SPEAKER_VOICES } from './library.ts';
 import { WEB_METHOD_PATTERN } from './web.ts';
+import { ARTIFACT_LIMITS, ARTIFACT_URL_PATTERN } from './artifacts.ts';
 import { AGENT_SKILL_HOST_FOLDERS } from './catalog.ts';
 import { SCHEDULE_LIMITS } from './schedule.ts';
-import { SLIDE_ANNOTATION_LIMITS } from './slides.ts';
-import { DESIGN_ANNOTATION_LIMITS } from './design.ts';
-import { DESIGN_SYSTEM_ANNOTATION_LIMITS } from './design-system.ts';
 import {
   VIDEO_ANNOTATION_COLORS,
   VIDEO_ANNOTATION_FONTS,
@@ -32,7 +30,6 @@ import {
   VIDEO_ANNOTATION_WIDTHS,
   PANEL_GAP_MAX,
 } from './video.ts';
-import { DOCS_ANNOTATION_LIMITS } from './docs.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
 import { BOT_PARAM_SCHEMAS, workItemTemplateSchema } from './bot-schemas.ts';
 import { EXTERNAL_TOOL_PARAM_SCHEMAS } from './external-tools-schemas.ts';
@@ -68,6 +65,7 @@ const topic = z.union([
   z.literal('legacy-import'),
   z.literal('channels'),
   z.literal('recordings'),
+  z.literal('artifacts'),
   z.string().regex(/^work-items:[A-Za-z0-9_-]+$/),
   z.string().regex(/^conversation:[A-Za-z0-9_-]+$/),
   z.string().regex(/^video:[A-Za-z0-9_-]+$/),
@@ -450,44 +448,6 @@ const installKind = z.enum(['script', 'brew', 'npm']);
 const agentModel = z.string().trim().min(1).max(200).nullable();
 const agentEffort = z.string().trim().min(1).max(50).nullable();
 const attachmentIds = z.array(id).max(MAX_ATTACHMENTS_PER_MESSAGE);
-/** 幻灯片标注（docs/design/slides §9）。锚点、位置与定位描述的长度与编辑器消息（`@baocut/slides/editor-messages`）一致。 */
-const slideAnnotation = z
-  .object({
-    deck: fileTarget,
-    anchor: z.string().min(1).max(4096),
-    slideId: z.string().min(1).max(200).optional(),
-    label: z.string().max(1000),
-    detail: z.string().max(4096).optional(),
-    area: z.boolean().optional(),
-    text: z.string().trim().min(1).max(SLIDE_ANNOTATION_LIMITS.text),
-  })
-  .strict();
-const slideAnnotations = z.array(slideAnnotation).max(SLIDE_ANNOTATION_LIMITS.perMessage);
-/** 设计稿标注（docs/design/canvas §9）。长度与幻灯片标注相同；`board` 是相对设计稿目录的画板文件。 */
-const designAnnotation = z
-  .object({
-    canvas: fileTarget,
-    anchor: z.string().min(1).max(4096),
-    board: z.string().min(1).max(1024).optional(),
-    label: z.string().max(1000),
-    detail: z.string().max(4096).optional(),
-    area: z.boolean().optional(),
-    text: z.string().trim().min(1).max(DESIGN_ANNOTATION_LIMITS.text),
-  })
-  .strict();
-const designAnnotations = z.array(designAnnotation).max(DESIGN_ANNOTATION_LIMITS.perMessage);
-/** 设计系统标注（docs/design/canvas §10.6）。长度与设计稿标注相同；`section` 与编辑器消息里的章节同一个上限。 */
-const designSystemAnnotation = z
-  .object({
-    system: fileTarget,
-    anchor: z.string().min(1).max(4096),
-    section: z.string().min(1).max(200).optional(),
-    label: z.string().max(1000),
-    detail: z.string().max(4096).optional(),
-    text: z.string().trim().min(1).max(DESIGN_SYSTEM_ANNOTATION_LIMITS.text),
-  })
-  .strict();
-const designSystemAnnotations = z.array(designSystemAnnotation).max(DESIGN_SYSTEM_ANNOTATION_LIMITS.perMessage);
 /**
  * 视频标注（产品设计 §3.2.3「视频标注」；协议规范 `conversations`；轻量视图的标记工具见 docs/design/lite-editor §4）。按 `kind`
  * 分九种，各自只收自己的形状：`box`、`ellipse` 的 `w`、`h` 大于 0；`element`、`pen` 是外接框，`w`、`h` 不小于 0；`arrow`、`line`、
@@ -598,18 +558,6 @@ const videoAnnotation = z.discriminatedUnion('kind', [
     .strict(),
 ]);
 const videoAnnotations = z.array(videoAnnotation).max(VIDEO_ANNOTATION_LIMITS.perMessage);
-/** 文档标注（docs/design/docs §8）。`path` 是元素路径 `f-<tab>#<node>/<block>…;thread=<root>`，长度与编辑器消息一致。 */
-const docsAnnotation = z
-  .object({
-    doc: fileTarget,
-    kind: z.enum(['comment', 'ask']),
-    path: z.string().min(1).max(1024),
-    label: z.string().max(1000),
-    quote: z.string().max(DOCS_ANNOTATION_LIMITS.text).optional(),
-    text: z.string().trim().min(1).max(DOCS_ANNOTATION_LIMITS.text),
-  })
-  .strict();
-const docsAnnotations = z.array(docsAnnotation).max(DOCS_ANNOTATION_LIMITS.perMessage);
 const languageOption = z.union([
   z.object({ mode: z.literal('assert'), tag: languageTag }).strict(),
   z.object({ mode: z.literal('prefer'), tag: languageTag.nullable() }).strict(),
@@ -1069,11 +1017,7 @@ export const methodParamSchemas = {
     skill: skillSendRefSchema.optional(),
     skills: skillSendListSchema.optional(),
     skipProjectBrand: z.boolean().optional(),
-    slideAnnotations: slideAnnotations.optional(),
-    designAnnotations: designAnnotations.optional(),
-    designSystemAnnotations: designSystemAnnotations.optional(),
     videoAnnotations: videoAnnotations.optional(),
-    docsAnnotations: docsAnnotations.optional(),
     via: userMessageVia.optional(),
     suggestionChipId: id.optional(),
     replyToItemId: id.optional(),
@@ -1083,11 +1027,7 @@ export const methodParamSchemas = {
     text: z.string().min(1).max(100_000),
     commandId: id,
     attachments: attachmentIds.optional(),
-    slideAnnotations: slideAnnotations.optional(),
-    designAnnotations: designAnnotations.optional(),
-    designSystemAnnotations: designSystemAnnotations.optional(),
     videoAnnotations: videoAnnotations.optional(),
-    docsAnnotations: docsAnnotations.optional(),
   }),
   'attachments.prepare': z.object({
     fileName: z.string().trim().min(1).max(255),
@@ -1296,10 +1236,17 @@ export const methodParamSchemas = {
         ? p.threshold === undefined && p.minShot === undefined && p.method === undefined && p.ratio === undefined && p.luma === undefined
         : p.split === undefined,
     ),
-  'slides.open': fileTarget,
-  'design.open': fileTarget,
-  'designSystem.open': fileTarget,
-  'docs.open': fileTarget,
+  'artifacts.open': z
+    .object({ url: z.string().max(ARTIFACT_LIMITS.url).regex(ARTIFACT_URL_PATTERN), conversationId: id.optional() })
+    .strict(),
+  'artifacts.shellCommand': z
+    .object({
+      view: z.string().min(1).max(ARTIFACT_LIMITS.view),
+      command: z
+        .record(z.string(), z.unknown())
+        .refine((c) => typeof c.openArtifact === 'string' && JSON.stringify(c).length <= ARTIFACT_LIMITS.commandBytes),
+    })
+    .strict(),
   'videos.open': fileTarget,
   'videos.target': z.object({ videoId: id }).strict(),
   'videos.importPackage': z

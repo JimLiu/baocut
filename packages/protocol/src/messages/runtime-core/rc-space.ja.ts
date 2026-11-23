@@ -26,10 +26,6 @@ export const ja: RcSpaceMessages = {
   projectDirNotFound: 'プロジェクトフォルダが存在しません',
   hiddenDirFile: '隠しフォルダや依存関係のフォルダにあるファイルは追加できません',
   videoDirFile: '動画フォルダ内のファイルは動画が管理しているため、単独では追加できません',
-  slidesDirFile: 'スライドフォルダ内のファイルはスライドが管理しているため、単独では追加できません',
-  designDirFile: 'デザインフォルダ内のファイルはデザインが管理しているため、単独では追加できません',
-  designSystemDirFile: 'デザインシステムフォルダ内のファイルはデザインシステムが管理しているため、単独では追加できません',
-  docsDirFile: 'ドキュメントフォルダ内のファイルはドキュメントが管理しているため、単独では追加できません',
   tooManySameName: 'プロジェクトの imports/ に同じ名前のファイルが多すぎます',
 
   purgeVideoDeleteFirst:

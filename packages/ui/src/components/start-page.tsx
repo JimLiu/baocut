@@ -383,10 +383,6 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
                 sceneRef,
                 skills,
                 undefined,
-                undefined,
-                undefined,
-                undefined,
-                undefined,
                 { skipProjectBrand },
               );
               editor.reset();

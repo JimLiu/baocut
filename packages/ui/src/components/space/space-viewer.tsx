@@ -38,11 +38,7 @@ import {
   packageBlock,
   purgeBlock,
 } from '../../model/space-actions.ts';
-import { DESIGN } from '../../model/design-copy.ts';
-import { DESIGN_SYSTEM } from '../../model/design-system-copy.ts';
-import { DOCS } from '../../model/docs-copy.ts';
 import { M as SEMANTIC } from '../../model/semantic-copy.ts';
-import { SLIDES } from '../../model/slides-copy.ts';
 import type { EntryIndexState } from '../../model/space-index.ts';
 import { MADE_SHOWN } from '../../model/shorts-result.ts';
 import { formatBytes, isPlayable, KIND_LABEL, measureText, SPACE_STATUS, statusText } from '../../model/space.ts';
@@ -105,14 +101,6 @@ export interface ViewerActions {
   onReveal(entry: SpaceEntry): void;
   onContinue(entry: SpaceEntry): void;
   onOpenVideo(entry: SpaceEntry): void;
-  /** 幻灯片（deck 目录）在功能区的幻灯片标签里打开（docs/design/slides §8.1）。 */
-  onOpenSlides(entry: SpaceEntry): void;
-  /** 设计稿（设计稿目录）在功能区的设计稿标签里打开（docs/design/canvas §8.1）。 */
-  onOpenDesign(entry: SpaceEntry): void;
-  /** 设计系统（设计系统目录）在功能区的设计系统标签里打开（docs/design/canvas §10）。 */
-  onOpenDesignSystem(entry: SpaceEntry): void;
-  /** 协作文档（文档目录）在功能区的协作文档标签里打开（docs/design/docs §8）。 */
-  onOpenDocs(entry: SpaceEntry): void;
   onEdit(entry: SpaceEntry): void;
   /** 便携包打开成新视频。 */
   onOpenPackage(entry: SpaceEntry): void;
@@ -240,10 +228,6 @@ function ViewerBody({
   const folderName = useIndexFolderName(entry.source.folderId);
   const videoDir = entry.kind === 'video';
   const isVideo = videoDir && !readOnly;
-  const isSlides = entry.kind === 'slides';
-  const isDesign = entry.kind === 'design';
-  const isDesignSystem = entry.kind === 'design-system';
-  const isDocs = entry.kind === 'docs';
   const jobId = entryJobId(entry);
   const route = editRoute(entry);
   const blockedEdit = isVideo ? null : editBlock(entry, path);
@@ -253,8 +237,7 @@ function ViewerBody({
   const blockedPurge = trashed ? purgeBlock(entry) : null;
   const measure = measureText(entry);
   const status = statusText(entry);
-  // 幻灯片、设计稿、设计系统与协作文档是一个目录，查看框里不预览，打开到各自的标签里看。
-  const hasFile = !videoDir && !isSlides && !isDesign && !isDesignSystem && !isDocs && entry.status !== 'generating' && entry.status !== 'failed' && entry.status !== 'missing';
+  const hasFile = !videoDir && entry.status !== 'generating' && entry.status !== 'failed' && entry.status !== 'missing';
   const origin = entry.origin;
   const generated = origin?.capability
     ? [COPY.capability[origin.capability] ?? origin.capability, origin.provider ? `${origin.provider.providerId} · ${origin.provider.modelId}` : null]
@@ -433,32 +416,14 @@ function ViewerBody({
               </Button>
             ) : null}
           </>
-        ) : isVideo || isSlides || isDesign || isDesignSystem || isDocs ? (
+        ) : isVideo ? (
           <>
             <Button variant="secondary" isDisabled={!!blockedContinue} onPress={() => actions.onContinue(entry)}>
               {COPY.continue}
             </Button>
-            {isVideo ? (
-              <Button variant="accent" onPress={() => actions.onOpenVideo(entry)}>
-                {COPY.openVideo}
-              </Button>
-            ) : isDesign ? (
-              <Button variant="accent" isDisabled={entry.status === 'missing'} onPress={() => actions.onOpenDesign(entry)}>
-                {DESIGN.open}
-              </Button>
-            ) : isDesignSystem ? (
-              <Button variant="accent" isDisabled={entry.status === 'missing'} onPress={() => actions.onOpenDesignSystem(entry)}>
-                {DESIGN_SYSTEM.open}
-              </Button>
-            ) : isDocs ? (
-              <Button variant="accent" isDisabled={entry.status === 'missing'} onPress={() => actions.onOpenDocs(entry)}>
-                {DOCS.open}
-              </Button>
-            ) : (
-              <Button variant="accent" isDisabled={entry.status === 'missing'} onPress={() => actions.onOpenSlides(entry)}>
-                {SLIDES.open}
-              </Button>
-            )}
+            <Button variant="accent" onPress={() => actions.onOpenVideo(entry)}>
+              {COPY.openVideo}
+            </Button>
           </>
         ) : (
           <>

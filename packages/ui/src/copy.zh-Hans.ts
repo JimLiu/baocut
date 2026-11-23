@@ -84,6 +84,7 @@ export const zhHans: CopyMessages = {
     desc: { label: '写简介', sub: '带章节时间码和标签' },
     cover: { label: '做封面', sub: '从关键帧出发做几张候选' },
     export: { label: '导出', sub: 'SRT / 烧录字幕的 MP4' },
+    artifacts: { label: '做一份作品', sub: '幻灯片、文档、设计稿、表格等，在标签页里打开' },
   },
   composerMenu: {
     insert: '插入',
