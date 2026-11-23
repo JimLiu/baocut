@@ -452,6 +452,8 @@ describe('AcpSession（假 ACP 智能体）', () => {
     await until(() => s.events.some((e) => e.type === 'item.completed' && e.item.kind === 'agent-message'));
     expect(await s.session.interrupt(turnId)).toEqual({ status: 'requested' });
     expect((await s.completed(turnId)).outcome).toBe('interrupted');
+    // Local completion can precede the child recording the cancel notification.
+    await until(() => fake.requests('session/cancel').length > 0);
     expect(fake.requests('session/cancel')).toHaveLength(1);
     expect(s.events.find((e) => e.type === 'item.completed' && e.item.kind === 'tool-call')).toMatchObject({ item: { status: 'interrupted' } });
     // 智能体随后报的 failed 不会再开一轮或改写结果。
