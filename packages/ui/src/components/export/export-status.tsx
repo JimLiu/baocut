@@ -30,7 +30,7 @@ import { EXPORT_COPY } from './export-copy.ts';
 import { ExportFontFallbacks, useExportFontPhase } from './export-fonts.tsx';
 import { Actions, Note, ProblemAlert, Sec, TextLink } from './export-parts.tsx';
 import { RejectedAlert, RemedyButtons } from './export-remedy.tsx';
-import { ReviewDoneActions } from './review-export-done.tsx';
+import { downloadExport, WebDoneActions } from './web-export-done.tsx';
 import type { ExportEnv, ExportSubmit } from './use-export-submit.ts';
 
 /**
@@ -188,22 +188,32 @@ function ExportRunning({ job, onClose }: { job: JobRecord; onClose: () => void }
   );
 }
 
-/** 已发布的文件：文件名取实际路径，一行一个，可以在文件夹中显示。 */
-function Outputs({ outputs }: { outputs: readonly ExportOutputFact[] }) {
+/**
+ * 已发布的文件：文件名取实际路径，一行一个。几个文件时每行能在文件夹中显示；浏览器里每行换成「下载」。
+ * 浏览器里完成态只有一个文件时不列（`done`）：路径框与「下载」在 `WebDoneActions`。
+ */
+function Outputs({ job, outputs, done }: { job: JobRecord; outputs: readonly ExportOutputFact[]; done?: boolean }) {
   const runtime = useRuntime();
-  if (!outputs.length) return null;
+  const web = runtime.host.platform === 'web';
+  if (!outputs.length || (web && done && outputs.length === 1)) return null;
   return (
     <ul className={list}>
-      {outputs.map((o) => (
+      {outputs.map((o, i) => (
         <li key={o.key} className={outRow}>
           <span className={outText}>
             <span className={outName}>{o.name}</span>
             <span className={outMeta}>{o.meta}</span>
           </span>
-          {o.path && outputs.length > 1 ? (
-            <ActionButton isQuiet size="S" onPress={() => void runtime.host.revealPath(o.path!)}>
-              {EXPORT_COPY.reveal}
-            </ActionButton>
+          {o.path && (web || outputs.length > 1) ? (
+            web ? (
+              <ActionButton isQuiet size="S" onPress={() => downloadExport(job, i)}>
+                {EXPORT_COPY.download}
+              </ActionButton>
+            ) : (
+              <ActionButton isQuiet size="S" onPress={() => void runtime.host.revealPath(o.path!)}>
+                {EXPORT_COPY.reveal}
+              </ActionButton>
+            )
           ) : null}
         </li>
       ))}
@@ -241,17 +251,17 @@ function RevealButton({ job }: { job: JobRecord }) {
 }
 
 function ExportDone({ job, onReset, onClose }: { job: JobRecord; onReset: () => void; onClose: () => void }) {
-  const review = useRuntime().review;
+  const runtime = useRuntime();
   const outputs = exportOutputs(job);
   return (
     <>
       <Head icon={<CheckmarkCircle styles={okIcon} data-bc-icons="own" />} title={EXPORT_COPY.exported} sub={exportDoneLine(job)} />
-      {review ? null : <Outputs outputs={outputs} />}
+      <Outputs job={job} outputs={outputs} done />
       <ExportFontFallbacks job={job} />
       <Warnings job={job} />
-      {/* 审片页（产品设计 §5.12）：复制路径、下载，没有「在文件夹中显示」。 */}
-      {review ? (
-        <ReviewDoneActions job={job} onClose={onClose} />
+      {/* 浏览器里（产品设计 §8.3）：复制路径、下载，没有「在文件夹中显示」；审片页只导成片，不给「再导一份」。 */}
+      {runtime.host.platform === 'web' ? (
+        <WebDoneActions job={job} onReset={runtime.review ? undefined : onReset} onClose={onClose} />
       ) : (
         <Actions>
           <Button variant="secondary" fillStyle="outline" onPress={onReset}>
@@ -272,7 +282,7 @@ function ExportCancelled({ job, onReset, onClose }: { job: JobRecord; onReset: (
   return (
     <>
       <Head icon={<CloseCircle styles={stopIcon} data-bc-icons="own" />} title={EXPORT_COPY.cancelled} sub={cancelledLine(job)} />
-      <Outputs outputs={outputs} />
+      <Outputs job={job} outputs={outputs} />
       <Actions>
         <Button variant="secondary" fillStyle="outline" onPress={onClose}>
           {EXPORT_COPY.close}
@@ -331,7 +341,7 @@ function ExportFailed({ job, env, submitter, onReset }: { job: JobRecord; env: E
       {outputs.length ? (
         <>
           <Sec>{EXPORT_COPY.partial}</Sec>
-          <Outputs outputs={outputs} />
+          <Outputs job={job} outputs={outputs} />
         </>
       ) : null}
       <Warnings job={job} />

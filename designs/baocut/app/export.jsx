@@ -32,6 +32,12 @@
    工程目标与三档回执），这里只画和接事件。 */
 (function () {
   const {useState, useEffect, useMemo, useRef} = React;
+
+  /** 视频所属项目的目录（演示数据里 `dir` 指回 `agentProjects`）；找不到时退回默认项目根下的视频目录名。 */
+  const projectDir = (proj) => {
+    const dir = (window.BC_DATA.agentProjects || []).find((d) => d.id === proj.dir);
+    return dir ? dir.path : '~/BaoCut/' + String(proj.folder || proj.title || 'video') + '/';
+  };
   const D = window.BC_DATA;
   const X = window.BC_EXPORT;
   const DUB = window.BC_DUB;
@@ -109,10 +115,12 @@
         if (next >= 100) {
           app.patchTask(t.id, {pct: 100, pctFine: 100, status: 'done', outcome: 'done', phase: null, leftMs: 0,
             artifacts: [{name: t.file, note: t.size}]});
-          /* 浏览器里（没有 reveal 的表面）不能在文件夹中显示：审片页的导出给复制路径 */
-          app.toast('导出完成 · ' + t.file, 'positive', window.BC_SURFACE.reveal || !t.path
+          /* 浏览器里（没有 reveal 的表面，product-design §8.3）不能在文件夹中显示：一个文件给「下载」，几个文件不给按钮 */
+          app.toast('导出完成 · ' + t.file, 'positive', window.BC_SURFACE.reveal
             ? {label: '在文件夹中显示', run: () => {}}
-            : {label: '复制路径', run: () => copyToClipboard(t.path)});
+            : t.path
+              ? {label: '下载', run: () => app.toast('已开始下载 · ' + t.file, 'positive')}
+              : null);
         }
       }), tick);
       return () => clearInterval(id);
@@ -190,6 +198,7 @@
        切到别的页仍是设置态，可以边导视频边导音频、字幕、文稿。 */
     const running = app.taskFor(proj.id, 'export');
     const [watch, setWatch] = useState(running ? running.id : null);
+    const [pathCopied, setPathCopied] = useState(false);      // 浏览器里完成态的「复制路径」短暂换成「已复制」
     const [watchTab, setWatchTab] = useState(running ? (running.exportTab || 'video') : 'video');
     const watched = watch ? app.tasks.find((t) => t.id === watch) : null;
 
@@ -290,6 +299,8 @@
         preparePhase: via ? null : fonts.wait.length ? 'prepare-fonts' : 'prepare-project', prepareElapsedMs: 0,
         fontsWait: fonts.wait, fontPins: fonts.pins, fontFallbacks: FS && !fonts.wait.length ? FS.exportFallbacks(proj.id) : [],
         etaMs: rest ? rest.totalMs : est.ms, frames: est.frames, file: files.length > 1 ? files.length + ' 个文件' : file, size: est.size, flash,
+        /* 浏览器里存到项目的 exports/（product-design §8.3）：完成态给这条路径、复制路径与下载 */
+        ...(!window.BC_SURFACE.reveal && files.length <= 1 ? {path: X.exportsDir(projectDir(proj)) + file} : {}),
         via: via ? via.name : null, uploadShare: rest ? rest.uploadShare : 0,
         ...(coverFile ? {cover: coverFile} : {}),
       });
@@ -309,7 +320,7 @@
     const startSubs = () => {
       const names = X.subtitleNames(base, eff, fmt, merge);
       if (!names.length) return;
-      app.toast('已导出 ' + names.join('、'), 'positive', {label: '在文件夹中显示', run: () => {}});
+      app.toast('已导出 ' + names.join('、'), 'positive', window.BC_SURFACE.reveal ? {label: '在文件夹中显示', run: () => {}} : null);
       onClose();
     };
 
@@ -374,9 +385,24 @@
                 <span className="grow">{watched.fontFallbacks.map((f) => '「' + f.family + '」用「' + f.fallback + '」代替 · ' + f.reason).join('；')}</span>
               </div>
             ) : null}
+            {/* 浏览器里（product-design §8.3）：打不开本机文件夹，给路径、复制路径与下载 */}
+            {!window.BC_SURFACE.reveal && watched.path ? (
+              <div className="xq__path"><span className="xq__path-text t-mono" title={watched.path}>{watched.path}</span></div>
+            ) : null}
             <div className="xacts">
               <Btn variant="quiet" onClick={() => setWatch(null)}>再导一份</Btn>
-              <Btn variant="secondary" onClick={() => app.toast('已在文件夹中显示')}>在文件夹中显示</Btn>
+              {window.BC_SURFACE.reveal
+                ? <Btn variant="secondary" onClick={() => app.toast('已在文件夹中显示')}>在文件夹中显示</Btn>
+                : watched.path ? (
+                  <>
+                    <Btn variant="secondary" icon={pathCopied ? 'check' : 'copy'} onClick={() => copyToClipboard(watched.path).then((ok) => {
+                      if (!ok) { app.toast('复制失败 · 浏览器拒绝了剪贴板权限，请选中文字复制', 'negative'); return; }
+                      setPathCopied(true);
+                      setTimeout(() => setPathCopied(false), 2000);
+                    })}>{pathCopied ? '已复制' : '复制路径'}</Btn>
+                    <Btn variant="secondary" icon="download" onClick={() => app.toast('已开始下载 · ' + watched.file, 'positive')}>下载</Btn>
+                  </>
+                ) : null}
               <Btn variant="accent" onClick={onClose}>完成</Btn>
             </div>
           </>
