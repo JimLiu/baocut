@@ -30,6 +30,7 @@ import { EXPORT_COPY } from './export-copy.ts';
 import { ExportFontFallbacks, useExportFontPhase } from './export-fonts.tsx';
 import { Actions, Note, ProblemAlert, Sec, TextLink } from './export-parts.tsx';
 import { RejectedAlert, RemedyButtons } from './export-remedy.tsx';
+import { ReviewDoneActions } from './review-export-done.tsx';
 import type { ExportEnv, ExportSubmit } from './use-export-submit.ts';
 
 /**
@@ -145,16 +146,20 @@ function ExportRunning({ job, onClose }: { job: JobRecord; onClose: () => void }
           </span>
         ))}
       </div>
-      <Note>
-        {EXPORT_COPY.keepsRunning}{' '}
-        <TextLink
-          onPress={() => {
-            onClose();
-            useShell.getState().go({ tab: 'tasks', taskId: job.jobId });
-          }}>
-          {EXPORT_COPY.goTasks}
-        </TextLink>
-      </Note>
+      {runtime.review ? (
+        <Note>{EXPORT_COPY.keepsRunningHere}</Note>
+      ) : (
+        <Note>
+          {EXPORT_COPY.keepsRunning}{' '}
+          <TextLink
+            onPress={() => {
+              onClose();
+              useShell.getState().go({ tab: 'tasks', taskId: job.jobId });
+            }}>
+            {EXPORT_COPY.goTasks}
+          </TextLink>
+        </Note>
+      )}
       {asking ? (
         <div className={confirm}>
           <InlineAlert variant="notice">
@@ -236,22 +241,28 @@ function RevealButton({ job }: { job: JobRecord }) {
 }
 
 function ExportDone({ job, onReset, onClose }: { job: JobRecord; onReset: () => void; onClose: () => void }) {
+  const review = useRuntime().review;
   const outputs = exportOutputs(job);
   return (
     <>
       <Head icon={<CheckmarkCircle styles={okIcon} data-bc-icons="own" />} title={EXPORT_COPY.exported} sub={exportDoneLine(job)} />
-      <Outputs outputs={outputs} />
+      {review ? null : <Outputs outputs={outputs} />}
       <ExportFontFallbacks job={job} />
       <Warnings job={job} />
-      <Actions>
-        <Button variant="secondary" fillStyle="outline" onPress={onReset}>
-          {EXPORT_COPY.again}
-        </Button>
-        <RevealButton job={job} />
-        <Button variant="accent" onPress={onClose}>
-          {EXPORT_COPY.done}
-        </Button>
-      </Actions>
+      {/* 审片页（产品设计 §5.12）：复制路径、下载，没有「在文件夹中显示」。 */}
+      {review ? (
+        <ReviewDoneActions job={job} onClose={onClose} />
+      ) : (
+        <Actions>
+          <Button variant="secondary" fillStyle="outline" onPress={onReset}>
+            {EXPORT_COPY.again}
+          </Button>
+          <RevealButton job={job} />
+          <Button variant="accent" onPress={onClose}>
+            {EXPORT_COPY.done}
+          </Button>
+        </Actions>
+      )}
     </>
   );
 }

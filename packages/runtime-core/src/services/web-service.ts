@@ -13,6 +13,7 @@ import {
   methodMatches,
   nowIso,
   parseVideoTopic,
+  parseWebExportDownloadPath,
   parseWebReviewPath,
   webReviewPath,
   type FileTarget,
@@ -130,6 +131,11 @@ export class WebService implements ManagedService {
         videos: this.#deps.videos,
         record: (method, principal, videoId, outcome) => this.#audit(method, principal, videoId, outcome),
         access: () => this.#access(),
+        reviewExports: (principal) => {
+          const sessionId = principal.sessionId;
+          if (!sessionId || this.#sessions.scope(sessionId) === null) return null;
+          return { add: (jobId) => this.#sessions.addExport(sessionId, jobId), has: (jobId) => this.#sessions.ownsExport(sessionId, jobId) };
+        },
         uploadUrl: (sessionId, url) => {
           for (const [key, item] of this.#uploads) if (item.expires < Date.now()) this.#uploads.delete(key);
           const key = crypto.randomBytes(32).toString('base64url');
@@ -342,8 +348,10 @@ export class WebService implements ManagedService {
   /**
    * 审片会话里的一个调用：方法在 `WEB_REVIEW_METHODS` 里；带视频参数的只能是会话里的视频——`videoId` / `video` 直接比，
    * 文件位置（`videos.open`、`media.resolve`、`media.subtitles`）要与会话里某部视频的位置一致；主题只有这些视频与 `WEB_REVIEW_TOPICS`。
+   * 导出只有成片：`exports.create` 只接受 MP4 成片、不带位置、不是内部预览；`exports.get` / `jobs.cancel` 只认这个会话起的任务；
+   * `exports.list` 要带会话里的视频（结果在 `webHandlers` 里只留这个会话起的）。
    */
-  #reviewAllows(method: RpcMethod, params: unknown, videos: ReadonlySet<string>): boolean {
+  #reviewAllows(method: RpcMethod, params: unknown, videos: ReadonlySet<string>, sessionId: string): boolean {
     if (method === 'subscribe' || method === 'unsubscribe') {
       const topic = (params as { topic?: unknown } | null)?.topic;
       if (typeof topic !== 'string') return method === 'unsubscribe';
@@ -352,6 +360,14 @@ export class WebService implements ManagedService {
     }
     if (!(WEB_REVIEW_METHODS as readonly string[]).includes(method)) return false;
     const p = (params ?? {}) as Record<string, unknown>;
+    if (method === 'exports.get' || method === 'jobs.cancel') return typeof p.jobId === 'string' && this.#sessions.ownsExport(sessionId, p.jobId);
+    if (method === 'exports.list' && typeof p.videoId !== 'string') return false;
+    if (method === 'exports.create') {
+      const settings = (p.settings ?? {}) as Record<string, unknown>;
+      const destination = (p.destination ?? {}) as Record<string, unknown>;
+      if (settings.kind !== 'video' || settings.format !== 'mp4' || settings.purpose === 'preview') return false;
+      if (destination.dir !== undefined || destination.fileName !== undefined || destination.overwrite !== undefined) return false;
+    }
     const videoId = typeof p.videoId === 'string' ? p.videoId : typeof p.video === 'string' ? p.video : null;
     if (videoId !== null) return videos.has(videoId);
     if (method === 'videos.open' || method === 'media.resolve' || method === 'media.subtitles') {
@@ -374,7 +390,7 @@ export class WebService implements ManagedService {
       return new RpcError('unauthenticated', RcWeb.sessionExpired());
     }
     const videos = this.#sessions.scope(principal.sessionId);
-    if (videos && !this.#reviewAllows(method, params, videos)) {
+    if (videos && !this.#reviewAllows(method, params, videos, principal.sessionId)) {
       this.#log.info('Review session call out of scope', { sessionId: principal.sessionId, method });
       return new RpcError('forbidden', RcWeb.reviewNotAllowed({ method }), { code: 'WEB_REVIEW_SCOPE', method });
     }
@@ -511,7 +527,32 @@ export class WebService implements ManagedService {
       if (!this.media.handle(request, response)) deny(404, RcWeb.fileNotFound().text);
       return;
     }
+    const download = parseWebExportDownloadPath(pathname);
+    if (download && session) {
+      return void this.#sendExport(session, download.jobId, download.index, response).catch(() => {
+        if (!response.headersSent) deny(404, RcWeb.fileNotFound().text);
+        else response.destroy();
+      });
+    }
     this.#sendApp(page ? '/' : pathname, request, response);
+  }
+
+  /**
+   * `GET /_exports/<jobId>/<序号>`（`webExportDownloadPath`）：这条导出的第几个文件。审片会话只认它自己起的导出；
+   * 那个输出已经发布、文件还在时签一个媒体句柄，302 到它的下载地址（`Content-Disposition: attachment`），否则 404。
+   */
+  async #sendExport(sessionId: string, jobId: string, index: number, response: ServerResponse): Promise<void> {
+    const refuse = () => void response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end(RcWeb.fileNotFound().text);
+    if (!this.#sessions.ownsExport(sessionId, jobId) || webAuthorize('exports.get', {}, this.#access())) return refuse();
+    const principal: TrustedPrincipal = { connectionId: `web-download:${sessionId}`, kind: 'web', name: 'web', sessionId };
+    const job = await Promise.resolve()
+      .then(() => this.#binding!.handlers.methods['exports.get']({ jobId }, principal))
+      .catch(() => null);
+    const file = job?.result?.outputs?.[index]?.path;
+    if (!file) return refuse();
+    const handle = await this.media.issue(path.dirname(file), path.basename(file)).catch(() => null);
+    if (!handle) return refuse();
+    response.writeHead(302, { Location: `${handle.url}?download=1`, 'Cache-Control': 'no-store' }).end();
   }
 
   /**
@@ -633,7 +674,7 @@ export class WebService implements ManagedService {
  */
 function isAppRoute(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean);
-  if (parts.length === 0 || ['media', 'bundle', '_auth', 'assets', 'ws'].includes(parts[0]!)) return false;
+  if (parts.length === 0 || ['media', 'bundle', '_auth', '_exports', 'assets', 'ws'].includes(parts[0]!)) return false;
   return parts.every((part) => !part.startsWith('.')) && !parts[parts.length - 1]!.includes('.');
 }
 

@@ -8,9 +8,10 @@ import vm from 'node:vm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { BaoCutClient } from '@baocut/client';
-import { PROTOCOL_VERSION, RpcError, newId, webVideoHref, type Id, type Project, type ServicesEvent, type ServicesSnapshot } from '@baocut/protocol';
+import { PROTOCOL_VERSION, RpcError, newId, webExportDownloadPath, webVideoHref, type Id, type Project, type ServicesEvent, type ServicesSnapshot } from '@baocut/protocol';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
+import { resolveExportWorkerCommand } from '../exports/video-export.ts';
 import { startRuntime, type RunningRuntime, type StartRuntimeOptions } from '../runtime.ts';
 import { resolveWebDist } from './web-static.ts';
 import { ToolDriver, until } from '../agent-tools/testing/fake-agent.ts';
@@ -1081,6 +1082,7 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
   let sequenceId: Id;
   let videoPath: string;
   let origin: string;
+  let pageCookie: string;
   /** 本机字体库只扫这个目录（引擎宿主启动时带上的测试钩子），放一份探针字体 ColrProbe。 */
   let systemFonts: string;
   let previousFontDirs: string | undefined;
@@ -1160,12 +1162,12 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
       headers: { Origin: origin, 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: url.split('#code=')[1] }),
     });
-    const cookie = reply.headers['set-cookie']![0]!.split(';')[0]!;
+    pageCookie = reply.headers['set-cookie']![0]!.split(';')[0]!;
     page = new BaoCutClient({
       resolve: async () => ({ endpoint: `${origin.replace('http:', 'ws:')}/ws`, token: '' }),
       client: { kind: 'desktop', name: 'browser', version: '0' },
       reconnect: false,
-      WebSocket: browserSocket(origin, cookie),
+      WebSocket: browserSocket(origin, pageCookie),
     });
     await page.connect();
 
@@ -1310,6 +1312,90 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
     expect((await runtime.services.web.reviewLink(videoId)).url).toBe(first.url);
     expect((await review({ video: videoId, key })).status).toBe(204);
   });
+
+  it('审片页的导出：只能导这部视频的 MP4 成片、不带位置；只看得到、取消得了、下载得了自己起的导出', async () => {
+    await page.request('edits.apply', {
+      videoId,
+      commandId: newId('cmd'),
+      expectedRevision: revision,
+      operations: [
+        { type: 'importAsset', path: path.join(project.path, 'clip.mp4'), ref: 'c' },
+        { type: 'addItem', sequenceId, asset: { ref: 'c' }, alignment: 'nearest-frame' },
+      ],
+    });
+    const { url } = await desktop.request('services.web.reviewLink', { video: videoId });
+    const reply = await send(`${origin}/_auth/review`, {
+      method: 'POST',
+      headers: { Origin: origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ video: videoId, key: url.split('#key=')[1]! }),
+    });
+    const cookie = reply.headers['set-cookie']![0]!.split(';')[0]!;
+    const settled = (client: BaoCutClient, jobId: string) =>
+      until(async () => {
+        const record = await client.request('exports.get', { jobId });
+        return ['completed', 'failed', 'cancelled', 'interrupted'].includes(record.state) && record;
+      }, 60_000);
+
+    // 完整会话也能下载：302 到带 download=1 的媒体句柄，取到的是附件。
+    const { jobId: fullJob } = await page.request('exports.create', { videoId, settings: { kind: 'audio', format: 'wav' } });
+    expect((await settled(page, fullJob)).state).toBe('completed');
+    const fullDownload = await send(`${origin}${webExportDownloadPath(fullJob, 0)}`, { headers: { Cookie: pageCookie } });
+    expect(fullDownload.status).toBe(302);
+    expect(fullDownload.headers.location).toMatch(/^\/media\/[A-Za-z0-9_-]+\/.+\.wav\?download=1$/);
+    const file = await send(`${origin}${fullDownload.headers.location}`, { headers: { Cookie: pageCookie } });
+    expect(file.status).toBe(200);
+    expect(file.headers['content-disposition']).toMatch(/^attachment; filename\*=UTF-8''.+\.wav$/);
+    expect((await send(`${origin}${webExportDownloadPath(fullJob, 1)}`, { headers: { Cookie: pageCookie } })).status).toBe(404);
+    expect((await send(`${origin}${webExportDownloadPath(fullJob, 0)}`)).status).toBe(401);
+
+    const viewer = new BaoCutClient({
+      resolve: async () => ({ endpoint: `${origin.replace('http:', 'ws:')}/ws`, token: '' }),
+      client: { kind: 'desktop', name: 'review', version: '0' },
+      reconnect: false,
+      WebSocket: browserSocket(origin, cookie),
+    });
+    try {
+      await viewer.connect();
+      const scoped = (promise: Promise<unknown>) => promise.then(() => 'ok', (e: unknown) => (details(e) as { details?: { code?: string } }).details?.code);
+      const video = { kind: 'video', format: 'mp4' } as const;
+      // 只有这部视频的 MP4 成片，不带位置、不是内部预览。
+      for (const request of [
+        { videoId, settings: { kind: 'audio', format: 'wav' } },
+        { videoId, settings: { kind: 'video', format: 'webm' } },
+        { videoId, settings: { ...video, purpose: 'preview' } },
+        { videoId, settings: video, destination: { dir: project.path } },
+        { videoId, settings: video, destination: { fileName: 'x.mp4' } },
+        { videoId, settings: video, destination: { overwrite: true } },
+        { videoId: 'vid_other', settings: video },
+      ]) {
+        expect(await scoped(viewer.request('exports.create', request as never)), JSON.stringify(request)).toBe('WEB_REVIEW_SCOPE');
+      }
+      // 别人起的导出：看不到、取消不了、下载不了；列表要带这部视频，只列自己起的。
+      expect(await scoped(viewer.request('exports.get', { jobId: fullJob }))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('jobs.cancel', { jobId: fullJob }))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('exports.list', {}))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('subscribe', { topic: 'jobs' } as never))).toBe('WEB_REVIEW_SCOPE');
+      expect((await viewer.request('exports.list', { videoId })).jobs).toEqual([]);
+      expect((await send(`${origin}${webExportDownloadPath(fullJob, 0)}`, { headers: { Cookie: cookie } })).status).toBe(404);
+
+      // 浏览器没有保存窗口，界面给的是空的位置（照 Runtime 的缺省）：放行。
+      const { jobId } = await viewer.request('exports.create', { videoId, settings: { ...video, width: 320, height: 180 }, destination: {} });
+      expect((await viewer.request('exports.list', { videoId })).jobs.map((job) => job.jobId)).toEqual([jobId]);
+      const job = await settled(viewer, jobId);
+      expect(job.export!.destination.dir).toBe(await fs.realpath(path.join(project.path, 'exports')));
+      if (resolveExportWorkerCommand(engine)) {
+        expect(job.state, JSON.stringify(job.error)).toBe('completed');
+        const own = await send(`${origin}${webExportDownloadPath(jobId, 0)}`, { headers: { Cookie: cookie } });
+        expect(own.status).toBe(302);
+        expect(own.headers.location).toMatch(/\.mp4\?download=1$/);
+        expect((await send(`${origin}${own.headers.location}`, { headers: { Cookie: cookie } })).status).toBe(200);
+      }
+      // 取消认自己起的任务（已经结束的不再变）。
+      expect(await scoped(viewer.request('jobs.cancel', { jobId }))).toBe('ok');
+    } finally {
+      viewer.close();
+    }
+  }, 90_000);
 
   it('写入的操作者是用户本人（与桌面相同），不是 external:web；项目目录之外的素材文件被拒绝', async () => {
     const applied = await page.request('edits.apply', {

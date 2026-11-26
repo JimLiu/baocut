@@ -16,6 +16,8 @@ import { EXPORT_COPY } from './export-copy.ts';
 import { clearExportRequest, useExportRequest } from './export-request.ts';
 import { Note } from './export-parts.tsx';
 import { ExportPanel } from './export-popover.tsx';
+import { ReviewExportPanel, useReviewExportPoll } from './review-export.tsx';
+import { downloadExport } from './review-export-done.tsx';
 import type { ExportEnv } from './use-export-submit.ts';
 
 /**
@@ -23,6 +25,7 @@ import type { ExportEnv } from './use-export-submit.ts';
  * 这个视频有导出在跑时（谁提交的都算），按钮念「导出中 · NN%」；关掉弹层不停导出。
  * 弹层关着时导出结束：完成给一条提示，可以直接在文件夹中显示；失败或中断给一条提示，点「查看」打开弹层看原因。
  * 别处可以请它打开弹层（`requestExport`）。
+ * 审片页（产品设计 §5.12）里是只导成片的简版面板（`ReviewExportPanel`），进度靠轮询，完成提示给「下载」。
  */
 
 const tabular = { fontVariantNumeric: 'tabular-nums' } as const;
@@ -30,10 +33,13 @@ const empty = style({ width: 368, padding: 24, boxSizing: 'border-box' });
 
 export function ExportButton({ video, sequence }: { video: OpenVideo; sequence: Sequence | null }) {
   const videoId = video.videoId;
+  const review = useRuntime().review;
   const jobs = useJobs((s) => s.jobs);
   const live = videoId ? latestLiveExport(jobs, videoId) : null;
   const [open, setOpen] = useState(false);
   const [focus, setFocus] = useState<Id | null>(null);
+  // 审片页没有 jobs 主题：按 exports.list 轮询（只列这个审片会话起的导出）。
+  useReviewExportPoll(review ? videoId : null, open || !!live);
   useEndNotices(videoId, open, (jobId) => {
     setFocus(jobId);
     setOpen(true);
@@ -71,7 +77,8 @@ export function ExportButton({ video, sequence }: { video: OpenVideo; sequence: 
 
 /** 弹层打开那一刻的视频事实；播放头与选区取打开时的（弹层开着时编辑器不动）。 */
 function PanelHost({ video, videoId, sequence, initialJobId, onClose }: { video: OpenVideo; videoId: Id; sequence: Sequence | null; initialJobId: Id | null; onClose: () => void }) {
-  const web = useRuntime().host.platform === 'web';
+  const runtime = useRuntime();
+  const web = runtime.host.platform === 'web';
   const [{ playhead, selection }] = useState(() => {
     const s = useEditor.getState();
     return { playhead: s.playhead, selection: s.selection };
@@ -98,6 +105,8 @@ function PanelHost({ video, videoId, sequence, initialJobId, onClose }: { video:
     ready: video.status === 'ready',
     sourceDir: main ? exportSourceDir(assetFilePath(main, videoDir), videoDir) : null,
   };
+  // 审片页（产品设计 §5.12）只导成片：一页的简版面板。
+  if (runtime.review) return <ReviewExportPanel env={env} initialJobId={initialJobId} onClose={onClose} />;
   return <ExportPanel env={env} initialJobId={initialJobId} onClose={onClose} />;
 }
 
@@ -125,10 +134,15 @@ function useEndNotices(videoId: Id | null, open: boolean, onView: (jobId: Id) =>
       if (job.state === 'completed') {
         const target = exportOutputs(job)[0]?.path ?? exportDir(job);
         const name = exportOutputs(job)[0]?.name ?? title;
-        ToastQueue.positive(EXPORT_COPY.exportedToast(name), {
-          timeout: 8000,
-          ...(target ? { actionLabel: EXPORT_COPY.reveal, onAction: () => void runtime.host.revealPath(target), shouldCloseOnAction: true } : {}),
-        });
+        // 审片页没有「在文件夹中显示」，提示上给「下载」。
+        const action = runtime.review
+          ? exportOutputs(job).length
+            ? { actionLabel: EXPORT_COPY.download, onAction: () => downloadExport(job), shouldCloseOnAction: true }
+            : {}
+          : target
+            ? { actionLabel: EXPORT_COPY.reveal, onAction: () => void runtime.host.revealPath(target), shouldCloseOnAction: true }
+            : {};
+        ToastQueue.positive(EXPORT_COPY.exportedToast(name), { timeout: 8000, ...action });
       } else if (job.state === 'failed' || job.state === 'interrupted') {
         const text = job.state === 'failed' ? EXPORT_COPY.failedToast(title) : EXPORT_COPY.interruptedToast(title);
         ToastQueue.negative(text, { timeout: 10000, actionLabel: EXPORT_COPY.view, onAction: () => view.current(job.jobId), shouldCloseOnAction: true });

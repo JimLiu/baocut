@@ -555,8 +555,8 @@ test('用哪台电脑导出（J4）：上传 + 那边导出与本机比，缓存
 test('审片页导出：等效命令与 exports/ 位置', () => {
   assert.equal(X.exportsDir('~/BaoCut/科浪访谈-42/'), '~/BaoCut/科浪访谈-42/exports/');
   assert.equal(X.exportsDir('~/BaoCut/a'), '~/BaoCut/a/exports/');
-  assert.equal(X.cliCommand('video_9a72', {dims: {w: 1920, h: 1080}, dir: '~/BaoCut/科浪访谈-42/exports/'}),
-    'baocut export video_9a72 --kind video --format mp4 --width 1920 --height 1080 --dir ~/BaoCut/科浪访谈-42/exports');
+  assert.equal(X.cliCommand('video_9a72', {dims: {w: 1920, h: 1080}}),
+    'baocut export video_9a72 --kind video --format mp4 --width 1920 --height 1080');
   assert.match(X.cliCommand('v1', {dims: {w: 1280, h: 720}, burn: false}), /--height 720 --no-burn-captions$/);
   assert.doesNotMatch(X.cliCommand('v1', {burn: true}), /burn/, '默认就烧字幕，不写开关');
 });

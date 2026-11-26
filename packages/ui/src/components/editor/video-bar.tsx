@@ -180,8 +180,8 @@ function Bar({ video, sequence, versions }: { video: OpenVideo; sequence: Sequen
       ) : null}
       <div className={acts({ isNarrow })}>
         {review ? null : <TaskPill videoId={video.videoId} />}
-        {/* 审片页（架构设计 §12.8）只有这一部视频：不导出、不去 Space、不关闭。 */}
-        {review ? null : <ExportButton video={video} sequence={sequence} />}
+        {/* 审片页（产品设计 §5.12、架构设计 §12.8）只有这一部视频：只导成片，不去 Space、不关闭。 */}
+        <ExportButton video={video} sequence={sequence} />
         {!review && fromSpace ? <span className={sep} aria-hidden="true" /> : null}
         {!review && fromSpace ? (
           <Tip label={VB.closeToSpace}>

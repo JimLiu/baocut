@@ -135,7 +135,9 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
 /**
  * 审片会话（审片链接换来的，只能看一两部指定的视频）能调的方法，逐个列出：先要过上面的白名单与只读，再在这里面；带视频参数的
  * （`videoId`、`video`，`videos.open` 与 `media.resolve` / `media.subtitles` 的文件位置）只能是会话里的视频。
- * 没有会话、Space、项目、任务与模型：审片页只有这部视频的编辑器（产品设计 §5.12），要生成、转写的事交给出链接的那个 Agent。
+ * 没有会话、Space、项目、全局任务与模型：审片页只有这部视频的编辑器（产品设计 §5.12），要生成、转写的事交给出链接的那个 Agent。
+ * 导出只有它自己起的成片：`exports.create` 只接受 MP4 成片、不带位置，`exports.get` / `jobs.cancel` 只认这个会话起的任务，
+ * `exports.list` 只列这些（架构设计 §4.8「审片链接」）。
  */
 export const WEB_REVIEW_METHODS: readonly RpcMethod[] = [
   'runtime.info',
@@ -165,6 +167,11 @@ export const WEB_REVIEW_METHODS: readonly RpcMethod[] = [
   'stickers.applyToVideo',
   'pets.openHandle',
   'pets.applyToVideo',
+  // 审片页的导出（只导成片，另查参数与归属）。`jobs` 主题是全局的、不开放，进度靠 `exports.list` 轮询。
+  'exports.create',
+  'exports.get',
+  'exports.list',
+  'jobs.cancel',
 ];
 
 /** 审片会话能订阅的主题：会话里的视频（`video:<id>`，另查）之外只有设置（偏好与界面语言）。 */
@@ -181,6 +188,25 @@ export function parseWebReviewPath(pathname: string): string | null {
   if (!match) return null;
   try {
     return decodeURIComponent(match[1]!);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 下载一条导出的第 `index` 个文件（从 0 起）：同源的 `GET /_exports/<jobId>/<index>`，要会话；审片会话只认它自己起的导出。
+ * 任务完成、文件还在时 302 到带 `download=1` 的媒体句柄，否则 404（架构设计 §4.8「审片链接」）。
+ */
+export function webExportDownloadPath(jobId: string, index: number): string {
+  return `/_exports/${encodeURIComponent(jobId)}/${index}`;
+}
+
+/** 下载路径 → `{ jobId, index }`；不是下载路径时为 null。 */
+export function parseWebExportDownloadPath(pathname: string): { jobId: string; index: number } | null {
+  const match = /^\/_exports\/([^/]+)\/(\d{1,4})$/.exec(pathname);
+  if (!match) return null;
+  try {
+    return { jobId: decodeURIComponent(match[1]!), index: Number(match[2]) };
   } catch {
     return null;
   }

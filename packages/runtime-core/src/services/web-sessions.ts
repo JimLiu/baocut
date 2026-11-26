@@ -8,7 +8,7 @@ import { WEB_ACCESS_CODE_TTL_MS, WEB_REVIEW_SESSION_TTL_MS, WEB_SESSION_TTL_MS, 
  *   同时有效的代码有上限，超过时丢掉最早发的。
  * - 会话令牌是 `<sessionId>.<secret>`，`secret` 同样 32 字节、只存哈希，比较用 `timingSafeEqual`；令牌只在 cookie 里。
  * - 审片会话（`openReview`）由审片链接的密钥换来，只能看 `videos` 里的视频；同一个浏览器再打开另一部视频的审片链接时，
- *   视频加进同一个会话。完整会话的 `videos` 为 null。
+ *   视频加进同一个会话。完整会话的 `videos` 为 null。审片会话另记它自己起的导出（`exports`），只有这些它看得到、取消得了。
  * - 服务停止时全部清空：令牌在服务每次启动时重新生成（§12.8）。
  */
 
@@ -26,7 +26,12 @@ interface StoredSession {
   connections: number;
   /** 审片会话能看的视频；完整会话为 null。 */
   videos: Set<string> | null;
+  /** 审片会话起的导出任务（`jobId`）；完整会话不记。 */
+  exports: Set<string>;
 }
+
+/** 一个审片会话最多记这么多条导出，超过时丢掉最早的（它们照旧在任务列表里，只是这个页面不再看得到）。 */
+const MAX_REVIEW_EXPORTS = 200;
 
 export interface WebSessionsOptions {
   codeTtlMs?: number;
@@ -91,6 +96,25 @@ export class WebSessions {
     return session ? session.videos : new Set();
   }
 
+  /** 审片会话起了一条导出：记下来，之后 `exports.get`、`jobs.cancel` 与下载只认这些。完整会话或会话不在时什么也不做。 */
+  addExport(sessionId: string, jobId: string): void {
+    const session = this.#sessions.get(sessionId);
+    if (!session?.videos) return;
+    session.exports.add(jobId);
+    while (session.exports.size > MAX_REVIEW_EXPORTS) {
+      const oldest = session.exports.values().next().value;
+      if (oldest === undefined) break;
+      session.exports.delete(oldest);
+    }
+  }
+
+  /** 这个会话能不能看这条导出：完整会话都能；审片会话只有它自己起的。 */
+  ownsExport(sessionId: string, jobId: string): boolean {
+    const session = this.#sessions.get(sessionId);
+    if (!session) return false;
+    return session.videos === null || session.exports.has(jobId);
+  }
+
   #create(videos: Set<string> | null, ttlMs: number, userAgent: string | undefined): { sessionId: string; token: string; maxAgeSec: number } {
     const sessionId = newId('wses');
     const secret = crypto.randomBytes(SECRET_BYTES);
@@ -104,6 +128,7 @@ export class WebSessions {
       userAgent: userAgent ? userAgent.slice(0, USER_AGENT_MAX) : null,
       connections: 0,
       videos,
+      exports: new Set(),
     });
     return { sessionId, token: `${sessionId}.${secret.toString('base64url')}`, maxAgeSec: Math.floor(ttlMs / 1000) };
   }

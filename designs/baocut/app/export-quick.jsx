@@ -1,4 +1,4 @@
-/* 审片页的导出（表面 `review` 的 `exportQuick`，product-design §5.12 待定稿，2026-11-25）。
+/* 审片页的导出（表面 `review` 的 `exportQuick`，product-design §5.12「导出成片」，2026-11-25）。
    ============================================================================
    审片页开在 Agent 宿主的浏览器里（Claude 桌面应用的浏览器窗格这类）。用户看完觉得可以了，
    想要成片，不必再回到对话里让 Agent 导：视频栏右边的「导出」就在这一页导。
@@ -59,7 +59,7 @@
     const parts = X.summary(eff, {span, dims: est.dims});
     const file = X.videoName(baseName(proj), eff, span);
     const dir = X.exportsDir(projectPath(proj));
-    const cmd = X.cliCommand(proj.videoId || proj.id, {dims: est.dims, burn: subsLanes.length ? burn : undefined, dir});
+    const cmd = X.cliCommand(proj.videoId || proj.id, {dims: est.dims, burn: subsLanes.length ? burn : undefined});
 
     const copy = (what, text) => copyToClipboard(text).then((ok) => {
       if (!ok) { app.toast('复制失败 · 浏览器拒绝了剪贴板权限，请选中文字复制', 'negative'); return; }

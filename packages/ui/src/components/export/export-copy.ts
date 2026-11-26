@@ -243,6 +243,19 @@ const en = {
   missingSkip: 'Skip them and mark them missing in the list',
   exportProject: 'Export project file',
   exportPortable: 'Export portable package',
+  quickTitle: "Export video",
+  quickSize: "Size",
+  quickCaptions: "Subtitles",
+  quickBurn: "Burn into picture",
+  quickSaveTo: "Save to",
+  quickPlace: "The project’s exports/ folder · a number is added if the name is taken; nothing is overwritten",
+  quickNote: "Picture, sound and which layers are on follow the timeline. To change the aspect ratio, export a part, or get audio or subtitle files, ask the agent or open this video in BaoCut.",
+  copyCommand: "Copy equivalent command",
+  commandCopied: "Command copied",
+  copyPath: "Copy path",
+  pathCopied: "Copied",
+  download: "Download",
+  keepsRunningHere: "Exporting on this computer · keeps going if you close this page",
 };
 
 export type ExportMessages = typeof en;

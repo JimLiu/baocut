@@ -529,7 +529,7 @@
     return '原视频所在的文件夹 · ' + (p.slice(0, p.lastIndexOf('/')) || '/');
   }
 
-  /* ---------- 审片页的导出（product-design §5.12 待定稿：审片页只导成片） ----------
+  /* ---------- 审片页的导出（product-design §5.12「导出成片」：审片页只导成片） ----------
      审片页（Agent 宿主的浏览器里）不开完整导出面板：成片 MP4、画面与声音照时间线，只能挑尺寸与字幕烧不烧，
      存到项目的 exports/，重名加序号。按钮提交的就是 `baocut export` 那一条导出；这里给出等效命令，
      用户可以复制到终端自己跑，或贴给 Agent。 */
@@ -549,14 +549,14 @@
     return (base === '/' ? '' : base) + 'exports/';
   }
 
-  /** 等效的 CLI：`baocut export <视频> --kind video --format mp4 --width W --height H [--no-burn-captions] --dir <exports>`。
-   *  `opts`：`{dims: {w, h}, burn: boolean, dir}`；字幕默认烧进画面，所以只有关掉时才写开关。 */
+  /** 等效的 CLI：`baocut export <视频> --kind video --format mp4 --width W --height H [--no-burn-captions]`。
+   *  `opts`：`{dims: {w, h}, burn: boolean}`；字幕默认烧进画面，所以只有关掉时才写开关。
+   *  不写 `--dir`：项目里的视频 CLI 缺省也导到项目的 exports/，与这一页同一个位置。 */
   function cliCommand(videoId, opts) {
     const o = opts || {};
     const parts = ['baocut', 'export', shellArg(videoId), '--kind', 'video', '--format', 'mp4'];
     if (o.dims) parts.push('--width', String(o.dims.w), '--height', String(o.dims.h));
     if (o.burn === false) parts.push('--no-burn-captions');
-    if (o.dir) parts.push('--dir', shellArg(String(o.dir).replace(/\/$/, '')));
     return parts.join(' ');
   }
 

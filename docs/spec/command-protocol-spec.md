@@ -954,7 +954,7 @@ interface ErrorBody {
 | `WEB_METHOD_NOT_ALLOWED` | 浏览器会话调用了 Web 服务白名单之外的方法（`details.method`）。放在 `RpcError.details.code`，`RpcError.code` 为 `forbidden` | 不重试；在桌面应用或 CLI 里操作，或由用户放宽 Web 服务的白名单（不能超出默认集合） |
 | `WEB_READ_ONLY` | Web 服务设为只读时，浏览器会话调用了写入类方法（`details.method`）。`RpcError.code` 为 `forbidden` | 不重试；由用户关掉只读 |
 | `WEB_TOPIC_NOT_ALLOWED` | 浏览器会话订阅的主题要求的读取方法不在白名单里（`details.topic`）。`RpcError.code` 为 `forbidden` | 不重试；客户端不再重订这个主题 |
-| `WEB_REVIEW_SCOPE` | 审片会话（审片链接换来的）调用了 `WEB_REVIEW_METHODS` 之外的方法，或带的视频参数不是会话里的视频（`details.method`）。`RpcError.code` 为 `forbidden` | 不重试；审片页只处理这一部视频，生成、转写与导出交给给出链接的 Agent 或在 BaoCut 里做 |
+| `WEB_REVIEW_SCOPE` | 审片会话（审片链接换来的）调用了 `WEB_REVIEW_METHODS` 之外的方法，或带的视频参数不是会话里的视频（`details.method`）。`RpcError.code` 为 `forbidden` | 不重试；审片页只处理这一部视频、只导它的 MP4 成片，生成、转写与别的导出交给给出链接的 Agent 或在 BaoCut 里做 |
 | `PROJECT_NOT_REGISTERED` | 浏览器会话用 `projects.open` 打开没有登记的目录。`RpcError.code` 为 `forbidden` | 在桌面应用里打开这个目录，或在浏览器里新建项目 |
 | `PATH_OUTSIDE_PROJECT` | 对外服务或浏览器会话导入或重新链接的素材文件按真实路径不在视频所在的项目目录里；浏览器会话 `exports.create` 的目标目录按真实路径不在这个目录里，或是视频目录、`.bcut`；浏览器会话直接任务（`models.synthesizeSpeech`、`generateImage`、`generateText`）的 `saveDir` 按真实路径（还不存在时按最近的已有上级）不在任何已登记的项目目录里；浏览器会话 `generateImage` 的 `images` 里给的本机路径按真实路径不在任何已登记的项目目录里。浏览器会话的 `edits.apply`、`exports.create` 与这些直接任务以 `forbidden` 回答，`edits.apply` 的 `details.index` 是出错的操作下标。浏览器里的 `tools.list` 在保存位置不在项目目录里时也用这个码标出工具：结果只写到保存位置的流程进 `problems`（不可用），还能写进视频的进 `limitations` | 不重试；先把文件放进项目目录，或把保存位置（设置 `downloads.directory`）改到项目目录里 |
 | `ACCESS_CODE_INVALID` | Web 服务登录（`POST /_auth/session`）用的访问代码不认识、已经用过或已经过期。不是网关错误：HTTP 401，正文 `{ "error": "ACCESS_CODE_INVALID" }` | 重新运行 `baocut web open` 取得新链接 |

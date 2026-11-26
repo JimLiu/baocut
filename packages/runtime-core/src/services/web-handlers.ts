@@ -65,6 +65,11 @@ export interface WebHandlerDeps {
   record: (method: RpcMethod, principal: TrustedPrincipal, videoId: string | null, outcome: string) => void;
   /** 此刻的访问配置（白名单与只读）：工具目录据此标出浏览器里用不了的工具。 */
   access: () => WebServiceAccess;
+  /**
+   * 审片会话起的导出（架构设计 §4.8「审片链接」）：主体是审片会话时给出记下与查询它的导出的办法，完整会话为 null。
+   * `exports.create` 成功后记下 `jobId`，`exports.list` 只留记下的。
+   */
+  reviewExports?: (principal: TrustedPrincipal) => { add(jobId: string): void; has(jobId: string): boolean } | null;
 }
 
 const READ = new Set<string>(WEB_READ_METHODS);
@@ -98,7 +103,15 @@ export function webHandlers(base: RpcHandlers, deps: WebHandlerDeps): RpcHandler
   methods['exports.create'] = async (params, principal) => {
     const p = params as RpcParams<'exports.create'>;
     const dir = await confineExportDir(deps, p);
-    return createExport(dir === undefined ? p : { ...p, destination: { ...p.destination, dir } }, principal);
+    const result = await createExport(dir === undefined ? p : { ...p, destination: { ...p.destination, dir } }, principal);
+    deps.reviewExports?.(principal)?.add(result.jobId);
+    return result;
+  };
+  const listExports = base.methods['exports.list'];
+  methods['exports.list'] = async (params, principal) => {
+    const result = await listExports(params as RpcParams<'exports.list'>, principal);
+    const own = deps.reviewExports?.(principal);
+    return own ? { ...result, jobs: result.jobs.filter((job) => own.has(job.jobId)) } : result;
   };
 
   const importFile = base.methods['space.import'];
