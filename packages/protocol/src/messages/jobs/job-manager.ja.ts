@@ -9,6 +9,7 @@ export const ja: JobsManagerMessages = {
   onlyHostedRerun: 'この方法で再実行できるのはホストされたタスクだけです',
   notEnded: 'タスクはまだ終了していません',
   hintTooLong: '用語のヒントは 1200 文字以内にしてください',
+  diarizationUnavailable: (p: { model: string }) => `${p.model} は話者を区別できません：BaoCut で「話者分離」コンポーネントをインストールするか、区別できるモデルを選んでください`,
   hintIgnored: (p: { model: string }) => `${p.model} は認識のヒントに対応していないため、ヒントは使われませんでした`,
   onlyAudioVideo: '文字起こしできるのは音声または動画の素材だけです',
   pathNotAbsolute: 'パスは絶対パスである必要があります',

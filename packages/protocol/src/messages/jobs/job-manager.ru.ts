@@ -9,6 +9,7 @@ export const ru: JobsManagerMessages = {
   onlyHostedRerun: "Так повторяются только управляемые задачи",
   notEnded: "Задача ещё не завершена",
   hintTooLong: "Терминологическая подсказка не более 1200 символов",
+  diarizationUnavailable: (p: { model: string }) => `${p.model} не различает говорящих: установите в BaoCut компонент разделения говорящих или выберите модель, которая это умеет`,
   hintIgnored: (p: { model: string }) => `${p.model} не принимает подсказки распознавания; подсказка не использована`,
   onlyAudioVideo: "Расшифровывать можно только аудио- и видеоматериалы",
   pathNotAbsolute: "Пути должны быть абсолютными",

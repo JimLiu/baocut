@@ -9,6 +9,7 @@ export const ko: JobsManagerMessages = {
   onlyHostedRerun: '호스팅된 작업만 이 방식으로 다시 실행할 수 있습니다',
   notEnded: '작업이 아직 끝나지 않았습니다',
   hintTooLong: '용어 힌트는 1200자를 넘을 수 없습니다',
+  diarizationUnavailable: (p: { model: string }) => `${p.model}은(는) 화자를 구분할 수 없습니다: BaoCut에서 「화자 분리」 구성 요소를 설치하거나 구분할 수 있는 모델을 선택하세요`,
   hintIgnored: (p: { model: string }) => `${p.model}은(는) 인식 힌트를 지원하지 않아 힌트가 사용되지 않았습니다`,
   onlyAudioVideo: '오디오나 영상 소재만 전사할 수 있습니다',
   pathNotAbsolute: '경로는 절대 경로여야 합니다',

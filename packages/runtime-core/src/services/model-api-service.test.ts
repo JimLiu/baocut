@@ -885,6 +885,21 @@ describe('模型接口服务', () => {
       const segmentsOnly = await transcribe(token, { model: 'whisper-1', response_format: 'verbose_json' });
       expect(segmentsOnly.json.words).toBeUndefined();
 
+      // 默认模型（MOSS）自己区分说话人：diarized_json 的任务要了 diarize，段带字符串的 speaker。
+      const diarized = await transcribe(token, { model: 'whisper-1', response_format: 'diarized_json', chunking_strategy: 'auto' });
+      expect(diarized.status).toBe(200);
+      expect(diarized.json).toMatchObject({ task: 'transcribe', text: 'testing one two three baocut is ready', duration: expect.any(Number) });
+      expect(diarized.json.segments[0]).toMatchObject({
+        type: 'transcript.text.segment',
+        id: 'seg_001',
+        text: 'testing one two',
+        speaker: expect.any(String),
+      });
+      expect(diarized.json.words).toBeUndefined();
+      expect(await client.request('jobs.inspect', { jobId: diarized.json.baocut.jobId })).toMatchObject({ state: 'completed' });
+      const known = await transcribe(token, { model: 'whisper-1', response_format: 'diarized_json', 'known_speaker_names[]': 'agent' });
+      expect(known.json.error.code).toBe('UNSUPPORTED_PARAMETER');
+
       expect((await transcribe(token, { model: 'whisper-1', response_format: 'xml' })).json.error.code).toBe('UNSUPPORTED_PARAMETER');
       const noFile = multipart({ model: 'whisper-1' }, null);
       expect((await send(base, '/v1/audio/transcriptions', { token, ...noFile })).json.error.code).toBe('INVALID_REQUEST');

@@ -68,8 +68,8 @@
         {name: 'model', loc: 'form', kind: 'model', req: true, doc: MODEL_DOC},
         {name: 'language', loc: 'form', kind: 'text', placeholder: '自动识别',
           doc: '音频的语言，如 zh、en、ja。不写就自动识别。'},
-        {name: 'response_format', loc: 'form', kind: 'enum', dflt: 'json', values: ['json', 'verbose_json', 'text', 'srt', 'vtt'], reject: true,
-          doc: 'json 只有文字；verbose_json 带分段、语言与时长；text 是纯文本；srt / vtt 是字幕。diarized_json 不支持，返回 400。'},
+        {name: 'response_format', loc: 'form', kind: 'enum', dflt: 'json', values: ['json', 'verbose_json', 'diarized_json', 'text', 'srt', 'vtt'], reject: true,
+          doc: 'json 只有文字；verbose_json 带分段、语言与时长；diarized_json 按说话人分段，每段带 speaker（按出现顺序标 A、B……），模型要能区分说话人（MOSS，或装了「说话人区分」组件的 Qwen3-ASR、Whisper），不能时返回 400；不收 known_speaker_names / known_speaker_references（返回 400）；text 是纯文本；srt / vtt 是字幕。'},
         {name: 'timestamp_granularities[]', loc: 'form', kind: 'multi', values: ['segment', 'word'], more: true,
           doc: '含 word 时 verbose_json 里多返回逐词时间 words。只在 verbose_json 下有效。'},
         {name: 'prompt', loc: 'form', kind: 'text', more: true, placeholder: '专有名词、上下文',
@@ -182,7 +182,7 @@
       dflt[c.k] = defaultOf(ready[c.k], (defaults || {})[c.cat]);
       all[c.k].forEach((m) => { byId[m.id] = {m, cap: c.k}; });
     });
-    const ctx = {all, ready, dflt, byId};
+    const ctx = {all, ready, dflt, byId, installed};
     const rows = mapRows(api);
     const issues = mapIssues(rows, ctx);
     ctx.map = rows.filter((r, i) => !issues[i]);
@@ -471,6 +471,12 @@
     if (fmt === 'text') return {type: 'text/plain', text};
     if (fmt === 'srt') return {type: 'text/plain', text: DEMO_SEGS.map((s, i) => `${i + 1}\n${tc(s[0], ',')} --> ${tc(s[1], ',')}\n${s[2]}\n`).join('\n')};
     if (fmt === 'vtt') return {type: 'text/vtt', text: 'WEBVTT\n\n' + DEMO_SEGS.map((s) => `${tc(s[0], '.')} --> ${tc(s[1], '.')}\n${s[2]}\n`).join('\n')};
+    if (fmt === 'diarized_json') {
+      const speakers = ['A', 'B', 'A'];
+      return {type: 'application/json', json: {task: 'transcribe', duration: 12.4, text,
+        segments: DEMO_SEGS.map((s, i) => ({type: 'transcript.text.segment', id: `seg_00${i + 1}`, start: s[0], end: s[1], text: s[2], speaker: speakers[i]})),
+        baocut: {...baocut, language: 'zh'}}};
+    }
     if (fmt === 'verbose_json') {
       const o = {task: 'transcribe', language: 'zh', duration: 12.4, text,
         segments: DEMO_SEGS.map((s, i) => ({id: i, start: s[0], end: s[1], text: s[2]}))};
@@ -511,6 +517,15 @@
     if (bad) return fail('UNSUPPORTED_PARAMETER', `\`${v[bad.name]}\` is not a supported ${bad.name}.`, `${bad.name} 不收 ${v[bad.name]}。`);
 
     if (ep.id === 'asr.transcriptions') {
+      // 同内核：diarized_json 要模型能区分说话人（自带，或装了「说话人区分」包），不能时提交即 400，不跑转写。
+      const m = r.model;
+      const cloud = !!m.provider || String(m.id || '').startsWith('cloud:');
+      const diarizes = m.speakers === 'builtin' ||
+        ((m.speakers === 'pack' || (!m.speakers && !cloud)) && !!(ctx.installed && ctx.installed('speaker-diarization')));
+      if (v.response_format === 'diarized_json' && !diarizes) {
+        return fail('INVALID_REQUEST', `${model} can't tell speakers apart: install the Speaker diarization component in BaoCut, or choose a model that can`,
+          `${r.model.name || model} 不能区分说话人：装上「说话人区分」组件，或换 MOSS 这类自带区分的模型。`);
+      }
       return ok(2400, transcriptBody(v.response_format || 'json', (v['timestamp_granularities[]'] || []).indexOf('word') >= 0, trace(model)));
     }
     if (ep.id === 'tts.speech') {

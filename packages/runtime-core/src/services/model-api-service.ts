@@ -519,6 +519,7 @@ export class ModelApiService implements ManagedService {
             ...providerOf(target),
             ...(options.language ? { language: options.language } : {}),
             ...(options.hint ? { hint: options.hint } : {}),
+            ...(options.diarize ? { diarize: true } : {}),
           },
           submitter,
           grant,

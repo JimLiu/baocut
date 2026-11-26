@@ -11,6 +11,7 @@ export const nl: JobsManagerMessages = {
   onlyHostedRerun: "Alleen beheerde taken kunnen op deze manier opnieuw worden uitgevoerd",
   notEnded: "De taak is nog niet voltooid",
   hintTooLong: "De termhint mag niet langer zijn dan 1200 tekens",
+  diarizationUnavailable: (p: { model: string }) => `${p.model} kan geen sprekers scheiden: installeer in BaoCut het onderdeel “Sprekers scheiden” of kies een model dat het kan`,
   hintIgnored: (p: { model: string }) => `${p.model} accepteert geen herkenningshints; de hint is niet gebruikt`,
   onlyAudioVideo: "Alleen audio- of videomedia kunnen worden getranscribeerd",
   pathNotAbsolute: "Paden moeten absoluut zijn",

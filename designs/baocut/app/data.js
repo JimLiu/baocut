@@ -2705,7 +2705,7 @@
   const INDEX_TTS_LICENSE = {name: 'bilibili Model Use License Agreement', commercialUse: true,
     summary: '可商用，但上月月活超 1 亿或上年营收超 10 亿元人民币的主体须另向 bilibili 申请；分发须附协议原文'};
   const setModels = [
-    {id: 'moss-transcribe', name: 'MOSS Transcribe', size: 1748, installed: true, dflt: true,
+    {id: 'moss-transcribe', name: 'MOSS Transcribe', size: 1748, installed: true, dflt: true, speakers: 'builtin',
      note: '转录同时区分说话人', repo: 'OpenMOSS-Team/MOSS-Transcribe-Diarize', uses: ['wespeaker'],
      license: {name: 'Apache-2.0', url: 'https://huggingface.co/OpenMOSS-Team/MOSS-Transcribe-Diarize', commercialUse: true,
        summary: '上游模型卡标 Apache-2.0，可商用'}},

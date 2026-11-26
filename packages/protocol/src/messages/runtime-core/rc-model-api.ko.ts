@@ -72,6 +72,7 @@ export const ko: RcModelApiMessages = {
   jsonSchemaInvalid: 'response_format.json_schema.schema는 JSON Schema 객체여야 합니다',
   responseFormatTypeUnsupported: 'response_format.type은 text, json_object, json_schema만 지원합니다',
   transcriptionStreamUnsupported: '전사 스트리밍은 지원하지 않습니다',
+  knownSpeakersUnsupported: (p: { field: string }) => `알려진 화자(${p.field})는 지원하지 않습니다: 화자는 등장 순서대로 A, B…로 표시합니다`,
   granularitiesInvalid: 'timestamp_granularities는 word, segment만 가능합니다',
   capabilityTranscribe: '전사',
   capabilitySynthesizeSpeech: '음성 합성',

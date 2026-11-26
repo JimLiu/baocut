@@ -78,6 +78,7 @@ export const ja: RcModelApiMessages = {
   jsonSchemaInvalid: 'response_format.json_schema.schema は JSON Schema オブジェクトにしてください',
   responseFormatTypeUnsupported: 'response_format.type が対応しているのは text、json_object、json_schema のみです',
   transcriptionStreamUnsupported: '文字起こしのストリーミングには対応していません',
+  knownSpeakersUnsupported: (p: { field: string }) => `既知の話者（${p.field}）には対応していません：話者は登場順に A、B… と表記します`,
   granularitiesInvalid: 'timestamp_granularities に指定できるのは word、segment のみです',
   capabilityTranscribe: '文字起こし',
   capabilitySynthesizeSpeech: '音声合成',

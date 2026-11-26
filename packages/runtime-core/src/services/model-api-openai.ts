@@ -15,7 +15,7 @@ import {
   type Localized,
 } from '@baocut/protocol';
 import { RcModelApi } from '@baocut/protocol/messages/runtime-core';
-import type { AsrResult } from '@baocut/models';
+import type { AsrResult, Segment } from '@baocut/models';
 import { LIBRARY_VOICE_PREFIX } from '@baocut/runtime-storage/library';
 import { ApiError } from './model-api-errors.ts';
 
@@ -27,7 +27,7 @@ import { ApiError } from './model-api-errors.ts';
 
 type Json = Record<string, unknown>;
 
-export const TRANSCRIPTION_FORMATS = ['json', 'text', 'srt', 'vtt', 'verbose_json'] as const;
+export const TRANSCRIPTION_FORMATS = ['json', 'text', 'srt', 'vtt', 'verbose_json', 'diarized_json'] as const;
 export type TranscriptionFormat = (typeof TRANSCRIPTION_FORMATS)[number];
 
 function invalid(message: Localized): ApiError {
@@ -289,6 +289,8 @@ export interface TranscriptionOptions {
   hint?: string;
   words: boolean;
   segments: boolean;
+  /** 区分说话人：只有 `diarized_json` 要（OpenAI 也只在这个格式里给说话人）。 */
+  diarize: boolean;
 }
 
 /** multipart 的文本字段 → 转写选项。 */
@@ -299,6 +301,10 @@ export function transcriptionOptions(fields: Map<string, string[]>): Transcripti
     throw onlySupports('response_format', TRANSCRIPTION_FORMATS);
   }
   if (one('stream') === 'true') throw unsupported(RcModelApi.transcriptionStreamUnsupported());
+  // 已知说话人的参考音频（OpenAI 的 gpt-4o-transcribe-diarize）：本机的说话人区分不按名字认人，标的是 A、B……
+  for (const key of ['known_speaker_names', 'known_speaker_references']) {
+    if (fields.has(key) || fields.has(`${key}[]`)) throw unsupported(RcModelApi.knownSpeakersUnsupported({ field: key }));
+  }
   const granularities = [...(fields.get('timestamp_granularities[]') ?? []), ...(fields.get('timestamp_granularities') ?? [])].flatMap(
     (v) => v.split(',').map((s) => s.trim()),
   );
@@ -312,6 +318,7 @@ export function transcriptionOptions(fields: Map<string, string[]>): Transcripti
     ...(prompt ? { hint: prompt } : {}),
     words: granularities.includes('word'),
     segments: granularities.length === 0 || granularities.includes('segment'),
+    diarize: format === 'diarized_json',
   };
 }
 
@@ -340,6 +347,52 @@ function clock(ticks: number, timescale: number, separator: ',' | '.'): string {
   const s = Math.floor((ms % 60_000) / 1000);
   const pad = (n: number, w = 2) => String(n).padStart(w, '0');
   return `${pad(h)}:${pad(m)}:${pad(s)}${separator}${pad(ms % 1000, 3)}`;
+}
+
+/** 没有说话人的段（说话人区分没跑成，带 `diarization-unavailable`）在 `diarized_json` 里的 `speaker`：OpenAI 的类型里它是必填的字符串。 */
+export const UNKNOWN_SPEAKER = 'unknown';
+
+/** 第 n 个（从 0 起）说话人的标签：A、B……Z、AA、AB……（OpenAI 没给已知说话人时的写法）。 */
+function speakerLetter(n: number): string {
+  let label = '';
+  for (let i = n + 1; i > 0; i = Math.floor((i - 1) / 26)) label = String.fromCharCode(65 + ((i - 1) % 26)) + label;
+  return label;
+}
+
+interface SpeakerTurn {
+  start: number;
+  end: number;
+  text: string;
+  speakerId: string | null;
+}
+
+/**
+ * 一段按词的说话人切成几轮发言：段的说话人取的是说话时长最多的那个，段里够长的插话在词上（架构设计 §6.6 第 7 步）。
+ * 每轮的文字按词在段文字里的位置切出来，标点与空格照段文字；有词在段文字里找不到时不切，整段算段的说话人。
+ */
+function speakerTurns(segment: Segment): SpeakerTurn[] {
+  const whole: SpeakerTurn[] = [{ start: segment.start, end: segment.end, text: segment.text.trim(), speakerId: segment.speakerId }];
+  if (!segment.words.some((w) => w.speakerId !== undefined && w.speakerId !== segment.speakerId)) return whole;
+  const runs: Array<{ start: number; end: number; offset: number; speakerId: string | null }> = [];
+  let cursor = 0;
+  let speakerId = segment.speakerId;
+  for (const word of segment.words) {
+    const offset = segment.text.indexOf(word.text, cursor);
+    if (word.text === '' || offset < 0) return whole;
+    cursor = offset + word.text.length;
+    speakerId = word.speakerId ?? speakerId;
+    const last = runs.at(-1);
+    if (last && last.speakerId === speakerId) last.end = word.end;
+    else runs.push({ start: word.start, end: word.end, offset: last ? offset : 0, speakerId });
+  }
+  return runs
+    .map((run, i) => ({
+      start: i === 0 ? segment.start : run.start,
+      end: i === runs.length - 1 ? segment.end : run.end,
+      text: segment.text.slice(run.offset, runs[i + 1]?.offset).trim(),
+      speakerId: run.speakerId,
+    }))
+    .filter((turn) => turn.text !== '');
 }
 
 /** 按 `response_format` 写出转写结果：正文与媒体类型。 */
@@ -400,6 +453,34 @@ export function transcriptionBody(
         }),
         contentType: 'application/json; charset=utf-8',
       };
+    case 'diarized_json': {
+      // 说话人按首次出现编成 A、B……；同一个请求里稳定，跨请求不承诺一致。
+      const labels = new Map<string, string>();
+      const label = (id: string | null) => {
+        if (id === null) return UNKNOWN_SPEAKER;
+        if (!labels.has(id)) labels.set(id, speakerLetter(labels.size));
+        return labels.get(id)!;
+      };
+      const turns = segments.flatMap(speakerTurns);
+      const warnings = result.warnings.map((w) => w.code).filter((code, i, all) => all.indexOf(code) === i);
+      return {
+        body: JSON.stringify({
+          task: 'transcribe',
+          duration: seconds(result.duration, timescale),
+          text,
+          segments: turns.map((t, i) => ({
+            type: 'transcript.text.segment',
+            id: `seg_${String(i + 1).padStart(3, '0')}`,
+            start: seconds(t.start, timescale),
+            end: seconds(t.end, timescale),
+            text: t.text,
+            speaker: label(t.speakerId),
+          })),
+          baocut: { ...baocut, language: result.language.tag, ...(warnings.length ? { warnings } : {}) },
+        }),
+        contentType: 'application/json; charset=utf-8',
+      };
+    }
     case 'json':
       return { body: JSON.stringify({ text, baocut }), contentType: 'application/json; charset=utf-8' };
   }

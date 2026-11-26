@@ -70,6 +70,7 @@ export const zhHans: RcModelApiMessages = {
   jsonSchemaInvalid: 'response_format.json_schema.schema 应为 JSON Schema 对象',
   responseFormatTypeUnsupported: 'response_format.type 只支持 text、json_object、json_schema',
   transcriptionStreamUnsupported: '不支持流式转写',
+  knownSpeakersUnsupported: (p: { field: string }) => `不支持已知说话人（${p.field}）：说话人按出现顺序标为 A、B……`,
   granularitiesInvalid: 'timestamp_granularities 只能是 word、segment',
   capabilityTranscribe: '转写',
   capabilitySynthesizeSpeech: '语音合成',

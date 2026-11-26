@@ -11,6 +11,7 @@ export const de: JobsManagerMessages = {
   onlyHostedRerun: "Nur verwaltete Aufgaben können so erneut ausgeführt werden",
   notEnded: "Die Aufgabe ist noch nicht abgeschlossen",
   hintTooLong: "Der Begriffshinweis darf höchstens 1200 Zeichen lang sein",
+  diarizationUnavailable: (p: { model: string }) => `${p.model} kann Sprecher nicht unterscheiden: Installiere in BaoCut die Komponente zur Sprechertrennung oder wähle ein Modell, das es kann`,
   hintIgnored: (p: { model: string }) => `${p.model} unterstützt keine Erkennungshinweise; der Hinweis wurde nicht verwendet`,
   onlyAudioVideo: "Nur Audio- oder Videomaterial kann transkribiert werden",
   pathNotAbsolute: "Pfade müssen absolut sein",

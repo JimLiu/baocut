@@ -70,6 +70,7 @@ export const zhHant: RcModelApiMessages = {
   jsonSchemaInvalid: 'response_format.json_schema.schema 必須是 JSON Schema 物件',
   responseFormatTypeUnsupported: 'response_format.type 只支援 text、json_object、json_schema',
   transcriptionStreamUnsupported: '不支援串流轉錄',
+  knownSpeakersUnsupported: (p: { field: string }) => `不支援已知說話者（${p.field}）：說話者依出現順序標為 A、B……`,
   granularitiesInvalid: 'timestamp_granularities 只能是 word、segment',
   capabilityTranscribe: '轉錄',
   capabilitySynthesizeSpeech: '語音合成',

@@ -5,7 +5,7 @@ global.window = {};
 const A = require('./model-openai-api.js');
 
 const MODELS = [
-  {id: 'moss-transcribe', name: 'MOSS Transcribe'},
+  {id: 'moss-transcribe', name: 'MOSS Transcribe', speakers: 'builtin'},
   {id: 'whisper-large-v3', name: 'Whisper large-v3'},
   {id: 'speaker-diarization', name: '说话人区分', pack: true},
   {id: 'qwen3-tts-1.7b-customvoice', name: 'Qwen3-TTS 1.7B CustomVoice', cat: 'tts'},
@@ -228,7 +228,18 @@ test('演示响应：状态码与错误体照 OpenAI 的形状', () => {
   assert.equal(nf.body.json.error.code, 'MODEL_NOT_FOUND');
   assert.equal(nf.body.json.error.type, 'not_found_error', 'type 跟着状态走');
   assert.equal(A.demoResponse(asr, {...A.initialValues(asr, ctx), model: ''}, ctx).status, 400);
-  assert.equal(A.demoResponse(asr, {...A.initialValues(asr, ctx), response_format: 'diarized_json'}, ctx).status, 400);
+  // diarized_json：MOSS 自带区分 → 每段带 speaker；没装「说话人区分」包的 Whisper → 400，装了就行
+  const diarized = A.demoResponse(asr, {...A.initialValues(asr, ctx), response_format: 'diarized_json'}, ctx);
+  assert.equal(diarized.status, 200);
+  assert.deepEqual(diarized.body.json.segments.map((s) => [s.type, s.speaker]),
+    [['transcript.text.segment', 'A'], ['transcript.text.segment', 'B'], ['transcript.text.segment', 'A']]);
+  assert.equal(diarized.body.json.words, undefined);
+  const qctx = ctxWith(['whisper-large-v3']);
+  const qv = {...A.initialValues(asr, qctx), model: 'whisper-large-v3', response_format: 'diarized_json'};
+  const refused = A.demoResponse(asr, qv, qctx);
+  assert.equal(refused.status, 400);
+  assert.equal(refused.body.json.error.code, 'INVALID_REQUEST');
+  assert.equal(A.demoResponse(asr, qv, ctxWith(['whisper-large-v3', 'speaker-diarization'])).status, 200);
   // 合成：CustomVoice 收参考音频 → 400；不收的指令忽略并说明
   const tts = A.epBy('tts.speech');
   const tv = A.initialValues(tts, ctx);

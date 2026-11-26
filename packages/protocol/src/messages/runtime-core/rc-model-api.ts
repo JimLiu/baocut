@@ -92,6 +92,7 @@ const en = {
   jsonSchemaInvalid: 'response_format.json_schema.schema must be a JSON Schema object',
   responseFormatTypeUnsupported: 'response_format.type only supports text, json_object, json_schema',
   transcriptionStreamUnsupported: 'Streaming transcription is not supported',
+  knownSpeakersUnsupported: (p: { field: string }) => `Known speakers aren't supported (${p.field}): speakers are labeled A, B, … in order of appearance`,
   granularitiesInvalid: 'timestamp_granularities can only be word, segment',
   // 模型路由（model-api-routing）。
   capabilityTranscribe: 'transcription',

@@ -13,6 +13,7 @@ import {
   ModelServiceStore,
   ModelServices,
   ProviderFailure,
+  type AsrResult,
   type BundleDefinition,
   type ProviderSource,
   type TranscribeAttempt,
@@ -452,6 +453,38 @@ describe('JobManager（假 Model Worker）', () => {
     expect(manager.inspect(off).warnings).toEqual([]);
     expect(manager.inspect(off).transcribe?.diarize).toBe(false);
     expect(lastSpeech().speakers).toEqual([]);
+  });
+
+  it('没有视频的转写：不给 diarize 不区分；要区分而模型不能时提交即拒绝，装了「说话人区分」模型包就区分', async () => {
+    await start();
+    const file = path.join(dir, 'upload.wav');
+    await fs.writeFile(file, 'not really audio');
+    const transcribe = async (extra: object = {}) => {
+      const { jobId } = await manager.submitTranscribeWithoutVideo(
+        { file, provider: 'local', model: 'fake@cpu', ...extra },
+        { kind: 'connection', id: 'conn_1' },
+      );
+      await manager.settled(jobId);
+      const job = manager.inspect(jobId);
+      expect(job.state).toBe('completed');
+      return JSON.parse((await manager.artifacts.read(job.result!.artifactId))!.toString('utf8')) as AsrResult;
+    };
+
+    expect((await transcribe()).speakers).toEqual([]);
+    const refused = await manager
+      .submitTranscribeWithoutVideo({ file, provider: 'local', model: 'fake@cpu', diarize: true }, { kind: 'connection', id: 'conn_1' })
+      .catch((error: unknown) => error);
+    expect(refused).toBeInstanceOf(RpcError);
+    expect((refused as RpcError).code).toBe('invalid-request');
+
+    await writeRepo(path.join(dir, 'models'), 'test/segmentation', 'r-seg');
+    await writeRepo(path.join(dir, 'models'), 'test/speaker', 'r-spk');
+    await provider.unload('fake@cpu');
+    // 装了也只在要的时候区分（输入 hash 与之前一样，复用之前的结果）。
+    expect((await transcribe()).speakers).toEqual([]);
+    const diarized = await transcribe({ diarize: true });
+    expect(diarized.speakers.map((s) => s.id)).toEqual(['spk-1', 'spk-2']);
+    expect(diarized.segments.map((s) => s.speakerId)).toEqual(['spk-1', 'spk-2', 'spk-1']);
   });
 
   it('阶段耗时：准入时记排队，完成时补上加载与 Worker 各阶段；落账，重启后仍在', async () => {

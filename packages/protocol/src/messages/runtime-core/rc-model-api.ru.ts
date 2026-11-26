@@ -68,6 +68,7 @@ export const ru: RcModelApiMessages = {
   jsonSchemaInvalid: "response_format.json_schema.schema должен быть объектом JSON Schema",
   responseFormatTypeUnsupported: "response_format.type только text, json_object, json_schema",
   transcriptionStreamUnsupported: "Потоковая расшифровка не поддерживается",
+  knownSpeakersUnsupported: (p: { field: string }) => `Известные говорящие не поддерживаются (${p.field}): говорящие обозначаются A, B… в порядке появления`,
   granularitiesInvalid: "timestamp_granularities только word, segment",
   capabilityTranscribe: "расшифровки",
   capabilitySynthesizeSpeech: "синтез речи",

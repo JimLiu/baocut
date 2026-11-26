@@ -68,6 +68,7 @@ export const pl: RcModelApiMessages = {
   jsonSchemaInvalid: "response_format.json_schema.schema musi być obiektem JSON Schema",
   responseFormatTypeUnsupported: "response_format.type tylko text, json_object, json_schema",
   transcriptionStreamUnsupported: "Strumieniowanie transkrypcji nieobsługiwane",
+  knownSpeakersUnsupported: (p: { field: string }) => `Znani mówcy nie są obsługiwani (${p.field}): mówcy są oznaczani A, B… w kolejności pojawienia się`,
   granularitiesInvalid: "timestamp_granularities tylko word, segment",
   capabilityTranscribe: "transkrypcji",
   capabilitySynthesizeSpeech: "synteza mowy",

@@ -75,6 +75,7 @@ export const ptBR: RcModelApiMessages = {
   jsonSchemaInvalid: "response_format.json_schema.schema deve ser um objeto JSON Schema",
   responseFormatTypeUnsupported: "response_format.type só aceita text, json_object, json_schema",
   transcriptionStreamUnsupported: "Transcrição em streaming não é aceita",
+  knownSpeakersUnsupported: (p: { field: string }) => `Falantes conhecidos não são aceitos (${p.field}): os falantes são rotulados A, B… na ordem em que aparecem`,
   granularitiesInvalid: "timestamp_granularities só aceita word, segment",
 
   capabilityTranscribe: "Transcrição",

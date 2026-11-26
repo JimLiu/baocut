@@ -277,6 +277,11 @@ export interface StandaloneTranscribeRequest {
   /** 术语与上下文，≤ 1200 字符。 */
   hint?: string;
   track?: number;
+  /**
+   * 区分说话人（模型接口服务的 `diarized_json`）。不给时不区分（不按模型定）；要区分而模型不能（`speakers` 为 `none`）时提交即拒绝，
+   * 不像视频的转写那样只带 `diarization-unavailable` 警告。
+   */
+  diarize?: boolean;
 }
 
 export interface FileJobOutput {
@@ -990,6 +995,13 @@ export class JobManager {
     const given = request.hint?.trim() ? request.hint.trim() : null;
     if (given && given.length > 1200) throw new RpcError('invalid-request', J.hintTooLong());
     checkTranscribeOptions(selection, { assertedLanguage: language.mode === 'assert' ? language.tag : null });
+    const diarize = request.diarize ?? false;
+    if (diarize && selection.model.speakers !== 'native' && selection.model.speakers !== 'pack') {
+      throw new RpcError('invalid-request', J.diarizationUnavailable({ model: selection.modelId }), {
+        providerId: selection.providerId,
+        modelId: selection.modelId,
+      });
+    }
     const { hint, warnings } = hintFor(selection, given);
     const track = request.track ?? 0;
     if (!Number.isSafeInteger(track) || track < 0) throw new RpcError('invalid-request', J.trackInvalid());
@@ -1003,7 +1015,7 @@ export class JobManager {
       providerId: selection.providerId,
       modelId: selection.modelId,
       bundleId: selection.bundleId,
-      diarize: false,
+      diarize,
       hint,
       outputContract: ASR_RESULT_SCHEMA,
     };

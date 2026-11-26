@@ -11,6 +11,7 @@ export const fr: JobsManagerMessages = {
   onlyHostedRerun: "Seules les tâches hébergées peuvent être réexécutées ainsi",
   notEnded: "La tâche n’est pas encore terminée",
   hintTooLong: "L’indication terminologique ne peut pas dépasser 1200 caractères",
+  diarizationUnavailable: (p: { model: string }) => `${p.model} ne distingue pas les locuteurs : installez le composant de diarisation des locuteurs dans BaoCut ou choisissez un modèle qui le fait`,
   hintIgnored: (p: { model: string }) => `${p.model} n’accepte pas les indications de reconnaissance ; l’indication n’a pas été utilisée`,
   onlyAudioVideo: "Seuls les médias audio ou vidéo peuvent être transcrits",
   pathNotAbsolute: "Les chemins doivent être absolus",

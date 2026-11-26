@@ -75,6 +75,7 @@ export const de: RcModelApiMessages = {
   jsonSchemaInvalid: "response_format.json_schema.schema muss ein JSON Schema-Objekt sein",
   responseFormatTypeUnsupported: "response_format.type unterstützt nur text, json_object, json_schema",
   transcriptionStreamUnsupported: "Transkriptionsstreaming wird nicht unterstützt",
+  knownSpeakersUnsupported: (p: { field: string }) => `Bekannte Sprecher werden nicht unterstützt (${p.field}): Sprecher werden in der Reihenfolge ihres Auftretens als A, B, … bezeichnet`,
   granularitiesInvalid: "timestamp_granularities darf nur word, segment sein",
 
   capabilityTranscribe: "Transkription",

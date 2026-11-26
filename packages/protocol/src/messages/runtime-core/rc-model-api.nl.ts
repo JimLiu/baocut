@@ -75,6 +75,7 @@ export const nl: RcModelApiMessages = {
   jsonSchemaInvalid: "response_format.json_schema.schema moet een JSON Schema-object zijn",
   responseFormatTypeUnsupported: "response_format.type ondersteunt alleen text, json_object, json_schema",
   transcriptionStreamUnsupported: "Streaming van transcriptie wordt niet ondersteund",
+  knownSpeakersUnsupported: (p: { field: string }) => `Bekende sprekers worden niet ondersteund (${p.field}): sprekers worden in volgorde van optreden A, B, … genoemd`,
   granularitiesInvalid: "timestamp_granularities kan alleen word, segment zijn",
 
   capabilityTranscribe: "transcriptie",

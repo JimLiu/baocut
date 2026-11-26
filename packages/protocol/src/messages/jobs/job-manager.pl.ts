@@ -9,6 +9,7 @@ export const pl: JobsManagerMessages = {
   onlyHostedRerun: "Tylko zarządzane zadania można tak ponowić",
   notEnded: "Zadanie jeszcze nieukończone",
   hintTooLong: "Wskazówka terminologiczna najwyżej 1200 znaków",
+  diarizationUnavailable: (p: { model: string }) => `${p.model} nie rozróżnia mówców: zainstaluj w BaoCut komponent rozróżniania mówców albo wybierz model, który to potrafi`,
   hintIgnored: (p: { model: string }) => `${p.model} nie przyjmuje wskazówek rozpoznawania; wskazówka nie została użyta`,
   onlyAudioVideo: "Transkrybować można tylko materiały audio i wideo",
   pathNotAbsolute: "Ścieżki muszą być bezwzględne",
