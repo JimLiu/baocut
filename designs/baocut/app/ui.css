@@ -2472,6 +2472,21 @@ div.blkw { display: inline; }
 .xnote--row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .xlink { flex: none; padding: 0 4px; border-radius: 4px; font-size: 11px; font-weight: 500; color: var(--blue-1000); cursor: pointer; }
 .xlink:hover { text-decoration: underline; }
+/* 审片页的导出（export-quick.jsx，product-design §5.12 待定稿）：一行摘要 + 三行「标签 · 控件 · 说明」，
+   左下角是复制等效命令的文字链。 */
+.xq__sum { font-size: 12px; line-height: 1.6; color: var(--gray-700); }
+.xq__rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 12px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--gray-200); }
+.xq__row { display: flex; align-items: center; gap: 12px; min-height: 32px; min-width: 0; }
+.xq__row--top { align-items: flex-start; }
+.xq__row .push { margin-left: auto; min-width: 0; }
+.xq__lb { flex: none; width: 32px; font-size: 12px; color: var(--gray-700); }
+.xq__row--top .xq__lb { line-height: 20px; }
+.xq__val { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.xq__file { font-size: 12px; line-height: 20px; color: var(--gray-900); overflow-wrap: anywhere; }
+.xq__cmd { display: inline-flex; align-items: center; gap: 4px; }
+.xq__btns { display: flex; gap: 8px; }
+.xq__path { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--gray-75); text-align: center; }
+.xq__path-text { font-size: 11px; color: var(--gray-700); overflow-wrap: anywhere; }
 .xquick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .xquick__f { display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* 回执块（2026-09-20 收紧）：它只是一块回执，「将导出」折到三行时 1.6 的行距

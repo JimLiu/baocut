@@ -204,14 +204,18 @@
     return <>
       {withView && editor.liteAvailable && editor.setView ? <MovieViewSwitch editor={editor} /> : null}
       {SURF.tasks ? <window.TaskPill list={tasks} projectId={projectId} compact /> : null}
-      {/* 审片页（SURF.exportVideo 为 false）不导出：成片交给出链接的那个 Agent */}
+      {/* 审片页（SURF.exportQuick）只导成片：不开五页的导出面板，见 export-quick.jsx */}
       {SURF.exportVideo ? <div className="moviebar__export">
         {exporting
           ? <Btn variant="accent" className="btn--busy" onClick={editor.onExport} title="正在导出 · 点开看进度或取消">
               <span className="btn__sp" />{window.BC_EXPORT.preparationView(exporting).active ? '正在准备导出' : <>导出中 · <span className="t-mono">{exporting.pct || 0}%</span></>}
             </Btn>
           : <Btn variant="accent" icon="export" onClick={editor.onExport}>导出</Btn>}
-        {editor.exportOpen ? <window.ExportPopover ctx={editor.ctx} onClose={editor.closeExport} /> : null}
+        {editor.exportOpen
+          ? SURF.exportQuick
+            ? <window.ExportQuickPopover ctx={editor.ctx} onClose={editor.closeExport} />
+            : <window.ExportPopover ctx={editor.ctx} onClose={editor.closeExport} />
+          : null}
       </div> : null}
     </>;
   }

@@ -212,6 +212,7 @@
       "app/export-shorts.jsx",
       "app/export-project.jsx",
       "app/export.jsx",
+      "app/export-quick.jsx",
       "app/help-center.jsx",
       "app/video-versions.jsx",
       "app/project-git.jsx",
@@ -542,9 +543,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=0001d28a563d",
-    "css": "generated/app.css?v=17f03789c2d3",
-    "bytes": 5231175
+    "js": "generated/app.js?v=94a5016e9513",
+    "css": "generated/app.css?v=0ac373a8d025",
+    "bytes": 5239683
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -690,6 +691,7 @@
       "app/export-shorts.jsx",
       "app/export-project.jsx",
       "app/export.jsx",
+      "app/export-quick.jsx",
       "app/video-versions.jsx",
       "app/project-git.jsx",
       "app/task-pill.jsx",
@@ -821,9 +823,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=d2c16dd2dac2",
-    "css": "generated/web.css?v=32e1aa9cee7f",
-    "bytes": 2895281
+    "js": "generated/web.js?v=913bae9764d3",
+    "css": "generated/web.css?v=b7730d2721ed",
+    "bytes": 2903787
   },
   "components": {
     "file": "Components.html",
@@ -849,7 +851,7 @@
       "app/spectrum.css"
     ],
     "js": "generated/components.js?v=bef6cb1a279c",
-    "css": "generated/components.css?v=68663a94895a",
+    "css": "generated/components.css?v=121cc914f646",
     "bytes": 114713
   }
 }

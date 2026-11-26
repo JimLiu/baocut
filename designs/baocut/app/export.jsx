@@ -109,7 +109,10 @@
         if (next >= 100) {
           app.patchTask(t.id, {pct: 100, pctFine: 100, status: 'done', outcome: 'done', phase: null, leftMs: 0,
             artifacts: [{name: t.file, note: t.size}]});
-          app.toast('导出完成 · ' + t.file, 'positive', {label: '在文件夹中显示', run: () => {}});
+          /* 浏览器里（没有 reveal 的表面）不能在文件夹中显示：审片页的导出给复制路径 */
+          app.toast('导出完成 · ' + t.file, 'positive', window.BC_SURFACE.reveal || !t.path
+            ? {label: '在文件夹中显示', run: () => {}}
+            : {label: '复制路径', run: () => copyToClipboard(t.path)});
         }
       }), tick);
       return () => clearInterval(id);
@@ -604,5 +607,5 @@
     );
   }
 
-  Object.assign(window, {ExportPopover, useExportRunner});
+  Object.assign(window, {ExportPopover, useExportRunner, ExportLanes: lanesOf});
 })();

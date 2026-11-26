@@ -168,11 +168,14 @@ test('录制入口只在 App：Web 与审片页都没有，录好的视频两端
   assert.equal(S.make('review').record, false);
 });
 
-test('review：Web 能力再去掉视频列表、导出与任务，标记仍是截图模式', () => {
+test('review：Web 能力再去掉视频列表与任务，导出只剩成片，标记仍是截图模式', () => {
   const R = S.make('review');
   assert.equal(R.id, 'review');
   assert.equal(R.isWeb, true);
-  ['videoList', 'exportVideo', 'tasks', 'ai', 'agent', 'appRail', 'reveal'].forEach((k) => assert.equal(R[k], false, k));
+  ['videoList', 'tasks', 'ai', 'agent', 'appRail', 'reveal'].forEach((k) => assert.equal(R[k], false, k));
+  assert.equal(R.exportVideo, true);
+  assert.equal(R.exportQuick, true, '审片页只开成片导出');
+  ['app', 'web'].forEach((id) => assert.equal(S.make(id).exportQuick, false, id));
   const W = S.make('web');
   ['videoList', 'exportVideo', 'tasks'].forEach((k) => assert.equal(W[k], true, k));
 });

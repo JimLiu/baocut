@@ -529,6 +529,37 @@
     return '原视频所在的文件夹 · ' + (p.slice(0, p.lastIndexOf('/')) || '/');
   }
 
+  /* ---------- 审片页的导出（product-design §5.12 待定稿：审片页只导成片） ----------
+     审片页（Agent 宿主的浏览器里）不开完整导出面板：成片 MP4、画面与声音照时间线，只能挑尺寸与字幕烧不烧，
+     存到项目的 exports/，重名加序号。按钮提交的就是 `baocut export` 那一条导出；这里给出等效命令，
+     用户可以复制到终端自己跑，或贴给 Agent。 */
+
+  const SHELL_SAFE = /^[\w~\/.:@%+=,\-\u3000-\u9fff\uff00-\uffef]+$/;
+  /** 一个参数的 shell 写法：安全字符原样，`~/` 开头留在引号外以便展开，其余单引号括起来。 */
+  function shellArg(v) {
+    const s = String(v);
+    if (SHELL_SAFE.test(s)) return s;
+    const home = s.startsWith('~/') ? '~/' : '';
+    return home + "'" + s.slice(home.length).replace(/'/g, "'\\''") + "'";
+  }
+
+  /** 项目下的 exports/：`~/BaoCut/科浪访谈-42/` → `~/BaoCut/科浪访谈-42/exports/`。 */
+  function exportsDir(projectPath) {
+    const base = String(projectPath || '').replace(/\/*$/, '/');
+    return (base === '/' ? '' : base) + 'exports/';
+  }
+
+  /** 等效的 CLI：`baocut export <视频> --kind video --format mp4 --width W --height H [--no-burn-captions] --dir <exports>`。
+   *  `opts`：`{dims: {w, h}, burn: boolean, dir}`；字幕默认烧进画面，所以只有关掉时才写开关。 */
+  function cliCommand(videoId, opts) {
+    const o = opts || {};
+    const parts = ['baocut', 'export', shellArg(videoId), '--kind', 'video', '--format', 'mp4'];
+    if (o.dims) parts.push('--width', String(o.dims.w), '--height', String(o.dims.h));
+    if (o.burn === false) parts.push('--no-burn-captions');
+    if (o.dir) parts.push('--dir', shellArg(String(o.dir).replace(/\/$/, '')));
+    return parts.join(' ');
+  }
+
   /* 字幕格式（第 239 轮加 ASS）：SRT / VTT 是纯文本时间轴，ASS 带样式头——把当前字幕样式
      （字体、描边、位置）一并写进去，播放器按样式渲染；但支持 ASS 的播放器比 SRT 少。
      2026-09-23 加 JSON：同一份字幕条（成片时间），每条另带原文逐词时间戳，给脚本和工具用
@@ -797,6 +828,7 @@
     cropRect, fitBox, offKeys,
     PROJECT_TARGETS, targetMeta, bakeFormatsFor, BAKE_FORMAT_LABEL, BAKE_POLICIES, elementDelivery, deliverySummary,
     summary, videoName, exportPlace, SUB_FORMATS, subtitleNames, taskSub,
+    shellArg, exportsDir, cliCommand,
     TX_FORMATS, txLangOptions, txLangChecked, txLangLocked, txLangToggle, txLangPick, transcriptName, transcriptSummary,
     TASK_LABEL, pillLabel, preparationView, reviewLabel, cancelCopy, stopsDirectly,
   };
