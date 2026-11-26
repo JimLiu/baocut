@@ -271,7 +271,7 @@
   const RETURNS = {
     models: '{object:"list", data:[{id, object:"model", created, owned_by:"local", baocut}]}。映射名在前，然后是本机模型（id 写成 local/<id>）。baocut 是 {capability, providerId, modelId, alias}：capability 为 transcribe、synthesizeSpeech 或 generateImage；映射名的 alias 为 true，modelId 写着它落到哪只，落到几类就列几项。',
     model: '一个 Model 对象，形状同上；id 是请求里写的。',
-    text: 'json 返回 {text, baocut}；verbose_json 返回 task、language、duration、text、segments，要了 word 时再带 words，另有 baocut；text / srt / vtt 是纯文本。baocut 是 {jobId, providerId, modelId}。',
+    text: 'json 返回 {text, baocut}；verbose_json 返回 task、language、duration、text、segments，要了 word 时再带 words，另有 baocut；diarized_json 返回 task、duration、text、segments（每段 type、id、start、end、text、speaker），baocut 里另带 language，说话人区分没跑成的段 speaker 为 unknown、警告码在 baocut.warnings；text / srt / vtt 是纯文本。baocut 是 {jobId, providerId, modelId}。',
     audio: '音频字节，Content-Type 随 response_format（audio/mpeg、audio/wav…）。',
     image: '{created, data:[{b64_json}], output_format:"png", size, baocut:{jobId, providerId, modelId, seed, steps}}。seed 是这次冻结的种子（没写时抽的那个）；steps 只在请求写了时带回。',
   };
