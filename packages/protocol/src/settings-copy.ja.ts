@@ -24,6 +24,7 @@ export const ja: SettingDescriptionMessages = {
     "追加したモデルリポジトリのミラー（{ name, base } のリスト。base は http(s):// のベース URL で重複不可）。選択肢の一覧で、ダウンロードは models.downloadEndpoint に従います",
   'tools.downloadMirrors':
     "追加したリリースページのミラー（{ name, base } のリスト。base は http(s):// のベース URL で重複不可）。選択肢の一覧で、ダウンロードは tools.downloadEndpoint に従います",
+  'tools.ytDlp.autoUpdate': "BaoCut がダウンロードした yt-dlp を自動更新：1 日 1 回オンラインで最新の安定版を確認し、新しければダウンロードして、リリースの SHA2-256SUMS で sha256 を照合してから置き換えます。自分でインストールした yt-dlp は対象外。厳格オフラインでは確認しません",
   'fonts.autoDownload':
     '組版に必要で、このコンピュータになく、フォントカタログにあるフォントを自動でダウンロードします（プレビューと書き出し）。オフの場合は代替フォントで描画し、通知を表示します',
   'fonts.cssEndpoint': 'フォント CSS API のベース URL（ミラー、https://）。null は https://fonts.googleapis.com',

@@ -40,6 +40,7 @@ const en = {
     "Model hub mirrors you added (a list of { name, base }; base is an http(s):// URL, no duplicates). Only a list to choose from: downloads use models.downloadEndpoint",
   'tools.downloadMirrors':
     "Release-page mirrors you added (a list of { name, base }; base is an http(s):// URL, no duplicates). Only a list to choose from: downloads use tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "Automatically update the yt-dlp that BaoCut downloaded: checks the latest stable release online once a day and, when it is newer, downloads it and checks its sha256 against the release's SHA2-256SUMS before replacing it. A yt-dlp you installed yourself is not affected; nothing is checked in strict offline mode",
   'fonts.autoDownload':
     "Automatically download fonts that layout needs, that aren't on this computer, and that are in the font catalog (preview and export); when off, draws with a fallback font and shows a notice",
   'fonts.cssEndpoint': 'Base URL of the font CSS API (mirror, https://); null uses https://fonts.googleapis.com',

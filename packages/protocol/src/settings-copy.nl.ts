@@ -25,6 +25,7 @@ export const nl: SettingDescriptionMessages = {
     "Toegevoegde spiegelservers van de modelrepository (lijst van { name, base }; base is een http(s)://-URL zonder dubbelingen). Alleen een keuzelijst: downloads gebruiken models.downloadEndpoint",
   'tools.downloadMirrors':
     "Toegevoegde spiegelservers voor releasepagina’s (lijst van { name, base }; base is een http(s)://-URL zonder dubbelingen). Alleen een keuzelijst: downloads gebruiken tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "De yt-dlp die BaoCut heeft gedownload automatisch bijwerken: controleert één keer per dag online de nieuwste stabiele versie en downloadt die als hij nieuwer is, en controleert de sha256 met de SHA2-256SUMS van de release voordat hij wordt vervangen. Een yt-dlp die je zelf hebt geïnstalleerd blijft ongemoeid; in strikte offlinemodus wordt niets gecontroleerd",
   'fonts.autoDownload':
     "Download automatisch lettertypen die nodig zijn voor de lay-out, niet op deze computer staan en in de lettertypecatalogus staan (voorbeeld en export); als dit uitstaat wordt een vervangend lettertype gebruikt met een melding",
   'fonts.cssEndpoint': "Basis-URL van de lettertype-CSS-API (spiegelserver, https://); null gebruikt https://fonts.googleapis.com",

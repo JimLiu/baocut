@@ -132,6 +132,10 @@ export interface ExternalToolStatus {
    */
   managedUpdateVersion: string | null;
   /**
+   * 受管副本的自动更新（架构设计 §12.9「自动更新」）：只有能联网查上游最新版的工具（yt-dlp）有，其余省略（旧的 Runtime 也没有）。
+   */
+  autoUpdate?: ExternalToolAutoUpdate;
+  /**
    * Runtime 所在主机的平台（`process.platform` 的取值：darwin、win32、linux…）。工具在那台主机上运行，界面判断不了安装方式时
    * 按它列常用命令。
    */
@@ -139,6 +143,16 @@ export interface ExternalToolStatus {
   /** 不能用时的补救（给人看的一句话）。 */
   remedy: string | null;
   remedyRef?: MessageRef;
+}
+
+/** 受管副本的自动更新：开关与最近一次联网查到的上游最新稳定版。 */
+export interface ExternalToolAutoUpdate {
+  /** 设置（yt-dlp 是 `tools.ytDlp.autoUpdate`）开着。 */
+  enabled: boolean;
+  /** 最近一次查成功的时间（ISO 8601）；还没查成功过时 null。 */
+  checkedAt: string | null;
+  /** 那一次查到的上游最新稳定版；还没查成功过时 null。 */
+  latestVersion: string | null;
 }
 
 /** `externalTools.install` 的结果：提交的安装任务（进度经 `jobs` 主题），与提交时的工具状态。 */

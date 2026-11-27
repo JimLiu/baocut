@@ -16,6 +16,7 @@ export const es: SettingDescriptionMessages = {
    "Servidores espejo del repositorio de modelos que añadiste (lista de { name, base }; base es una URL http(s):// sin duplicados). Solo es una lista para elegir: las descargas usan models.downloadEndpoint",
  'tools.downloadMirrors':
    "Servidores espejo de páginas de versiones que añadiste (lista de { name, base }; base es una URL http(s):// sin duplicados). Solo es una lista para elegir: las descargas usan tools.downloadEndpoint",
+ 'tools.ytDlp.autoUpdate': "Actualizar automáticamente el yt-dlp que descargó BaoCut: comprueba en línea una vez al día la última versión estable y, si es más nueva, la descarga y verifica su sha256 con el SHA2-256SUMS de la versión antes de reemplazarlo. No afecta a un yt-dlp que instalaste tú; en modo sin conexión estricto no se comprueba",
  'fonts.autoDownload': 'Descargar automáticamente fuentes necesarias para la composición, ausentes de este ordenador y presentes en el catálogo de fuentes (vista previa y exportación); al desactivar, se dibuja con una fuente alternativa y se muestra un aviso',
  'fonts.cssEndpoint': 'URL base de la API CSS de fuentes (servidor espejo, https://); null usa https://fonts.googleapis.com',
  'fonts.fileEndpoint': 'URL base de archivos de fuentes (servidor espejo, https://; solo se obtienen archivos dentro de ella); null usa https://fonts.gstatic.com',

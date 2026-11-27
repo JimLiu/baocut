@@ -24,6 +24,7 @@ export const ko: SettingDescriptionMessages = {
     "추가한 모델 저장소 미러({ name, base } 목록, base는 중복 없는 http(s):// 기본 URL). 선택지 목록일 뿐이며 다운로드는 models.downloadEndpoint를 따릅니다",
   'tools.downloadMirrors':
     "추가한 릴리스 페이지 미러({ name, base } 목록, base는 중복 없는 http(s):// 기본 URL). 선택지 목록일 뿐이며 다운로드는 tools.downloadEndpoint를 따릅니다",
+  'tools.ytDlp.autoUpdate': "BaoCut가 다운로드한 yt-dlp 자동 업데이트: 하루에 한 번 온라인으로 최신 안정 버전을 확인하고, 더 새로우면 다운로드해 릴리스의 SHA2-256SUMS로 sha256을 확인한 뒤 교체합니다. 직접 설치한 yt-dlp에는 영향이 없으며, 엄격한 오프라인에서는 확인하지 않습니다",
   'fonts.autoDownload':
     '레이아웃에 필요하지만 이 컴퓨터에 없고 글꼴 카탈로그에 있는 글꼴을 자동으로 다운로드합니다(미리보기와 내보내기). 끄면 대체 글꼴로 그리고 안내를 표시합니다',
   'fonts.cssEndpoint': '글꼴 CSS API의 기본 URL(미러, https://). null이면 https://fonts.googleapis.com을 사용합니다',

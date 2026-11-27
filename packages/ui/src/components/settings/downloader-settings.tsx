@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { cookieBrowsersSetting, type LinkCookieBrowser } from '@baocut/protocol';
-import { ActionButton, Checkbox, ToastQueue } from '@react-spectrum/s2';
+import { ActionButton, Checkbox, Switch, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { agoLabel } from '../../model/format.ts';
 import { allBrowsersState, cookieNotes, fullDiskNeeds, NO_COOKIE_BROWSERS, toggleAllBrowsers, toggleBrowser } from '../../model/link-cookies.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useCookieBrowserChoice } from '../../state/cookie-browsers-store.ts';
+import { useSetting } from '../../state/settings-store.ts';
 import { FullDiskNotice } from '../system-access/full-disk-access.tsx';
 import { useFullDiskAccess } from '../../state/system-access-store.ts';
 import { DownloaderCard, useDownloaderTool } from '../start/downloader-card.tsx';
@@ -14,7 +16,8 @@ import { M } from './downloader-settings-copy.ts';
 import { useSaveSettings, useSettingsReady } from './save-settings.ts';
 
 /*
- * 设置 › 视频下载（产品设计 §2.7「下载视频」；设计稿 settings-downloader.jsx）：yt-dlp 的状态与维护，以及网站登录（浏览器 Cookie）。
+ * 设置 › 视频下载（产品设计 §2.7「下载视频」；设计稿 settings-downloader.jsx）：yt-dlp 的状态与维护（含自动更新 BaoCut 下载的那一份，
+ * `tools.ytDlp.autoUpdate`），以及网站登录（浏览器 Cookie）。
  * 下载视频工具、从链接转录与智能体的下载都按这里的网站登录（`downloads.cookieBrowsers`）。默认带 Cookie，用所有检测到的浏览器；
  * 全部勾上存「所有浏览器」（之后新检测到的也算在内），都不勾是匿名下载。
  *
@@ -42,6 +45,20 @@ const strongNote = style({ margin: 0, font: 'ui-sm', color: 'gray-800', overflow
 const browserRow = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 4, minWidth: 0 });
 /** 下载工具卡片自带上边距（链接页里接在表单下面），放在这一节里时去掉。 */
 const flush = style({ marginTop: -12 });
+const autoRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 16,
+  marginTop: 16,
+  padding: 16,
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: 'gray-200',
+  borderRadius: 'xl',
+  minWidth: 0,
+});
+const autoText = style({ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 });
 
 export function DownloaderSettings() {
   const web = useRuntime().host.platform === 'web';
@@ -72,6 +89,27 @@ function ToolCard() {
   return (
     <div className={flush}>
       <DownloaderCard view={view} />
+      <AutoUpdateRow checkedAt={view.status?.autoUpdate?.checkedAt ?? null} latest={view.status?.autoUpdate?.latestVersion ?? null} />
+    </div>
+  );
+}
+
+/**
+ * 自动更新：开着时 Runtime 每天查一次上游最新的稳定版，核对之后换掉 BaoCut 下载的那一份（架构设计 §12.9）；关掉之后有新版本时
+ * 卡片照旧给「更新到 …」，点了才换。查成功过才写上次检查的时间与查到的版本。
+ */
+function AutoUpdateRow({ checkedAt, latest }: { checkedAt: string | null; latest: string | null }) {
+  const save = useSaveSettings();
+  const ready = useSettingsReady();
+  const on = useSetting('tools.ytDlp.autoUpdate') !== false;
+  return (
+    <div className={autoRow}>
+      <div className={autoText}>
+        <p className={strongNote}>{M.autoUpdate}</p>
+        <p className={note}>{M.autoUpdateDesc}</p>
+        {on && checkedAt && latest ? <p className={note}>{M.autoUpdateChecked(agoLabel(checkedAt), latest)}</p> : null}
+      </div>
+      <Switch aria-label={M.autoUpdate} isDisabled={!ready} isSelected={on} onChange={(next) => void save({ 'tools.ytDlp.autoUpdate': next })} />
     </div>
   );
 }

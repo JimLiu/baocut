@@ -24,6 +24,7 @@ export const zhHant: SettingDescriptionMessages = {
     "新增的模型倉庫鏡像站（{ name, base } 的清單；base 是 http(s):// 基礎 URL，不重複）。只是備選清單，下載依 models.downloadEndpoint",
   'tools.downloadMirrors':
     "新增的發布頁鏡像站（{ name, base } 的清單；base 是 http(s):// 基礎 URL，不重複）。只是備選清單，下載依 tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "自動更新 BaoCut 下載的 yt-dlp：每天連網查一次上游最新的穩定版，比現在的新就下載，依發布中的 SHA2-256SUMS 核對 sha256 後替換。你自己安裝的 yt-dlp 不受影響；嚴格離線時不檢查",
   'fonts.autoDownload':
     '自動下載排版需要、這台電腦上沒有，且在字型目錄中的字型（預覽與匯出）；關閉時會以備用字型繪製並顯示提示',
   'fonts.cssEndpoint': '字型 CSS API 的基礎 URL（鏡像站，https://）；null 使用 https://fonts.googleapis.com',

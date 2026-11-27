@@ -252,7 +252,7 @@ export interface StartRuntimeOptions {
    * 受管外部工具（§12.9）与从链接导入（§7.9）的调节项。测试给一个只含假工具的搜索路径（不会碰到系统里真实的 yt-dlp）、
    * 不含真实环境变量的覆盖、带已知摘要的假清单与本机的下载来源，以及不访问真实 DNS 的主机名解析。
    */
-  externalTools?: Pick<ExternalToolServiceOptions, 'env' | 'overrides' | 'manifests' | 'platform' | 'download'> & { lookup?: HostLookup };
+  externalTools?: Pick<ExternalToolServiceOptions, 'env' | 'overrides' | 'manifests' | 'platform' | 'download' | 'autoUpdate'> & { lookup?: HostLookup };
   /** 项目的 git 桥（版本记录设计 §5）的调节项：测试缩短自动提交的安静时间与锁的重试，换掉主目录（初始化的拒绝名单）。 */
   projectGit?: Pick<ProjectGitServiceOptions, 'quietMs' | 'lockRetries' | 'lockDelayMs' | 'home'>;
   /** 任务的故障注入（测试用，架构设计 §7.3）：在应用闭环的几个时刻模拟崩溃。 */
@@ -376,6 +376,7 @@ const STOP_ORDER = [
   'bot',
   'schedules',
   'storage-gc',
+  'tools-auto-update',
   'services',
   'nodes',
   'job-inbox',
@@ -761,10 +762,14 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       settings: () => ({
         downloadEndpoint: settingsStore?.get('tools.downloadEndpoint') ?? null,
         offlineStrict: settingsStore?.get('offline.strict') ?? false,
+        autoUpdate: { 'tools.ytDlp.autoUpdate': settingsStore?.get('tools.ytDlp.autoUpdate') ?? true },
       }),
       ...options.externalTools,
     });
     externalToolsRef = externalTools;
+    // BaoCut 下载的 yt-dlp 自动更新（§12.9）：定时器在进程里，退出时停掉；开关看设置 `tools.ytDlp.autoUpdate`。
+    externalTools.startAutoUpdate();
+    stops.add('tools-auto-update', () => externalTools.stopAutoUpdate(), null);
     // 项目的 git 桥（版本记录设计 §5）：git 来自受管外部工具的登记表；退出时的自动提交在视频引擎停下之前（要先写快照）。
     const projectGit = new ProjectGitService({
       log: log.child('git'),

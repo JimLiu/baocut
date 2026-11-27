@@ -629,6 +629,126 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
     }
   });
 
+  it('自动更新：只换已有的受管副本，按设置开关；每天查一次上游最新稳定版，按 SHA2-256SUMS 核对后换掉', async () => {
+    const s = side!;
+    const bytes = await fs.readFile(s.fake.command);
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const downloads: string[] = [];
+    const server = http.createServer((request, response) => {
+      downloads.push(request.url ?? '');
+      response.writeHead(200, { 'content-length': String(bytes.length) }).end(bytes);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const jobs = s.runtime.models.jobs;
+    const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;
+    const api = builtin.upstream!.latestApi;
+    const sumsUrl = (tag: string) => `https://github.com/yt-dlp/yt-dlp/releases/download/${tag}/SHA2-256SUMS`;
+    // 上游：最新稳定版、这个平台的文件与摘要清单；`digest` 是发布接口给的摘要。
+    const upstream = { tag: '2026.11.20', sums: `${sha256}  yt-dlp_test\n${'0'.repeat(64)}  yt-dlp.exe\n`, digest: `sha256:${sha256}` };
+    const asked: string[] = [];
+    const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (url === api || url.startsWith('https://github.com/')) {
+        asked.push(url);
+        if (url === api) {
+          return Response.json({
+            tag_name: upstream.tag,
+            draft: false,
+            prerelease: false,
+            assets: [
+              { name: 'yt-dlp_test', size: bytes.length, digest: upstream.digest, browser_download_url: `https://github.com/x/${upstream.tag}/yt-dlp_test` },
+              { name: 'SHA2-256SUMS', size: upstream.sums.length, browser_download_url: sumsUrl(upstream.tag) },
+            ],
+          });
+        }
+        return new Response(upstream.sums);
+      }
+      return fetch(input, init);
+    }) as typeof fetch;
+    const env = { PATH: s.emptyPath, FAKE_YTDLP_VERSION: '2026.01.01' };
+    const prefs = { autoUpdate: true, offlineStrict: false };
+    let now = Date.parse('2026-11-26T08:00:00Z');
+    const service = new ExternalToolService({
+      toolsDir: path.join(s.dir, 'auto-tools'),
+      storeFile: path.join(s.dir, 'auto-store', 'external-tools.json'),
+      jobs,
+      log: s.runtime.log,
+      env: async () => env,
+      settings: () => ({
+        downloadEndpoint: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+        offlineStrict: prefs.offlineStrict,
+        autoUpdate: { 'tools.ytDlp.autoUpdate': prefs.autoUpdate },
+      }),
+      overrides: {},
+      download: { fetch: fakeFetch, backoffMs: () => 5, retries: 1 },
+      autoUpdate: { now: () => now },
+      manifests: [
+        { ...builtin, release: { ...builtin.release!, version: '2026.01.01', assets: { [platformKey()]: { fileName: 'yt-dlp_test', size: bytes.length, sha256 } } } },
+      ],
+    });
+    try {
+      // 还没有受管副本：不替用户第一次下载，也不联网。
+      expect(await service.autoUpdateNow()).toEqual([]);
+      expect(asked).toEqual([]);
+      await jobs.settled((await service.install({ name: YT_DLP, consent: true }, { kind: 'connection', id: 'conn_x' })).jobId);
+      expect(await service.status(YT_DLP)).toMatchObject({
+        version: '2026.01.01',
+        autoUpdate: { enabled: true, checkedAt: null, latestVersion: null },
+        managedUpdateVersion: null,
+      });
+
+      // 关掉自动更新、严格离线：不查也不换。
+      prefs.autoUpdate = false;
+      expect(await service.autoUpdateNow()).toEqual([]);
+      expect((await service.status(YT_DLP)).autoUpdate?.enabled).toBe(false);
+      prefs.autoUpdate = true;
+      prefs.offlineStrict = true;
+      expect(await service.autoUpdateNow()).toEqual([]);
+      expect(asked).toEqual([]);
+      prefs.offlineStrict = false;
+
+      // 有流程在用：查了上游，等下一轮再换。
+      const inUse = { jobId: 'job_busy', kind: 'pipeline', state: 'running', pipeline: { name: 'link-import' } } as unknown as JobRecord;
+      const list = vi.spyOn(jobs, 'list').mockReturnValue([inUse]);
+      expect(await service.autoUpdateNow()).toEqual([]);
+      list.mockRestore();
+      expect(asked).toEqual([api, sumsUrl('2026.11.20')]);
+      expect(await service.status(YT_DLP)).toMatchObject({
+        version: '2026.01.01',
+        managedUpdateVersion: '2026.11.20',
+        offer: { version: '2026.11.20', sha256 },
+        autoUpdate: { enabled: true, checkedAt: '2026-11-26T08:00:00.000Z', latestVersion: '2026.11.20' },
+      });
+
+      // 下一轮：不再联网（24 小时内查过），按记下的版本换；任务的提交者是 system，下载的是上游的版本。
+      now += 60 * 60_000;
+      env.FAKE_YTDLP_VERSION = '2026.11.20';
+      const [jobId] = await service.autoUpdateNow();
+      expect(jobId).toBeTruthy();
+      expect(jobs.inspect(jobId!).submitter).toMatchObject({ kind: 'system' });
+      await jobs.settled(jobId!);
+      expect(jobs.inspect(jobId!).state).toBe('completed');
+      expect(downloads.at(-1)).toBe('/yt-dlp/2026.11.20/yt-dlp_test');
+      expect(asked).toHaveLength(2);
+      expect(await service.status(YT_DLP)).toMatchObject({ source: 'managed', version: '2026.11.20', managedUpdateVersion: null });
+      expect(await fs.readdir(path.join(s.dir, 'auto-tools', YT_DLP))).toEqual(['2026.11.20']);
+      expect(await service.autoUpdateNow()).toEqual([]);
+
+      // 一天之后再查：发布接口与摘要清单对不上时不认，留着原来的那一份。
+      now += 25 * 60 * 60_000;
+      upstream.tag = '2026.11.25';
+      upstream.digest = `sha256:${'1'.repeat(64)}`;
+      expect(await service.autoUpdateNow()).toEqual([]);
+      expect(asked).toHaveLength(4);
+      expect(await service.status(YT_DLP)).toMatchObject({ version: '2026.11.20', autoUpdate: { latestVersion: '2026.11.20' } });
+      // 查失败的，一小时之内不再查。
+      expect(await service.autoUpdateNow()).toEqual([]);
+      expect(asked).toHaveLength(4);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it('清单没有可信的 sha256：同意了也不下载；PATH 只有空目录时找不到系统里的 yt-dlp', async () => {
     const s = side!;
     const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;

@@ -25,6 +25,7 @@ export const de: SettingDescriptionMessages = {
     "Hinzugefügte Spiegelserver des Modell-Repositorys (Liste aus { name, base }; base ist eine http(s)://-URL ohne Duplikate). Nur eine Auswahlliste: Downloads verwenden models.downloadEndpoint",
   'tools.downloadMirrors':
     "Hinzugefügte Spiegelserver für Release-Seiten (Liste aus { name, base }; base ist eine http(s)://-URL ohne Duplikate). Nur eine Auswahlliste: Downloads verwenden tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "Das von BaoCut heruntergeladene yt-dlp automatisch aktualisieren: prüft einmal täglich online die neueste stabile Version und lädt sie, wenn sie neuer ist, herunter und prüft ihren sha256 gegen die SHA2-256SUMS des Releases, bevor sie ersetzt wird. Ein selbst installiertes yt-dlp ist nicht betroffen; im strikten Offlinemodus wird nicht geprüft",
   'fonts.autoDownload':
     "Für Layout benötigte Schriften automatisch herunterladen, wenn sie auf diesem Computer fehlen und im Schriftkatalog stehen (Vorschau und Export); ausgeschaltet wird eine Ersatzschrift mit Hinweis verwendet",
   'fonts.cssEndpoint': "Basis-URL der Schrift-CSS-API (Spiegelserver, https://); null verwendet https://fonts.googleapis.com",

@@ -646,6 +646,7 @@ export const settingValueSchemas = {
     .nullable(),
   'models.downloadMirrors': downloadMirrors,
   'tools.downloadMirrors': downloadMirrors,
+  'tools.ytDlp.autoUpdate': z.boolean(),
   'fonts.autoDownload': z.boolean(),
   'fonts.cssEndpoint': z
     .string()

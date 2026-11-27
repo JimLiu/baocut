@@ -186,6 +186,20 @@
       {!d.version ? null : demo.managed ? <ManagedUpdate d={d} /> : <UpdateSection plan={demo.plan} d={d} />}
     </div>;
   }
+  /* 自动更新 yt-dlp（product-design §2.7，architecture §12.9）：默认开着；开着时每天查一次上游最新的稳定版，核对校验和后替换
+     BaoCut 下载的那一份。关掉后有新版本时卡片照旧给「更新到 …」，点了才换。用户自己装的那一份不受影响。存在偏好 `ytDlpAutoUpdate`
+     （真实客户端里是设置 `tools.ytDlp.autoUpdate`）。演示的「上次检查」是固定的。 */
+  function AutoUpdateRow() {
+    const app = useApp();
+    const Row = window.ShellRow;
+    const on = app.prefs.ytDlpAutoUpdate !== false;
+    return <div className="setpage__card">
+      <Row label="自动更新 yt-dlp" desc={<>每天检查一次有没有新的稳定版。有新版本时，核对校验和之后替换 BaoCut 下载的那一份，替换完成前照常用现在这一份下载。你自己安装的 yt-dlp 不受影响。
+        {on && <><br />上次检查：2 小时前 · 最新版本 {NEXT_VERSION}</>}</>}>
+        <Switch on={on} onChange={(v) => app.setPref('ytDlpAutoUpdate', v)} />
+      </Row>
+    </div>;
+  }
   /* 网站登录（product-design §2.7）：只列出检测到的浏览器（最近用过的在前），一组复选框横排、放不下自然换行，
      「所有浏览器」在最前面（全选 / 半选）；默认全选，都不勾是匿名下载。下面按勾选写清楚怎么试、读了什么、要什么系统授权。 */
   function CookieSection() {
@@ -251,6 +265,7 @@
       <section className="setpage__group" aria-label="下载工具">
         <h2>下载工具</h2>
         <DownloadSetup />
+        <AutoUpdateRow />
       </section>
       <CookieSection />
       <UpdateDemo />

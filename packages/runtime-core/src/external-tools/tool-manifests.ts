@@ -72,6 +72,17 @@ export interface ToolRelease {
   homepage: string;
 }
 
+/**
+ * 上游的 GitHub 发布（`tool-upstream.ts`）：`latestApi` 是最新稳定版的发布接口，`checksums` 是发布里的 sha256 清单文件名，
+ * `settingKey` 是开关自动更新的设置。版本号要能被 `versionPattern` 整个匹配，文件名沿用清单这个平台的发布文件。
+ */
+export interface ToolUpstream {
+  latestApi: string;
+  checksums: string;
+  versionPattern: RegExp;
+  settingKey: 'tools.ytDlp.autoUpdate';
+}
+
 export interface ToolManifest {
   name: string;
   label: string;
@@ -101,6 +112,11 @@ export interface ToolManifest {
   usedByPipelines?: readonly string[];
   /** 按原安装方式更新系统里的那一份（`externalTools.update`）；没有时不提供更新。 */
   update?: ToolUpdateRecipe;
+  /**
+   * 受管副本的自动更新（架构设计 §12.9「自动更新」）：联网查上游最新的稳定版，按发布里的摘要文件核对后换掉受管副本。
+   * 没有时受管副本只按清单换版本。
+   */
+  upstream?: ToolUpstream;
   /** 缺失时的补救（按 Runtime 所在的平台给）。 */
   missingRemedy: Localized;
   /**
@@ -358,6 +374,13 @@ export const BUILTIN_TOOL_MANIFESTS: readonly ToolManifest[] = [
     minVersion: '2024.10.22',
     consentRequired: true,
     release: YT_DLP_RELEASE,
+    // 自动更新跟稳定通道（不跟夜间版）：上游每个发布都带 `SHA2-256SUMS`，列着各平台文件的 sha256。
+    upstream: {
+      latestApi: 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest',
+      checksums: 'SHA2-256SUMS',
+      versionPattern: /^\d{4}\.\d{2}\.\d{2}(?:\.\d+)?$/,
+      settingKey: 'tools.ytDlp.autoUpdate',
+    },
     // 稳定版：`brew upgrade`、`pip install -U` 与 `yt-dlp -U` 都跟着各自的稳定通道；从源码装的 Homebrew 开发版照旧取最新提交。
     update: {
       formula: 'yt-dlp',

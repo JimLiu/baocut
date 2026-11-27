@@ -19,6 +19,7 @@ export const it: SettingDescriptionMessages = {
     "Mirror del repository di modelli aggiunti (elenco di { name, base }; base è un URL http(s):// senza duplicati). Solo un elenco da cui scegliere: i download usano models.downloadEndpoint",
   'tools.downloadMirrors':
     "Mirror delle pagine di rilascio aggiunti (elenco di { name, base }; base è un URL http(s):// senza duplicati). Solo un elenco da cui scegliere: i download usano tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "Aggiorna automaticamente lo yt-dlp scaricato da BaoCut: controlla online una volta al giorno l’ultima versione stabile e, se è più recente, la scarica e verifica lo sha256 con lo SHA2-256SUMS della versione prima di sostituirlo. Uno yt-dlp installato da te non viene toccato; in modalità offline rigorosa non si controlla nulla",
   'fonts.autoDownload': 'Scarica automaticamente i font richiesti dal layout, assenti su questo computer e presenti nel catalogo dei font (anteprima ed esportazione); quando disattivato, usa un font alternativo e mostra un avviso',
   'fonts.cssEndpoint': 'URL di base dell’API CSS dei font (mirror, https://); null usa https://fonts.googleapis.com',
   'fonts.fileEndpoint': 'URL di base per i file dei font (mirror, https://; i file vengono recuperati solo da questo URL); null usa https://fonts.gstatic.com',

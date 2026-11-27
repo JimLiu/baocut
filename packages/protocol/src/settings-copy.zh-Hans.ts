@@ -23,6 +23,7 @@ export const zhHans: SettingDescriptionMessages = {
     "添加的模型仓库镜像（{ name, base } 的列表；base 是 http(s):// 基址，不重复）。只是备选清单，下载按 models.downloadEndpoint",
   'tools.downloadMirrors':
     "添加的发布页镜像（{ name, base } 的列表；base 是 http(s):// 基址，不重复）。只是备选清单，下载按 tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "自动更新 BaoCut 下载的 yt-dlp：每天联网查一次上游最新的稳定版，比现在的新就下载，按发布里的 SHA2-256SUMS 核对 sha256 后替换。你自己装的 yt-dlp 不受影响；严格离线时不查",
   'fonts.autoDownload': '排字用到、本机没有、字体目录里有的字体自动下载（预览与成片导出）；关掉时照回退字体画并提示',
   'fonts.cssEndpoint': '字体 CSS 接口的基址（镜像，https://）；null 为 https://fonts.googleapis.com',
   'fonts.fileEndpoint': '字体文件的基址（镜像，https://，只从它下面取文件）；null 为 https://fonts.gstatic.com',

@@ -20,6 +20,10 @@ const en = {
   toolGroup: 'Download tool',
   cookiesLead:
     'Downloads use your sign-in from the browser, so videos you have to sign in to watch can be downloaded too. By default every detected browser is used.',
+  autoUpdate: "Update yt-dlp automatically",
+  autoUpdateDesc:
+    "Checks for a new stable release once a day. When there is one, the copy BaoCut downloaded is replaced after its checksum is verified; you can keep downloading with the current copy until then. A yt-dlp you installed yourself is not changed.",
+  autoUpdateChecked: (when: string, version: string) => `Last checked ${when} · latest version ${version}`,
 };
 export type DownloaderSettingsMessages = typeof en;
 export const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });

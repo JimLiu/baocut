@@ -7,6 +7,7 @@ import {
   nowIso,
   refOf,
   withRef,
+  type ExternalToolAutoUpdate,
   type ExternalToolConsent,
   type ExternalToolConsentVia,
   type ExternalToolInstallResult,
@@ -32,7 +33,10 @@ import {
   type ToolAsset,
   type ToolDataPack,
   type ToolManifest,
+  type ToolRelease,
+  type ToolUpstream,
 } from './tool-manifests.ts';
+import { latestUpstreamAsset } from './tool-upstream.ts';
 import { envValue, findOnPath, isExecutableFile, probeVersion, windowsScriptKind, type ProbeOutcome } from './tool-probe.ts';
 import { CommandOutput, runCommand } from './tool-command.ts';
 import { exitCodeText, toolUpdatePlan, updateSucceeded } from './tool-update-plan.ts';
@@ -58,11 +62,21 @@ import { remedyOf, taskFailure } from '../localized.ts';
  * - 系统里自己装的那一份按原安装方式更新（`tool-update-plan.ts` 判断办法）：也是一个任务（`kind: 'toolUpdate'`），提交前
  *   要调用方交回用户确认过的那条命令；任务里不经 shell 执行，输出逐段写进任务记录的 `command`，结束后重新探测。
  *   不提权：要管理员权限的只给命令。更新进行中用它的流程拒绝启动（`TOOL_UPDATING`），反过来有流程在用时不更新。
+ * - 受管副本的自动更新（清单有 `upstream` 的工具，即 yt-dlp；设置开着时）：`startAutoUpdate` 之后每小时一轮，距上次查成功满
+ *   24 小时才联网查上游最新的稳定版（失败的一小时后再试），查到的版本、大小与 sha256 记进登记表；它或清单的发布比受管副本新时
+ *   提交同样的 `toolInstall` 任务（提交者 `system`），不再记一次同意。只换已有的受管副本、同意有效时才换，不替用户第一次下载；
+ *   有流程在用、正在安装时等下一轮；同一个版本 24 小时内只自动试一次。严格离线时不查也不换。
  */
 
 export const TOOL_INSTALL_PIPELINE_USERS = ['link-import'] as const;
 
 const STORE_VERSION = 1;
+/** 自动更新：每轮的间隔、启动后第一轮的延迟、两次联网查的间隔、查失败后多久再试。 */
+const AUTO_UPDATE_INTERVAL_MS = 60 * 60_000;
+const AUTO_UPDATE_FIRST_DELAY_MS = 60_000;
+const UPSTREAM_CHECK_EVERY_MS = 24 * 60 * 60_000;
+const UPSTREAM_RETRY_MS = 60 * 60_000;
+const AUTO_UPDATE_SUBMITTER: JobSubmitter = { kind: 'system', id: 'tool-auto-update' };
 /** 一次只装或更新一个工具（文件不大，避免并发写同一个目录）。 */
 const INSTALL_QUEUE = { key: 'tool-install', concurrency: 1 };
 const PROGRESS_INTERVAL_MS = 250;
@@ -86,6 +100,8 @@ interface ToolRecord {
   userPath: string | null;
   consent: ExternalToolConsent | null;
   managed: { version: string; sha256: string; installedAt: string } | null;
+  /** 最近一次查成功的上游最新稳定版（这个平台的发布文件）；没有自动更新或还没查成功过时没有。 */
+  upstream?: { version: string; fileName: string; size: number; sha256: string; checkedAt: string } | null;
 }
 
 interface StoreFile {
@@ -97,6 +113,8 @@ export interface ExternalToolSettings {
   /** 设置 `tools.downloadEndpoint`。 */
   downloadEndpoint: string | null;
   offlineStrict: boolean;
+  /** 各工具自动更新的设置（`ToolUpstream.settingKey`）；没给时按默认开着。 */
+  autoUpdate?: Partial<Record<ToolUpstream['settingKey'], boolean>>;
 }
 
 export interface ExternalToolServiceOptions {
@@ -117,6 +135,8 @@ export interface ExternalToolServiceOptions {
   download?: ToolDownloadOptions;
   /** 测试注入的版本探测时限（依次尝试，只在超时后用下一个）；默认 15 秒、再 45 秒。 */
   probeTimeoutsMs?: readonly number[];
+  /** 测试注入的自动更新节奏与时钟。 */
+  autoUpdate?: { firstDelayMs?: number; intervalMs?: number; now?: () => number };
 }
 
 /** 流程要用一个工具时拿到的：可执行文件、版本与来源。 */
@@ -191,6 +211,11 @@ export class ExternalToolService {
   /** 记录文件是更新的版本写下的：不覆盖它。 */
   #readOnly = false;
   #writes: Promise<void> = Promise.resolve();
+  #autoTimers: Array<ReturnType<typeof setTimeout>> = [];
+  #autoRunning: Promise<string[]> | null = null;
+  /** 自动更新：每个工具上次联网查的时刻、每个版本上次自动提交安装的时刻（只在进程里）。 */
+  readonly #upstreamAttempts = new Map<string, number>();
+  readonly #autoTried = new Map<string, number>();
 
   constructor(options: ExternalToolServiceOptions) {
     this.#options = options;
@@ -284,8 +309,10 @@ export class ExternalToolService {
     }
     await this.#update(manifest.name, (record) => ({ ...record, managed: null }));
     await fs.rm(path.join(this.#options.toolsDir, manifest.name), { recursive: true, force: true });
-    await fs.rm(this.#stagingFile(manifest), { force: true });
-    await fs.rm(`${this.#stagingFile(manifest)}.dir`, { recursive: true, force: true });
+    const staging = path.dirname(this.#stagingFile(manifest));
+    for (const entry of await fs.readdir(staging).catch(() => [] as string[])) {
+      if (entry.startsWith(`${manifest.name}-`)) await fs.rm(path.join(staging, entry), { recursive: true, force: true });
+    }
     this.#options.log.info('Removed managed tool', { tool: manifest.name });
     return { tool: await this.status(manifest.name) };
   }
@@ -298,17 +325,20 @@ export class ExternalToolService {
     params: { name: string; consent?: boolean; via?: ExternalToolConsentVia; commandId?: string },
     submitter: JobSubmitter,
   ): Promise<ExternalToolInstallResult> {
-    const manifest = this.#manifest(params.name);
-    if (!manifest.release) {
-      throw new RpcError('invalid-request', RcExternalTools.notDownloadedByBaocut({ label: manifest.label, remedy: manifest.missingRemedy }), {
+    const base = this.#manifest(params.name);
+    if (!base.release) {
+      throw new RpcError('invalid-request', RcExternalTools.notDownloadedByBaocut({ label: base.label, remedy: base.missingRemedy }), {
         code: 'TOOL_NOT_MANAGED',
-        tool: manifest.name,
+        tool: base.name,
       });
     }
     if (params.commandId) {
       const existing = this.#options.jobs.jobForCommand(params.commandId);
-      if (existing) return { tool: await this.status(manifest.name), jobId: existing };
+      if (existing) return { tool: await this.status(base.name), jobId: existing };
     }
+    // 自动更新查到了比清单新的上游版本时装那个版本（`offer` 里也是它）。
+    const manifest = this.#effective(base, await this.#record(base.name));
+    const release = manifest.release ?? base.release;
     const active = this.#activeInstall(manifest.name);
     if (active) return { tool: await this.status(manifest.name), jobId: active.jobId };
     const endpoint = this.#endpoint();
@@ -328,8 +358,8 @@ export class ExternalToolService {
     if (busy.length > 0) {
       throw new RpcError('conflict', RcExternalTools.toolInUse({ label: manifest.label }), { code: 'TOOL_IN_USE', tool: manifest.name, jobIds: busy });
     }
-    const pack = manifest.release.pack;
-    const asset = pack ? null : manifest.release.assets[this.#platform];
+    const pack = release.pack;
+    const asset = pack ? null : release.assets[this.#platform];
     if (!pack && (!asset || asset.sha256 === null || offer.url === null)) {
       throw new RpcError('conflict', RcExternalTools.cannotDownload({ label: manifest.label, reason: withRef(offer.blockedReason ?? '', offer.blockedReasonRef) }), {
         code: 'TOOL_MANIFEST_INCOMPLETE',
@@ -339,14 +369,23 @@ export class ExternalToolService {
       });
     }
     await this.consent({ name: manifest.name, grant: true, via: params.via ?? 'app' });
+    const jobId = this.#submitInstall(manifest, offer.url, submitter, params.commandId);
+    return { tool: await this.status(manifest.name), jobId };
+  }
+
+  /** 提交安装任务（`manifest` 是要装的那个发布；调用方已查过同意、严格离线、有没有流程在用与清单是否完整）。 */
+  #submitInstall(manifest: ToolManifest, url: string | null, submitter: JobSubmitter, commandId?: string): string {
+    const release = manifest.release!;
+    const pack = release.pack;
+    const asset = pack ? null : release.assets[this.#platform]!;
     const sha256 = pack ? packDigest(pack) : asset!.sha256!;
-    const spec = { task: 'toolInstall' as const, tool: manifest.name, version: manifest.release.version, sha256 };
+    const version = release.version;
+    const spec = { task: 'toolInstall' as const, tool: manifest.name, version, sha256 };
     const hash = `sha256:${sha256Hex(canonicalJson(spec))}`;
-    const version = manifest.release.version;
     const install = pack
       ? (run: TaskRun) => this.#runPackInstall(run, manifest, version, pack, sha256)
       : (run: TaskRun) =>
-          this.#runInstall(run, manifest, version, offer.url!, {
+          this.#runInstall(run, manifest, version, url!, {
             size: asset!.size,
             sha256,
             fileName: asset!.fileName,
@@ -361,14 +400,118 @@ export class ExternalToolService {
         inputHash: hash,
         providerId: manifest.name,
         modelId: version,
-        ...(params.commandId ? { commandId: params.commandId } : {}),
+        ...(commandId ? { commandId } : {}),
         queue: INSTALL_QUEUE,
         run: install,
       },
       submitter,
     );
-    this.#options.log.info('Submitted external tool install', { tool: manifest.name, version, jobId });
-    return { tool: await this.status(manifest.name), jobId };
+    this.#options.log.info('Submitted external tool install', { tool: manifest.name, version, jobId, submitter: submitter.kind });
+    return jobId;
+  }
+
+  // ---- 自动更新 ----
+
+  /** 开始自动更新的定时器（Runtime 启动后调用一次）：第一轮在启动一分钟后，之后每小时一轮。 */
+  startAutoUpdate(): void {
+    if (this.#autoTimers.length > 0 || ![...this.#manifests.values()].some((m) => m.upstream)) return;
+    const tick = () => void this.autoUpdateNow();
+    const first = setTimeout(tick, this.#options.autoUpdate?.firstDelayMs ?? AUTO_UPDATE_FIRST_DELAY_MS);
+    const every = setInterval(tick, this.#options.autoUpdate?.intervalMs ?? AUTO_UPDATE_INTERVAL_MS);
+    first.unref?.();
+    every.unref?.();
+    this.#autoTimers = [first, every];
+  }
+
+  stopAutoUpdate(): void {
+    for (const timer of this.#autoTimers) clearTimeout(timer);
+    this.#autoTimers = [];
+  }
+
+  /** 一轮自动更新（定时器调用，测试直接调）：返回这一轮提交的安装任务。同时只跑一轮；出错只记日志。 */
+  autoUpdateNow(): Promise<string[]> {
+    if (this.#autoRunning) return this.#autoRunning;
+    const round = (async () => {
+      const jobs: string[] = [];
+      for (const manifest of this.#manifests.values()) {
+        if (!manifest.upstream) continue;
+        try {
+          const jobId = await this.#autoUpdateOne(manifest, manifest.upstream);
+          if (jobId) jobs.push(jobId);
+        } catch (error) {
+          this.#options.log.warn('Automatic tool update failed', { tool: manifest.name, error: String(error) });
+        }
+      }
+      return jobs;
+    })();
+    this.#autoRunning = round.finally(() => {
+      this.#autoRunning = null;
+    });
+    return this.#autoRunning;
+  }
+
+  async #autoUpdateOne(manifest: ToolManifest, upstream: ToolUpstream): Promise<string | null> {
+    const settings = this.#options.settings();
+    if (!this.#autoUpdateEnabled(upstream) || settings.offlineStrict) return null;
+    const asset = manifest.release && !manifest.release.pack ? manifest.release.assets[this.#platform] : undefined;
+    if (!asset) return null;
+    let record = await this.#record(manifest.name);
+    // 只换已经下载过的受管副本：第一次下载要用户看过来源、大小与许可后同意。
+    if (!record.managed || (manifest.consentRequired && record.consent?.state !== 'granted')) return null;
+    const now = this.#now();
+    const checked = record.upstream ? Date.parse(record.upstream.checkedAt) : Number.NaN;
+    const attempted = this.#upstreamAttempts.get(manifest.name);
+    if (!(now - checked < UPSTREAM_CHECK_EVERY_MS) && !(attempted !== undefined && now - attempted < UPSTREAM_RETRY_MS)) {
+      this.#upstreamAttempts.set(manifest.name, now);
+      try {
+        const latest = await latestUpstreamAsset(upstream, asset.fileName, this.#options.download?.fetch ? { fetch: this.#options.download.fetch } : {});
+        const checkedAt = new Date(now).toISOString();
+        await this.#update(manifest.name, (r) => ({ ...r, upstream: { ...latest, checkedAt } }));
+        this.#options.log.info('Checked the latest upstream release', { tool: manifest.name, version: latest.version });
+      } catch (error) {
+        this.#options.log.warn('Checking the latest upstream release failed', { tool: manifest.name, error: String(error) });
+      }
+      record = await this.#record(manifest.name);
+    }
+    const managed = record.managed;
+    if (!managed) return null;
+    const target = this.#effective(manifest, record);
+    const version = target.release!.version;
+    if (compareVersions(managed.version, version) >= 0 || this.#activeInstall(manifest.name)) return null;
+    // 有流程在用时不换（换完旧的就删了）：等下一轮。
+    if (this.#busyJobs(manifest.name).length > 0) return null;
+    const key = `${manifest.name}@${version}`;
+    const tried = this.#autoTried.get(key);
+    if (tried !== undefined && now - tried < UPSTREAM_CHECK_EVERY_MS) return null;
+    const offer = toolOffer(target, this.#endpoint(), this.#platform);
+    if (!offer?.url || offer.blockedReason) return null;
+    this.#autoTried.set(key, now);
+    const jobId = this.#submitInstall(target, offer.url, AUTO_UPDATE_SUBMITTER);
+    this.#options.log.info('Submitted automatic tool update', { tool: manifest.name, from: managed.version, to: version, jobId });
+    return jobId;
+  }
+
+  #autoUpdateEnabled(upstream: ToolUpstream): boolean {
+    return this.#options.settings().autoUpdate?.[upstream.settingKey] ?? true;
+  }
+
+  #now(): number {
+    return this.#options.autoUpdate?.now?.() ?? Date.now();
+  }
+
+  /**
+   * 要装的发布：登记表里查到的上游版本比清单的新、这个平台的文件名相同时，换成那个版本（大小与 sha256 取自上游的发布）；
+   * 否则就是清单本身。
+   */
+  #effective(manifest: ToolManifest, record: ToolRecord): ToolManifest {
+    const release = manifest.release;
+    const up = record.upstream;
+    if (!release || release.pack || !manifest.upstream || !up) return manifest;
+    const asset = release.assets[this.#platform];
+    if (!asset || asset.fileName !== up.fileName || compareVersions(up.version, release.version) <= 0) return manifest;
+    const newer: ToolRelease = { ...release, version: up.version, assets: { ...release.assets, [this.#platform]: { ...asset, size: up.size, sha256: up.sha256 } } };
+    // 沿用清单的取值器（用途、补救按当时的语言生成），只换发布。
+    return Object.create(manifest, { release: { value: newer, enumerable: true } }) as ToolManifest;
   }
 
   /**
@@ -668,7 +811,9 @@ export class ExternalToolService {
 
   /** 交出之前补上随时会变的部分：下载说明（来源随设置变）、正在进行的安装。 */
   #decorate(status: ExternalToolStatus): ExternalToolStatus {
-    const manifest = this.#manifest(status.name);
+    const base = this.#manifest(status.name);
+    const record = this.#store?.tools[status.name];
+    const manifest = record ? this.#effective(base, record) : base;
     let offer = null;
     try {
       offer = toolOffer(manifest, this.#endpoint(), this.#platform);
@@ -681,6 +826,15 @@ export class ExternalToolService {
       installJobId: this.#activeInstall(status.name)?.jobId ?? null,
       updateJobId: this.#activeUpdate(status.name)?.jobId ?? null,
       managedUpdateVersion: managedUpdateVersion(status, offer),
+      ...(base.upstream ? { autoUpdate: this.#autoUpdateStatus(base.upstream, record) } : {}),
+    };
+  }
+
+  #autoUpdateStatus(upstream: ToolUpstream, record: ToolRecord | undefined): ExternalToolAutoUpdate {
+    return {
+      enabled: this.#autoUpdateEnabled(upstream),
+      checkedAt: record?.upstream?.checkedAt ?? null,
+      latestVersion: record?.upstream?.version ?? null,
     };
   }
 

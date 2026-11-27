@@ -25,6 +25,7 @@ export const fr: SettingDescriptionMessages = {
     "Miroirs du dépôt de modèles que vous avez ajoutés (liste de { name, base } ; base est une URL http(s):// sans doublon). Simple liste de choix : les téléchargements utilisent models.downloadEndpoint",
   'tools.downloadMirrors':
     "Miroirs des pages de publication que vous avez ajoutés (liste de { name, base } ; base est une URL http(s):// sans doublon). Simple liste de choix : les téléchargements utilisent tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "Mettre à jour automatiquement le yt-dlp téléchargé par BaoCut : vérifie en ligne une fois par jour la dernière version stable et, si elle est plus récente, la télécharge et contrôle son sha256 avec le SHA2-256SUMS de la publication avant de le remplacer. Un yt-dlp que vous avez installé vous-même n’est pas concerné ; rien n’est vérifié en mode hors ligne strict",
   'fonts.autoDownload':
     "Télécharger automatiquement les polices nécessaires à la mise en page, absentes de cet ordinateur et présentes au catalogue (aperçu et export) ; sinon police de remplacement et notification",
   'fonts.cssEndpoint': "URL de base de l’API CSS des polices (miroir, https://) ; null utilise https://fonts.googleapis.com",

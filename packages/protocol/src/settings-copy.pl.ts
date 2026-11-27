@@ -23,6 +23,7 @@ export const pl: SettingDescriptionMessages = {
     "Dodane serwery lustrzane repozytorium modeli (lista { name, base }; base to URL http(s):// bez powtórzeń). Tylko lista do wyboru: pobieranie używa models.downloadEndpoint",
   'tools.downloadMirrors':
     "Dodane serwery lustrzane stron wydań (lista { name, base }; base to URL http(s):// bez powtórzeń). Tylko lista do wyboru: pobieranie używa tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "Automatycznie aktualizuj yt-dlp pobrany przez BaoCut: raz dziennie sprawdza online najnowszą stabilną wersję i jeśli jest nowsza, pobiera ją i weryfikuje sha256 z SHA2-256SUMS wydania przed podmianą. yt-dlp zainstalowany samodzielnie nie jest zmieniany; w ścisłym trybie offline nic nie jest sprawdzane",
   'fonts.autoDownload': "Automatycznie pobieraj czcionki wymagane do układu, nieobecne na komputerze i dostępne w katalogu (podgląd i eksport); po wyłączeniu używa zastępczej czcionki i powiadamia",
   'fonts.cssEndpoint': "Bazowy URL CSS API czcionek (serwer lustrzany, https://); null używa https://fonts.googleapis.com",
   'fonts.fileEndpoint': "Bazowy URL plików czcionek (serwer lustrzany, https://; pliki tylko spod niego); null używa https://fonts.gstatic.com",

@@ -19,6 +19,7 @@ export const ptBR: SettingDescriptionMessages = {
     "Espelhos do repositório de modelos que você adicionou (lista de { name, base }; base é uma URL http(s):// sem duplicatas). Só uma lista para escolher: os downloads usam models.downloadEndpoint",
   'tools.downloadMirrors':
     "Espelhos de páginas de lançamento que você adicionou (lista de { name, base }; base é uma URL http(s):// sem duplicatas). Só uma lista para escolher: os downloads usam tools.downloadEndpoint",
+  'tools.ytDlp.autoUpdate': "Atualizar automaticamente o yt-dlp que o BaoCut baixou: verifica online uma vez por dia a versão estável mais recente e, se for mais nova, baixa e confere o sha256 com o SHA2-256SUMS da versão antes de substituir. Um yt-dlp que você instalou não é afetado; no modo offline estrito nada é verificado",
   'fonts.autoDownload': 'Baixar automaticamente fontes exigidas pelo layout, ausentes neste computador e presentes no catálogo de fontes (prévia e exportação); quando desativado, usa uma fonte alternativa e mostra um aviso',
   'fonts.cssEndpoint': 'URL base da API CSS de fontes (espelho, https://); null usa https://fonts.googleapis.com',
   'fonts.fileEndpoint': 'URL base dos arquivos de fonte (espelho, https://; arquivos só são obtidos sob esta URL); null usa https://fonts.gstatic.com',

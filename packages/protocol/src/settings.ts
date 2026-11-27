@@ -102,6 +102,11 @@ export interface SettingValues {
   /** 用户添加的发布页镜像，规则同 `models.downloadMirrors`：在用的那个是 `tools.downloadEndpoint`。 */
   'tools.downloadMirrors': DownloadMirror[];
   /**
+   * BaoCut 下载的 yt-dlp（受管副本）自动更新（架构设计 §12.9「自动更新」）：开着时 Runtime 每天联网查一次上游最新的稳定版，
+   * 比受管副本新就按发布里的 `SHA2-256SUMS` 核对后下载替换。用户自己装的 yt-dlp 不受影响。严格离线时不查。
+   */
+  'tools.ytDlp.autoUpdate': boolean;
+  /**
    * 排字用到、随内核与本机都没有、字体目录里有的族自动下载（预览与成片导出，架构设计 §9.1）。关掉时照回退字体画并提示，
    * 可以在选字列表里手动下载。
    */
@@ -204,6 +209,7 @@ export const SETTING_KEYS = [
   'models.dir',
   'tools.downloadEndpoint',
   'tools.downloadMirrors',
+  'tools.ytDlp.autoUpdate',
   'fonts.autoDownload',
   'fonts.cssEndpoint',
   'fonts.fileEndpoint',
@@ -246,6 +252,7 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'models.dir': null,
   'tools.downloadEndpoint': null,
   'tools.downloadMirrors': Object.freeze([]) as unknown as DownloadMirror[],
+  'tools.ytDlp.autoUpdate': true,
   'fonts.autoDownload': true,
   'fonts.cssEndpoint': null,
   'fonts.fileEndpoint': null,
